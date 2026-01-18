@@ -1,0 +1,5 @@
+{
+  "name": "Minute Menus",
+  "description": "A dual-interface application featuring a customer-facing video menu experience and a restaurant owner analytics dashboard with AI-driven insights.",
+  "requestFramePermissions": []
+}
