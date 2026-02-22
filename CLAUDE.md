@@ -36,7 +36,7 @@
 | Styling | Tailwind CSS (utility-first, dark/monochrome theme) |
 | Charts | Recharts |
 | Icons | lucide-react |
-| AI | Google Gemini (`@google/genai`, model: `gemini-2.5-flash`) |
+| AI | Anthropic Claude (`@anthropic-ai/sdk`, model: `claude-sonnet-4-5`) |
 | State | React `useState` / `useMemo` / `useRef` (no external store) |
 | Persistence | `localStorage` (auth flag, menu edits, watch sessions, orders) |
 | Package Manager | pnpm |
@@ -57,7 +57,7 @@ pnpm preview    # Preview production build locally
 
 | Variable | Purpose |
 |---|---|
-| `API_KEY` | Google Gemini API key — set in `.env`. If missing, the app falls back to demo-mode strings. |
+| `ANTHROPIC_API_KEY` | Anthropic API key — set in `.env`. If missing, the app falls back to demo-mode strings. |
 
 ---
 
@@ -141,7 +141,7 @@ UserTier        // FREE | PLUS
 - **TypeScript strict** — all props and return types explicitly typed.
 - **Component size** — large page-level components (e.g., `OwnerDashboard.tsx`) are intentional monoliths; extract sub-components with inline definitions inside the file.
 - **Mock auth** — `localStorage.getItem('mm_auth') === 'true'`; do not add a real backend without updating `DataService`.
-- **Gemini fallback** — always return a user-friendly string if `API_KEY` is missing or the API call fails.
+- **Anthropic fallback** — always return a user-friendly string if `ANTHROPIC_API_KEY` is missing or the API call fails.
 
 ---
 

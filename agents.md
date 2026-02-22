@@ -25,14 +25,14 @@
 ## Active AI Integration
 
 ### `services/geminiService.ts`
-The only production AI integration. Two exported async functions:
+The only production AI integration (backed by Anthropic Claude). Two exported async functions:
 
 | Function | Model | Purpose |
 |---|---|---|
-| `getAiInsights(dishPerformance, trafficHistory)` | `gemini-2.5-flash` | Returns 3-bullet executive summary (Star Dish, Opportunity, A/B test suggestion) |
-| `generateMarketingCopy(dishName, ingredients)` | `gemini-2.5-flash` | Returns a 10-word marketing hook string |
+| `getAiInsights(dishPerformance, trafficHistory)` | `claude-sonnet-4-5` | Returns 3-bullet executive summary (Star Dish, Opportunity, A/B test suggestion) |
+| `generateMarketingCopy(dishName, ingredients)` | `claude-sonnet-4-5` | Returns a 10-word marketing hook string |
 
-**Always guard against missing `API_KEY`** — both functions return a safe fallback string when `process.env.API_KEY` is falsy. Maintain this pattern for any new AI calls.
+**Always guard against missing `ANTHROPIC_API_KEY`** — both functions return a safe fallback string when `process.env.ANTHROPIC_API_KEY` is falsy. Maintain this pattern for any new AI calls.
 
 ---
 
@@ -47,20 +47,27 @@ The only production AI integration. Two exported async functions:
 - Update `types.ts` → update seed data in `mockData.ts` → update all spreads in `OwnerDashboard.tsx` menu editor.
 - `mediaTransform` is optional — guard with `?.` everywhere.
 
-### When adding a new Gemini call
+### When adding a new AI call
 ```typescript
 // Template
+import Anthropic from "@anthropic-ai/sdk";
+
 export const myNewAiCall = async (input: MyType): Promise<string> => {
-  if (!process.env.API_KEY) return "Fallback message.";
+  if (!process.env.ANTHROPIC_API_KEY) return "Fallback message.";
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: `Your prompt here: ${JSON.stringify(input)}`,
+    const client = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
+      dangerouslyAllowBrowser: true,
     });
-    return response.text || "No result.";
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-5",
+      max_tokens: 512,
+      messages: [{ role: "user", content: `Your prompt here: ${JSON.stringify(input)}` }],
+    });
+    const block = response.content[0];
+    return block.type === "text" ? block.text : "No result.";
   } catch (e) {
-    console.error("Gemini error:", e);
+    console.error("Anthropic error:", e);
     return "Error fallback.";
   }
 };
@@ -102,7 +109,7 @@ export const myNewAiCall = async (input: MyType): Promise<string> => {
 | 10-item dish limit in `CustomerApp` | Hard product requirement |
 | Mock auth pattern (`mm_auth` in localStorage) | No real backend; changing breaks logout flow |
 | Dark monochrome Tailwind palette | Brand constraint |
-| `gemini-2.5-flash` model name | Pinned for cost/speed; update only when explicitly asked |
+| `claude-sonnet-4-5` model name | Pinned for cost/speed; update only when explicitly asked |
 
 ---
 
