@@ -1,4 +1,14 @@
 
+// ── Supabase-backed types ──────────────────────────────────────
+export interface Restaurant {
+  id: string;
+  owner_id: string;
+  name: string;
+  slug: string;
+  created_at: string;
+}
+
+// ── App domain types ─────────────────────────────────────────
 export interface Dish {
   id: string;
   name: string;
@@ -80,7 +90,7 @@ export interface AggregatedMetrics {
   completionRate: number; // percentage
   mostPopularDishId: string;
   engagementRate: number;
-  
+
   // Sales Metrics
   totalOrders: number;
   avgOrderTime: number; // seconds
