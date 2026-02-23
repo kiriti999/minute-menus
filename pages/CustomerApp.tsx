@@ -182,7 +182,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       {/* === Header & Tabs === */}
       <div className="fixed top-0 left-0 right-0 z-50 flex flex-col pointer-events-none">
         {/* Top Bar: Logo & Cart */}
-        <div className="flex justify-between items-start p-5 w-full bg-gradient-to-b from-black/80 to-transparent">
+        <div className="flex justify-between items-start p-3 sm:p-5 w-full bg-gradient-to-b from-black/80 to-transparent">
           <button
             onClick={onNavigateToDashboard}
             className="flex items-center gap-2 group cursor-pointer pointer-events-auto hover:opacity-80 transition-opacity"
@@ -211,14 +211,14 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         </div>
 
         {/* Category Tabs (Centered) */}
-        <div className="absolute top-5 left-1/2 -translate-x-1/2 flex gap-2 md:gap-4 pointer-events-auto">
+        <div className="absolute top-5 left-1/2 -translate-x-1/2 flex gap-2 md:gap-4 pointer-events-auto max-w-[calc(100vw-10rem)] overflow-x-auto no-scrollbar px-2">
           {menuCategories.map((cat, idx) => (
             <button
               key={cat.id}
               onClick={() => scrollToCategory(idx)}
               className={`px-4 py-1.5 rounded-full text-[10px] font-bold tracking-widest uppercase transition-all duration-300 backdrop-blur-md border shadow-lg ${activeCategoryIndex === idx
-                  ? "bg-white text-black border-white scale-105"
-                  : "bg-black/40 text-white/60 border-white/10 hover:bg-black/60"
+                ? "bg-white text-black border-white scale-105"
+                : "bg-black/40 text-white/60 border-white/10 hover:bg-black/60"
                 }`}
             >
               {cat.title}
@@ -274,7 +274,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       {isCartOpen && (
         <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-xl flex justify-end animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-black h-full shadow-2xl border-l border-zinc-800 flex flex-col animate-in slide-in-from-right duration-300">
-            <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
+            <div className="p-4 sm:p-6 border-b border-zinc-800 flex justify-between items-center">
               <h2 className="text-xl font-light tracking-tight text-white">
                 Your Order
               </h2>
@@ -286,7 +286,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
               {cart.length === 0 ? (
                 <div className="text-center text-zinc-600 mt-32 flex flex-col items-center">
                   <div className="w-16 h-16 border border-zinc-800 rounded-full flex items-center justify-center mb-4">
@@ -332,7 +332,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
               )}
             </div>
 
-            <div className="p-8 border-t border-zinc-900 bg-zinc-950">
+            <div className="p-4 sm:p-8 border-t border-zinc-900 bg-zinc-950">
               <div className="flex justify-between items-center mb-6">
                 <span className="text-zinc-500 uppercase tracking-widest text-xs">
                   Total Amount

@@ -817,7 +817,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
               </div>
               <button
                 onClick={handleExportCSV}
-                className="flex items-center gap-2 border border-zinc-700 hover:bg-white hover:text-black text-white px-6 py-2 rounded text-sm font-medium transition-colors self-start md:self-auto"
+                className="flex items-center gap-2 border border-zinc-700 hover:bg-white hover:text-black text-white px-4 sm:px-6 py-2 rounded text-sm font-medium transition-colors self-start md:self-auto w-full sm:w-auto justify-center sm:justify-start"
               >
                 <Download size={14} />
                 Export CSV
@@ -825,7 +825,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             </header>
 
             {/* Key Metrics Grid - Connected to Real Data */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-6 mb-8 md:mb-12">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mb-8 md:mb-12">
               {[
                 {
                   label: "Avg Order Time",
@@ -853,12 +853,12 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 <div
                   key={i}
                   onClick={() => triggerPaywall("Detailed Analytics")}
-                  className="bg-zinc-900/50 p-4 md:p-6 rounded border border-zinc-800 hover:border-zinc-600 transition-colors group cursor-pointer hover:bg-zinc-900"
+                  className="bg-zinc-900/50 p-3 sm:p-4 md:p-6 rounded border border-zinc-800 hover:border-zinc-600 transition-colors group cursor-pointer hover:bg-zinc-900"
                 >
                   <div className="text-zinc-500 mb-2 md:mb-3 text-xs uppercase tracking-widest group-hover:text-zinc-300 transition-colors">
                     {metric.label}
                   </div>
-                  <div className="text-2xl md:text-3xl font-light text-white mb-1 md:mb-2">
+                  <div className="text-xl md:text-3xl font-light text-white mb-1 md:mb-2 truncate">
                     {metric.value}
                   </div>
                   <div className="text-xs text-zinc-600 font-mono">
@@ -1264,8 +1264,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                     key={cat.id}
                     onClick={() => setSelectedCategoryIdx(idx)}
                     className={`relative px-6 py-3 text-sm font-medium tracking-wide transition-all duration-300 group whitespace-nowrap ${selectedCategoryIdx === idx
-                        ? "text-white"
-                        : "text-zinc-500 hover:text-zinc-300"
+                      ? "text-white"
+                      : "text-zinc-500 hover:text-zinc-300"
                       }`}
                   >
                     {cat.title}
@@ -1334,8 +1334,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                       onClick={handleSaveAll}
                       title="Save Changes"
                       className={`flex items-center justify-center w-10 h-10 rounded-full border transition-all duration-300 ${unsavedChanges
-                          ? "bg-white border-white text-black hover:scale-110 shadow-[0_0_20px_rgba(255,255,255,0.2)]"
-                          : "bg-transparent border-zinc-800 text-zinc-600 hover:border-zinc-600"
+                        ? "bg-white border-white text-black hover:scale-110 shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+                        : "bg-transparent border-zinc-800 text-zinc-600 hover:border-zinc-600"
                         }`}
                     >
                       <Check size={18} strokeWidth={3} />

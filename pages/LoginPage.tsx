@@ -76,8 +76,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       {/* Ambient Background */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-zinc-800 via-black to-black opacity-50" />
 
-      <div className="relative z-10 w-full max-w-md bg-zinc-900/80 backdrop-blur-xl border border-zinc-800 rounded-2xl p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-300">
-        <div className="text-center mb-8">
+      <div className="relative z-10 w-full max-w-md bg-zinc-900/80 backdrop-blur-xl border border-zinc-800 rounded-2xl p-5 sm:p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-300">
+        <div className="text-center mb-6 sm:mb-8">
           <div className="w-12 h-12 bg-white rounded-lg mx-auto flex items-center justify-center mb-6 shadow-[0_0_20px_rgba(255,255,255,0.2)]">
             <span className="font-bold text-black text-xl">M</span>
           </div>

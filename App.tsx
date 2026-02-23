@@ -100,9 +100,9 @@ const App: React.FC = () => {
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-zinc-900 via-black to-black opacity-50" />
 
             <div className="max-w-4xl w-full relative z-10">
-                <div className="text-center mb-20">
+                <div className="text-center mb-10 md:mb-20">
                     <div className="inline-block mb-6 relative">
-                        <h1 className="text-7xl font-bold text-white tracking-tighter relative z-10">
+                        <h1 className="text-4xl sm:text-6xl md:text-7xl font-bold text-white tracking-tighter relative z-10">
                             MINUTE<span className="font-light text-zinc-500">MENUS</span>
                         </h1>
                         {isAuthenticated && (
@@ -122,7 +122,7 @@ const App: React.FC = () => {
                     {/* Customer Card - Simulates QR Scan */}
                     <button
                         onClick={() => handleModeSelect(AppMode.CUSTOMER)}
-                        className="group relative bg-black border border-zinc-800 p-10 text-left hover:bg-zinc-900 transition-all duration-500 hover:border-white/50 flex flex-col items-center text-center"
+                        className="group relative bg-black border border-zinc-800 p-6 md:p-10 text-left hover:bg-zinc-900 transition-all duration-500 hover:border-white/50 flex flex-col items-center text-center"
                     >
                         <div className="w-16 h-16 bg-white text-black rounded-2xl flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(255,255,255,0.1)] group-hover:scale-110 transition-transform">
                             <QrCode size={32} strokeWidth={1.5} />
@@ -141,7 +141,7 @@ const App: React.FC = () => {
                     {/* Owner Card - Business Login */}
                     <button
                         onClick={() => handleModeSelect(AppMode.OWNER)}
-                        className="group relative bg-zinc-900/50 border border-zinc-800 p-10 text-left hover:bg-black transition-all duration-500 hover:border-white/50 flex flex-col items-center text-center"
+                        className="group relative bg-zinc-900/50 border border-zinc-800 p-6 md:p-10 text-left hover:bg-black transition-all duration-500 hover:border-white/50 flex flex-col items-center text-center"
                     >
                         <div className="w-16 h-16 bg-zinc-800 text-white rounded-2xl flex items-center justify-center mb-6 border border-zinc-700 group-hover:bg-zinc-800 transition-colors">
                             <Monitor size={32} strokeWidth={1.5} />
@@ -158,7 +158,7 @@ const App: React.FC = () => {
                     </button>
                 </div>
 
-                <div className="mt-24 flex flex-col items-center gap-4">
+                <div className="mt-10 md:mt-24 flex flex-col items-center gap-4">
                     <p className="text-[10px] font-mono text-zinc-700 uppercase tracking-[0.2em]">
                         System Version 1.0.5
                     </p>
