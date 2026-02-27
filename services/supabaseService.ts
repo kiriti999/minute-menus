@@ -25,18 +25,57 @@ import type {
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const getRestaurantId = async (): Promise<string> => {
-    const { data: session } = await supabase.auth.getSession();
-    const userId = session.session?.user.id;
-    if (!userId) throw new Error("Not authenticated");
+    // getUser() is more reliable than getSession() right after OAuth redirect
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
 
     const { data, error } = await supabase
         .from("restaurants")
         .select("id")
-        .eq("owner_id", userId)
+        .eq("owner_id", user.id)
         .single();
 
-    if (error || !data) throw new Error("Restaurant not found for this user");
+    // PGRST116 = no rows found — auto-create the restaurant instead of failing
+    if (error && error.code !== "PGRST116") {
+        throw new Error(`DB error: ${error.message}`);
+    }
+
+    if (!data) {
+        // First-time user: bootstrap restaurant row then try again
+        const newId = await bootstrapRestaurant(user.id);
+        return newId;
+    }
+
     return data.id;
+};
+
+/** Creates the restaurant + subscription for a brand-new user. */
+const bootstrapRestaurant = async (userId: string): Promise<string> => {
+    const { data: restaurant, error } = await supabase
+        .from("restaurants")
+        .insert({ owner_id: userId, name: "My Restaurant", slug: userId })
+        .select("id")
+        .single();
+
+    if (error || !restaurant) {
+        // Might already exist due to a race — try fetching again
+        const { data: existing } = await supabase
+            .from("restaurants")
+            .select("id")
+            .eq("owner_id", userId)
+            .single();
+        if (existing) return existing.id;
+        throw new Error(`Failed to create restaurant: ${error?.message}`);
+    }
+
+    // Bootstrap free subscription (ignore conflict if already exists)
+    try {
+        await supabase
+            .from("subscriptions")
+            .insert({ restaurant_id: restaurant.id, tier: "free" });
+    } catch (_) { /* ignore */ }
+
+    return restaurant.id;
 };
 
 /** Maps a raw DB row to the app-level Category + Dish shape */
@@ -101,8 +140,19 @@ class SupabaseService {
     async saveMenu(categories: Category[]): Promise<void> {
         const rid = await getRestaurantId();
 
+        // Guard: remap any stale non-UUID IDs (e.g. old "cat_timestamp" format)
+        const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const safeCategories = categories.map((cat) => ({
+            ...cat,
+            id: UUID_RE.test(cat.id) ? cat.id : crypto.randomUUID(),
+            items: cat.items.map((dish) => ({
+                ...dish,
+                id: UUID_RE.test(dish.id) ? dish.id : crypto.randomUUID(),
+            })),
+        }));
+
         // Upsert categories
-        const catRows = categories.map((c, idx) => ({
+        const catRows = safeCategories.map((c, idx) => ({
             id: c.id,
             restaurant_id: rid,
             title: c.title,
@@ -114,7 +164,7 @@ class SupabaseService {
         if (catErr) throw catErr;
 
         // Upsert all dishes
-        const dishRows = categories.flatMap((c) =>
+        const dishRows = safeCategories.flatMap((c) =>
             c.items.map((d) => ({
                 id: d.id,
                 category_id: c.id,
@@ -135,7 +185,7 @@ class SupabaseService {
         if (dishErr) throw dishErr;
 
         // Delete removed categories (cascade deletes their dishes via FK)
-        const keptCatIds = categories.map((c) => c.id);
+        const keptCatIds = safeCategories.map((c) => c.id);
         await supabase
             .from("categories")
             .delete()

@@ -47,6 +47,7 @@ import {
   YAxis,
 } from "recharts";
 import { getAiInsights } from "../services/geminiService";
+import { supabase } from "../lib/supabase";
 import { supabaseService } from "../services/supabaseService";
 import {
   type AggregatedMetrics,
@@ -462,6 +463,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   // Load Initial Data
   useEffect(() => {
+    // One-time: ensure restaurant row exists for new Google OAuth users
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id;
+      if (uid) {
+        supabaseService
+          .ensureRestaurant("My Restaurant", uid)
+          .catch(() => { /* already exists */ });
+      }
+    });
+
     refreshData();
 
     // Poll for real-time updates every 30 seconds
@@ -555,7 +566,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     const dishToCopy = newMenu[catIndex].items[dishIndex];
     const newDish = {
       ...dishToCopy,
-      id: `d_${Date.now()}`,
+      id: crypto.randomUUID(),
       name: `${dishToCopy.name} (Copy)`,
     };
     newMenu[catIndex].items.splice(dishIndex + 1, 0, newDish);
@@ -578,7 +589,35 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     if (menuItems.length >= 2) {
       if (triggerPaywall("Unlimited Categories")) return;
     }
-    alert("Adding category logic placeholder.");
+    const newCategory: Category = {
+      id: crypto.randomUUID(),
+      title: `Category ${menuItems.length + 1}`,
+      items: [],
+    };
+    const newMenu = [...menuItems, newCategory];
+    setMenuItems(newMenu);
+    setSelectedCategoryIdx(newMenu.length - 1);
+    setTempCategoryTitle(newCategory.title);
+    setIsEditingCategory(true);
+    setUnsavedChanges(true);
+  };
+
+  const handleAddDish = () => {
+    const newDish: Dish = {
+      id: crypto.randomUUID(),
+      name: "",
+      description: "",
+      price: 0,
+      imageUrl: "",
+      videoUrl: "",
+      category: menuItems[selectedCategoryIdx]?.id ?? "",
+      popularityScore: 0,
+      prepTime: 0,
+    };
+    const newMenu = [...menuItems];
+    newMenu[selectedCategoryIdx].items.push(newDish);
+    setMenuItems(newMenu);
+    setUnsavedChanges(true);
   };
 
   const onFileSelect = (catIndex: number, dishIndex: number, file: File) => {
@@ -627,9 +666,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     supabaseService
       .saveMenu(menuItems)
       .then(() => setUnsavedChanges(false))
-      .catch((err) => {
+      .catch((err: Error) => {
         console.error("Save failed:", err);
-        alert("Failed to save menu. Please try again.");
+        alert(`Failed to save menu: ${err?.message ?? "Unknown error"}. Please try again.`);
       });
   };
 
@@ -1220,76 +1259,104 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         {currentView === "MENU" && (
           <div className="flex-1 overflow-y-auto bg-black animate-in slide-in-from-right-4 duration-500 pb-24">
             {/* Menu Header */}
-            <header className="bg-black/80 backdrop-blur-md sticky top-0 z-20 px-4 md:px-8 py-6 border-b border-zinc-800 flex flex-col md:flex-row justify-between md:items-center gap-4">
+            <header className="bg-black/80 backdrop-blur-md sticky top-0 z-20 px-4 md:px-8 py-5 border-b border-zinc-800 flex flex-col md:flex-row justify-between md:items-center gap-3">
               <div>
                 <h1 className="text-2xl md:text-3xl font-light text-white tracking-tight">
                   Menu Editor
                 </h1>
+                <p className="text-zinc-500 text-xs mt-1">
+                  Add categories, upload reels, and fill in item details — then hit Save.
+                </p>
               </div>
 
-              <div className="flex items-center gap-6 self-end md:self-auto">
+              <div className="flex items-center gap-3 self-end md:self-auto">
+                {/* Unsaved changes pill */}
+                {unsavedChanges && (
+                  <button
+                    onClick={handleSaveAll}
+                    className="flex items-center gap-2 bg-white text-black px-4 py-2 rounded-full text-xs font-bold tracking-widest hover:bg-zinc-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.25)] animate-in fade-in duration-300"
+                  >
+                    <Save size={13} />
+                    SAVE CHANGES
+                  </button>
+                )}
+
                 <button
                   onClick={() => setIsQrModalOpen(true)}
-                  className="group flex items-center gap-2 border border-zinc-800 hover:bg-zinc-900 text-zinc-400 hover:text-white pl-4 pr-3 py-2 rounded-full transition-all duration-300"
+                  className="group flex items-center gap-2 border border-zinc-700 hover:bg-zinc-900 text-zinc-400 hover:text-white pl-4 pr-3 py-2 rounded-full transition-all duration-300"
                   title="QR Code Studio"
                 >
-                  <span className="text-xs font-bold tracking-widest">
-                    QR CODES
-                  </span>
-                  <div className="w-8 h-8 bg-zinc-900 rounded-full flex items-center justify-center group-hover:bg-black transition-colors">
-                    <QrCode size={14} fill="currentColor" className="ml-0.5" />
+                  <span className="text-xs font-bold tracking-widest">QR CODES</span>
+                  <div className="w-7 h-7 bg-zinc-900 rounded-full flex items-center justify-center group-hover:bg-black transition-colors">
+                    <QrCode size={13} fill="currentColor" className="ml-0.5" />
                   </div>
                 </button>
 
                 <button
                   onClick={onNavigateToCustomer}
-                  className="group flex items-center gap-2 border border-zinc-800 hover:bg-white hover:border-white hover:text-black text-white pl-4 pr-3 py-2 rounded-full transition-all duration-300"
+                  className="group flex items-center gap-2 border border-zinc-700 hover:bg-white hover:border-white hover:text-black text-white pl-4 pr-3 py-2 rounded-full transition-all duration-300"
                   title="Open Live Customer View"
                 >
-                  <span className="text-xs font-bold tracking-widest">
-                    LIVE VIEW
-                  </span>
-                  <div className="w-8 h-8 bg-zinc-900 rounded-full flex items-center justify-center group-hover:bg-black group-hover:text-white transition-colors">
-                    <Play size={12} fill="currentColor" className="ml-0.5" />
+                  <span className="text-xs font-bold tracking-widest">LIVE VIEW</span>
+                  <div className="w-7 h-7 bg-zinc-900 rounded-full flex items-center justify-center group-hover:bg-black group-hover:text-white transition-colors">
+                    <Play size={11} fill="currentColor" className="ml-0.5" />
                   </div>
                 </button>
               </div>
             </header>
 
-            {/* Category Tabs with Edit */}
-            <div className="px-4 md:px-8 py-8 bg-black">
-              <div className="flex items-center gap-1 overflow-x-auto pb-2">
+            {/* Category Tabs */}
+            <div className="px-4 md:px-8 pt-6 pb-0 bg-zinc-950 border-b border-zinc-800">
+              <div className="flex items-center gap-1 overflow-x-auto">
+                {menuItems.length === 0 && (
+                  <span className="text-zinc-600 text-sm italic mr-4">No categories yet — click + to add one</span>
+                )}
                 {menuItems.map((cat, idx) => (
                   <button
                     key={cat.id}
                     onClick={() => setSelectedCategoryIdx(idx)}
-                    className={`relative px-6 py-3 text-sm font-medium tracking-wide transition-all duration-300 group whitespace-nowrap ${selectedCategoryIdx === idx
-                      ? "text-white"
-                      : "text-zinc-500 hover:text-zinc-300"
+                    className={`relative px-5 py-3 text-sm font-semibold tracking-wide transition-all duration-300 whitespace-nowrap rounded-t-md ${selectedCategoryIdx === idx
+                      ? "text-white bg-black border border-b-black border-zinc-800"
+                      : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900"
                       }`}
                   >
                     {cat.title}
-                    {selectedCategoryIdx === idx && (
-                      <span className="absolute bottom-0 left-0 w-full h-[1px] bg-white transform origin-left transition-transform duration-300" />
-                    )}
+                    <span className="ml-2 text-[10px] text-zinc-600 font-mono">
+                      {cat.items.length}
+                    </span>
                   </button>
                 ))}
                 <button
                   onClick={handleAddCategory}
-                  className="ml-4 p-2 text-zinc-600 hover:text-white transition-colors"
+                  title="Add Category"
+                  className="ml-2 flex items-center gap-1.5 px-3 py-2 text-zinc-500 hover:text-white hover:bg-zinc-900 rounded-md transition-colors text-xs font-bold tracking-widest border border-transparent hover:border-zinc-700"
                 >
-                  <Plus size={18} />
+                  <Plus size={14} />
+                  ADD CATEGORY
                 </button>
               </div>
+            </div>
 
-              <div className="mt-6 flex items-center gap-4 h-12 border-b border-zinc-900 pb-6">
+            {/* Category Title + Actions bar */}
+            {menuItems.length > 0 && (
+              <div className="px-4 md:px-8 py-4 bg-black border-b border-zinc-900 flex items-center justify-between gap-4">
                 {isEditingCategory ? (
-                  <div className="flex items-center gap-2 animate-in fade-in duration-200 w-full">
+                  <div className="flex items-center gap-2 animate-in fade-in duration-200 flex-1">
                     <input
                       value={tempCategoryTitle}
                       onChange={(e) => setTempCategoryTitle(e.target.value)}
-                      className="flex-1 bg-zinc-900 border border-zinc-700 text-white px-3 py-1 rounded outline-none focus:border-white font-light text-lg min-w-[100px]"
+                      className="flex-1 bg-zinc-900 border border-zinc-600 text-white px-3 py-1.5 rounded-lg outline-none focus:border-white font-medium text-base max-w-xs"
                       autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          const newMenu = [...menuItems];
+                          newMenu[selectedCategoryIdx].title = tempCategoryTitle;
+                          setMenuItems(newMenu);
+                          setIsEditingCategory(false);
+                          setUnsavedChanges(true);
+                        }
+                        if (e.key === "Escape") setIsEditingCategory(false);
+                      }}
                     />
                     <button
                       onClick={() => {
@@ -1299,267 +1366,273 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                         setIsEditingCategory(false);
                         setUnsavedChanges(true);
                       }}
-                      className="text-xs bg-white text-black px-3 py-1.5 rounded font-bold hover:bg-zinc-200"
+                      className="text-xs bg-white text-black px-4 py-2 rounded-lg font-bold hover:bg-zinc-200"
                     >
-                      SAVE
+                      SAVE NAME
                     </button>
                     <button
                       onClick={() => setIsEditingCategory(false)}
-                      className="text-zinc-500 hover:text-white p-1"
+                      className="text-zinc-500 hover:text-white p-1.5"
                     >
-                      <Trash2 size={16} />
+                      <X size={16} />
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between w-full">
-                    <div
-                      className="flex items-center gap-3 group cursor-pointer"
-                      onClick={() => {
-                        setTempCategoryTitle(
-                          menuItems[selectedCategoryIdx].title,
-                        );
-                        setIsEditingCategory(true);
-                      }}
-                    >
-                      <h2 className="text-xl md:text-2xl font-light text-white">
-                        {menuItems[selectedCategoryIdx]?.title}
-                      </h2>
-                      <Edit2
-                        size={14}
-                        className="text-zinc-600 group-hover:text-white transition-colors"
-                      />
-                    </div>
-
-                    <button
-                      onClick={handleSaveAll}
-                      title="Save Changes"
-                      className={`flex items-center justify-center w-10 h-10 rounded-full border transition-all duration-300 ${unsavedChanges
-                        ? "bg-white border-white text-black hover:scale-110 shadow-[0_0_20px_rgba(255,255,255,0.2)]"
-                        : "bg-transparent border-zinc-800 text-zinc-600 hover:border-zinc-600"
-                        }`}
-                    >
-                      <Check size={18} strokeWidth={3} />
-                    </button>
+                  <div className="flex items-center gap-3 group cursor-pointer" onClick={() => {
+                    setTempCategoryTitle(menuItems[selectedCategoryIdx].title);
+                    setIsEditingCategory(true);
+                  }}>
+                    <h2 className="text-lg font-semibold text-white">
+                      {menuItems[selectedCategoryIdx]?.title}
+                    </h2>
+                    <Edit2 size={13} className="text-zinc-600 group-hover:text-zinc-300 transition-colors" />
                   </div>
                 )}
+
+                <button
+                  onClick={handleAddDish}
+                  className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all hover:border-zinc-500"
+                >
+                  <Plus size={15} />
+                  Add Item
+                </button>
               </div>
-            </div>
+            )}
 
-            {/* Responsive Vertical Grid (Fix for Horizontal Scroll) */}
-            <div className="px-4 md:px-8 pb-20">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                {menuItems[selectedCategoryIdx]?.items.map((dish, idx) => (
-                  <div
-                    key={dish.id}
-                    className="w-full group flex flex-col relative"
+            {/* Items Grid or Empty State */}
+            {menuItems.length === 0 ? (
+              /* ── Full empty state: no categories at all ── */
+              <div className="flex flex-col items-center justify-center py-24 px-8 text-center">
+                <div className="w-20 h-20 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-6">
+                  <Utensils size={36} strokeWidth={1.2} className="text-zinc-500" />
+                </div>
+                <h2 className="text-2xl font-semibold text-white mb-3">Your menu is empty</h2>
+                <p className="text-zinc-500 text-sm max-w-sm mb-8 leading-relaxed">
+                  Start by creating a <strong className="text-zinc-300">Category</strong> (e.g. "Starters", "Mains", "Drinks"),
+                  then add items inside it. Each item gets a short-form video reel that customers swipe through.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 mb-12">
+                  <button
+                    onClick={handleAddCategory}
+                    className="flex items-center gap-2 bg-white text-black px-6 py-3 rounded-xl font-bold text-sm hover:bg-zinc-200 transition-all"
                   >
-                    {/* Options Menu Button */}
-                    <div className="absolute top-3 right-3 z-30">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveOptionsDishId(
-                            activeOptionsDishId === dish.id ? null : dish.id,
-                          );
-                        }}
-                        className="w-8 h-8 bg-black/50 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-white hover:text-black transition-colors border border-white/10"
-                      >
-                        <MoreVertical size={16} />
-                      </button>
-
-                      {/* Options Dropdown */}
-                      {activeOptionsDishId === dish.id && (
-                        <div className="absolute right-0 mt-2 w-48 bg-zinc-900 border border-zinc-700 rounded-lg shadow-2xl overflow-hidden z-40 animate-in fade-in slide-in-from-top-2">
-                          <button
-                            onClick={() =>
-                              handleDuplicateDish(selectedCategoryIdx, idx)
-                            }
-                            className="w-full px-4 py-3 text-left text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white flex items-center gap-3 border-b border-zinc-800"
-                          >
-                            <Copy size={14} />
-                            Duplicate Item
-                          </button>
-                          <button
-                            onClick={() => {
-                              alert("Marked as sold out");
-                              setActiveOptionsDishId(null);
-                            }}
-                            className="w-full px-4 py-3 text-left text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white flex items-center gap-3 border-b border-zinc-800"
-                          >
-                            <EyeOff size={14} />
-                            Mark Sold Out
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleDeleteDish(selectedCategoryIdx, idx)
-                            }
-                            className="w-full px-4 py-3 text-left text-sm text-red-400 hover:bg-red-900/20 hover:text-red-300 flex items-center gap-3"
-                          >
-                            <Trash2 size={14} />
-                            Delete Item
-                          </button>
-                        </div>
-                      )}
+                    <Plus size={16} />
+                    Create First Category
+                  </button>
+                </div>
+                {/* How-to steps */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl w-full">
+                  {[
+                    { step: "1", title: "Create a Category", desc: "Group your items — Starters, Mains, Drinks, etc." },
+                    { step: "2", title: "Add Menu Items", desc: "Give each dish a name, description, and price." },
+                    { step: "3", title: "Upload a Reel", desc: "Add a short video or photo to each dish card." },
+                  ].map(({ step, title, desc }) => (
+                    <div key={step} className="bg-zinc-950 border border-zinc-800 rounded-xl p-5 text-left">
+                      <div className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400 mb-3">{step}</div>
+                      <p className="text-white font-semibold text-sm mb-1">{title}</p>
+                      <p className="text-zinc-500 text-xs leading-relaxed">{desc}</p>
                     </div>
+                  ))}
+                </div>
+              </div>
+            ) : menuItems[selectedCategoryIdx]?.items.length === 0 ? (
+              /* ── Category exists but has no items ── */
+              <div className="flex flex-col items-center justify-center py-20 px-8 text-center">
+                <div className="w-16 h-16 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-5">
+                  <Plus size={28} strokeWidth={1.5} className="text-zinc-500" />
+                </div>
+                <h3 className="text-xl font-semibold text-white mb-2">No items in this category</h3>
+                <p className="text-zinc-500 text-sm max-w-xs mb-6 leading-relaxed">
+                  Click <strong className="text-zinc-300">Add Item</strong> above to create your first dish. You can then upload a video reel and fill in its details.
+                </p>
+                <button
+                  onClick={handleAddDish}
+                  className="flex items-center gap-2 bg-white text-black px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-zinc-200 transition-all"
+                >
+                  <Plus size={15} />
+                  Add First Item
+                </button>
+              </div>
+            ) : (
+              /* ── Items Grid ── */
+              <div className="px-4 md:px-8 py-8 pb-20">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                  {menuItems[selectedCategoryIdx]?.items.map((dish, idx) => (
+                    <div
+                      key={dish.id}
+                      className="w-full group flex flex-col relative"
+                    >
+                      {/* Options Menu Button */}
+                      <div className="absolute top-3 right-3 z-30">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveOptionsDishId(
+                              activeOptionsDishId === dish.id ? null : dish.id,
+                            );
+                          }}
+                          className="w-8 h-8 bg-black/60 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-white hover:text-black transition-colors border border-white/20"
+                        >
+                          <MoreVertical size={15} />
+                        </button>
 
-                    {/* 1. Video Upload Section */}
-                    <div className="relative w-full aspect-[9/16] bg-zinc-900 rounded-lg overflow-hidden border border-zinc-800 group-hover:border-zinc-500 transition-all duration-500 shadow-lg mb-4">
-                      <div className="w-full h-full overflow-hidden relative bg-black">
-                        {dish.videoUrl ? (
-                          <video
-                            src={dish.videoUrl}
-                            className="w-full h-full object-cover opacity-50 group-hover:opacity-70 transition-all duration-500"
-                            style={
-                              dish.mediaTransform
-                                ? {
-                                  transform: `translate(${dish.mediaTransform.x}%, ${dish.mediaTransform.y}%) scale(${dish.mediaTransform.scale})`,
-                                  transformOrigin: "center center",
-                                }
-                                : {}
-                            }
-                            autoPlay
-                            muted
-                            loop
-                            playsInline
-                          />
-                        ) : (
-                          <img
-                            src={dish.imageUrl}
-                            alt={dish.name}
-                            className="w-full h-full object-cover opacity-50 group-hover:opacity-70 transition-all duration-500"
-                            style={
-                              dish.mediaTransform
-                                ? {
-                                  transform: `translate(${dish.mediaTransform.x}%, ${dish.mediaTransform.y}%) scale(${dish.mediaTransform.scale})`,
-                                  transformOrigin: "center center",
-                                }
-                                : {}
-                            }
-                          />
+                        {/* Options Dropdown */}
+                        {activeOptionsDishId === dish.id && (
+                          <div className="absolute right-0 mt-2 w-48 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden z-40 animate-in fade-in slide-in-from-top-2">
+                            <button
+                              onClick={() => handleDuplicateDish(selectedCategoryIdx, idx)}
+                              className="w-full px-4 py-3 text-left text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white flex items-center gap-3 border-b border-zinc-800"
+                            >
+                              <Copy size={14} />
+                              Duplicate Item
+                            </button>
+                            <button
+                              onClick={() => { alert("Marked as sold out"); setActiveOptionsDishId(null); }}
+                              className="w-full px-4 py-3 text-left text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white flex items-center gap-3 border-b border-zinc-800"
+                            >
+                              <EyeOff size={14} />
+                              Mark Sold Out
+                            </button>
+                            <button
+                              onClick={() => handleDeleteDish(selectedCategoryIdx, idx)}
+                              className="w-full px-4 py-3 text-left text-sm text-red-400 hover:bg-red-900/20 hover:text-red-300 flex items-center gap-3"
+                            >
+                              <Trash2 size={14} />
+                              Delete Item
+                            </button>
+                          </div>
                         )}
                       </div>
 
-                      <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/40 backdrop-blur-[2px]">
-                        <label className="cursor-pointer flex flex-col items-center justify-center">
-                          <div className="w-12 h-12 rounded-full border border-white flex items-center justify-center mb-3 hover:bg-white hover:text-black transition-all">
-                            {dish.videoUrl ? (
-                              <Video size={20} />
-                            ) : (
-                              <ImageIcon size={20} />
-                            )}
+                      {/* Media / Reel Upload */}
+                      <div className="relative w-full aspect-[9/16] bg-zinc-900 rounded-xl overflow-hidden border border-zinc-800 group-hover:border-zinc-600 transition-all duration-500 shadow-lg mb-4">
+                        <div className="w-full h-full overflow-hidden relative bg-black">
+                          {dish.videoUrl ? (
+                            <video
+                              src={dish.videoUrl}
+                              className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-all duration-500"
+                              style={
+                                dish.mediaTransform
+                                  ? { transform: `translate(${dish.mediaTransform.x}%, ${dish.mediaTransform.y}%) scale(${dish.mediaTransform.scale})`, transformOrigin: "center center" }
+                                  : {}
+                              }
+                              autoPlay muted loop playsInline
+                            />
+                          ) : dish.imageUrl ? (
+                            <img
+                              src={dish.imageUrl}
+                              alt={dish.name}
+                              className="w-full h-full object-cover opacity-60 group-hover:opacity-80 transition-all duration-500"
+                              style={
+                                dish.mediaTransform
+                                  ? { transform: `translate(${dish.mediaTransform.x}%, ${dish.mediaTransform.y}%) scale(${dish.mediaTransform.scale})`, transformOrigin: "center center" }
+                                  : {}
+                              }
+                            />
+                          ) : (
+                            /* No media placeholder */
+                            <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-zinc-700">
+                              <ImageIcon size={32} strokeWidth={1.2} />
+                              <span className="text-xs font-mono tracking-widest">NO MEDIA</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Upload overlay on hover */}
+                        <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/50 backdrop-blur-[2px]">
+                          <label className="cursor-pointer flex flex-col items-center justify-center">
+                            <div className="w-12 h-12 rounded-full border-2 border-white flex items-center justify-center mb-3 hover:bg-white hover:text-black transition-all">
+                              {dish.videoUrl ? <Video size={20} /> : <ImageIcon size={20} />}
+                            </div>
+                            <span className="text-xs font-bold tracking-widest uppercase text-white">
+                              {dish.videoUrl || dish.imageUrl ? "Change Media" : "Upload Reel / Photo"}
+                            </span>
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept="image/*,video/*"
+                              onChange={(e) => {
+                                if (e.target.files?.[0]) {
+                                  onFileSelect(selectedCategoryIdx, idx, e.target.files[0]);
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+
+                        {/* Slot badge */}
+                        <div className="absolute top-3 left-3 text-[10px] font-mono text-zinc-500 bg-black/60 px-2 py-0.5 rounded z-10">
+                          #{idx + 1}
+                        </div>
+                      </div>
+
+                      {/* Form Fields */}
+                      <div className="flex flex-col gap-3">
+                        <div>
+                          <label className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1 block">Item Name</label>
+                          <input
+                            type="text"
+                            value={dish.name}
+                            onChange={(e) => handleDishUpdate(selectedCategoryIdx, idx, "name", e.target.value)}
+                            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-base font-medium text-white focus:border-zinc-500 outline-none transition-all placeholder-zinc-700"
+                            placeholder="e.g. Butter Chicken"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1 block">Description</label>
+                          <textarea
+                            value={dish.description}
+                            onChange={(e) => handleDishUpdate(selectedCategoryIdx, idx, "description", e.target.value)}
+                            rows={3}
+                            maxLength={500}
+                            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-300 focus:border-zinc-600 focus:text-white outline-none transition-all resize-none leading-relaxed placeholder-zinc-700"
+                            placeholder="Ingredients, flavour notes..."
+                          />
+                          <div className="text-right text-[10px] text-zinc-600 mt-0.5 font-mono">
+                            {dish.description.length} / 500
                           </div>
-                          <span className="text-xs font-bold tracking-widest uppercase text-white">
-                            {dish.videoUrl ? "Edit / Replace" : "Upload Reel"}
-                          </span>
-                          <input
-                            type="file"
-                            className="hidden"
-                            accept="image/*,video/*"
-                            onChange={(e) => {
-                              if (e.target.files?.[0]) {
-                                onFileSelect(
-                                  selectedCategoryIdx,
-                                  idx,
-                                  e.target.files[0],
-                                );
-                              }
-                            }}
-                          />
-                        </label>
-                      </div>
-                      <div className="absolute top-3 left-3 text-[10px] font-mono text-zinc-500 z-10">
-                        SLOT 0{idx + 1}
-                      </div>
-                    </div>
-
-                    {/* Form Fields */}
-                    <div className="flex flex-col gap-4">
-                      <div className="group/input relative">
-                        <input
-                          type="text"
-                          value={dish.name}
-                          onChange={(e) =>
-                            handleDishUpdate(
-                              selectedCategoryIdx,
-                              idx,
-                              "name",
-                              e.target.value,
-                            )
-                          }
-                          className="w-full bg-black border-b border-zinc-800 py-2 text-lg font-medium text-white focus:border-white outline-none transition-all placeholder-zinc-700"
-                          placeholder="Item Name"
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <textarea
-                          value={dish.description}
-                          onChange={(e) =>
-                            handleDishUpdate(
-                              selectedCategoryIdx,
-                              idx,
-                              "description",
-                              e.target.value,
-                            )
-                          }
-                          rows={3}
-                          maxLength={500}
-                          className="w-full bg-zinc-950 border border-zinc-800 rounded p-3 text-sm text-zinc-400 focus:border-zinc-600 focus:text-white outline-none transition-all resize-none leading-relaxed"
-                          placeholder="Describe the dish..."
-                        />
-                        <div className="text-right text-[10px] text-zinc-600 mt-1 font-mono tracking-wide">
-                          {dish.description.length} / 500
                         </div>
-                      </div>
-                      <div className="flex items-center justify-between pt-2 border-t border-zinc-900">
-                        <label className="text-xs text-zinc-500 uppercase tracking-widest">
-                          Price USD
-                        </label>
-                        <div className="relative w-24">
-                          <DollarSign
-                            className="absolute left-0 top-1/2 -translate-y-1/2 text-white"
-                            size={12}
-                          />
-                          <input
-                            type="number"
-                            value={dish.price}
-                            onFocus={(e) => {
-                              if (userTier === UserTier.FREE) {
-                                e.target.blur();
-                                setPaywallTrigger("Smart Pricing");
-                              }
-                            }}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value);
-                              handleDishUpdate(
-                                selectedCategoryIdx,
-                                idx,
-                                "price",
-                                isNaN(val) ? 0 : Math.max(0, val),
-                              );
-                            }}
-                            step="0.50"
-                            className="w-full bg-transparent text-right font-mono text-white focus:border-b focus:border-white outline-none py-1"
-                          />
+                        <div className="flex items-center justify-between bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
+                          <label className="text-xs text-zinc-500 font-bold uppercase tracking-widest">Price</label>
+                          <div className="flex items-center gap-1">
+                            <DollarSign size={12} className="text-zinc-400" />
+                            <input
+                              type="number"
+                              value={dish.price}
+                              onFocus={(e) => {
+                                if (userTier === UserTier.FREE) {
+                                  e.target.blur();
+                                  setPaywallTrigger("Smart Pricing");
+                                }
+                              }}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                handleDishUpdate(selectedCategoryIdx, idx, "price", isNaN(val) ? 0 : Math.max(0, val));
+                              }}
+                              step="0.50"
+                              className="w-20 bg-transparent text-right font-mono text-white focus:outline-none py-0.5 text-sm"
+                            />
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
 
-                {/* Empty Slot / Add Button Visual (Placeholder) */}
-                <button
-                  onClick={handleAddCategory}
-                  className="w-full aspect-[9/16] rounded-lg border-2 border-dashed border-zinc-800 hover:border-zinc-600 hover:bg-zinc-900/50 flex flex-col items-center justify-center gap-4 transition-all text-zinc-600 hover:text-zinc-400 group opacity-50 hover:opacity-100"
-                >
-                  <div className="w-16 h-16 rounded-full bg-zinc-900 flex items-center justify-center group-hover:scale-110 transition-transform border border-zinc-800">
-                    <Plus size={32} />
-                  </div>
-                  <span className="font-bold tracking-widest uppercase text-sm">
-                    Add Slot
-                  </span>
-                </button>
+                  {/* Add another item card */}
+                  <button
+                    onClick={handleAddDish}
+                    className="w-full aspect-[9/16] rounded-xl border-2 border-dashed border-zinc-800 hover:border-zinc-600 hover:bg-zinc-900/40 flex flex-col items-center justify-center gap-3 transition-all text-zinc-600 hover:text-zinc-300 group"
+                  >
+                    <div className="w-14 h-14 rounded-full bg-zinc-900 flex items-center justify-center group-hover:scale-110 group-hover:bg-zinc-800 transition-all border border-zinc-800">
+                      <Plus size={28} />
+                    </div>
+                    <span className="font-bold tracking-widest uppercase text-xs text-zinc-500 group-hover:text-zinc-300 transition-colors">
+                      Add Item
+                    </span>
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 
