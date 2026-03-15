@@ -8,6 +8,13 @@ export interface Restaurant {
   created_at: string;
 }
 
+// Public-facing restaurant info (no owner details)
+export interface RestaurantPublic {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 // ── App domain types ─────────────────────────────────────────
 export interface Dish {
   id: string;

@@ -10,8 +10,11 @@ import {
   EyeOff,
   Image as ImageIcon,
   LayoutDashboard,
+  Link as LinkIcon,
   Lock,
+  LogOut,
   Menu,
+  Moon,
   MoreVertical,
   MousePointer2,
   Move,
@@ -21,6 +24,7 @@ import {
   QrCode,
   Save,
   Sparkles,
+  Sun,
   Trash2,
   TrendingUp,
   Upload,
@@ -30,8 +34,9 @@ import {
   X,
   ZoomIn,
 } from "lucide-react";
+import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
 import type React from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -168,12 +173,106 @@ const PaywallModal: React.FC<PaywallModalProps> = ({
 // --- QR Code Modal Component ---
 interface QrCodeModalProps {
   onClose: () => void;
+  restaurantSlug: string;
+  restaurantName: string;
+  onSlugUpdated: (newSlug: string) => void;
 }
 
-const QrCodeModal: React.FC<QrCodeModalProps> = ({ onClose }) => {
-  const [color, setColor] = useState("000000");
-  const currentUrl = window.location.href.split("?")[0]; // Clean URL
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(currentUrl)}&color=${color}`;
+const QrCodeModal: React.FC<QrCodeModalProps> = ({
+  onClose,
+  restaurantSlug: initialSlug,
+  restaurantName,
+  onSlugUpdated,
+}) => {
+  const [color, setColor] = useState("#000000");
+  const [copied, setCopied] = useState(false);
+  const [currentSlug, setCurrentSlug] = useState(initialSlug);
+  const [editedSlug, setEditedSlug] = useState(initialSlug);
+  const [isEditing, setIsEditing] = useState(false);
+  const [slugError, setSlugError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isFixingSlug, setIsFixingSlug] = useState(false);
+  const qrRef = useRef<HTMLDivElement>(null);
+
+  // Check if slug is a UUID (legacy format)
+  const isUuidSlug = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentSlug);
+
+  // Auto-fix legacy UUID slugs on mount
+  useEffect(() => {
+    if (isUuidSlug) {
+      setIsFixingSlug(true);
+      supabaseService.fixLegacySlug()
+        .then((newSlug) => {
+          setCurrentSlug(newSlug);
+          setEditedSlug(newSlug);
+          onSlugUpdated(newSlug);
+        })
+        .catch(console.error)
+        .finally(() => setIsFixingSlug(false));
+    }
+  }, []);
+
+  // Generate the restaurant URL
+  const baseUrl = window.location.origin;
+  const restaurantUrl = `${baseUrl}/${currentSlug}`;
+
+  const handleSaveSlug = async () => {
+    const slug = editedSlug.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/^-|-$/g, "");
+    if (!slug) {
+      setSlugError("URL cannot be empty");
+      return;
+    }
+    if (slug === currentSlug) {
+      setIsEditing(false);
+      return;
+    }
+
+    setIsSaving(true);
+    setSlugError(null);
+    try {
+      await supabaseService.updateRestaurantSlug(slug);
+      setCurrentSlug(slug);
+      setEditedSlug(slug);
+      setIsEditing(false);
+      onSlugUpdated(slug);
+    } catch (err) {
+      setSlugError(err instanceof Error ? err.message : "Failed to update URL");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCopyUrl = async () => {
+    await navigator.clipboard.writeText(restaurantUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownloadPNG = () => {
+    const canvas = qrRef.current?.querySelector("canvas");
+    if (!canvas) return;
+
+    const link = document.createElement("a");
+    link.download = `${currentSlug}-qr-code.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  };
+
+  const handleDownloadSVG = () => {
+    const svg = qrRef.current?.querySelector("svg");
+    if (!svg) return;
+
+    const serializer = new XMLSerializer();
+    const svgString = serializer.serializeToString(svg);
+    const blob = new Blob([svgString], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.download = `${currentSlug}-qr-code.svg`;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
@@ -189,61 +288,161 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({ onClose }) => {
         </div>
 
         <div className="p-8 flex flex-col items-center bg-zinc-950">
-          <div className="bg-white p-6 rounded-xl shadow-xl mb-8">
-            <img
-              src={qrUrl}
-              alt="Restaurant QR"
-              className="w-48 h-48 mix-blend-multiply"
+          {/* Loading state when fixing legacy slug */}
+          {isFixingSlug && (
+            <div className="text-center mb-6">
+              <div className="animate-spin w-6 h-6 border-2 border-white border-t-transparent rounded-full mx-auto mb-2" />
+              <p className="text-zinc-400 text-sm">Generating friendly URL...</p>
+            </div>
+          )}
+
+          {/* QR Code Display */}
+          <div ref={qrRef} className="bg-white p-6 rounded-xl shadow-xl mb-6">
+            <QRCodeCanvas
+              value={restaurantUrl}
+              size={200}
+              bgColor="#ffffff"
+              fgColor={color}
+              level="H"
+              marginSize={1}
             />
+            {/* Hidden SVG for download */}
+            <div className="hidden">
+              <QRCodeSVG
+                value={restaurantUrl}
+                size={400}
+                bgColor="#ffffff"
+                fgColor={color}
+                level="H"
+              />
+            </div>
           </div>
 
-          <div className="w-full space-y-8">
+          {/* Restaurant Name */}
+          <p className="text-white font-bold text-lg mb-2">{restaurantName}</p>
+
+          {/* URL Display & Edit */}
+          <div className="w-full mb-6">
+            {isEditing ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 bg-zinc-800 rounded-lg p-3">
+                  <span className="text-zinc-500 text-sm">{baseUrl}/</span>
+                  <input
+                    type="text"
+                    value={editedSlug}
+                    onChange={(e) => setEditedSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
+                    className="flex-1 bg-transparent text-white text-sm border-b border-zinc-600 focus:border-white outline-none"
+                    placeholder="your-restaurant-name"
+                    autoFocus
+                  />
+                </div>
+                {slugError && <p className="text-red-400 text-xs">{slugError}</p>}
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSaveSlug}
+                    disabled={isSaving}
+                    className="flex-1 bg-white text-black py-2 rounded font-medium text-sm hover:bg-zinc-200 transition-colors disabled:opacity-50"
+                  >
+                    {isSaving ? "Saving..." : "Save URL"}
+                  </button>
+                  <button
+                    onClick={() => { setIsEditing(false); setEditedSlug(currentSlug); setSlugError(null); }}
+                    className="px-4 py-2 bg-zinc-700 text-white rounded font-medium text-sm hover:bg-zinc-600 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-zinc-800 rounded-lg p-3 flex items-center justify-between gap-2">
+                <code className="text-zinc-400 text-sm truncate flex-1">
+                  {restaurantUrl}
+                </code>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="p-1.5 hover:bg-zinc-700 rounded text-zinc-400 hover:text-white transition-colors"
+                    title="Edit URL"
+                  >
+                    <Edit2 size={14} />
+                  </button>
+                  <button
+                    onClick={handleCopyUrl}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 rounded text-xs font-medium text-white transition-colors"
+                  >
+                    {copied ? (
+                      <>
+                        <Check size={14} />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={14} />
+                        Copy
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Color Selection */}
+          <div className="w-full space-y-6">
             <div className="text-center">
               <label className="text-xs text-zinc-500 uppercase tracking-widest mb-4 block">
                 Select Brand Color
               </label>
               <div className="flex gap-4 justify-center">
                 {[
-                  { hex: "000000", label: "Black" },
-                  { hex: "4f46e5", label: "Indigo" },
-                  { hex: "10b981", label: "Emerald" },
-                  { hex: "f43f5e", label: "Rose" },
+                  { hex: "#000000", label: "Black" },
+                  { hex: "#4f46e5", label: "Indigo" },
+                  { hex: "#10b981", label: "Emerald" },
+                  { hex: "#f43f5e", label: "Rose" },
+                  { hex: "#f59e0b", label: "Amber" },
                 ].map((c) => (
                   <button
                     key={c.hex}
                     onClick={() => setColor(c.hex)}
                     className={`w-10 h-10 rounded-full border-2 transition-all shadow-lg ${color === c.hex ? "border-white scale-110" : "border-transparent hover:scale-110"}`}
-                    style={{ backgroundColor: `#${c.hex}` }}
+                    style={{ backgroundColor: c.hex }}
                     title={c.label}
                   />
                 ))}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <a
-                href={qrUrl}
-                download="restaurant-qr.png"
-                target="_blank"
-                rel="noreferrer"
+            {/* Download Buttons */}
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                onClick={handleDownloadPNG}
                 className="bg-white text-black py-3 rounded font-bold text-sm hover:bg-zinc-200 transition-colors flex items-center justify-center gap-2"
               >
                 <Download size={16} />
-                Download PNG
-              </a>
+                PNG
+              </button>
+              <button
+                onClick={handleDownloadSVG}
+                className="bg-zinc-800 text-white py-3 rounded font-bold text-sm hover:bg-zinc-700 transition-colors flex items-center justify-center gap-2 border border-zinc-700"
+              >
+                <Download size={16} />
+                SVG
+              </button>
               <button
                 onClick={() => window.print()}
                 className="bg-zinc-800 text-white py-3 rounded font-bold text-sm hover:bg-zinc-700 transition-colors flex items-center justify-center gap-2 border border-zinc-700"
               >
                 <Printer size={16} />
-                Print Cards
+                Print
               </button>
             </div>
           </div>
         </div>
+
         <div className="p-4 bg-zinc-900 border-t border-zinc-800 text-center">
           <p className="text-[10px] text-zinc-500">
-            Scan this code to instantly open the customer menu experience.
+            Print this QR code on table tents, menus, or at the entrance.
+            Customers scan to view your menu instantly.
           </p>
         </div>
       </div>
@@ -426,16 +625,29 @@ const MediaEditor: React.FC<MediaEditorProps> = ({
 
 interface OwnerDashboardProps {
   onNavigateToCustomer: () => void;
+  onSignOut: () => void;
+  isDarkTheme: boolean;
+  onToggleTheme: () => void;
 }
 
 export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   onNavigateToCustomer,
+  onSignOut,
+  isDarkTheme,
+  onToggleTheme,
 }) => {
   const [currentView, setCurrentView] = useState<ViewMode>("DASHBOARD");
   const [insights, setInsights] = useState<string>("");
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+
+  // Restaurant Details (for QR code)
+  const [restaurantDetails, setRestaurantDetails] = useState<{
+    id: string;
+    name: string;
+    slug: string;
+  } | null>(null);
 
   // Data State
   const [metrics, setMetrics] = useState<AggregatedMetrics | null>(null);
@@ -472,6 +684,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           .catch(() => { /* already exists */ });
       }
     });
+
+    // Load restaurant details for QR code
+    supabaseService.getRestaurantDetails().then(setRestaurantDetails).catch(console.error);
 
     refreshData();
 
@@ -706,6 +921,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           </button>
         )}
       </div>
+      <button
+        onClick={() => {
+          setIsMobileMenuOpen(false);
+          onSignOut();
+        }}
+        className="w-full mt-3 flex items-center justify-center gap-2 px-3 py-2 text-xs text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+      >
+        <LogOut size={14} />
+        Sign Out
+      </button>
     </div>
   );
 
@@ -741,6 +966,21 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         <Users size={18} />
         <span className="font-medium">Customers</span>
       </button>
+
+      {/* QR Code Button - Standalone action */}
+      <div className="pt-4 mt-4 border-t border-zinc-800">
+        <button
+          onClick={() => {
+            setIsQrModalOpen(true);
+            setIsMobileMenuOpen(false);
+          }}
+          disabled={!restaurantDetails}
+          className="w-full flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-300 bg-gradient-to-r from-zinc-800 to-zinc-900 text-white hover:from-zinc-700 hover:to-zinc-800 border border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <QrCode size={18} />
+          <span className="font-medium">Get QR Code</span>
+        </button>
+      </div>
     </nav>
   );
 
@@ -756,7 +996,14 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       )}
 
       {/* QR Modal */}
-      {isQrModalOpen && <QrCodeModal onClose={() => setIsQrModalOpen(false)} />}
+      {isQrModalOpen && restaurantDetails && (
+        <QrCodeModal
+          onClose={() => setIsQrModalOpen(false)}
+          restaurantSlug={restaurantDetails.slug}
+          restaurantName={restaurantDetails.name}
+          onSlugUpdated={(newSlug) => setRestaurantDetails(prev => prev ? { ...prev, slug: newSlug } : null)}
+        />
+      )}
 
       {/* Media Editor Modal */}
       {editingMedia && (
@@ -778,12 +1025,20 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             Minute Menus
           </span>
         </div>
-        <button
-          onClick={() => setIsMobileMenuOpen(true)}
-          className="text-white p-1"
-        >
-          <Menu size={24} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onToggleTheme}
+            className="p-2 rounded-full hover:bg-zinc-800 transition-colors"
+          >
+            {isDarkTheme ? <Sun size={20} className="text-white" /> : <Moon size={20} className="text-white" />}
+          </button>
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="text-white p-1"
+          >
+            <Menu size={24} />
+          </button>
+        </div>
       </div>
 
       {/* Mobile Navigation Overlay */}
@@ -808,13 +1063,21 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
       {/* Desktop Sidebar */}
       <aside className="w-64 bg-black border-r border-zinc-800 flex-col hidden md:flex h-full">
-        <div className="p-6 flex items-center gap-3">
-          <div className="w-8 h-8 bg-white rounded flex items-center justify-center">
-            <span className="font-bold text-black text-lg">M</span>
+        <div className="p-6 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-white rounded flex items-center justify-center">
+              <span className="font-bold text-black text-lg">M</span>
+            </div>
+            <span className="text-xl font-bold tracking-tight text-white">
+              Minute Menus
+            </span>
           </div>
-          <span className="text-xl font-bold tracking-tight text-white">
-            Minute Menus
-          </span>
+          <button
+            onClick={onToggleTheme}
+            className="p-2 rounded-full hover:bg-zinc-800 transition-colors"
+          >
+            {isDarkTheme ? <Sun size={18} className="text-white" /> : <Moon size={18} className="text-white" />}
+          </button>
         </div>
 
         <NavigationLinks />

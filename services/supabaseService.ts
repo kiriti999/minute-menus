@@ -24,6 +24,39 @@ import type {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/**
+ * Convert a restaurant name to a URL-friendly slug.
+ * Example: "Fresh & Fusion" -> "fresh-and-fusion"
+ */
+const slugify = (name: string): string => {
+    return name
+        .toLowerCase()
+        .replace(/&/g, "and")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-|-$/g, "")
+        .substring(0, 50) || "my-restaurant";
+};
+
+/**
+ * Generate a unique slug by appending a random suffix if needed.
+ */
+const generateUniqueSlug = async (baseName: string): Promise<string> => {
+    const baseSlug = slugify(baseName);
+
+    // Check if base slug is available
+    const { data: existing } = await supabase
+        .from("restaurants")
+        .select("id")
+        .eq("slug", baseSlug)
+        .single();
+
+    if (!existing) return baseSlug;
+
+    // Add random suffix for uniqueness
+    const suffix = Math.random().toString(36).substring(2, 6);
+    return `${baseSlug}-${suffix}`;
+};
+
 const getRestaurantId = async (): Promise<string> => {
     // getUser() is more reliable than getSession() right after OAuth redirect
     const { data: { user } } = await supabase.auth.getUser();
@@ -51,9 +84,12 @@ const getRestaurantId = async (): Promise<string> => {
 
 /** Creates the restaurant + subscription for a brand-new user. */
 const bootstrapRestaurant = async (userId: string): Promise<string> => {
+    const defaultName = "My Restaurant";
+    const slug = await generateUniqueSlug(defaultName);
+
     const { data: restaurant, error } = await supabase
         .from("restaurants")
-        .insert({ owner_id: userId, name: "My Restaurant", slug: userId })
+        .insert({ owner_id: userId, name: defaultName, slug })
         .select("id")
         .single();
 
@@ -438,6 +474,140 @@ class SupabaseService {
             .insert({ restaurant_id: restaurant.id, tier: "free" });
 
         return restaurant.id;
+    }
+
+    // ── Public Restaurant Access (for QR code flow) ─────────────────────────────
+
+    /**
+     * Get restaurant info by slug (for customers accessing via QR code).
+     * No authentication required.
+     */
+    async getRestaurantBySlug(slug: string): Promise<{
+        id: string;
+        name: string;
+        slug: string;
+    } | null> {
+        const { data, error } = await supabase
+            .from("restaurants")
+            .select("id, name, slug")
+            .eq("slug", slug)
+            .single();
+
+        if (error || !data) return null;
+        return data;
+    }
+
+    /**
+     * Get the current restaurant's slug (for QR code generation).
+     * Requires authentication.
+     */
+    async getRestaurantSlug(): Promise<string> {
+        const rid = await getRestaurantId();
+        const { data, error } = await supabase
+            .from("restaurants")
+            .select("slug, name")
+            .eq("id", rid)
+            .single();
+
+        if (error || !data) throw new Error("Restaurant not found");
+        return data.slug;
+    }
+
+    /**
+     * Get restaurant details including name (for QR code display).
+     */
+    async getRestaurantDetails(): Promise<{ id: string; name: string; slug: string }> {
+        const rid = await getRestaurantId();
+        const { data, error } = await supabase
+            .from("restaurants")
+            .select("id, name, slug")
+            .eq("id", rid)
+            .single();
+
+        if (error || !data) throw new Error("Restaurant not found");
+        return data;
+    }
+
+    /**
+     * Update the restaurant's slug.
+     */
+    async updateRestaurantSlug(newSlug: string): Promise<void> {
+        const rid = await getRestaurantId();
+
+        // Validate slug format
+        const slugRegex = /^[a-z0-9-]+$/;
+        if (!slugRegex.test(newSlug)) {
+            throw new Error("Slug must be lowercase letters, numbers, and hyphens only");
+        }
+
+        // Check if slug is already taken
+        const { data: existing } = await supabase
+            .from("restaurants")
+            .select("id")
+            .eq("slug", newSlug)
+            .neq("id", rid)
+            .single();
+
+        if (existing) {
+            throw new Error("This URL is already taken");
+        }
+
+        const { error } = await supabase
+            .from("restaurants")
+            .update({ slug: newSlug })
+            .eq("id", rid);
+
+        if (error) throw error;
+    }
+
+    /**
+     * Update restaurant name and optionally regenerate slug.
+     */
+    async updateRestaurantName(newName: string, regenerateSlug = true): Promise<{ name: string; slug: string }> {
+        const rid = await getRestaurantId();
+
+        const updateData: { name: string; slug?: string } = { name: newName };
+
+        if (regenerateSlug) {
+            updateData.slug = await generateUniqueSlug(newName);
+        }
+
+        const { data, error } = await supabase
+            .from("restaurants")
+            .update(updateData)
+            .eq("id", rid)
+            .select("name, slug")
+            .single();
+
+        if (error || !data) throw error ?? new Error("Failed to update restaurant");
+        return data;
+    }
+
+    /**
+     * Fix legacy UUID slugs by regenerating from restaurant name.
+     */
+    async fixLegacySlug(): Promise<string> {
+        const rid = await getRestaurantId();
+        const { data } = await supabase
+            .from("restaurants")
+            .select("name, slug")
+            .eq("id", rid)
+            .single();
+
+        if (!data) throw new Error("Restaurant not found");
+
+        // Check if current slug looks like a UUID
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (uuidRegex.test(data.slug)) {
+            const newSlug = await generateUniqueSlug(data.name);
+            await supabase
+                .from("restaurants")
+                .update({ slug: newSlug })
+                .eq("id", rid);
+            return newSlug;
+        }
+
+        return data.slug;
     }
 }
 

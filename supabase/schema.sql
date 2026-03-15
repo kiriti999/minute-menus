@@ -24,6 +24,11 @@ create policy "Owner can manage their restaurant"
   on restaurants for all
   using (auth.uid() = owner_id);
 
+-- Allow public read access for QR code customer flow
+create policy "Public can read restaurants"
+  on restaurants for select
+  using (true);
+
 -- ─────────────────────────────────────────────
 -- 2. CATEGORIES
 -- Menu sections (e.g. "Starters", "Mains").

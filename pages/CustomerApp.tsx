@@ -2,8 +2,10 @@ import {
   ChevronDown,
   Loader2,
   Minus,
+  Moon,
   Plus,
   ShoppingBag,
+  Sun,
   X,
 } from "lucide-react";
 import type React from "react";
@@ -14,10 +16,21 @@ import type { Category, Dish, OrderItem } from "../types";
 
 interface CustomerAppProps {
   onNavigateToDashboard: () => void;
+  isDarkTheme: boolean;
+  onToggleTheme: () => void;
+  // Restaurant context from QR code flow
+  restaurantSlug?: string | null;
+  restaurantId?: string | null;
+  restaurantName?: string | null;
 }
 
 export const CustomerApp: React.FC<CustomerAppProps> = ({
   onNavigateToDashboard,
+  isDarkTheme,
+  onToggleTheme,
+  restaurantSlug,
+  restaurantId,
+  restaurantName,
 }) => {
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -28,11 +41,18 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   // Tracking "Time to Order"
   const [sessionStartTime] = useState<number>(Date.now());
 
-  // Load menu from Supabase
+  // Load menu from Supabase (using restaurantId if provided via QR code)
   const [menuCategories, setMenuCategories] = useState<Category[]>([]);
+  const [menuLoading, setMenuLoading] = useState(true);
+
   useEffect(() => {
-    supabaseService.getMenu().then(setMenuCategories).catch(console.error);
-  }, []);
+    setMenuLoading(true);
+    supabaseService
+      .getMenu(restaurantId ?? undefined)
+      .then(setMenuCategories)
+      .catch(console.error)
+      .finally(() => setMenuLoading(false));
+  }, [restaurantId]);
 
   // Flatten the menu structure for continuous vertical scrolling
   // STRICT LIMIT: Limit to first 10 items only as per requirements.
@@ -66,13 +86,16 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       // Assume "completed" if watched > 5 seconds (simplified metric)
       const isCompleted = durationSec > 5;
 
-      supabaseService.recordWatchSession({
-        reelId: dish.id,
-        startTime: startTimeRef.current,
-        duration: durationSec,
-        completed: isCompleted,
-        timestamp: Date.now(),
-      });
+      supabaseService.recordWatchSession(
+        {
+          reelId: dish.id,
+          startTime: startTimeRef.current,
+          duration: durationSec,
+          completed: isCompleted,
+          timestamp: Date.now(),
+        },
+        restaurantId ?? undefined,
+      );
     }
   };
   // ---------------------------
@@ -112,7 +135,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
 
     // Simulate network delay
     setTimeout(() => {
-      supabaseService.recordOrder(cart, timeToOrder);
+      supabaseService.recordOrder(cart, timeToOrder, restaurantId ?? undefined);
       setCart([]);
       setIsOrdering(false);
       setIsCartOpen(false);
@@ -178,7 +201,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   };
 
   return (
-    <div className="h-screen w-full bg-black text-white overflow-hidden font-sans relative">
+    <div className={`h-screen w-full ${isDarkTheme ? 'bg-black text-white' : 'bg-white text-black'} overflow-hidden font-sans relative transition-colors duration-300`}>
       {/* === Header & Tabs === */}
       <div className="fixed top-0 left-0 right-0 z-50 flex flex-col pointer-events-none">
         {/* Top Bar: Logo & Cart */}
@@ -188,26 +211,36 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
             className="flex items-center gap-2 group cursor-pointer pointer-events-auto hover:opacity-80 transition-opacity"
           >
             <div className="w-8 h-8 bg-white rounded flex items-center justify-center group-hover:bg-zinc-200 transition-colors shadow-lg">
-              <span className="font-bold text-black text-sm">M</span>
+              <span className="font-bold text-black text-sm">
+                {restaurantName ? restaurantName.charAt(0).toUpperCase() : "M"}
+              </span>
             </div>
             <span className="font-bold tracking-widest text-xs drop-shadow-md text-white mix-blend-difference">
-              MINUTE MENUS
+              {restaurantName ?? "MINUTE MENUS"}
             </span>
           </button>
 
-          <button
-            onClick={() => setIsCartOpen(true)}
-            className="relative p-3 pointer-events-auto group transition-transform active:scale-95"
-          >
-            <div className="bg-black/40 backdrop-blur-md p-2.5 rounded-full border border-white/20 hover:bg-black/60 transition-colors shadow-lg">
-              <ShoppingBag size={20} className="text-white" />
-            </div>
-            {itemCount > 0 && (
-              <span className="absolute top-2 right-2 bg-white text-black text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-black">
-                {itemCount}
-              </span>
-            )}
-          </button>
+          <div className="flex items-center gap-2 pointer-events-auto">
+            <button
+              onClick={onToggleTheme}
+              className="p-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/20 hover:bg-black/60 transition-colors shadow-lg"
+            >
+              {isDarkTheme ? <Sun size={18} className="text-white" /> : <Moon size={18} className="text-black" />}
+            </button>
+            <button
+              onClick={() => setIsCartOpen(true)}
+              className="relative group transition-transform active:scale-95"
+            >
+              <div className="bg-black/40 backdrop-blur-md p-2.5 rounded-full border border-white/20 hover:bg-black/60 transition-colors shadow-lg">
+                <ShoppingBag size={20} className="text-white" />
+              </div>
+              {itemCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-white text-black text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-black">
+                  {itemCount}
+                </span>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Category Tabs (Centered) */}
