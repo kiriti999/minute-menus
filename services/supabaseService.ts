@@ -220,6 +220,22 @@ class SupabaseService {
             .upsert(dishRows, { onConflict: "id" });
         if (dishErr) throw dishErr;
 
+        // Delete removed dishes
+        const keptDishIds = safeCategories.flatMap((c) => c.items.map((d) => d.id));
+        if (keptDishIds.length > 0) {
+            await supabase
+                .from("dishes")
+                .delete()
+                .eq("restaurant_id", rid)
+                .not("id", "in", `(${keptDishIds.join(",")})`);
+        } else {
+            // If no dishes left, delete all dishes for this restaurant
+            await supabase
+                .from("dishes")
+                .delete()
+                .eq("restaurant_id", rid);
+        }
+
         // Delete removed categories (cascade deletes their dishes via FK)
         const keptCatIds = safeCategories.map((c) => c.id);
         await supabase
