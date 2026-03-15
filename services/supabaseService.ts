@@ -89,7 +89,7 @@ const bootstrapRestaurant = async (userId: string): Promise<string> => {
 
     const { data: restaurant, error } = await supabase
         .from("restaurants")
-        .insert({ owner_id: userId, name: defaultName, slug })
+        .insert({ owner_id: userId, name: defaultName, slug, currency: "USD" })
         .select("id")
         .single();
 
@@ -502,15 +502,16 @@ class SupabaseService {
         id: string;
         name: string;
         slug: string;
+        currency: string;
     } | null> {
         const { data, error } = await supabase
             .from("restaurants")
-            .select("id, name, slug")
+            .select("id, name, slug, currency")
             .eq("slug", slug)
             .single();
 
         if (error || !data) return null;
-        return data;
+        return { ...data, currency: data.currency || "USD" };
     }
 
     /**
@@ -532,16 +533,16 @@ class SupabaseService {
     /**
      * Get restaurant details including name (for QR code display).
      */
-    async getRestaurantDetails(): Promise<{ id: string; name: string; slug: string }> {
+    async getRestaurantDetails(): Promise<{ id: string; name: string; slug: string; currency: string }> {
         const rid = await getRestaurantId();
         const { data, error } = await supabase
             .from("restaurants")
-            .select("id, name, slug")
+            .select("id, name, slug, currency")
             .eq("id", rid)
             .single();
 
         if (error || !data) throw new Error("Restaurant not found");
-        return data;
+        return { ...data, currency: data.currency || "USD" };
     }
 
     /**
@@ -597,6 +598,18 @@ class SupabaseService {
 
         if (error || !data) throw error ?? new Error("Failed to update restaurant");
         return data;
+    }
+
+    /**
+     * Update restaurant currency.
+     */
+    async updateRestaurantCurrency(currency: string): Promise<void> {
+        const rid = await getRestaurantId();
+        const { error } = await supabase
+            .from("restaurants")
+            .update({ currency })
+            .eq("id", rid);
+        if (error) throw error;
     }
 
     /**

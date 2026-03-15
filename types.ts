@@ -5,6 +5,7 @@ export interface Restaurant {
   owner_id: string;
   name: string;
   slug: string;
+  currency: string; // ISO 4217 currency code (e.g., "USD", "INR", "GBP")
   created_at: string;
 }
 
@@ -13,6 +14,7 @@ export interface RestaurantPublic {
   id: string;
   name: string;
   slug: string;
+  currency: string;
 }
 
 // ── App domain types ─────────────────────────────────────────

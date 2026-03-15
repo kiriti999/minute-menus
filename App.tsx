@@ -31,6 +31,7 @@ const App: React.FC = () => {
     const [restaurantSlug, setRestaurantSlug] = useState<string | null>(null);
     const [restaurantId, setRestaurantId] = useState<string | null>(null);
     const [restaurantName, setRestaurantName] = useState<string | null>(null);
+    const [restaurantCurrency, setRestaurantCurrency] = useState<string>("USD");
     const [slugLoading, setSlugLoading] = useState(false);
     const [slugError, setSlugError] = useState<string | null>(null);
 
@@ -58,6 +59,7 @@ const App: React.FC = () => {
                         setRestaurantSlug(restaurant.slug);
                         setRestaurantId(restaurant.id);
                         setRestaurantName(restaurant.name);
+                        setRestaurantCurrency(restaurant.currency);
                         setMode(AppMode.CUSTOMER);
                     } else {
                         setSlugError(`Restaurant "${potentialSlug}" not found`);
@@ -179,6 +181,7 @@ const App: React.FC = () => {
                     setRestaurantSlug(null);
                     setRestaurantId(null);
                     setRestaurantName(null);
+                    setRestaurantCurrency("USD");
                     window.history.pushState({}, "", "/");
                     setMode(AppMode.LANDING);
                 }}
@@ -187,6 +190,7 @@ const App: React.FC = () => {
                 restaurantSlug={restaurantSlug}
                 restaurantId={restaurantId}
                 restaurantName={restaurantName}
+                currency={restaurantCurrency}
             />
         );
     }

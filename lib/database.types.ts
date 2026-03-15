@@ -12,6 +12,7 @@ export type Database = {
                     owner_id: string;
                     name: string;
                     slug: string;
+                    currency: string;
                     created_at: string;
                 };
                 Insert: {
@@ -19,6 +20,7 @@ export type Database = {
                     owner_id: string;
                     name: string;
                     slug: string;
+                    currency?: string;
                     created_at?: string;
                 };
                 Update: {
@@ -26,6 +28,7 @@ export type Database = {
                     owner_id?: string;
                     name?: string;
                     slug?: string;
+                    currency?: string;
                     created_at?: string;
                 };
                 Relationships: [];

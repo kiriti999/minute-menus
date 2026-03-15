@@ -1,15 +1,16 @@
 import { Check, Plus, Volume2, VolumeX } from "lucide-react";
 import type React from "react";
 import { useRef, useState } from "react";
-import { formatPriceCompact } from "../lib/currency";
+import { formatPriceCompactInCurrency } from "../lib/currency";
 import type { Dish } from "../types";
 
 interface ReelCardProps {
   dish: Dish;
   onAddToOrder: (dish: Dish) => void;
+  currency?: string;
 }
 
-export const ReelCard: React.FC<ReelCardProps> = ({ dish, onAddToOrder }) => {
+export const ReelCard: React.FC<ReelCardProps> = ({ dish, onAddToOrder, currency = "USD" }) => {
   const [added, setAdded] = useState(false);
   const [isMuted, setIsMuted] = useState(true); // Default muted for autoplay
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -84,7 +85,7 @@ export const ReelCard: React.FC<ReelCardProps> = ({ dish, onAddToOrder }) => {
         <div className="flex flex-col items-center">
           <div className="w-12 h-12 rounded-full bg-black/40 backdrop-blur border border-white/20 flex items-center justify-center">
             <span className="text-[10px] font-bold text-white">
-              {formatPriceCompact(dish.price)}
+              {formatPriceCompactInCurrency(dish.price, currency)}
             </span>
           </div>
           <span className="text-[9px] mt-1 text-white/80 font-mono">PRICE</span>

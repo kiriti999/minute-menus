@@ -4,7 +4,6 @@ import {
   Check,
   Copy,
   Crown,
-  DollarSign,
   Download,
   Edit2,
   EyeOff,
@@ -54,6 +53,7 @@ import {
 import { getAiInsights } from "../services/geminiService";
 import { supabase } from "../lib/supabase";
 import { supabaseService } from "../services/supabaseService";
+import { SUPPORTED_CURRENCIES, getSymbolForCurrency } from "../lib/currency";
 import {
   type AggregatedMetrics,
   type Category,
@@ -653,6 +653,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     id: string;
     name: string;
     slug: string;
+    currency: string;
   } | null>(null);
 
   // Data State
@@ -993,6 +994,32 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           <QrCode size={18} />
           <span className="font-medium">Get QR Code</span>
         </button>
+
+        {/* Currency Selector */}
+        <div className="mt-3">
+          <label className={`text-[10px] font-bold uppercase tracking-widest block mb-1.5 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>
+            Menu Currency
+          </label>
+          <select
+            value={restaurantDetails?.currency ?? "USD"}
+            onChange={async (e) => {
+              const newCurrency = e.target.value;
+              try {
+                await supabaseService.updateRestaurantCurrency(newCurrency);
+                setRestaurantDetails(prev => prev ? { ...prev, currency: newCurrency } : null);
+              } catch (err) {
+                console.error("Failed to update currency", err);
+              }
+            }}
+            className={`w-full px-3 py-2 rounded-md text-sm font-medium outline-none transition-all ${isDarkTheme ? 'bg-zinc-900 border border-zinc-800 text-white focus:border-zinc-600' : 'bg-white border border-zinc-300 text-zinc-900 focus:border-zinc-500'}`}
+          >
+            {SUPPORTED_CURRENCIES.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.symbol} {c.code} — {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
     </nav>
   );
@@ -1878,10 +1905,13 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                         <div className={`flex items-center justify-between border rounded-lg px-3 py-2 ${isDarkTheme ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-300'}`}>
                           <label className={`text-xs font-bold uppercase tracking-widest ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>Price</label>
                           <div className="flex items-center gap-1">
-                            <DollarSign size={12} className={isDarkTheme ? 'text-zinc-400' : 'text-zinc-500'} />
+                            <span className={`text-xs font-medium ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                              {getSymbolForCurrency(restaurantDetails?.currency ?? "USD")}
+                            </span>
                             <input
                               type="number"
-                              value={dish.price}
+                              value={dish.price || ""}
+                              placeholder="0"
                               onFocus={(e) => {
                                 if (userTier === UserTier.FREE) {
                                   e.target.blur();

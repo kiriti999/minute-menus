@@ -15,8 +15,12 @@ create table if not exists restaurants (
   owner_id   uuid not null references auth.users(id) on delete cascade,
   name       text not null,
   slug       text not null unique,
+  currency   text not null default 'USD',
   created_at timestamptz not null default now()
 );
+
+-- Migration: Add currency column if upgrading existing DB
+-- ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS currency text NOT NULL DEFAULT 'USD';
 
 alter table restaurants enable row level security;
 

@@ -11,7 +11,7 @@ import {
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ReelCard } from "../components/ReelCard";
-import { formatPrice } from "../lib/currency";
+import { formatPriceInCurrency } from "../lib/currency";
 import { supabaseService } from "../services/supabaseService";
 import type { Category, Dish, OrderItem } from "../types";
 
@@ -23,6 +23,7 @@ interface CustomerAppProps {
   restaurantSlug?: string | null;
   restaurantId?: string | null;
   restaurantName?: string | null;
+  currency?: string;
 }
 
 export const CustomerApp: React.FC<CustomerAppProps> = ({
@@ -32,6 +33,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   restaurantSlug,
   restaurantId,
   restaurantName,
+  currency = "USD",
 }) => {
   const [cart, setCart] = useState<OrderItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -288,7 +290,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
             className="h-full w-full snap-start relative"
             style={{ scrollSnapStop: "always" }}
           >
-            <ReelCard dish={dish} onAddToOrder={handleAddToOrder} />
+            <ReelCard dish={dish} onAddToOrder={handleAddToOrder} currency={currency} />
 
             {/* Hint Arrow (except on last item) */}
             {idx < flatDishes.length - 1 && (
@@ -374,7 +376,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                       </div>
                     </div>
                     <p className="font-mono text-white text-lg">
-                      {formatPrice(item.price * item.quantity)}
+                      {formatPriceInCurrency(item.price * item.quantity, currency)}
                     </p>
                   </div>
                 ))
@@ -387,7 +389,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                   Total Amount
                 </span>
                 <span className="text-3xl font-light text-white">
-                  {formatPrice(total)}
+                  {formatPriceInCurrency(total, currency)}
                 </span>
               </div>
               <button

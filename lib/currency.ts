@@ -202,3 +202,81 @@ export const formatPriceCompact = (priceUSD: number, currency?: string): string 
 
     return `${symbol}${Math.floor(convertedPrice)}`;
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BUSINESS CURRENCY (no conversion - prices are already in the target currency)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * List of supported currencies for business selection.
+ */
+export const SUPPORTED_CURRENCIES = [
+    { code: "USD", name: "US Dollar", symbol: "$" },
+    { code: "EUR", name: "Euro", symbol: "€" },
+    { code: "GBP", name: "British Pound", symbol: "£" },
+    { code: "INR", name: "Indian Rupee", symbol: "₹" },
+    { code: "JPY", name: "Japanese Yen", symbol: "¥" },
+    { code: "CNY", name: "Chinese Yuan", symbol: "¥" },
+    { code: "AUD", name: "Australian Dollar", symbol: "A$" },
+    { code: "CAD", name: "Canadian Dollar", symbol: "C$" },
+    { code: "AED", name: "UAE Dirham", symbol: "د.إ" },
+    { code: "SAR", name: "Saudi Riyal", symbol: "﷼" },
+    { code: "SGD", name: "Singapore Dollar", symbol: "S$" },
+    { code: "MYR", name: "Malaysian Ringgit", symbol: "RM" },
+    { code: "THB", name: "Thai Baht", symbol: "฿" },
+    { code: "PHP", name: "Philippine Peso", symbol: "₱" },
+    { code: "IDR", name: "Indonesian Rupiah", symbol: "Rp" },
+    { code: "KRW", name: "South Korean Won", symbol: "₩" },
+    { code: "MXN", name: "Mexican Peso", symbol: "MX$" },
+    { code: "BRL", name: "Brazilian Real", symbol: "R$" },
+    { code: "ZAR", name: "South African Rand", symbol: "R" },
+    { code: "TRY", name: "Turkish Lira", symbol: "₺" },
+    { code: "PLN", name: "Polish Złoty", symbol: "zł" },
+    { code: "SEK", name: "Swedish Krona", symbol: "kr" },
+    { code: "NOK", name: "Norwegian Krone", symbol: "kr" },
+    { code: "DKK", name: "Danish Krone", symbol: "kr" },
+    { code: "CHF", name: "Swiss Franc", symbol: "CHF" },
+    { code: "NZD", name: "New Zealand Dollar", symbol: "NZ$" },
+    { code: "HKD", name: "Hong Kong Dollar", symbol: "HK$" },
+] as const;
+
+/**
+ * Format price in a specific currency (NO conversion - price is already in that currency).
+ * Use this for business prices where the owner sets prices directly in their currency.
+ */
+export const formatPriceInCurrency = (price: number, currencyCode: string): string => {
+    try {
+        return new Intl.NumberFormat("en-US", {
+            style: "currency",
+            currency: currencyCode,
+            minimumFractionDigits: 0,
+            maximumFractionDigits: currencyCode === "JPY" || currencyCode === "KRW" ? 0 : 2,
+        }).format(price);
+    } catch {
+        return `${price}`;
+    }
+};
+
+/**
+ * Format price compactly for badges (NO conversion).
+ */
+export const formatPriceCompactInCurrency = (price: number, currencyCode: string): string => {
+    const symbol = SUPPORTED_CURRENCIES.find(c => c.code === currencyCode)?.symbol ?? "$";
+
+    if (price >= 1000) {
+        return `${symbol}${Math.round(price / 100) / 10}k`;
+    }
+
+    if (currencyCode === "JPY" || currencyCode === "KRW" || currencyCode === "VND" || currencyCode === "IDR") {
+        return `${symbol}${Math.round(price)}`;
+    }
+
+    return `${symbol}${Math.floor(price)}`;
+};
+
+/**
+ * Get symbol for a currency code.
+ */
+export const getSymbolForCurrency = (currencyCode: string): string => {
+    return SUPPORTED_CURRENCIES.find(c => c.code === currencyCode)?.symbol ?? "$";
+};
