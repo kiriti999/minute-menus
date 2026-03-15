@@ -216,8 +216,8 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
     }
   }, []);
 
-  // Generate the restaurant URL
-  const baseUrl = window.location.origin;
+  // Generate the restaurant URL - use production URL if set, otherwise window.location.origin
+  const baseUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
   const restaurantUrl = `${baseUrl}/${currentSlug}`;
 
   const handleSaveSlug = async () => {

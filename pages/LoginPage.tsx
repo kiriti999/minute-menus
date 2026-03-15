@@ -22,10 +22,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const handleGoogleLogin = async () => {
     setIsLoading(true);
     setError("");
+    // Use production URL if set, otherwise window.location.origin
+    const redirectUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: redirectUrl,
       },
     });
     if (error) {
