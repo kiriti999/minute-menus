@@ -1,6 +1,7 @@
 import { Check, Plus, Volume2, VolumeX } from "lucide-react";
 import type React from "react";
 import { useRef, useState } from "react";
+import { formatPriceCompact } from "../lib/currency";
 import type { Dish } from "../types";
 
 interface ReelCardProps {
@@ -82,8 +83,8 @@ export const ReelCard: React.FC<ReelCardProps> = ({ dish, onAddToOrder }) => {
         {/* Price Badge */}
         <div className="flex flex-col items-center">
           <div className="w-12 h-12 rounded-full bg-black/40 backdrop-blur border border-white/20 flex items-center justify-center">
-            <span className="text-xs font-bold text-white">
-              ${Math.floor(dish.price)}
+            <span className="text-[10px] font-bold text-white">
+              {formatPriceCompact(dish.price)}
             </span>
           </div>
           <span className="text-[9px] mt-1 text-white/80 font-mono">PRICE</span>
@@ -120,8 +121,8 @@ export const ReelCard: React.FC<ReelCardProps> = ({ dish, onAddToOrder }) => {
         <button
           onClick={handleAdd}
           className={`pointer-events-auto w-full py-3 sm:py-4 rounded-sm font-bold text-sm tracking-[0.2em] uppercase transition-all duration-300 shadow-xl flex items-center justify-center gap-3 ${added
-              ? "bg-green-500 text-black"
-              : "bg-white text-black hover:bg-zinc-200"
+            ? "bg-green-500 text-black"
+            : "bg-white text-black hover:bg-zinc-200"
             }`}
         >
           {added ? <Check size={18} /> : <Plus size={18} />}

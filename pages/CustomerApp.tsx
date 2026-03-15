@@ -11,6 +11,7 @@ import {
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ReelCard } from "../components/ReelCard";
+import { formatPrice } from "../lib/currency";
 import { supabaseService } from "../services/supabaseService";
 import type { Category, Dish, OrderItem } from "../types";
 
@@ -373,7 +374,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                       </div>
                     </div>
                     <p className="font-mono text-white text-lg">
-                      ${(item.price * item.quantity).toFixed(2)}
+                      {formatPrice(item.price * item.quantity)}
                     </p>
                   </div>
                 ))
@@ -386,7 +387,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                   Total Amount
                 </span>
                 <span className="text-3xl font-light text-white">
-                  ${total.toFixed(2)}
+                  {formatPrice(total)}
                 </span>
               </div>
               <button
