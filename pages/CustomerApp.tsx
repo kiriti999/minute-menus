@@ -205,7 +205,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       {/* === Header & Tabs === */}
       <div className="fixed top-0 left-0 right-0 z-50 flex flex-col pointer-events-none">
         {/* Top Bar: Logo & Cart */}
-        <div className="flex justify-between items-start p-3 sm:p-5 w-full bg-gradient-to-b from-black/80 to-transparent">
+        <div className={`flex justify-between items-start p-3 sm:p-5 w-full bg-gradient-to-b ${isDarkTheme ? 'from-black/80' : 'from-white/80'} to-transparent`}>
           <button
             onClick={onNavigateToDashboard}
             className="flex items-center gap-2 group cursor-pointer pointer-events-auto hover:opacity-80 transition-opacity"
@@ -223,9 +223,9 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           <div className="flex items-center gap-2 pointer-events-auto">
             <button
               onClick={onToggleTheme}
-              className="p-2.5 rounded-full bg-black/40 backdrop-blur-md border border-white/20 hover:bg-black/60 transition-colors shadow-lg"
+              className={`p-2.5 rounded-full backdrop-blur-md border transition-colors shadow-lg ${isDarkTheme ? 'bg-black/40 border-white/20 hover:bg-black/60' : 'bg-white/40 border-black/20 hover:bg-white/60'}`}
             >
-              {isDarkTheme ? <Sun size={18} className="text-white" /> : <Moon size={18} className="text-black" />}
+              {isDarkTheme ? <Sun size={18} className="text-white" /> : <Moon size={18} className="text-zinc-800" />}
             </button>
             <button
               onClick={() => setIsCartOpen(true)}

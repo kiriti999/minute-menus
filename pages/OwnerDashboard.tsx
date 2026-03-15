@@ -69,16 +69,18 @@ interface PaywallModalProps {
   onClose: () => void;
   onUpgrade: () => void;
   trigger: string;
+  isDarkTheme: boolean;
 }
 
 const PaywallModal: React.FC<PaywallModalProps> = ({
   onClose,
   onUpgrade,
   trigger,
+  isDarkTheme,
 }) => {
   return (
-    <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300">
-      <div className="bg-zinc-900 border border-zinc-800 w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row">
+    <div className={`fixed inset-0 z-[100] backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300 ${isDarkTheme ? 'bg-black/80' : 'bg-white/80'}`}>
+      <div className={`border w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row ${isDarkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-300'}`}>
         <div className="bg-gradient-to-br from-purple-900 to-black p-8 md:w-2/5 flex flex-col justify-between">
           <div>
             <div className="w-10 h-10 bg-white text-black rounded flex items-center justify-center mb-6">
@@ -106,52 +108,52 @@ const PaywallModal: React.FC<PaywallModalProps> = ({
             </ul>
           </div>
         </div>
-        <div className="p-8 md:w-3/5 bg-black relative">
+        <div className={`p-8 md:w-3/5 relative ${isDarkTheme ? 'bg-black' : 'bg-zinc-50'}`}>
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 text-zinc-500 hover:text-white"
+            className={`absolute top-4 right-4 ${isDarkTheme ? 'text-zinc-500 hover:text-white' : 'text-zinc-400 hover:text-zinc-900'}`}
           >
             <X size={20} />
           </button>
 
           <div className="text-center mb-8">
-            <p className="text-xs text-zinc-500 uppercase tracking-widest mb-1">
+            <p className={`text-xs uppercase tracking-widest mb-1 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-400'}`}>
               Feature Locked
             </p>
-            <h3 className="text-xl font-bold text-white">{trigger}</h3>
+            <h3 className={`text-xl font-bold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{trigger}</h3>
           </div>
 
           <div className="space-y-4">
             <button
               onClick={onUpgrade}
-              className="w-full border border-white/20 bg-zinc-900 hover:bg-zinc-800 p-4 rounded-lg flex justify-between items-center group transition-all"
+              className={`w-full border p-4 rounded-lg flex justify-between items-center group transition-all ${isDarkTheme ? 'border-white/20 bg-zinc-900 hover:bg-zinc-800' : 'border-zinc-300 bg-white hover:bg-zinc-100'}`}
             >
               <div className="text-left">
-                <div className="text-white font-bold">Annual Plan</div>
-                <div className="text-zinc-500 text-xs">Billed $120/year</div>
+                <div className={`font-bold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>Annual Plan</div>
+                <div className={`text-xs ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>Billed $120/year</div>
               </div>
               <div className="flex items-center gap-3">
                 <span className="bg-green-900/30 text-green-400 text-[10px] font-bold px-2 py-1 rounded">
                   SAVE 17%
                 </span>
-                <span className="text-xl font-bold text-white">
+                <span className={`text-xl font-bold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
                   $10
-                  <span className="text-xs font-normal text-zinc-500">/mo</span>
+                  <span className={`text-xs font-normal ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>/mo</span>
                 </span>
               </div>
             </button>
 
             <button
               onClick={onUpgrade}
-              className="w-full border border-white p-4 rounded-lg flex justify-between items-center bg-white hover:bg-zinc-200 transition-all"
+              className={`w-full border p-4 rounded-lg flex justify-between items-center transition-all ${isDarkTheme ? 'border-white bg-white hover:bg-zinc-200' : 'border-zinc-900 bg-zinc-900 hover:bg-zinc-800'}`}
             >
               <div className="text-left">
-                <div className="text-black font-bold">Monthly Plan</div>
-                <div className="text-zinc-600 text-xs">Cancel anytime</div>
+                <div className={`font-bold ${isDarkTheme ? 'text-black' : 'text-white'}`}>Monthly Plan</div>
+                <div className={isDarkTheme ? 'text-zinc-600 text-xs' : 'text-zinc-400 text-xs'}>Cancel anytime</div>
               </div>
-              <span className="text-xl font-bold text-black">
+              <span className={`text-xl font-bold ${isDarkTheme ? 'text-black' : 'text-white'}`}>
                 $12
-                <span className="text-xs font-normal text-zinc-600">/mo</span>
+                <span className={`text-xs font-normal ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-400'}`}>/mo</span>
               </span>
             </button>
           </div>
@@ -159,7 +161,7 @@ const PaywallModal: React.FC<PaywallModalProps> = ({
           <div className="text-center mt-6">
             <button
               onClick={onClose}
-              className="text-xs text-zinc-600 hover:text-zinc-400"
+              className={`text-xs ${isDarkTheme ? 'text-zinc-600 hover:text-zinc-400' : 'text-zinc-500 hover:text-zinc-700'}`}
             >
               Maybe Later
             </button>
@@ -176,6 +178,7 @@ interface QrCodeModalProps {
   restaurantSlug: string;
   restaurantName: string;
   onSlugUpdated: (newSlug: string) => void;
+  isDarkTheme: boolean;
 }
 
 const QrCodeModal: React.FC<QrCodeModalProps> = ({
@@ -183,6 +186,7 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
   restaurantSlug: initialSlug,
   restaurantName,
   onSlugUpdated,
+  isDarkTheme,
 }) => {
   const [color, setColor] = useState("#000000");
   const [copied, setCopied] = useState(false);
@@ -275,24 +279,24 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col">
-        <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
+    <div className={`fixed inset-0 z-[70] backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200 ${isDarkTheme ? 'bg-black/90' : 'bg-white/90'}`}>
+      <div className={`border rounded-xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col ${isDarkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-300'}`}>
+        <div className={`p-6 border-b flex justify-between items-center ${isDarkTheme ? 'border-zinc-800' : 'border-zinc-200'}`}>
           <div className="flex items-center gap-3">
-            <QrCode className="text-white" size={20} />
-            <h2 className="text-xl font-bold text-white">QR Code Studio</h2>
+            <QrCode className={isDarkTheme ? 'text-white' : 'text-zinc-900'} size={20} />
+            <h2 className={`text-xl font-bold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>QR Code Studio</h2>
           </div>
           <button onClick={onClose}>
-            <X size={20} className="text-zinc-500 hover:text-white" />
+            <X size={20} className={`${isDarkTheme ? 'text-zinc-500 hover:text-white' : 'text-zinc-400 hover:text-zinc-900'}`} />
           </button>
         </div>
 
-        <div className="p-8 flex flex-col items-center bg-zinc-950">
+        <div className={`p-8 flex flex-col items-center ${isDarkTheme ? 'bg-zinc-950' : 'bg-zinc-50'}`}>
           {/* Loading state when fixing legacy slug */}
           {isFixingSlug && (
             <div className="text-center mb-6">
-              <div className="animate-spin w-6 h-6 border-2 border-white border-t-transparent rounded-full mx-auto mb-2" />
-              <p className="text-zinc-400 text-sm">Generating friendly URL...</p>
+              <div className={`animate-spin w-6 h-6 border-2 border-t-transparent rounded-full mx-auto mb-2 ${isDarkTheme ? 'border-white' : 'border-zinc-900'}`} />
+              <p className={`text-sm ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>Generating friendly URL...</p>
             </div>
           )}
 
@@ -319,19 +323,19 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
           </div>
 
           {/* Restaurant Name */}
-          <p className="text-white font-bold text-lg mb-2">{restaurantName}</p>
+          <p className={`font-bold text-lg mb-2 ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{restaurantName}</p>
 
           {/* URL Display & Edit */}
           <div className="w-full mb-6">
             {isEditing ? (
               <div className="space-y-2">
-                <div className="flex items-center gap-2 bg-zinc-800 rounded-lg p-3">
-                  <span className="text-zinc-500 text-sm">{baseUrl}/</span>
+                <div className={`flex items-center gap-2 rounded-lg p-3 ${isDarkTheme ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
+                  <span className={`text-sm ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>{baseUrl}/</span>
                   <input
                     type="text"
                     value={editedSlug}
                     onChange={(e) => setEditedSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
-                    className="flex-1 bg-transparent text-white text-sm border-b border-zinc-600 focus:border-white outline-none"
+                    className={`flex-1 bg-transparent text-sm border-b outline-none ${isDarkTheme ? 'text-white border-zinc-600 focus:border-white' : 'text-zinc-900 border-zinc-300 focus:border-zinc-900'}`}
                     placeholder="your-restaurant-name"
                     autoFocus
                   />
@@ -341,34 +345,34 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
                   <button
                     onClick={handleSaveSlug}
                     disabled={isSaving}
-                    className="flex-1 bg-white text-black py-2 rounded font-medium text-sm hover:bg-zinc-200 transition-colors disabled:opacity-50"
+                    className={`flex-1 py-2 rounded font-medium text-sm transition-colors disabled:opacity-50 ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
                   >
                     {isSaving ? "Saving..." : "Save URL"}
                   </button>
                   <button
                     onClick={() => { setIsEditing(false); setEditedSlug(currentSlug); setSlugError(null); }}
-                    className="px-4 py-2 bg-zinc-700 text-white rounded font-medium text-sm hover:bg-zinc-600 transition-colors"
+                    className={`px-4 py-2 rounded font-medium text-sm transition-colors ${isDarkTheme ? 'bg-zinc-700 text-white hover:bg-zinc-600' : 'bg-zinc-200 text-zinc-900 hover:bg-zinc-300'}`}
                   >
                     Cancel
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="bg-zinc-800 rounded-lg p-3 flex items-center justify-between gap-2">
-                <code className="text-zinc-400 text-sm truncate flex-1">
+              <div className={`rounded-lg p-3 flex items-center justify-between gap-2 ${isDarkTheme ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
+                <code className={`text-sm truncate flex-1 ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>
                   {restaurantUrl}
                 </code>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setIsEditing(true)}
-                    className="p-1.5 hover:bg-zinc-700 rounded text-zinc-400 hover:text-white transition-colors"
+                    className={`p-1.5 rounded transition-colors ${isDarkTheme ? 'hover:bg-zinc-700 text-zinc-400 hover:text-white' : 'hover:bg-zinc-200 text-zinc-500 hover:text-zinc-900'}`}
                     title="Edit URL"
                   >
                     <Edit2 size={14} />
                   </button>
                   <button
                     onClick={handleCopyUrl}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 rounded text-xs font-medium text-white transition-colors"
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${isDarkTheme ? 'bg-zinc-700 hover:bg-zinc-600 text-white' : 'bg-zinc-200 hover:bg-zinc-300 text-zinc-900'}`}
                   >
                     {copied ? (
                       <>
@@ -390,7 +394,7 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
           {/* Color Selection */}
           <div className="w-full space-y-6">
             <div className="text-center">
-              <label className="text-xs text-zinc-500 uppercase tracking-widest mb-4 block">
+              <label className={`text-xs uppercase tracking-widest mb-4 block ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>
                 Select Brand Color
               </label>
               <div className="flex gap-4 justify-center">
@@ -404,7 +408,7 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
                   <button
                     key={c.hex}
                     onClick={() => setColor(c.hex)}
-                    className={`w-10 h-10 rounded-full border-2 transition-all shadow-lg ${color === c.hex ? "border-white scale-110" : "border-transparent hover:scale-110"}`}
+                    className={`w-10 h-10 rounded-full border-2 transition-all shadow-lg ${color === c.hex ? (isDarkTheme ? "border-white scale-110" : "border-zinc-900 scale-110") : "border-transparent hover:scale-110"}`}
                     style={{ backgroundColor: c.hex }}
                     title={c.label}
                   />
@@ -416,21 +420,21 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
             <div className="grid grid-cols-3 gap-3">
               <button
                 onClick={handleDownloadPNG}
-                className="bg-white text-black py-3 rounded font-bold text-sm hover:bg-zinc-200 transition-colors flex items-center justify-center gap-2"
+                className={`py-3 rounded font-bold text-sm transition-colors flex items-center justify-center gap-2 ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
               >
                 <Download size={16} />
                 PNG
               </button>
               <button
                 onClick={handleDownloadSVG}
-                className="bg-zinc-800 text-white py-3 rounded font-bold text-sm hover:bg-zinc-700 transition-colors flex items-center justify-center gap-2 border border-zinc-700"
+                className={`py-3 rounded font-bold text-sm transition-colors flex items-center justify-center gap-2 border ${isDarkTheme ? 'bg-zinc-800 text-white hover:bg-zinc-700 border-zinc-700' : 'bg-zinc-100 text-zinc-900 hover:bg-zinc-200 border-zinc-300'}`}
               >
                 <Download size={16} />
                 SVG
               </button>
               <button
                 onClick={() => window.print()}
-                className="bg-zinc-800 text-white py-3 rounded font-bold text-sm hover:bg-zinc-700 transition-colors flex items-center justify-center gap-2 border border-zinc-700"
+                className={`py-3 rounded font-bold text-sm transition-colors flex items-center justify-center gap-2 border ${isDarkTheme ? 'bg-zinc-800 text-white hover:bg-zinc-700 border-zinc-700' : 'bg-zinc-100 text-zinc-900 hover:bg-zinc-200 border-zinc-300'}`}
               >
                 <Printer size={16} />
                 Print
@@ -439,8 +443,8 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
           </div>
         </div>
 
-        <div className="p-4 bg-zinc-900 border-t border-zinc-800 text-center">
-          <p className="text-[10px] text-zinc-500">
+        <div className={`p-4 border-t text-center ${isDarkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+          <p className={`text-[10px] ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>
             Print this QR code on table tents, menus, or at the entrance.
             Customers scan to view your menu instantly.
           </p>
@@ -460,6 +464,7 @@ interface MediaEditorProps {
     transform: { x: number; y: number; scale: number },
   ) => void;
   onCancel: () => void;
+  isDarkTheme: boolean;
 }
 
 const MediaEditor: React.FC<MediaEditorProps> = ({
@@ -468,6 +473,7 @@ const MediaEditor: React.FC<MediaEditorProps> = ({
   initialTransform,
   onSave,
   onCancel,
+  isDarkTheme,
 }) => {
   const [scale, setScale] = useState(initialTransform?.scale || 1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -526,13 +532,13 @@ const MediaEditor: React.FC<MediaEditorProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl max-w-5xl w-full flex flex-col lg:flex-row overflow-hidden h-[85vh] lg:h-auto lg:max-h-[90vh]">
+    <div className={`fixed inset-0 z-[60] backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200 ${isDarkTheme ? 'bg-black/90' : 'bg-white/90'}`}>
+      <div className={`border rounded-xl shadow-2xl max-w-5xl w-full flex flex-col lg:flex-row overflow-hidden h-[85vh] lg:h-auto lg:max-h-[90vh] ${isDarkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-300'}`}>
         {/* Left/Top: Preview Area */}
-        <div className="flex-1 bg-black relative flex items-center justify-center p-4 lg:p-8 overflow-hidden select-none">
+        <div className={`flex-1 relative flex items-center justify-center p-4 lg:p-8 overflow-hidden select-none ${isDarkTheme ? 'bg-black' : 'bg-zinc-100'}`}>
           <div
             ref={containerRef}
-            className="relative w-full max-w-[240px] md:max-w-[280px] lg:max-w-[320px] aspect-[9/16] bg-zinc-800 overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)] border border-zinc-700 ring-1 ring-white/10 group cursor-move touch-none"
+            className={`relative w-full max-w-[240px] md:max-w-[280px] lg:max-w-[320px] aspect-[9/16] overflow-hidden shadow-[0_0_100px_rgba(0,0,0,0.8)] border ring-1 group cursor-move touch-none ${isDarkTheme ? 'bg-zinc-800 border-zinc-700 ring-white/10' : 'bg-zinc-200 border-zinc-300 ring-black/10'}`}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
@@ -565,7 +571,7 @@ const MediaEditor: React.FC<MediaEditorProps> = ({
               />
             )}
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              <div className="bg-black/50 backdrop-blur text-white text-[10px] px-2 py-1 rounded-full border border-white/10">
+              <div className={`backdrop-blur text-[10px] px-2 py-1 rounded-full border ${isDarkTheme ? 'bg-black/50 text-white border-white/10' : 'bg-white/50 text-zinc-900 border-black/10'}`}>
                 DRAG TO PAN
               </div>
             </div>
@@ -573,10 +579,10 @@ const MediaEditor: React.FC<MediaEditorProps> = ({
         </div>
 
         {/* Right/Bottom: Controls Sidebar */}
-        <div className="w-full lg:w-80 bg-zinc-900 p-6 flex flex-col border-t lg:border-t-0 lg:border-l border-zinc-800 z-10 shrink-0 h-auto">
+        <div className={`w-full lg:w-80 p-6 flex flex-col border-t lg:border-t-0 lg:border-l z-10 shrink-0 h-auto ${isDarkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-50 border-zinc-200'}`}>
           <div className="mb-4 lg:mb-6">
-            <h3 className="text-white font-bold text-lg">Edit Media</h3>
-            <p className="text-zinc-500 text-xs">
+            <h3 className={`font-bold text-lg ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>Edit Media</h3>
+            <p className={`text-xs ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>
               Adjust your content to fit the vertical 9:16 format.
             </p>
           </div>
@@ -584,7 +590,7 @@ const MediaEditor: React.FC<MediaEditorProps> = ({
           {/* Zoom Control */}
           <div className="mb-4 lg:mb-8 space-y-4 lg:space-y-6">
             <div className="space-y-3">
-              <div className="flex justify-between text-xs text-zinc-400">
+              <div className={`flex justify-between text-xs ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-500'}`}>
                 <span>Zoom</span>
                 <span>{(scale * 100).toFixed(0)}%</span>
               </div>
@@ -595,7 +601,7 @@ const MediaEditor: React.FC<MediaEditorProps> = ({
                 step="0.01"
                 value={scale}
                 onChange={(e) => setScale(parseFloat(e.target.value))}
-                className="w-full h-12 md:h-1 bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-white"
+                className={`w-full h-12 md:h-1 rounded-lg appearance-none cursor-pointer ${isDarkTheme ? 'bg-zinc-700 accent-white' : 'bg-zinc-300 accent-zinc-900'}`}
               />
             </div>
           </div>
@@ -604,13 +610,13 @@ const MediaEditor: React.FC<MediaEditorProps> = ({
           <div className="mt-auto w-full flex flex-col items-center gap-4">
             <button
               onClick={handleConfirm}
-              className="w-full md:w-[80%] lg:w-full h-12 bg-white text-black font-bold text-sm rounded hover:bg-zinc-200 flex items-center justify-center transition-colors"
+              className={`w-full md:w-[80%] lg:w-full h-12 font-bold text-sm rounded flex items-center justify-center transition-colors ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
             >
               SAVE CHANGES
             </button>
             <button
               onClick={onCancel}
-              className="w-full md:w-[80%] lg:w-full h-12 bg-transparent border border-zinc-700 text-white font-bold text-sm rounded hover:bg-zinc-800 flex items-center justify-center transition-colors"
+              className={`w-full md:w-[80%] lg:w-full h-12 bg-transparent border font-bold text-sm rounded flex items-center justify-center transition-colors ${isDarkTheme ? 'border-zinc-700 text-white hover:bg-zinc-800' : 'border-zinc-300 text-zinc-900 hover:bg-zinc-100'}`}
             >
               CANCEL
             </button>
@@ -893,7 +899,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const PlanInfo = () => (
     <div className="px-6 pb-4 mt-auto">
       <div
-        className={`p-3 rounded-lg border ${userTier === UserTier.PLUS ? "bg-purple-900/20 border-purple-500/50" : "bg-zinc-900 border-zinc-800"}`}
+        className={`p-3 rounded-lg border ${userTier === UserTier.PLUS ? "bg-purple-900/20 border-purple-500/50" : isDarkTheme ? "bg-zinc-900 border-zinc-800" : "bg-zinc-100 border-zinc-300"}`}
       >
         <div className="flex items-center gap-2 mb-1">
           <Plus
@@ -915,7 +921,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
               setIsMobileMenuOpen(false);
               setPaywallTrigger("Upgrade to Plus");
             }}
-            className="text-[10px] text-white underline mt-1"
+            className={`text-[10px] underline mt-1 ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}
           >
             Upgrade to Plus
           </button>
@@ -926,7 +932,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           setIsMobileMenuOpen(false);
           onSignOut();
         }}
-        className="w-full mt-3 flex items-center justify-center gap-2 px-3 py-2 text-xs text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+        className={`w-full mt-3 flex items-center justify-center gap-2 px-3 py-2 text-xs rounded-lg transition-colors ${isDarkTheme ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200'}`}
       >
         <LogOut size={14} />
         Sign Out
@@ -941,7 +947,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           setCurrentView("DASHBOARD");
           setIsMobileMenuOpen(false);
         }}
-        className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-300 ${currentView === "DASHBOARD" ? "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.1)]" : "text-zinc-500 hover:text-white hover:bg-zinc-900"}`}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-300 ${currentView === "DASHBOARD" ? (isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white") + " shadow-[0_0_15px_rgba(255,255,255,0.1)]" : isDarkTheme ? "text-zinc-500 hover:text-white hover:bg-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200"}`}
       >
         <TrendingUp size={18} />
         <span className="font-medium">Analytics</span>
@@ -951,7 +957,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           setCurrentView("MENU");
           setIsMobileMenuOpen(false);
         }}
-        className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-300 ${currentView === "MENU" ? "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.1)]" : "text-zinc-500 hover:text-white hover:bg-zinc-900"}`}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-300 ${currentView === "MENU" ? (isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white") + " shadow-[0_0_15px_rgba(255,255,255,0.1)]" : isDarkTheme ? "text-zinc-500 hover:text-white hover:bg-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200"}`}
       >
         <Utensils size={18} />
         <span className="font-medium">Menu Editor</span>
@@ -961,21 +967,21 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           setCurrentView("CUSTOMERS");
           setIsMobileMenuOpen(false);
         }}
-        className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-300 ${currentView === "CUSTOMERS" ? "bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.1)]" : "text-zinc-500 hover:text-white hover:bg-zinc-900"}`}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-300 ${currentView === "CUSTOMERS" ? (isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white") + " shadow-[0_0_15px_rgba(255,255,255,0.1)]" : isDarkTheme ? "text-zinc-500 hover:text-white hover:bg-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200"}`}
       >
         <Users size={18} />
         <span className="font-medium">Customers</span>
       </button>
 
       {/* QR Code Button - Standalone action */}
-      <div className="pt-4 mt-4 border-t border-zinc-800">
+      <div className={`pt-4 mt-4 border-t ${isDarkTheme ? 'border-zinc-800' : 'border-zinc-300'}`}>
         <button
           onClick={() => {
             setIsQrModalOpen(true);
             setIsMobileMenuOpen(false);
           }}
           disabled={!restaurantDetails}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-300 bg-gradient-to-r from-zinc-800 to-zinc-900 text-white hover:from-zinc-700 hover:to-zinc-800 border border-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-300 ${isDarkTheme ? 'bg-gradient-to-r from-zinc-800 to-zinc-900 text-white hover:from-zinc-700 hover:to-zinc-800 border border-zinc-700' : 'bg-gradient-to-r from-zinc-200 to-zinc-300 text-zinc-900 hover:from-zinc-300 hover:to-zinc-400 border border-zinc-400'} disabled:opacity-50 disabled:cursor-not-allowed`}
         >
           <QrCode size={18} />
           <span className="font-medium">Get QR Code</span>
@@ -985,13 +991,14 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   );
 
   return (
-    <div className="flex h-screen bg-black text-white overflow-hidden font-sans selection:bg-white selection:text-black">
+    <div className={`flex h-screen ${isDarkTheme ? 'bg-black text-white' : 'bg-zinc-100 text-zinc-900'} overflow-hidden font-sans selection:bg-white selection:text-black transition-colors duration-300`}>
       {/* Paywall Modal */}
       {paywallTrigger && (
         <PaywallModal
           trigger={paywallTrigger}
           onClose={() => setPaywallTrigger(null)}
           onUpgrade={handleUpgrade}
+          isDarkTheme={isDarkTheme}
         />
       )}
 
@@ -1002,6 +1009,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           restaurantSlug={restaurantDetails.slug}
           restaurantName={restaurantDetails.name}
           onSlugUpdated={(newSlug) => setRestaurantDetails(prev => prev ? { ...prev, slug: newSlug } : null)}
+          isDarkTheme={isDarkTheme}
         />
       )}
 
@@ -1012,29 +1020,30 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           initialPreviewUrl={editingMedia.previewUrl}
           onSave={onMediaEditorSave}
           onCancel={() => setEditingMedia(null)}
+          isDarkTheme={isDarkTheme}
         />
       )}
 
       {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-black border-b border-zinc-800 px-4 py-3 flex justify-between items-center">
+      <div className={`md:hidden fixed top-0 left-0 right-0 z-50 border-b px-4 py-3 flex justify-between items-center ${isDarkTheme ? 'bg-black border-zinc-800' : 'bg-white border-zinc-200'}`}>
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-white rounded flex items-center justify-center">
-            <span className="font-bold text-black text-xs">M</span>
+          <div className={`w-6 h-6 rounded flex items-center justify-center ${isDarkTheme ? 'bg-white' : 'bg-zinc-900'}`}>
+            <span className={`font-bold text-xs ${isDarkTheme ? 'text-black' : 'text-white'}`}>M</span>
           </div>
-          <span className="text-sm font-bold tracking-tight text-white">
+          <span className={`text-sm font-bold tracking-tight ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
             Minute Menus
           </span>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={onToggleTheme}
-            className="p-2 rounded-full hover:bg-zinc-800 transition-colors"
+            className={`p-2 rounded-full transition-colors ${isDarkTheme ? 'hover:bg-zinc-800' : 'hover:bg-zinc-200'}`}
           >
-            {isDarkTheme ? <Sun size={20} className="text-white" /> : <Moon size={20} className="text-white" />}
+            {isDarkTheme ? <Sun size={20} className="text-white" /> : <Moon size={20} className="text-zinc-800" />}
           </button>
           <button
             onClick={() => setIsMobileMenuOpen(true)}
-            className="text-white p-1"
+            className={`p-1 ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}
           >
             <Menu size={24} />
           </button>
@@ -1043,18 +1052,18 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
       {/* Mobile Navigation Overlay */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/95 backdrop-blur-xl flex flex-col animate-in slide-in-from-right duration-300">
+        <div className={`fixed inset-0 z-[60] backdrop-blur-xl flex flex-col animate-in slide-in-from-right duration-300 ${isDarkTheme ? 'bg-black/95' : 'bg-white/95'}`}>
           <div className="p-4 flex justify-end">
             <button
               onClick={() => setIsMobileMenuOpen(false)}
-              className="p-2 text-zinc-400 hover:text-white"
+              className={`p-2 ${isDarkTheme ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-900'}`}
             >
               <X size={24} />
             </button>
           </div>
           <div className="px-6 mb-8">
-            <h2 className="text-2xl font-bold text-white mb-2">Navigation</h2>
-            <p className="text-zinc-500 text-sm">Manage your restaurant.</p>
+            <h2 className={`text-2xl font-bold mb-2 ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>Navigation</h2>
+            <p className={`text-sm ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>Manage your restaurant.</p>
           </div>
           <NavigationLinks />
           <PlanInfo />
@@ -1062,21 +1071,21 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       )}
 
       {/* Desktop Sidebar */}
-      <aside className="w-64 bg-black border-r border-zinc-800 flex-col hidden md:flex h-full">
+      <aside className={`w-64 border-r flex-col hidden md:flex h-full ${isDarkTheme ? 'bg-black border-zinc-800' : 'bg-white border-zinc-200'}`}>
         <div className="p-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-white rounded flex items-center justify-center">
-              <span className="font-bold text-black text-lg">M</span>
+            <div className={`w-8 h-8 rounded flex items-center justify-center ${isDarkTheme ? 'bg-white' : 'bg-zinc-900'}`}>
+              <span className={`font-bold text-lg ${isDarkTheme ? 'text-black' : 'text-white'}`}>M</span>
             </div>
-            <span className="text-xl font-bold tracking-tight text-white">
+            <span className={`text-xl font-bold tracking-tight ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
               Minute Menus
             </span>
           </div>
           <button
             onClick={onToggleTheme}
-            className="p-2 rounded-full hover:bg-zinc-800 transition-colors"
+            className={`p-2 rounded-full transition-colors ${isDarkTheme ? 'hover:bg-zinc-800' : 'hover:bg-zinc-200'}`}
           >
-            {isDarkTheme ? <Sun size={18} className="text-white" /> : <Moon size={18} className="text-white" />}
+            {isDarkTheme ? <Sun size={18} className="text-white" /> : <Moon size={18} className="text-zinc-800" />}
           </button>
         </div>
 
@@ -1085,13 +1094,13 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-hidden flex flex-col bg-black relative pt-14 md:pt-0">
+      <main className={`flex-1 overflow-hidden flex flex-col relative pt-14 md:pt-0 ${isDarkTheme ? 'bg-black' : 'bg-zinc-50'}`}>
         {/* Dashboard View */}
         {currentView === "DASHBOARD" && metrics && (
           <div className="flex-1 overflow-y-auto p-4 md:p-12 animate-in fade-in duration-500 pb-24">
             <header className="flex flex-col md:flex-row justify-between md:items-end mb-8 md:mb-12 gap-4">
               <div>
-                <h1 className="text-3xl md:text-4xl font-light tracking-tight text-white mb-2">
+                <h1 className={`text-3xl md:text-4xl font-light tracking-tight mb-2 ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
                   Dashboard
                 </h1>
                 <div className="flex flex-wrap items-center gap-4">
@@ -1100,16 +1109,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                     </span>
-                    <p className="text-zinc-500 text-sm">Live Updates (10s)</p>
+                    <p className={`text-sm ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>Live Updates (10s)</p>
                   </div>
 
                   {/* Date Range Filter */}
-                  <div className="flex bg-zinc-900 rounded-md p-1 ml-0 md:ml-4">
+                  <div className={`flex rounded-md p-1 ml-0 md:ml-4 ${isDarkTheme ? 'bg-zinc-900' : 'bg-zinc-200'}`}>
                     {(["24h", "7d", "30d"] as TimeWindow[]).map((w) => (
                       <button
                         key={w}
                         onClick={() => setTimeWindow(w)}
-                        className={`px-3 py-1 text-xs font-bold rounded ${timeWindow === w ? "bg-white text-black" : "text-zinc-500 hover:text-white"}`}
+                        className={`px-3 py-1 text-xs font-bold rounded ${timeWindow === w ? (isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white") : isDarkTheme ? "text-zinc-500 hover:text-white" : "text-zinc-500 hover:text-zinc-900"}`}
                       >
                         {w.toUpperCase()}
                       </button>
@@ -1119,7 +1128,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
               </div>
               <button
                 onClick={handleExportCSV}
-                className="flex items-center gap-2 border border-zinc-700 hover:bg-white hover:text-black text-white px-4 sm:px-6 py-2 rounded text-sm font-medium transition-colors self-start md:self-auto w-full sm:w-auto justify-center sm:justify-start"
+                className={`flex items-center gap-2 border px-4 sm:px-6 py-2 rounded text-sm font-medium transition-colors self-start md:self-auto w-full sm:w-auto justify-center sm:justify-start ${isDarkTheme ? 'border-zinc-700 hover:bg-white hover:text-black text-white' : 'border-zinc-400 hover:bg-zinc-900 hover:text-white text-zinc-900'}`}
               >
                 <Download size={14} />
                 Export CSV
@@ -1155,15 +1164,15 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 <div
                   key={i}
                   onClick={() => triggerPaywall("Detailed Analytics")}
-                  className="bg-zinc-900/50 p-3 sm:p-4 md:p-6 rounded border border-zinc-800 hover:border-zinc-600 transition-colors group cursor-pointer hover:bg-zinc-900"
+                  className={`p-3 sm:p-4 md:p-6 rounded border transition-colors group cursor-pointer ${isDarkTheme ? 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-600 hover:bg-zinc-900' : 'bg-white border-zinc-300 hover:border-zinc-400 hover:bg-zinc-50'}`}
                 >
-                  <div className="text-zinc-500 mb-2 md:mb-3 text-xs uppercase tracking-widest group-hover:text-zinc-300 transition-colors">
+                  <div className={`mb-2 md:mb-3 text-xs uppercase tracking-widest transition-colors ${isDarkTheme ? 'text-zinc-500 group-hover:text-zinc-300' : 'text-zinc-500 group-hover:text-zinc-700'}`}>
                     {metric.label}
                   </div>
-                  <div className="text-xl md:text-3xl font-light text-white mb-1 md:mb-2 truncate">
+                  <div className={`text-xl md:text-3xl font-light mb-1 md:mb-2 truncate ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
                     {metric.value}
                   </div>
-                  <div className="text-xs text-zinc-600 font-mono">
+                  <div className={`text-xs font-mono ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-500'}`}>
                     {metric.sub}
                   </div>
                 </div>
@@ -1172,20 +1181,20 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
             {/* AI Insights Section */}
             <section className="mb-8 md:mb-12">
-              <div className="bg-zinc-900 border border-zinc-800 rounded overflow-hidden relative group">
-                <div className="absolute top-0 left-0 w-1 h-full bg-white"></div>
+              <div className={`border rounded overflow-hidden relative group ${isDarkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-300'}`}>
+                <div className={`absolute top-0 left-0 w-1 h-full ${isDarkTheme ? 'bg-white' : 'bg-zinc-900'}`}></div>
                 <div className="p-6 md:p-8">
                   <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
                     <div className="flex items-center gap-3">
-                      <BrainCircuit className="text-white" size={20} />
-                      <h2 className="text-lg font-medium text-white">
+                      <BrainCircuit className={isDarkTheme ? 'text-white' : 'text-zinc-900'} size={20} />
+                      <h2 className={`text-lg font-medium ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
                         Analysis Engine
                       </h2>
                     </div>
                     <button
                       onClick={handleGenerateInsights}
                       disabled={isLoadingInsights}
-                      className="flex items-center gap-2 bg-white text-black hover:bg-zinc-200 px-5 py-2 rounded text-sm font-bold transition-all disabled:opacity-50 w-full md:w-auto justify-center"
+                      className={`flex items-center gap-2 px-5 py-2 rounded text-sm font-bold transition-all disabled:opacity-50 w-full md:w-auto justify-center ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
                     >
                       {isLoadingInsights ? (
                         <Sparkles className="animate-spin" size={14} />
@@ -1198,11 +1207,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
                   <div className="min-h-[80px]">
                     {insights ? (
-                      <div className="prose prose-invert max-w-none text-zinc-300 text-sm leading-relaxed font-light whitespace-pre-line">
+                      <div className={`prose max-w-none text-sm leading-relaxed font-light whitespace-pre-line ${isDarkTheme ? 'prose-invert text-zinc-300' : 'text-zinc-700'}`}>
                         {insights}
                       </div>
                     ) : (
-                      <p className="text-zinc-600 text-sm italic">
+                      <p className={`text-sm italic ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-500'}`}>
                         Click generate to analyze real-time patterns...
                       </p>
                     )}
@@ -1215,11 +1224,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8">
               {/* 1. Views Over Time (Hourly/Daily) */}
               <div
-                className="bg-black border border-zinc-800 p-4 md:p-6 rounded relative group cursor-pointer overflow-hidden"
+                className={`border p-4 md:p-6 rounded relative group cursor-pointer overflow-hidden ${isDarkTheme ? 'bg-black border-zinc-800' : 'bg-white border-zinc-300'}`}
                 onClick={() => triggerPaywall("Detailed Analytics")}
               >
                 <div className="flex justify-between items-center mb-8 relative z-20">
-                  <h3 className="text-sm font-bold text-white uppercase tracking-widest">
+                  <h3 className={`text-sm font-bold uppercase tracking-widest ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
                     Views Over Time
                   </h3>
                   {userTier === UserTier.FREE && (
@@ -1271,16 +1280,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
                 {userTier === UserTier.FREE && (
                   <div className="absolute inset-0 z-10 flex flex-col items-center justify-center">
-                    <div className="bg-black p-3 rounded-full mb-3 border border-zinc-800 shadow-xl">
-                      <Lock size={20} className="text-white" />
+                    <div className={`p-3 rounded-full mb-3 border shadow-xl ${isDarkTheme ? 'bg-black border-zinc-800' : 'bg-white border-zinc-300'}`}>
+                      <Lock size={20} className={isDarkTheme ? 'text-white' : 'text-zinc-900'} />
                     </div>
-                    <h3 className="text-white font-bold text-lg mb-1">
+                    <h3 className={`font-bold text-lg mb-1 ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
                       Unlock Plus
                     </h3>
-                    <p className="text-zinc-400 text-xs mb-4">
+                    <p className={`text-xs mb-4 ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>
                       View detailed analytics
                     </p>
-                    <button className="bg-white text-black px-5 py-2 rounded-full font-bold text-[10px] tracking-widest hover:bg-zinc-200 transition-colors shadow-lg border border-white">
+                    <button className={`px-5 py-2 rounded-full font-bold text-[10px] tracking-widest transition-colors shadow-lg border ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200 border-white' : 'bg-zinc-900 text-white hover:bg-zinc-800 border-zinc-900'}`}>
                       UNLOCK WITH PLUS
                     </button>
                   </div>
@@ -1289,11 +1298,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
               {/* 2. Conversion Funnel */}
               <div
-                className="bg-black border border-zinc-800 p-4 md:p-6 rounded relative group cursor-pointer overflow-hidden"
+                className={`border p-4 md:p-6 rounded relative group cursor-pointer overflow-hidden ${isDarkTheme ? 'bg-black border-zinc-800' : 'bg-white border-zinc-300'}`}
                 onClick={() => triggerPaywall("Detailed Analytics")}
               >
                 <div className="flex justify-between items-center mb-8 relative z-20">
-                  <h3 className="text-sm font-bold text-white uppercase tracking-widest">
+                  <h3 className={`text-sm font-bold uppercase tracking-widest ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
                     Conversion Funnel
                   </h3>
                   {userTier === UserTier.FREE && (
@@ -1354,16 +1363,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 </div>
                 {userTier === UserTier.FREE && (
                   <div className="absolute inset-0 z-10 flex flex-col items-center justify-center">
-                    <div className="bg-black p-3 rounded-full mb-3 border border-zinc-800 shadow-xl">
-                      <Lock size={20} className="text-white" />
+                    <div className={`p-3 rounded-full mb-3 border shadow-xl ${isDarkTheme ? 'bg-black border-zinc-800' : 'bg-white border-zinc-300'}`}>
+                      <Lock size={20} className={isDarkTheme ? 'text-white' : 'text-zinc-900'} />
                     </div>
-                    <h3 className="text-white font-bold text-lg mb-1">
+                    <h3 className={`font-bold text-lg mb-1 ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
                       Unlock Plus
                     </h3>
-                    <p className="text-zinc-400 text-xs mb-4">
+                    <p className={`text-xs mb-4 ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>
                       Get funnel insights
                     </p>
-                    <button className="bg-white text-black px-5 py-2 rounded-full font-bold text-[10px] tracking-widest hover:bg-zinc-200 transition-colors shadow-lg border border-white">
+                    <button className={`px-5 py-2 rounded-full font-bold text-[10px] tracking-widest transition-colors shadow-lg border ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200 border-white' : 'bg-zinc-900 text-white hover:bg-zinc-800 border-zinc-900'}`}>
                       UNLOCK WITH PLUS
                     </button>
                   </div>
@@ -1372,11 +1381,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
               {/* 3. Top 5 Items Performance */}
               <div
-                className="bg-black border border-zinc-800 p-4 md:p-6 rounded relative group cursor-pointer overflow-hidden"
+                className={`border p-4 md:p-6 rounded relative group cursor-pointer overflow-hidden ${isDarkTheme ? 'bg-black border-zinc-800' : 'bg-white border-zinc-300'}`}
                 onClick={() => triggerPaywall("Detailed Analytics")}
               >
                 <div className="flex justify-between items-center mb-8 relative z-20">
-                  <h3 className="text-sm font-bold text-white uppercase tracking-widest">
+                  <h3 className={`text-sm font-bold uppercase tracking-widest ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
                     Top 5 Items Performance
                   </h3>
                   {userTier === UserTier.FREE && (
@@ -1435,16 +1444,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 </div>
                 {userTier === UserTier.FREE && (
                   <div className="absolute inset-0 z-10 flex flex-col items-center justify-center">
-                    <div className="bg-black p-3 rounded-full mb-3 border border-zinc-800 shadow-xl">
-                      <Lock size={20} className="text-white" />
+                    <div className={`p-3 rounded-full mb-3 border shadow-xl ${isDarkTheme ? 'bg-black border-zinc-800' : 'bg-white border-zinc-300'}`}>
+                      <Lock size={20} className={isDarkTheme ? 'text-white' : 'text-zinc-900'} />
                     </div>
-                    <h3 className="text-white font-bold text-lg mb-1">
+                    <h3 className={`font-bold text-lg mb-1 ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
                       Unlock Plus
                     </h3>
-                    <p className="text-zinc-400 text-xs mb-4">
+                    <p className={`text-xs mb-4 ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>
                       Track item performance
                     </p>
-                    <button className="bg-white text-black px-5 py-2 rounded-full font-bold text-[10px] tracking-widest hover:bg-zinc-200 transition-colors shadow-lg border border-white">
+                    <button className={`px-5 py-2 rounded-full font-bold text-[10px] tracking-widest transition-colors shadow-lg border ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200 border-white' : 'bg-zinc-900 text-white hover:bg-zinc-800 border-zinc-900'}`}>
                       UNLOCK WITH PLUS
                     </button>
                   </div>
@@ -1453,11 +1462,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
               {/* 4. Peak Activity (Hourly Traffic Heatmap Proxy) */}
               <div
-                className="bg-black border border-zinc-800 p-4 md:p-6 rounded relative group cursor-pointer overflow-hidden"
+                className={`border p-4 md:p-6 rounded relative group cursor-pointer overflow-hidden ${isDarkTheme ? 'bg-black border-zinc-800' : 'bg-white border-zinc-300'}`}
                 onClick={() => triggerPaywall("Detailed Analytics")}
               >
                 <div className="flex justify-between items-center mb-8 relative z-20">
-                  <h3 className="text-sm font-bold text-white uppercase tracking-widest">
+                  <h3 className={`text-sm font-bold uppercase tracking-widest ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
                     Peak Activity Hours
                   </h3>
                   {userTier === UserTier.FREE && (
@@ -1471,21 +1480,21 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                     <BarChart data={metrics.hourlyTraffic}>
                       <CartesianGrid
                         strokeDasharray="3 3"
-                        stroke="#333"
+                        stroke={isDarkTheme ? "#333" : "#e4e4e7"}
                         vertical={false}
                       />
                       <XAxis
                         dataKey="hour"
-                        stroke="#666"
+                        stroke={isDarkTheme ? "#666" : "#71717a"}
                         tick={{ fontSize: 10 }}
                         tickLine={false}
                         axisLine={false}
                       />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: "#000",
-                          borderColor: "#333",
-                          color: "#fff",
+                          backgroundColor: isDarkTheme ? "#000" : "#fff",
+                          borderColor: isDarkTheme ? "#333" : "#d4d4d8",
+                          color: isDarkTheme ? "#fff" : "#18181b",
                         }}
                       />
                       <Bar
@@ -1499,16 +1508,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 </div>
                 {userTier === UserTier.FREE && (
                   <div className="absolute inset-0 z-10 flex flex-col items-center justify-center">
-                    <div className="bg-black p-3 rounded-full mb-3 border border-zinc-800 shadow-xl">
-                      <Lock size={20} className="text-white" />
+                    <div className={`p-3 rounded-full mb-3 border shadow-xl ${isDarkTheme ? 'bg-black border-zinc-800' : 'bg-white border-zinc-300'}`}>
+                      <Lock size={20} className={isDarkTheme ? 'text-white' : 'text-zinc-900'} />
                     </div>
-                    <h3 className="text-white font-bold text-lg mb-1">
+                    <h3 className={`font-bold text-lg mb-1 ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
                       Unlock Plus
                     </h3>
-                    <p className="text-zinc-400 text-xs mb-4">
+                    <p className={`text-xs mb-4 ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>
                       Analyze peak times
                     </p>
-                    <button className="bg-white text-black px-5 py-2 rounded-full font-bold text-[10px] tracking-widest hover:bg-zinc-200 transition-colors shadow-lg border border-white">
+                    <button className={`px-5 py-2 rounded-full font-bold text-[10px] tracking-widest transition-colors shadow-lg border ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200 border-white' : 'bg-zinc-900 text-white hover:bg-zinc-800 border-zinc-900'}`}>
                       UNLOCK WITH PLUS
                     </button>
                   </div>
@@ -1520,14 +1529,14 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
         {/* Menu Management View */}
         {currentView === "MENU" && (
-          <div className="flex-1 overflow-y-auto bg-black animate-in slide-in-from-right-4 duration-500 pb-24">
+          <div className={`flex-1 overflow-y-auto animate-in slide-in-from-right-4 duration-500 pb-24 ${isDarkTheme ? 'bg-black' : 'bg-zinc-50'}`}>
             {/* Menu Header */}
-            <header className="bg-black/80 backdrop-blur-md sticky top-0 z-20 px-4 md:px-8 py-5 border-b border-zinc-800 flex flex-col md:flex-row justify-between md:items-center gap-3">
+            <header className={`backdrop-blur-md sticky top-0 z-20 px-4 md:px-8 py-5 border-b flex flex-col md:flex-row justify-between md:items-center gap-3 ${isDarkTheme ? 'bg-black/80 border-zinc-800' : 'bg-white/80 border-zinc-200'}`}>
               <div>
-                <h1 className="text-2xl md:text-3xl font-light text-white tracking-tight">
+                <h1 className={`text-2xl md:text-3xl font-light tracking-tight ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
                   Menu Editor
                 </h1>
-                <p className="text-zinc-500 text-xs mt-1">
+                <p className={`text-xs mt-1 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>
                   Add categories, upload reels, and fill in item details — then hit Save.
                 </p>
               </div>
@@ -1537,7 +1546,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 {unsavedChanges && (
                   <button
                     onClick={handleSaveAll}
-                    className="flex items-center gap-2 bg-white text-black px-4 py-2 rounded-full text-xs font-bold tracking-widest hover:bg-zinc-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.25)] animate-in fade-in duration-300"
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold tracking-widest transition-all animate-in fade-in duration-300 ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200 shadow-[0_0_20px_rgba(255,255,255,0.25)]' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-lg'}`}
                   >
                     <Save size={13} />
                     SAVE CHANGES
@@ -1546,22 +1555,22 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
                 <button
                   onClick={() => setIsQrModalOpen(true)}
-                  className="group flex items-center gap-2 border border-zinc-700 hover:bg-zinc-900 text-zinc-400 hover:text-white pl-4 pr-3 py-2 rounded-full transition-all duration-300"
+                  className={`group flex items-center gap-2 border pl-4 pr-3 py-2 rounded-full transition-all duration-300 ${isDarkTheme ? 'border-zinc-700 hover:bg-zinc-900 text-zinc-400 hover:text-white' : 'border-zinc-300 hover:bg-zinc-100 text-zinc-600 hover:text-zinc-900'}`}
                   title="QR Code Studio"
                 >
                   <span className="text-xs font-bold tracking-widest">QR CODES</span>
-                  <div className="w-7 h-7 bg-zinc-900 rounded-full flex items-center justify-center group-hover:bg-black transition-colors">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${isDarkTheme ? 'bg-zinc-900 group-hover:bg-black' : 'bg-zinc-200 group-hover:bg-zinc-300'}`}>
                     <QrCode size={13} fill="currentColor" className="ml-0.5" />
                   </div>
                 </button>
 
                 <button
                   onClick={onNavigateToCustomer}
-                  className="group flex items-center gap-2 border border-zinc-700 hover:bg-white hover:border-white hover:text-black text-white pl-4 pr-3 py-2 rounded-full transition-all duration-300"
+                  className={`group flex items-center gap-2 border pl-4 pr-3 py-2 rounded-full transition-all duration-300 ${isDarkTheme ? 'border-zinc-700 hover:bg-white hover:border-white hover:text-black text-white' : 'border-zinc-300 hover:bg-zinc-900 hover:border-zinc-900 hover:text-white text-zinc-900'}`}
                   title="Open Live Customer View"
                 >
                   <span className="text-xs font-bold tracking-widest">LIVE VIEW</span>
-                  <div className="w-7 h-7 bg-zinc-900 rounded-full flex items-center justify-center group-hover:bg-black group-hover:text-white transition-colors">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center transition-colors ${isDarkTheme ? 'bg-zinc-900 group-hover:bg-black group-hover:text-white' : 'bg-zinc-200 group-hover:bg-white group-hover:text-zinc-900'}`}>
                     <Play size={11} fill="currentColor" className="ml-0.5" />
                   </div>
                 </button>
@@ -1569,22 +1578,26 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             </header>
 
             {/* Category Tabs */}
-            <div className="px-4 md:px-8 pt-6 pb-0 bg-zinc-950 border-b border-zinc-800">
+            <div className={`px-4 md:px-8 pt-6 pb-0 border-b ${isDarkTheme ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-100 border-zinc-300'}`}>
               <div className="flex items-center gap-1 overflow-x-auto">
                 {menuItems.length === 0 && (
-                  <span className="text-zinc-600 text-sm italic mr-4">No categories yet — click + to add one</span>
+                  <span className={`text-sm italic mr-4 ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-500'}`}>No categories yet — click + to add one</span>
                 )}
                 {menuItems.map((cat, idx) => (
                   <button
                     key={cat.id}
                     onClick={() => setSelectedCategoryIdx(idx)}
                     className={`relative px-5 py-3 text-sm font-semibold tracking-wide transition-all duration-300 whitespace-nowrap rounded-t-md ${selectedCategoryIdx === idx
-                      ? "text-white bg-black border border-b-black border-zinc-800"
-                      : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900"
+                      ? isDarkTheme
+                        ? "text-white bg-black border border-b-black border-zinc-800"
+                        : "text-zinc-900 bg-white border border-b-white border-zinc-300"
+                      : isDarkTheme
+                        ? "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900"
+                        : "text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200"
                       }`}
                   >
                     {cat.title}
-                    <span className="ml-2 text-[10px] text-zinc-600 font-mono">
+                    <span className={`ml-2 text-[10px] font-mono ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-400'}`}>
                       {cat.items.length}
                     </span>
                   </button>
@@ -1592,7 +1605,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 <button
                   onClick={handleAddCategory}
                   title="Add Category"
-                  className="ml-2 flex items-center gap-1.5 px-3 py-2 text-zinc-500 hover:text-white hover:bg-zinc-900 rounded-md transition-colors text-xs font-bold tracking-widest border border-transparent hover:border-zinc-700"
+                  className={`ml-2 flex items-center gap-1.5 px-3 py-2 rounded-md transition-colors text-xs font-bold tracking-widest border border-transparent ${isDarkTheme ? 'text-zinc-500 hover:text-white hover:bg-zinc-900 hover:border-zinc-700' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200 hover:border-zinc-300'}`}
                 >
                   <Plus size={14} />
                   ADD CATEGORY
@@ -1602,13 +1615,13 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
             {/* Category Title + Actions bar */}
             {menuItems.length > 0 && (
-              <div className="px-4 md:px-8 py-4 bg-black border-b border-zinc-900 flex items-center justify-between gap-4">
+              <div className={`px-4 md:px-8 py-4 border-b flex items-center justify-between gap-4 ${isDarkTheme ? 'bg-black border-zinc-900' : 'bg-white border-zinc-200'}`}>
                 {isEditingCategory ? (
                   <div className="flex items-center gap-2 animate-in fade-in duration-200 flex-1">
                     <input
                       value={tempCategoryTitle}
                       onChange={(e) => setTempCategoryTitle(e.target.value)}
-                      className="flex-1 bg-zinc-900 border border-zinc-600 text-white px-3 py-1.5 rounded-lg outline-none focus:border-white font-medium text-base max-w-xs"
+                      className={`flex-1 border px-3 py-1.5 rounded-lg outline-none font-medium text-base max-w-xs ${isDarkTheme ? 'bg-zinc-900 border-zinc-600 text-white focus:border-white' : 'bg-zinc-50 border-zinc-300 text-zinc-900 focus:border-zinc-900'}`}
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === "Enter") {
@@ -1629,13 +1642,13 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                         setIsEditingCategory(false);
                         setUnsavedChanges(true);
                       }}
-                      className="text-xs bg-white text-black px-4 py-2 rounded-lg font-bold hover:bg-zinc-200"
+                      className={`text-xs px-4 py-2 rounded-lg font-bold ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
                     >
                       SAVE NAME
                     </button>
                     <button
                       onClick={() => setIsEditingCategory(false)}
-                      className="text-zinc-500 hover:text-white p-1.5"
+                      className={`p-1.5 ${isDarkTheme ? 'text-zinc-500 hover:text-white' : 'text-zinc-400 hover:text-zinc-900'}`}
                     >
                       <X size={16} />
                     </button>
@@ -1645,16 +1658,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                     setTempCategoryTitle(menuItems[selectedCategoryIdx].title);
                     setIsEditingCategory(true);
                   }}>
-                    <h2 className="text-lg font-semibold text-white">
+                    <h2 className={`text-lg font-semibold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
                       {menuItems[selectedCategoryIdx]?.title}
                     </h2>
-                    <Edit2 size={13} className="text-zinc-600 group-hover:text-zinc-300 transition-colors" />
+                    <Edit2 size={13} className={`transition-colors ${isDarkTheme ? 'text-zinc-600 group-hover:text-zinc-300' : 'text-zinc-400 group-hover:text-zinc-700'}`} />
                   </div>
                 )}
 
                 <button
                   onClick={handleAddDish}
-                  className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all hover:border-zinc-500"
+                  className={`flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-bold transition-all ${isDarkTheme ? 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-white hover:border-zinc-500' : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-300 text-zinc-900 hover:border-zinc-400'}`}
                 >
                   <Plus size={15} />
                   Add Item
@@ -1666,18 +1679,18 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             {menuItems.length === 0 ? (
               /* ── Full empty state: no categories at all ── */
               <div className="flex flex-col items-center justify-center py-24 px-8 text-center">
-                <div className="w-20 h-20 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-6">
-                  <Utensils size={36} strokeWidth={1.2} className="text-zinc-500" />
+                <div className={`w-20 h-20 rounded-2xl border flex items-center justify-center mb-6 ${isDarkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-100 border-zinc-300'}`}>
+                  <Utensils size={36} strokeWidth={1.2} className={isDarkTheme ? 'text-zinc-500' : 'text-zinc-400'} />
                 </div>
-                <h2 className="text-2xl font-semibold text-white mb-3">Your menu is empty</h2>
-                <p className="text-zinc-500 text-sm max-w-sm mb-8 leading-relaxed">
-                  Start by creating a <strong className="text-zinc-300">Category</strong> (e.g. "Starters", "Mains", "Drinks"),
+                <h2 className={`text-2xl font-semibold mb-3 ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>Your menu is empty</h2>
+                <p className={`text-sm max-w-sm mb-8 leading-relaxed ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>
+                  Start by creating a <strong className={isDarkTheme ? 'text-zinc-300' : 'text-zinc-700'}>Category</strong> (e.g. "Starters", "Mains", "Drinks"),
                   then add items inside it. Each item gets a short-form video reel that customers swipe through.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 mb-12">
                   <button
                     onClick={handleAddCategory}
-                    className="flex items-center gap-2 bg-white text-black px-6 py-3 rounded-xl font-bold text-sm hover:bg-zinc-200 transition-all"
+                    className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
                   >
                     <Plus size={16} />
                     Create First Category
@@ -1690,10 +1703,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                     { step: "2", title: "Add Menu Items", desc: "Give each dish a name, description, and price." },
                     { step: "3", title: "Upload a Reel", desc: "Add a short video or photo to each dish card." },
                   ].map(({ step, title, desc }) => (
-                    <div key={step} className="bg-zinc-950 border border-zinc-800 rounded-xl p-5 text-left">
-                      <div className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center text-xs font-bold text-zinc-400 mb-3">{step}</div>
-                      <p className="text-white font-semibold text-sm mb-1">{title}</p>
-                      <p className="text-zinc-500 text-xs leading-relaxed">{desc}</p>
+                    <div key={step} className={`border rounded-xl p-5 text-left ${isDarkTheme ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-200'}`}>
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold mb-3 ${isDarkTheme ? 'bg-zinc-800 text-zinc-400' : 'bg-zinc-200 text-zinc-600'}`}>{step}</div>
+                      <p className={`font-semibold text-sm mb-1 ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{title}</p>
+                      <p className={`text-xs leading-relaxed ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>{desc}</p>
                     </div>
                   ))}
                 </div>
@@ -1701,16 +1714,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             ) : menuItems[selectedCategoryIdx]?.items.length === 0 ? (
               /* ── Category exists but has no items ── */
               <div className="flex flex-col items-center justify-center py-20 px-8 text-center">
-                <div className="w-16 h-16 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-5">
-                  <Plus size={28} strokeWidth={1.5} className="text-zinc-500" />
+                <div className={`w-16 h-16 rounded-xl border flex items-center justify-center mb-5 ${isDarkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-100 border-zinc-300'}`}>
+                  <Plus size={28} strokeWidth={1.5} className={isDarkTheme ? 'text-zinc-500' : 'text-zinc-400'} />
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-2">No items in this category</h3>
-                <p className="text-zinc-500 text-sm max-w-xs mb-6 leading-relaxed">
-                  Click <strong className="text-zinc-300">Add Item</strong> above to create your first dish. You can then upload a video reel and fill in its details.
+                <h3 className={`text-xl font-semibold mb-2 ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>No items in this category</h3>
+                <p className={`text-sm max-w-xs mb-6 leading-relaxed ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>
+                  Click <strong className={isDarkTheme ? 'text-zinc-300' : 'text-zinc-700'}>Add Item</strong> above to create your first dish. You can then upload a video reel and fill in its details.
                 </p>
                 <button
                   onClick={handleAddDish}
-                  className="flex items-center gap-2 bg-white text-black px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-zinc-200 transition-all"
+                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
                 >
                   <Plus size={15} />
                   Add First Item
@@ -1734,24 +1747,24 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                               activeOptionsDishId === dish.id ? null : dish.id,
                             );
                           }}
-                          className="w-8 h-8 bg-black/60 backdrop-blur rounded-full flex items-center justify-center text-white hover:bg-white hover:text-black transition-colors border border-white/20"
+                          className={`w-8 h-8 backdrop-blur rounded-full flex items-center justify-center transition-colors border ${isDarkTheme ? 'bg-black/60 text-white hover:bg-white hover:text-black border-white/20' : 'bg-white/60 text-zinc-900 hover:bg-zinc-900 hover:text-white border-zinc-900/20'}`}
                         >
                           <MoreVertical size={15} />
                         </button>
 
                         {/* Options Dropdown */}
                         {activeOptionsDishId === dish.id && (
-                          <div className="absolute right-0 mt-2 w-48 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden z-40 animate-in fade-in slide-in-from-top-2">
+                          <div className={`absolute right-0 mt-2 w-48 border rounded-xl shadow-2xl overflow-hidden z-40 animate-in fade-in slide-in-from-top-2 ${isDarkTheme ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-300'}`}>
                             <button
                               onClick={() => handleDuplicateDish(selectedCategoryIdx, idx)}
-                              className="w-full px-4 py-3 text-left text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white flex items-center gap-3 border-b border-zinc-800"
+                              className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 border-b ${isDarkTheme ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white border-zinc-800' : 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 border-zinc-200'}`}
                             >
                               <Copy size={14} />
                               Duplicate Item
                             </button>
                             <button
                               onClick={() => { alert("Marked as sold out"); setActiveOptionsDishId(null); }}
-                              className="w-full px-4 py-3 text-left text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white flex items-center gap-3 border-b border-zinc-800"
+                              className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 border-b ${isDarkTheme ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white border-zinc-800' : 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 border-zinc-200'}`}
                             >
                               <EyeOff size={14} />
                               Mark Sold Out
@@ -1768,8 +1781,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                       </div>
 
                       {/* Media / Reel Upload */}
-                      <div className="relative w-full aspect-[9/16] bg-zinc-900 rounded-xl overflow-hidden border border-zinc-800 group-hover:border-zinc-600 transition-all duration-500 shadow-lg mb-4">
-                        <div className="w-full h-full overflow-hidden relative bg-black">
+                      <div className={`relative w-full aspect-[9/16] rounded-xl overflow-hidden border transition-all duration-500 shadow-lg mb-4 ${isDarkTheme ? 'bg-zinc-900 border-zinc-800 group-hover:border-zinc-600' : 'bg-zinc-100 border-zinc-300 group-hover:border-zinc-400'}`}>
+                        <div className={`w-full h-full overflow-hidden relative ${isDarkTheme ? 'bg-black' : 'bg-zinc-50'}`}>
                           {dish.videoUrl ? (
                             <video
                               src={dish.videoUrl}
@@ -1794,7 +1807,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                             />
                           ) : (
                             /* No media placeholder */
-                            <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-zinc-700">
+                            <div className={`w-full h-full flex flex-col items-center justify-center gap-3 ${isDarkTheme ? 'text-zinc-700' : 'text-zinc-400'}`}>
                               <ImageIcon size={32} strokeWidth={1.2} />
                               <span className="text-xs font-mono tracking-widest">NO MEDIA</span>
                             </div>
@@ -1802,12 +1815,12 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                         </div>
 
                         {/* Upload overlay on hover */}
-                        <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/50 backdrop-blur-[2px]">
+                        <div className={`absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-[2px] ${isDarkTheme ? 'bg-black/50' : 'bg-white/50'}`}>
                           <label className="cursor-pointer flex flex-col items-center justify-center">
-                            <div className="w-12 h-12 rounded-full border-2 border-white flex items-center justify-center mb-3 hover:bg-white hover:text-black transition-all">
+                            <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center mb-3 transition-all ${isDarkTheme ? 'border-white hover:bg-white hover:text-black' : 'border-zinc-900 hover:bg-zinc-900 hover:text-white'}`}>
                               {dish.videoUrl ? <Video size={20} /> : <ImageIcon size={20} />}
                             </div>
-                            <span className="text-xs font-bold tracking-widest uppercase text-white">
+                            <span className={`text-xs font-bold tracking-widest uppercase ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
                               {dish.videoUrl || dish.imageUrl ? "Change Media" : "Upload Reel / Photo"}
                             </span>
                             <input
@@ -1824,7 +1837,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                         </div>
 
                         {/* Slot badge */}
-                        <div className="absolute top-3 left-3 text-[10px] font-mono text-zinc-500 bg-black/60 px-2 py-0.5 rounded z-10">
+                        <div className={`absolute top-3 left-3 text-[10px] font-mono px-2 py-0.5 rounded z-10 ${isDarkTheme ? 'text-zinc-500 bg-black/60' : 'text-zinc-600 bg-white/60'}`}>
                           #{idx + 1}
                         </div>
                       </div>
@@ -1832,33 +1845,33 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                       {/* Form Fields */}
                       <div className="flex flex-col gap-3">
                         <div>
-                          <label className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1 block">Item Name</label>
+                          <label className={`text-[10px] font-bold uppercase tracking-widest mb-1 block ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-500'}`}>Item Name</label>
                           <input
                             type="text"
                             value={dish.name}
                             onChange={(e) => handleDishUpdate(selectedCategoryIdx, idx, "name", e.target.value)}
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-base font-medium text-white focus:border-zinc-500 outline-none transition-all placeholder-zinc-700"
+                            className={`w-full border rounded-lg px-3 py-2 text-base font-medium outline-none transition-all ${isDarkTheme ? 'bg-zinc-950 border-zinc-800 text-white focus:border-zinc-500 placeholder-zinc-700' : 'bg-zinc-50 border-zinc-300 text-zinc-900 focus:border-zinc-500 placeholder-zinc-400'}`}
                             placeholder="e.g. Butter Chicken"
                           />
                         </div>
                         <div>
-                          <label className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1 block">Description</label>
+                          <label className={`text-[10px] font-bold uppercase tracking-widest mb-1 block ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-500'}`}>Description</label>
                           <textarea
                             value={dish.description}
                             onChange={(e) => handleDishUpdate(selectedCategoryIdx, idx, "description", e.target.value)}
                             rows={3}
                             maxLength={500}
-                            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-300 focus:border-zinc-600 focus:text-white outline-none transition-all resize-none leading-relaxed placeholder-zinc-700"
+                            className={`w-full border rounded-lg px-3 py-2 text-sm outline-none transition-all resize-none leading-relaxed ${isDarkTheme ? 'bg-zinc-950 border-zinc-800 text-zinc-300 focus:border-zinc-600 focus:text-white placeholder-zinc-700' : 'bg-zinc-50 border-zinc-300 text-zinc-600 focus:border-zinc-500 focus:text-zinc-900 placeholder-zinc-400'}`}
                             placeholder="Ingredients, flavour notes..."
                           />
-                          <div className="text-right text-[10px] text-zinc-600 mt-0.5 font-mono">
+                          <div className={`text-right text-[10px] mt-0.5 font-mono ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-400'}`}>
                             {dish.description.length} / 500
                           </div>
                         </div>
-                        <div className="flex items-center justify-between bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2">
-                          <label className="text-xs text-zinc-500 font-bold uppercase tracking-widest">Price</label>
+                        <div className={`flex items-center justify-between border rounded-lg px-3 py-2 ${isDarkTheme ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-300'}`}>
+                          <label className={`text-xs font-bold uppercase tracking-widest ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>Price</label>
                           <div className="flex items-center gap-1">
-                            <DollarSign size={12} className="text-zinc-400" />
+                            <DollarSign size={12} className={isDarkTheme ? 'text-zinc-400' : 'text-zinc-500'} />
                             <input
                               type="number"
                               value={dish.price}
@@ -1873,7 +1886,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                                 handleDishUpdate(selectedCategoryIdx, idx, "price", isNaN(val) ? 0 : Math.max(0, val));
                               }}
                               step="0.50"
-                              className="w-20 bg-transparent text-right font-mono text-white focus:outline-none py-0.5 text-sm"
+                              className={`w-20 bg-transparent text-right font-mono focus:outline-none py-0.5 text-sm ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}
                             />
                           </div>
                         </div>
@@ -1884,12 +1897,12 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                   {/* Add another item card */}
                   <button
                     onClick={handleAddDish}
-                    className="w-full aspect-[9/16] rounded-xl border-2 border-dashed border-zinc-800 hover:border-zinc-600 hover:bg-zinc-900/40 flex flex-col items-center justify-center gap-3 transition-all text-zinc-600 hover:text-zinc-300 group"
+                    className={`w-full aspect-[9/16] rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-3 transition-all group ${isDarkTheme ? 'border-zinc-800 hover:border-zinc-600 hover:bg-zinc-900/40 text-zinc-600 hover:text-zinc-300' : 'border-zinc-300 hover:border-zinc-400 hover:bg-zinc-100/40 text-zinc-400 hover:text-zinc-600'}`}
                   >
-                    <div className="w-14 h-14 rounded-full bg-zinc-900 flex items-center justify-center group-hover:scale-110 group-hover:bg-zinc-800 transition-all border border-zinc-800">
+                    <div className={`w-14 h-14 rounded-full flex items-center justify-center group-hover:scale-110 transition-all border ${isDarkTheme ? 'bg-zinc-900 group-hover:bg-zinc-800 border-zinc-800' : 'bg-zinc-100 group-hover:bg-zinc-200 border-zinc-300'}`}>
                       <Plus size={28} />
                     </div>
-                    <span className="font-bold tracking-widest uppercase text-xs text-zinc-500 group-hover:text-zinc-300 transition-colors">
+                    <span className={`font-bold tracking-widest uppercase text-xs transition-colors ${isDarkTheme ? 'text-zinc-500 group-hover:text-zinc-300' : 'text-zinc-500 group-hover:text-zinc-700'}`}>
                       Add Item
                     </span>
                   </button>
@@ -1900,14 +1913,14 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         )}
 
         {currentView === "CUSTOMERS" && (
-          <div className="flex items-center justify-center h-full text-zinc-600 bg-black animate-in fade-in">
+          <div className={`flex items-center justify-center h-full animate-in fade-in ${isDarkTheme ? 'bg-black text-zinc-600' : 'bg-zinc-50 text-zinc-400'}`}>
             <div className="text-center">
               <Users
                 size={48}
                 strokeWidth={1}
                 className="mx-auto mb-6 opacity-50"
               />
-              <h2 className="text-xl font-light text-white mb-2">
+              <h2 className={`text-xl font-light mb-2 ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
                 Customer Directory
               </h2>
               <p className="font-mono text-xs">
