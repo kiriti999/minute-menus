@@ -801,8 +801,15 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       const newMenu = [...menuItems];
       newMenu[catIndex].items.splice(dishIndex, 1);
       setMenuItems(newMenu);
-      setUnsavedChanges(true);
       setActiveOptionsDishId(null);
+      // Auto-save deletion to database
+      supabaseService
+        .saveMenu(newMenu)
+        .then(() => setUnsavedChanges(false))
+        .catch((err: Error) => {
+          console.error("Delete save failed:", err);
+          alert(`Failed to delete item: ${err?.message ?? "Unknown error"}`);
+        });
     }
   };
 
