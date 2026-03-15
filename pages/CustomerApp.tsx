@@ -45,6 +45,13 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const [menuCategories, setMenuCategories] = useState<Category[]>([]);
   const [menuLoading, setMenuLoading] = useState(true);
 
+  // Disable browser scroll restoration to prevent jumping to last position
+  useEffect(() => {
+    if ('scrollRestoration' in history) {
+      history.scrollRestoration = 'manual';
+    }
+  }, []);
+
   useEffect(() => {
     setMenuLoading(true);
     supabaseService
@@ -62,6 +69,14 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   );
 
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to first item on load to ensure proper initial position
+  useEffect(() => {
+    if (containerRef.current && flatDishes.length > 0) {
+      // Reset scroll to top on mount/menu load
+      containerRef.current.scrollTo({ top: 0, behavior: "instant" });
+    }
+  }, [flatDishes.length]);
 
   // --- Eye Tracking Logic ---
   const startTimeRef = useRef<number>(Date.now());
