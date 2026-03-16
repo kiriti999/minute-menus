@@ -1,0 +1,222 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 820 820">
+  <style>
+    .qr-code {
+      filter: none;
+    }
+    @media (prefers-color-scheme: dark) {
+      .qr-code {
+        filter: invert(1);
+      }
+    }
+  </style>
+  <defs>
+    <pattern id="glass-lines" x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="16" y2="16" stroke="#b5d4f4" stroke-width="0.4" opacity="0.4"/>
+    </pattern>
+    <pattern id="frost" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse">
+      <rect width="8" height="8" fill="#E6F1FB"/>
+      <circle cx="4" cy="4" r="1.2" fill="#b5d4f4" opacity="0.5"/>
+    </pattern>
+    <pattern id="frost-mint" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse">
+      <rect width="8" height="8" fill="#E0F2F1"/>
+      <circle cx="4" cy="4" r="1.2" fill="#26A69A" opacity="0.3"/>
+    </pattern>
+  </defs>
+  
+  <!-- WALL BACKGROUND -->
+  <rect x="30" y="20" width="760" height="700" fill="#F5F5F5"/>
+  <text x="410" y="758" text-anchor="middle" font-family="Poppins, sans-serif" font-size="11" fill="#B4B2A9">exterior wall</text>
+  
+  <!-- ══════════════════════════════════════ -->
+  <!-- SIDE GLASS PANEL (103") -->
+  <!-- ══════════════════════════════════════ -->
+  <rect x="50" y="40" width="400" height="640" rx="4" fill="none" stroke="#888780" stroke-width="2.5"/>
+  
+  <!-- Zone A: Clear glass top -->
+  <rect x="51" y="41" width="398" height="180" rx="3" fill="url(#glass-lines)" opacity="0.6"/>
+  <text x="250" y="135" text-anchor="middle" font-family="Georgia, serif" font-size="12" fill="#26A69A" font-style="italic">Clear glass — natural light</text>
+  
+  <!-- Zone labels -->
+  <path stroke="#888780" stroke-width="0.5" stroke-dasharray="3,2" d="M0 221h50"/>
+  <text x="10" y="224" font-family="Poppins, sans-serif" font-size="9" fill="#888780">Zone A</text>
+  
+  <!-- Zone B: Brand hero -->
+  <path fill="#E0F2F1" opacity="0.9" d="M51 221h398v250H51z"/>
+  <rect x="65" y="232" width="370" height="228" rx="2" fill="none" stroke="#26A69A" stroke-width="0.8" stroke-dasharray="4,3" opacity="0.5"/>
+  
+  <!-- Kolam dots top -->
+  <g opacity="0.35" fill="#26A69A">
+    <circle cx="110" cy="240" r="2.5"/><circle cx="130" cy="240" r="2.5"/><circle cx="150" cy="240" r="2.5"/>
+    <circle cx="170" cy="240" r="2.5"/><circle cx="190" cy="240" r="2.5"/><circle cx="210" cy="240" r="2.5"/>
+    <circle cx="230" cy="240" r="2.5"/><circle cx="250" cy="240" r="2.5"/><circle cx="270" cy="240" r="2.5"/>
+    <circle cx="290" cy="240" r="2.5"/><circle cx="310" cy="240" r="2.5"/><circle cx="330" cy="240" r="2.5"/>
+    <circle cx="350" cy="240" r="2.5"/><circle cx="370" cy="240" r="2.5"/><circle cx="390" cy="240" r="2.5"/>
+  </g>
+  
+  <!-- Leaf accents -->
+  <g opacity="0.2">
+    <ellipse cx="90" cy="340" rx="16" ry="5" fill="#26A69A" transform="rotate(-35 90 340)"/>
+    <ellipse cx="90" cy="360" rx="12" ry="4" fill="#26A69A" transform="rotate(20 90 360)"/>
+    <ellipse cx="410" cy="340" rx="16" ry="5" fill="#26A69A" transform="rotate(35 410 340)"/>
+    <ellipse cx="410" cy="360" rx="12" ry="4" fill="#26A69A" transform="rotate(-20 410 360)"/>
+  </g>
+  
+  <!-- Brand name: Fresh & Fusion -->
+  <text x="250" y="290" text-anchor="middle" font-family="Poppins, sans-serif" font-size="36" font-weight="700">
+    <tspan fill="#26A69A">Fresh</tspan>
+    <tspan fill="#9E9E9E" dx="8">&amp;</tspan>
+    <tspan fill="#FF7043" dx="8">Fusion</tspan>
+  </text>
+  
+  <!-- Underlines -->
+  <line x1="118" y1="300" x2="218" y2="300" stroke="#26A69A" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="272" y1="300" x2="382" y2="300" stroke="#FF7043" stroke-width="2.5" stroke-linecap="round"/>
+  
+  <!-- Categories -->
+  <text x="250" y="320" text-anchor="middle" font-family="Poppins, sans-serif" font-size="11" fill="#757575" letter-spacing="2">
+    SOUTH INDIAN · ITALIAN · FRESH JUICE
+  </text>
+  
+  <!-- Tagline -->
+  <text x="250" y="345" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#888" font-style="italic">
+    Your craving, sorted.
+  </text>
+  
+  <!-- Icons: Coffee Cup, Plate, Juice Glass -->
+  <g transform="translate(250, 383)">
+    
+    <!-- Coffee Cup (left) -->
+    <g transform="translate(-80, 0)">
+      <path d="M-14 -14 L-11 18 Q-11 22 0 22 Q11 22 11 18 L14 -14 Z" fill="#BDBDBD"/>
+      <path d="M11 -6 Q20 -6 20 6 Q20 14 11 14" fill="none" stroke="#BDBDBD" stroke-width="3.5" stroke-linecap="round"/>
+      <!-- Steam -->
+      <path d="M-4 -20 Q-6 -26 -2 -30" fill="none" stroke="#BDBDBD" stroke-width="2" stroke-linecap="round"/>
+      <path d="M4 -21 Q6 -27 2 -32" fill="none" stroke="#BDBDBD" stroke-width="2" stroke-linecap="round"/>
+    </g>
+    
+    <!-- Plate (center) -->
+    <circle cx="0" cy="0" r="22" fill="none" stroke="#BDBDBD" stroke-width="3"/>
+    <circle cx="0" cy="0" r="14" fill="none" stroke="#BDBDBD" stroke-width="1.5"/>
+    
+    <!-- Juice Glass (right) -->
+    <g transform="translate(80, 0)">
+      <path d="M-12 -20 L-9 20 Q-9 24 0 24 Q9 24 9 20 L12 -20 Z" fill="none" stroke="#BDBDBD" stroke-width="3"/>
+      <path d="M-10 -5 L-8 18 Q-8 22 0 22 Q8 22 8 18 L10 -5 Z" fill="#BDBDBD" opacity="0.35"/>
+      <!-- Straw -->
+      <line x1="5" y1="-30" x2="3" y2="5" stroke="#BDBDBD" stroke-width="3" stroke-linecap="round"/>
+    </g>
+  </g>
+  
+  <!-- Hours -->
+  <text x="250" y="425" text-anchor="middle" font-family="Poppins, sans-serif" font-size="11" fill="#757575">
+    11 AM – 10 PM · Mon–Sun
+  </text>
+  <text x="250" y="440" text-anchor="middle" font-family="Poppins, sans-serif" font-size="10" fill="#757575">
+    Timings may vary
+  </text>
+  
+  <!-- Kolam dots bottom -->
+  <g opacity="0.35" fill="#26A69A">
+    <circle cx="110" cy="448" r="2.5"/><circle cx="130" cy="448" r="2.5"/><circle cx="150" cy="448" r="2.5"/>
+    <circle cx="170" cy="448" r="2.5"/><circle cx="190" cy="448" r="2.5"/><circle cx="210" cy="448" r="2.5"/>
+    <circle cx="230" cy="448" r="2.5"/><circle cx="250" cy="448" r="2.5"/><circle cx="270" cy="448" r="2.5"/>
+    <circle cx="290" cy="448" r="2.5"/><circle cx="310" cy="448" r="2.5"/><circle cx="330" cy="448" r="2.5"/>
+    <circle cx="350" cy="448" r="2.5"/><circle cx="370" cy="448" r="2.5"/><circle cx="390" cy="448" r="2.5"/>
+  </g>
+  
+  <!-- Zone B label -->
+  <path stroke="#888780" stroke-width="0.5" stroke-dasharray="3,2" d="M0 340h50"/>
+  <text x="10" y="343" font-family="Poppins, sans-serif" font-size="9" fill="#888780">Zone B</text>
+  
+  <!-- Zone C: QR & Delivery -->
+  <path stroke="#888780" stroke-width="0.5" stroke-dasharray="3,2" d="M0 471h50"/>
+  <text x="10" y="474" font-family="Poppins, sans-serif" font-size="9" fill="#888780">Zone C</text>
+  
+  <path fill="#FAFAFA" opacity="0.95" d="M51 471h398v100H51z"/>
+  
+  <!-- QR Code -->
+  <image x="85" y="485" width="55" height="55" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAAB4CAYAAAA5ZDbSAAADsUlEQVR4nO2d0a3bMAxF7aC7FCjeHN2hA3SqDtAdOsdDgTdN+hXUUS2XJq+c+Oacv8SWbPiClEWK8jw1vL19+dX+B+fh/f331+Xvy/IH4p6fVsNL7wCcl6WWc/vHNP1r5nAO1nScEdeLVs87gW/iXq/Xo+8LBMzzPE3TvciX7tlgAQKbg8DmILA5CGwOApvzaW+Dzz9/DJtDfXz7Pkeuuzxv637U/WX6VrN13TWwYHMQ2JzdLnrJXnexRsadRdv03HCWLVfe6/9Rz+gGFmwOAptTctFLFG+fajIudU8fGY5+TliwOQhsDgKbIxuDH0U7VmWmUFv9RY89K1iwOQhszmlcdG+6og7sZ5MXzwoWbA4CmyNz0Wr39aio0VYbRfLiaDePBZuDwOYgsDmlMXjk2qOW3ji5FcmKZpPU/fXaPwIs2BwENuf01YVZV1l1qc8Y1aK68AVBYHNKlQ0jKxEUFQtRFBGq6tv2KLBgcxDYHAQ2Z/cYfNT0Ql1qEkUx7aq+p2TPWwMLNgeBzRmW8K+um4oG/Y8ksxiguoy37W8vWLA5CGzOsEiWIiqVIZPnjd6PIoJ2dN4YCzYHgc1BYHNka7LUVX7qNtm+1VOe3nnRaSaRLLgDgc0ZlmyoBvqzy1ejZMpVeu237i96D3uO7QELNgeBzZFFsrKRoqPeorNbD2aGBsW6s0j7CFiwOQhsDgKbMyyStSSTdVKvJ46O/aO3CR457VoDCzYHgc2RRbKiZCNP6oR6JvGeibRF728UWLA5CGxOqQA8szK/pbp2K9t3phJhi+qeXIrKBgrAXxAENgeBzZFlk7LTmMz4d0RVXoWt56J4b9kDFmwOApszLJJVLZyO9q1wZYpNYtT3pAILNgeBzRm2JqvXJtqfAvWXvbeouuVR+2lhweYgsDkIbM4hCX/FflXR/qrZGsV1txj5bcU1sGBzENic0jRJTXTa1WszTfXlsAoUlYYsm4UQCGxOqbJB4eaiLrV63awLHFkBeERSAgs2B4HNQWBzZNsJj97xvTr9ySboR46nR6wTw4LNQWBzZC5aTXaTkwzqD4CotzwkkgVdENicp3XR2f2qqnlU9TLcbP+q6kcs2BwENgeBzRn2YSw11QzS6G2HM/1tQcIfQiCwObKtDNVEEwDqNU/Rgu3seerNX/4HFmwOAptT2icLngv2yXpBENgcBDYHgc1BYHMQ2Jy7adI0/Z0qwTlp9by0grYnwHlYM9a5dxDOzc1wL+0fcH6WWl56B+CctBr+AbgTExP0qqeeAAAAAElFTkSuQmCC" preserveAspectRatio="xMidYMid meet"/>
+  <text x="112" y="555" text-anchor="middle" font-family="Poppins, sans-serif" font-size="10" fill="#888780">Scan to order</text>
+  
+  <!-- Delivery badges -->
+  <text x="280" y="505" text-anchor="middle" font-family="Poppins, sans-serif" font-size="11" fill="#757575">Also available on</text>
+  <rect x="220" y="515" width="55" height="22" rx="4" fill="#E23744"/>
+  <text x="247" y="531" text-anchor="middle" font-family="Poppins, sans-serif" font-size="11" fill="white" font-weight="500">Zomato</text>
+  <rect x="285" y="515" width="55" height="22" rx="4" fill="#FF8000"/>
+  <text x="312" y="531" text-anchor="middle" font-family="Poppins, sans-serif" font-size="11" fill="white" font-weight="500">Swiggy</text>
+  
+  <!-- Zone D: Frosted base -->
+  <path stroke="#888780" stroke-width="0.5" stroke-dasharray="3,2" d="M0 571h50"/>
+  <text x="10" y="574" font-family="Poppins, sans-serif" font-size="9" fill="#888780">Zone D</text>
+  
+  <rect x="51" y="571" width="398" height="108" rx="2" fill="url(#frost)"/>
+  <text x="250" y="630" text-anchor="middle" font-family="Georgia, serif" font-size="12" fill="#26A69A" font-style="italic">Frosted vinyl — hides floor clutter</text>
+  
+  <!-- Side panel handle -->
+  <rect x="420" y="320" width="10" height="55" rx="5" fill="#888780"/>
+  
+  <text x="250" y="705" text-anchor="middle" font-family="Poppins, sans-serif" font-size="10" fill="#B4B2A9">103" side panel</text>
+  
+  <!-- ══════════════════════════════════════ -->
+  <!-- ENTRY DOOR (33") -->
+  <!-- ══════════════════════════════════════ -->
+  <rect x="460" y="40" width="130" height="640" rx="4" fill="none" stroke="#757575" stroke-width="2.5"/>
+  
+  <!-- Clear glass top -->
+  <rect x="461" y="41" width="128" height="410" fill="url(#glass-lines)" opacity="0.6"/>
+  
+  <!-- F& Monogram -->
+  <g transform="translate(525, 230)">
+    <!-- Outer ring with dots -->
+    <circle cx="0" cy="0" r="42" fill="none" stroke="#26A69A" stroke-width="1" opacity="0.4"/>
+    <!-- Inner circle -->
+    <circle cx="0" cy="0" r="32" fill="#E0F2F1" opacity="0.9"/>
+    <!-- F& text -->
+    <text x="0" y="6" text-anchor="middle" font-family="Poppins, sans-serif" font-size="22" font-weight="700">
+      <tspan fill="#26A69A">F</tspan><tspan fill="#FF7043">&amp;</tspan>
+    </text>
+    <!-- Tagline micro -->
+    <text x="0" y="22" text-anchor="middle" font-family="Georgia, serif" font-size="6" fill="#757575" font-style="italic">fresh &amp; fusion</text>
+    <!-- Dot ring -->
+    <g fill="#26A69A" opacity="0.5">
+      <circle cx="0" cy="-42" r="2.5"/>
+      <circle cx="29.7" cy="-29.7" r="2.5"/>
+      <circle cx="42" cy="0" r="2.5"/>
+      <circle cx="29.7" cy="29.7" r="2.5"/>
+      <circle cx="0" cy="42" r="2.5"/>
+      <circle cx="-29.7" cy="29.7" r="2.5"/>
+      <circle cx="-42" cy="0" r="2.5"/>
+      <circle cx="-29.7" cy="-29.7" r="2.5"/>
+    </g>
+  </g>
+  
+  <!-- Push label -->
+  <text x="525" y="310" text-anchor="middle" font-family="Poppins, sans-serif" font-size="11" fill="#888780" letter-spacing="3">PUSH</text>
+  
+  <!-- Door handle -->
+  <rect x="468" y="300" width="10" height="55" rx="5" fill="#888780"/>
+  
+  <!-- Mid frosted band (aligned with Zone C) -->
+  <rect x="461" y="471" width="128" height="100" fill="url(#frost-mint)" opacity="0.8"/>
+  <text x="525" y="525" text-anchor="middle" font-family="Georgia, serif" font-size="11" fill="#26A69A" font-style="italic">Fresh &amp; Fusion</text>
+  
+  <!-- Frost base (aligned with Zone D) -->
+  <rect x="461" y="571" width="128" height="108" fill="url(#frost)"/>
+  
+  <text x="525" y="705" text-anchor="middle" font-family="Poppins, sans-serif" font-size="10" fill="#B4B2A9">33" entry door</text>
+  
+  <!-- ══════════════════════════════════════ -->
+  <!-- DIMENSIONS -->
+  <!-- ══════════════════════════════════════ -->
+  <path stroke="#B4B2A9" stroke-width="0.5" d="M610 40v640m-5 0h10m-10-640h10"/>
+  <text x="625" y="360" font-family="Poppins, sans-serif" font-size="10" fill="#888780">90"</text>
+  
+  <path stroke="#B4B2A9" stroke-width="0.5" d="M50 700h540m0-5v10m-540-10v10"/>
+  <text x="320" y="718" text-anchor="middle" font-family="Poppins, sans-serif" font-size="10" fill="#888780">136" total (103" + 33")</text>
+  
+  <!-- Alignment indicator -->
+  <line x1="51" y1="571" x2="589" y2="571" stroke="#26A69A" stroke-width="0.5" stroke-dasharray="3,3" opacity="0.4"/>
+  
+  <!-- Title -->
+  <text x="410" y="780" text-anchor="middle" font-family="Georgia, serif" font-size="14" fill="#555" letter-spacing="1">Fresh &amp; Fusion — unified entrance design</text>
+</svg>

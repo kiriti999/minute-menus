@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1300 300" width="1300" height="300">
+  <defs>
+    <linearGradient id="mintFresh" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#26A69A"/>
+      <stop offset="100%" style="stop-color:#4DB6AC"/>
+    </linearGradient>
+    <linearGradient id="coralFusion" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#FF7043"/>
+      <stop offset="100%" style="stop-color:#FF8A65"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Pure white background -->
+  <rect width="1300" height="300" fill="#FFFFFF"/>
+  
+  <!-- Thin border -->
+  <rect x="30" y="30" width="1240" height="240" fill="none" stroke="#EEEEEE" stroke-width="1"/>
+  
+  <!-- CENTERED GROUP: Brand Name + Icons on right -->
+  <!-- Total width: leaf(30) + Fresh(290) + &(70) + Fusion(310) + gap(40) + icons(100) = ~840px -->
+  <!-- Centered: (1300-840)/2 = 230px start -->
+  
+  <!-- Fresh with leaf accent -->
+  <g transform="translate(230, 90)">
+    <ellipse cx="0" cy="0" rx="10" ry="18" fill="url(#mintFresh)" transform="rotate(-30)"/>
+    <ellipse cx="15" cy="8" rx="8" ry="14" fill="url(#mintFresh)" transform="rotate(20 15 8)"/>
+  </g>
+  <text x="275" y="150" font-family="Poppins, Arial, sans-serif" font-size="90" font-weight="700" fill="url(#mintFresh)">Fresh</text>
+  
+  <!-- & -->
+  <text x="560" y="150" font-family="Poppins, Arial, sans-serif" font-size="70" font-weight="300" fill="#CCCCCC">&amp;</text>
+  
+  <!-- Fusion -->
+  <text x="640" y="150" font-family="Poppins, Arial, sans-serif" font-size="90" font-weight="700" fill="url(#coralFusion)">Fusion</text>
+  
+  <!-- Colored underlines (aligned with text) -->
+  <rect x="275" y="165" width="250" height="4" rx="2" fill="url(#mintFresh)"/>
+  <rect x="640" y="165" width="290" height="4" rx="2" fill="url(#coralFusion)"/>
+  
+  <!-- Fork (right side) -->
+  <g transform="translate(970, 120)">
+    <rect x="-2" y="-28" width="4" height="56" rx="2" fill="url(#mintFresh)"/>
+    <rect x="-7" y="-28" width="2.5" height="16" rx="1" fill="url(#mintFresh)"/>
+    <rect x="-3" y="-28" width="2.5" height="16" rx="1" fill="url(#mintFresh)"/>
+    <rect x="1" y="-28" width="2.5" height="16" rx="1" fill="url(#mintFresh)"/>
+    <rect x="5" y="-28" width="2.5" height="16" rx="1" fill="url(#mintFresh)"/>
+  </g>
+  
+  <!-- Plate (right side, center of icon group) -->
+  <g transform="translate(1020, 120)">
+    <circle cx="0" cy="0" r="32" fill="none" stroke="#E0E0E0" stroke-width="2"/>
+    <circle cx="0" cy="0" r="24" fill="none" stroke="#EEEEEE" stroke-width="1"/>
+    <circle cx="0" cy="0" r="14" fill="#FAFAFA"/>
+  </g>
+  
+  <!-- Spoon (right side) -->
+  <g transform="translate(1070, 120)">
+    <ellipse cx="0" cy="-20" rx="10" ry="14" fill="url(#coralFusion)"/>
+    <ellipse cx="0" cy="-20" rx="6" ry="9" fill="#FFAB91"/>
+    <rect x="-3" y="-10" width="6" height="38" rx="3" fill="url(#coralFusion)"/>
+  </g>
+  
+  <!-- Cuisines (centered) -->
+  <text x="650" y="220" font-family="Poppins, Arial, sans-serif" font-size="16" font-weight="400" fill="#888888" text-anchor="middle" letter-spacing="6">SOUTH INDIAN • ITALIAN • FRESH JUICE</text>
+</svg>

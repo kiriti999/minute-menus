@@ -1,0 +1,222 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 820 820">
+  <style>
+    .qr-code {
+      filter: none;
+    }
+    @media (prefers-color-scheme: dark) {
+      .qr-code {
+        filter: invert(1);
+      }
+    }
+  </style>
+  <defs>
+    <pattern id="glass-lines" x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="16" y2="16" stroke="#b5d4f4" stroke-width="0.4" opacity="0.4"/>
+    </pattern>
+    <pattern id="frost" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse">
+      <rect width="8" height="8" fill="#E6F1FB"/>
+      <circle cx="4" cy="4" r="1.2" fill="#b5d4f4" opacity="0.5"/>
+    </pattern>
+    <pattern id="frost-mint" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse">
+      <rect width="8" height="8" fill="#E0F2F1"/>
+      <circle cx="4" cy="4" r="1.2" fill="#26A69A" opacity="0.3"/>
+    </pattern>
+  </defs>
+  
+  <!-- WALL BACKGROUND -->
+  <rect x="30" y="20" width="760" height="700" fill="#F5F5F5"/>
+  <text x="410" y="758" text-anchor="middle" font-family="Poppins, sans-serif" font-size="11" fill="#B4B2A9">exterior wall</text>
+  
+  <!-- ══════════════════════════════════════ -->
+  <!-- SIDE GLASS PANEL (103") -->
+  <!-- ══════════════════════════════════════ -->
+  <rect x="50" y="40" width="400" height="640" rx="4" fill="none" stroke="#888780" stroke-width="2.5"/>
+  
+  <!-- Zone A: Clear glass top -->
+  <rect x="51" y="41" width="398" height="180" rx="3" fill="url(#glass-lines)" opacity="0.6"/>
+  <text x="250" y="135" text-anchor="middle" font-family="Georgia, serif" font-size="12" fill="#26A69A" font-style="italic">Clear glass — natural light</text>
+  
+  <!-- Zone labels -->
+  <path stroke="#888780" stroke-width="0.5" stroke-dasharray="3,2" d="M0 221h50"/>
+  <text x="10" y="224" font-family="Poppins, sans-serif" font-size="9" fill="#888780">Zone A</text>
+  
+  <!-- Zone B: Brand hero -->
+  <path fill="#E0F2F1" opacity="0.9" d="M51 221h398v250H51z"/>
+  <rect x="65" y="232" width="370" height="228" rx="2" fill="none" stroke="#26A69A" stroke-width="0.8" stroke-dasharray="4,3" opacity="0.5"/>
+  
+  <!-- Kolam dots top -->
+  <g opacity="0.35" fill="#26A69A">
+    <circle cx="110" cy="240" r="2.5"/><circle cx="130" cy="240" r="2.5"/><circle cx="150" cy="240" r="2.5"/>
+    <circle cx="170" cy="240" r="2.5"/><circle cx="190" cy="240" r="2.5"/><circle cx="210" cy="240" r="2.5"/>
+    <circle cx="230" cy="240" r="2.5"/><circle cx="250" cy="240" r="2.5"/><circle cx="270" cy="240" r="2.5"/>
+    <circle cx="290" cy="240" r="2.5"/><circle cx="310" cy="240" r="2.5"/><circle cx="330" cy="240" r="2.5"/>
+    <circle cx="350" cy="240" r="2.5"/><circle cx="370" cy="240" r="2.5"/><circle cx="390" cy="240" r="2.5"/>
+  </g>
+  
+  <!-- Leaf accents -->
+  <g opacity="0.2">
+    <ellipse cx="90" cy="340" rx="16" ry="5" fill="#26A69A" transform="rotate(-35 90 340)"/>
+    <ellipse cx="90" cy="360" rx="12" ry="4" fill="#26A69A" transform="rotate(20 90 360)"/>
+    <ellipse cx="410" cy="340" rx="16" ry="5" fill="#26A69A" transform="rotate(35 410 340)"/>
+    <ellipse cx="410" cy="360" rx="12" ry="4" fill="#26A69A" transform="rotate(-20 410 360)"/>
+  </g>
+  
+  <!-- Brand name: Fresh & Fusion -->
+  <text x="250" y="290" text-anchor="middle" font-family="Poppins, sans-serif" font-size="36" font-weight="700">
+    <tspan fill="#26A69A">Fresh</tspan>
+    <tspan fill="#9E9E9E" dx="8">&amp;</tspan>
+    <tspan fill="#FF7043" dx="8">Fusion</tspan>
+  </text>
+  
+  <!-- Underlines -->
+  <line x1="118" y1="300" x2="218" y2="300" stroke="#26A69A" stroke-width="2.5" stroke-linecap="round"/>
+  <line x1="272" y1="300" x2="382" y2="300" stroke="#FF7043" stroke-width="2.5" stroke-linecap="round"/>
+  
+  <!-- Categories -->
+  <text x="250" y="320" text-anchor="middle" font-family="Poppins, sans-serif" font-size="11" fill="#757575" letter-spacing="2">
+    SOUTH INDIAN · ITALIAN · FRESH JUICE
+  </text>
+  
+  <!-- Tagline -->
+  <text x="250" y="345" text-anchor="middle" font-family="Georgia, serif" font-size="13" fill="#888" font-style="italic">
+    Your craving, sorted.
+  </text>
+  
+  <!-- Icons: Coffee Cup, Plate, Juice Glass -->
+  <g transform="translate(250, 383)">
+    
+    <!-- Coffee Cup (left) -->
+    <g transform="translate(-80, 0)">
+      <path d="M-14 -14 L-11 18 Q-11 22 0 22 Q11 22 11 18 L14 -14 Z" fill="#BDBDBD"/>
+      <path d="M11 -6 Q20 -6 20 6 Q20 14 11 14" fill="none" stroke="#BDBDBD" stroke-width="3.5" stroke-linecap="round"/>
+      <!-- Steam -->
+      <path d="M-4 -20 Q-6 -26 -2 -30" fill="none" stroke="#BDBDBD" stroke-width="2" stroke-linecap="round"/>
+      <path d="M4 -21 Q6 -27 2 -32" fill="none" stroke="#BDBDBD" stroke-width="2" stroke-linecap="round"/>
+    </g>
+    
+    <!-- Plate (center) -->
+    <circle cx="0" cy="0" r="22" fill="none" stroke="#BDBDBD" stroke-width="3"/>
+    <circle cx="0" cy="0" r="14" fill="none" stroke="#BDBDBD" stroke-width="1.5"/>
+    
+    <!-- Juice Glass (right) -->
+    <g transform="translate(80, 0)">
+      <path d="M-12 -20 L-9 20 Q-9 24 0 24 Q9 24 9 20 L12 -20 Z" fill="none" stroke="#BDBDBD" stroke-width="3"/>
+      <path d="M-10 -5 L-8 18 Q-8 22 0 22 Q8 22 8 18 L10 -5 Z" fill="#BDBDBD" opacity="0.35"/>
+      <!-- Straw -->
+      <line x1="5" y1="-30" x2="3" y2="5" stroke="#BDBDBD" stroke-width="3" stroke-linecap="round"/>
+    </g>
+  </g>
+  
+  <!-- Hours -->
+  <text x="250" y="425" text-anchor="middle" font-family="Poppins, sans-serif" font-size="11" fill="#757575">
+    11 AM – 10 PM · Mon–Sun
+  </text>
+  <text x="250" y="440" text-anchor="middle" font-family="Poppins, sans-serif" font-size="10" fill="#757575">
+    Timings may vary
+  </text>
+  
+  <!-- Kolam dots bottom -->
+  <g opacity="0.35" fill="#26A69A">
+    <circle cx="110" cy="448" r="2.5"/><circle cx="130" cy="448" r="2.5"/><circle cx="150" cy="448" r="2.5"/>
+    <circle cx="170" cy="448" r="2.5"/><circle cx="190" cy="448" r="2.5"/><circle cx="210" cy="448" r="2.5"/>
+    <circle cx="230" cy="448" r="2.5"/><circle cx="250" cy="448" r="2.5"/><circle cx="270" cy="448" r="2.5"/>
+    <circle cx="290" cy="448" r="2.5"/><circle cx="310" cy="448" r="2.5"/><circle cx="330" cy="448" r="2.5"/>
+    <circle cx="350" cy="448" r="2.5"/><circle cx="370" cy="448" r="2.5"/><circle cx="390" cy="448" r="2.5"/>
+  </g>
+  
+  <!-- Zone B label -->
+  <path stroke="#888780" stroke-width="0.5" stroke-dasharray="3,2" d="M0 340h50"/>
+  <text x="10" y="343" font-family="Poppins, sans-serif" font-size="9" fill="#888780">Zone B</text>
+  
+  <!-- Zone C: QR & Delivery -->
+  <path stroke="#888780" stroke-width="0.5" stroke-dasharray="3,2" d="M0 471h50"/>
+  <text x="10" y="474" font-family="Poppins, sans-serif" font-size="9" fill="#888780">Zone C</text>
+  
+  <path fill="#FAFAFA" opacity="0.95" d="M51 471h398v100H51z"/>
+  
+  <!-- QR Code -->
+  <image x="85" y="485" width="55" height="55" xlink:href="data:image/png;base64,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" preserveAspectRatio="xMidYMid meet"/>
+  <text x="112" y="555" text-anchor="middle" font-family="Poppins, sans-serif" font-size="10" fill="#888780">Scan to order</text>
+  
+  <!-- Delivery badges -->
+  <text x="280" y="505" text-anchor="middle" font-family="Poppins, sans-serif" font-size="11" fill="#757575">Also available on</text>
+  <rect x="220" y="515" width="55" height="22" rx="4" fill="#E23744"/>
+  <text x="247" y="531" text-anchor="middle" font-family="Poppins, sans-serif" font-size="11" fill="white" font-weight="500">Zomato</text>
+  <rect x="285" y="515" width="55" height="22" rx="4" fill="#FF8000"/>
+  <text x="312" y="531" text-anchor="middle" font-family="Poppins, sans-serif" font-size="11" fill="white" font-weight="500">Swiggy</text>
+  
+  <!-- Zone D: Frosted base -->
+  <path stroke="#888780" stroke-width="0.5" stroke-dasharray="3,2" d="M0 571h50"/>
+  <text x="10" y="574" font-family="Poppins, sans-serif" font-size="9" fill="#888780">Zone D</text>
+  
+  <rect x="51" y="571" width="398" height="108" rx="2" fill="url(#frost)"/>
+  <text x="250" y="630" text-anchor="middle" font-family="Georgia, serif" font-size="12" fill="#26A69A" font-style="italic">Frosted vinyl — hides floor clutter</text>
+  
+  <!-- Side panel handle -->
+  <rect x="420" y="320" width="10" height="55" rx="5" fill="#888780"/>
+  
+  <text x="250" y="705" text-anchor="middle" font-family="Poppins, sans-serif" font-size="10" fill="#B4B2A9">103" side panel</text>
+  
+  <!-- ══════════════════════════════════════ -->
+  <!-- ENTRY DOOR (33") -->
+  <!-- ══════════════════════════════════════ -->
+  <rect x="460" y="40" width="130" height="640" rx="4" fill="none" stroke="#757575" stroke-width="2.5"/>
+  
+  <!-- Clear glass top -->
+  <rect x="461" y="41" width="128" height="410" fill="url(#glass-lines)" opacity="0.6"/>
+  
+  <!-- F& Monogram -->
+  <g transform="translate(525, 230)">
+    <!-- Outer ring with dots -->
+    <circle cx="0" cy="0" r="42" fill="none" stroke="#26A69A" stroke-width="1" opacity="0.4"/>
+    <!-- Inner circle -->
+    <circle cx="0" cy="0" r="32" fill="#E0F2F1" opacity="0.9"/>
+    <!-- F& text -->
+    <text x="0" y="6" text-anchor="middle" font-family="Poppins, sans-serif" font-size="22" font-weight="700">
+      <tspan fill="#26A69A">F</tspan><tspan fill="#FF7043">&amp;</tspan>
+    </text>
+    <!-- Tagline micro -->
+    <text x="0" y="22" text-anchor="middle" font-family="Georgia, serif" font-size="6" fill="#757575" font-style="italic">fresh &amp; fusion</text>
+    <!-- Dot ring -->
+    <g fill="#26A69A" opacity="0.5">
+      <circle cx="0" cy="-42" r="2.5"/>
+      <circle cx="29.7" cy="-29.7" r="2.5"/>
+      <circle cx="42" cy="0" r="2.5"/>
+      <circle cx="29.7" cy="29.7" r="2.5"/>
+      <circle cx="0" cy="42" r="2.5"/>
+      <circle cx="-29.7" cy="29.7" r="2.5"/>
+      <circle cx="-42" cy="0" r="2.5"/>
+      <circle cx="-29.7" cy="-29.7" r="2.5"/>
+    </g>
+  </g>
+  
+  <!-- Push label -->
+  <text x="525" y="310" text-anchor="middle" font-family="Poppins, sans-serif" font-size="11" fill="#888780" letter-spacing="3">PUSH</text>
+  
+  <!-- Door handle -->
+  <rect x="468" y="300" width="10" height="55" rx="5" fill="#888780"/>
+  
+  <!-- Mid frosted band (aligned with Zone C) -->
+  <rect x="461" y="471" width="128" height="100" fill="url(#frost-mint)" opacity="0.8"/>
+  <text x="525" y="525" text-anchor="middle" font-family="Georgia, serif" font-size="11" fill="#26A69A" font-style="italic">Fresh &amp; Fusion</text>
+  
+  <!-- Frost base (aligned with Zone D) -->
+  <rect x="461" y="571" width="128" height="108" fill="url(#frost)"/>
+  
+  <text x="525" y="705" text-anchor="middle" font-family="Poppins, sans-serif" font-size="10" fill="#B4B2A9">33" entry door</text>
+  
+  <!-- ══════════════════════════════════════ -->
+  <!-- DIMENSIONS -->
+  <!-- ══════════════════════════════════════ -->
+  <path stroke="#B4B2A9" stroke-width="0.5" d="M610 40v640m-5 0h10m-10-640h10"/>
+  <text x="625" y="360" font-family="Poppins, sans-serif" font-size="10" fill="#888780">90"</text>
+  
+  <path stroke="#B4B2A9" stroke-width="0.5" d="M50 700h540m0-5v10m-540-10v10"/>
+  <text x="320" y="718" text-anchor="middle" font-family="Poppins, sans-serif" font-size="10" fill="#888780">136" total (103" + 33")</text>
+  
+  <!-- Alignment indicator -->
+  <line x1="51" y1="571" x2="589" y2="571" stroke="#26A69A" stroke-width="0.5" stroke-dasharray="3,3" opacity="0.4"/>
+  
+  <!-- Title -->
+  <text x="410" y="780" text-anchor="middle" font-family="Georgia, serif" font-size="14" fill="#555" letter-spacing="1">Fresh &amp; Fusion — unified entrance design</text>
+</svg>
