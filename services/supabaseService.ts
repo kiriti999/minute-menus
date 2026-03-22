@@ -510,11 +510,7 @@ class SupabaseService {
             .eq("slug", slug)
             .maybeSingle();
 
-        if (error) {
-            console.error("getRestaurantBySlug failed:", error.message, error.code, error.hint);
-            return null;
-        }
-        if (!data) return null;
+        if (error || !data) return null;
         return { ...data, currency: data.currency || "USD" };
     }
 
