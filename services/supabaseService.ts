@@ -508,9 +508,13 @@ class SupabaseService {
             .from("restaurants")
             .select("id, name, slug, currency")
             .eq("slug", slug)
-            .single();
+            .maybeSingle();
 
-        if (error || !data) return null;
+        if (error) {
+            console.error("getRestaurantBySlug failed:", error.message, error.code, error.hint);
+            return null;
+        }
+        if (!data) return null;
         return { ...data, currency: data.currency || "USD" };
     }
 

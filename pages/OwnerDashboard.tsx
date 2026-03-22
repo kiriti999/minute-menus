@@ -706,6 +706,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       .getAggregatedMetrics(timeWindow)
       .then(setMetrics)
       .catch(console.error);
+    // Retry loading restaurant details if not yet loaded
+    if (!restaurantDetails) {
+      supabaseService.getRestaurantDetails().then(setRestaurantDetails).catch(console.error);
+    }
   };
 
   const handleUpgrade = () => {

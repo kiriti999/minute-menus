@@ -65,7 +65,8 @@ const App: React.FC = () => {
                         setSlugError(`Restaurant "${potentialSlug}" not found`);
                     }
                 })
-                .catch(() => {
+                .catch((err) => {
+                    console.error("Slug lookup error:", err);
                     setSlugError("Failed to load restaurant");
                 })
                 .finally(() => {
