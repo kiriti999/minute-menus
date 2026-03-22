@@ -682,18 +682,15 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   // Load Initial Data
   useEffect(() => {
-    // One-time: ensure restaurant row exists for new Google OAuth users
-    supabase.auth.getUser().then(({ data }) => {
+    // One-time: ensure restaurant row exists, then load details for QR code
+    supabase.auth.getUser().then(async ({ data }) => {
       const uid = data.user?.id;
       if (uid) {
-        supabaseService
-          .ensureRestaurant("My Restaurant", uid)
-          .catch(() => { /* already exists */ });
+        try { await supabaseService.ensureRestaurant("My Restaurant", uid); } catch { /* already exists */ }
       }
+      // Load restaurant details only after ensuring the row exists
+      supabaseService.getRestaurantDetails().then(setRestaurantDetails).catch(console.error);
     });
-
-    // Load restaurant details for QR code
-    supabaseService.getRestaurantDetails().then(setRestaurantDetails).catch(console.error);
 
     refreshData();
 
