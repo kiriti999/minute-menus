@@ -12,6 +12,7 @@
     "@anthropic-ai/sdk": "^0.78.0",
     "@supabase/supabase-js": "^2.97.0",
     "lucide-react": "^0.554.0",
+    "nodemailer": "^8.0.5",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
+    "@types/nodemailer": "^8.0.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vercel/node": "^5.7.4",

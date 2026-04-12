@@ -6,16 +6,14 @@
  *
  * Required env vars:
  *   VITE_SUPABASE_URL / SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
- *   RESEND_API_KEY, FROM_EMAIL
+ *   SMTP_USER, SMTP_PASS
  */
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { Resend } from "resend";
+import { sendMail } from "../../lib/mailer";
 import { supabaseAdmin } from "../../lib/supabase-admin";
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
-    const resend = new Resend(process.env.RESEND_API_KEY ?? "");
-
     const tomorrow = new Date();
     tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
     const tomorrowStr = tomorrow.toISOString().slice(0, 10);
@@ -129,10 +127,11 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
 </html>`;
 
         try {
-            await resend.emails.send({
-                from: `Minute Menus <${process.env.FROM_EMAIL ?? "notifications@minutemenus.com"}>`,
+            await sendMail({
+                from: `${restaurant.name} via Minute Menus <${process.env.SMTP_USER ?? "minutemenus@outlook.com"}>`,
+                replyTo: ownerEmail,
                 to: ownerEmail,
-                subject: `[${restaurant.name}] ${restaurantOrders.length} order${restaurantOrders.length !== 1 ? "s" : ""} for tomorrow (${tomorrowStr})`,
+                subject: `${restaurantOrders.length} order${restaurantOrders.length !== 1 ? "s" : ""} for tomorrow (${tomorrowStr})`,
                 html,
             });
             sent++;

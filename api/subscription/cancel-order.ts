@@ -6,11 +6,11 @@
  *
  * Required env vars:
  *   VITE_SUPABASE_URL / SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
- *   RESEND_API_KEY, FROM_EMAIL
+ *   SMTP_USER, SMTP_PASS
  */
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { Resend } from "resend";
+import { sendMail } from "../../lib/mailer";
 import { supabaseAdmin } from "../../lib/supabase-admin";
 
 interface CancelPayload {
@@ -52,8 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(restaurant.owner_id);
     const ownerEmail = user?.email;
 
-    const resend = new Resend(process.env.RESEND_API_KEY ?? "");
-    const from = `Minute Menus <${process.env.FROM_EMAIL ?? "notifications@minutemenus.com"}>`;
+    const from = `${restaurant.name} via Minute Menus <${process.env.SMTP_USER ?? "minutemenus@outlook.com"}>`;
 
     const buildHtml = (recipient: "customer" | "owner") => `<!DOCTYPE html>
 <html lang="en">
@@ -98,10 +97,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (customerEmail) {
         sends.push(
-            resend.emails.send({
+            sendMail({
                 from,
+                replyTo: ownerEmail ?? undefined,
                 to: customerEmail,
-                subject: `[${restaurant.name}] Your order for ${deliveryDate} has been cancelled`,
+                subject: `Your order for ${deliveryDate} has been cancelled`,
                 html: buildHtml("customer"),
             }),
         );
@@ -109,10 +109,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (ownerEmail) {
         sends.push(
-            resend.emails.send({
+            sendMail({
                 from,
                 to: ownerEmail,
-                subject: `[${restaurant.name}] Order cancelled for ${deliveryDate} — ${dishName}`,
+                subject: `Order cancelled for ${deliveryDate} — ${dishName}`,
                 html: buildHtml("owner"),
             }),
         );
