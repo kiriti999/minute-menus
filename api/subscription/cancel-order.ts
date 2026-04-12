@@ -28,6 +28,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(405).json({ error: "Method not allowed" });
     }
 
+    // Guard against unauthenticated abuse — callers must supply the internal secret
+    const internalSecret = process.env.INTERNAL_API_SECRET;
+    if (internalSecret && req.headers["x-internal-secret"] !== internalSecret) {
+        return res.status(401).json({ error: "Unauthorized" });
+    }
+
     const payload = req.body as Partial<CancelPayload>;
     const { restaurantId, deliveryDate, dishName, reason, customerEmail, customerName } = payload;
 

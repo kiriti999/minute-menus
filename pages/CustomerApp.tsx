@@ -252,9 +252,8 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     const index = Math.round(scrollTop / height);
 
     // Update Active Dish Index for tracking
+    // recordSession is called by the useEffect cleanup when activeDishIndex changes
     if (index !== activeDishIndex) {
-      // Record previous dish before switching
-      recordSession(activeDishIndex);
       setActiveDishIndex(index);
     }
 

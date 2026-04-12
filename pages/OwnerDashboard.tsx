@@ -44,7 +44,7 @@ import {
 } from "lucide-react";
 import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
 import type React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -741,10 +741,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       .getAggregatedMetrics(timeWindow)
       .then(setMetrics)
       .catch(console.error);
-    // Retry loading restaurant details if not yet loaded
-    if (!restaurantDetails) {
-      supabaseService.getRestaurantDetails().then(setRestaurantDetails).catch(console.error);
-    }
+    // Always refresh restaurant details to avoid stale currency/name data
+    supabaseService.getRestaurantDetails().then(setRestaurantDetails).catch(console.error);
     // Subscription data
     supabaseService.getMealPlans().then(setMealPlans).catch(console.error);
     supabaseService.getCustomerSubscriptions().then(setCustomerSubs).catch(console.error);
@@ -807,7 +805,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     catIndex: number,
     dishIndex: number,
     field: keyof Dish,
-    value: any,
+    value: Dish[keyof Dish],
   ) => {
     const newMenu = [...menuItems];
     newMenu[catIndex].items[dishIndex] = {
@@ -2368,7 +2366,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                       </div>
                     </div>
                     <div className={`flex gap-4 text-sm ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                      <span className="flex items-center gap-1"><Tag size={12} /> {plan.priceMonthly}/{restaurantDetails?.currency ?? "mo"}</span>
+                      <span className="flex items-center gap-1"><Tag size={12} /> {getSymbolForCurrency(restaurantDetails?.currency ?? "USD")}{plan.priceMonthly}/mo</span>
                       <span className="flex items-center gap-1"><Package size={12} /> {plan.deliveryFee > 0 ? `+${plan.deliveryFee} delivery` : "Free delivery"}</span>
                       <span>{plan.dishIds.length} dish{plan.dishIds.length !== 1 ? "es" : ""}</span>
                     </div>

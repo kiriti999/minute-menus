@@ -911,15 +911,18 @@ class SupabaseService {
     async getMealPlans(restaurantId?: string): Promise<import("../types").MealPlan[]> {
         const rid = restaurantId ?? (await getRestaurantId());
 
-        const [{ data: plans, error: planErr }, { data: links }] = await Promise.all([
-            supabase.from("meal_plans").select("*").eq("restaurant_id", rid).order("created_at"),
-            supabase.from("meal_plan_dishes").select("plan_id, dish_id").in(
-                "plan_id",
-                (await supabase.from("meal_plans").select("id").eq("restaurant_id", rid)).data?.map((p) => p.id) ?? [],
-            ),
-        ]);
+        const { data: plans, error: planErr } = await supabase
+            .from("meal_plans")
+            .select("*")
+            .eq("restaurant_id", rid)
+            .order("created_at");
 
         if (planErr) throw planErr;
+
+        const planIds = (plans ?? []).map((p) => p.id);
+        const { data: links } = planIds.length > 0
+            ? await supabase.from("meal_plan_dishes").select("plan_id, dish_id").in("plan_id", planIds)
+            : { data: [] as Array<{ plan_id: string; dish_id: string }> };
 
         const dishIdsByPlan: Record<string, string[]> = {};
         (links ?? []).forEach((l) => {
@@ -963,12 +966,23 @@ class SupabaseService {
             id = data.id;
         }
 
-        // Sync dish links: delete all, re-insert
-        await supabase.from("meal_plan_dishes").delete().eq("plan_id", id);
+        // Sync dish links: upsert new, delete removed (two-step to avoid gap)
+        const newLinks = plan.dishIds.map((dish_id) => ({ plan_id: id!, dish_id }));
+        if (newLinks.length > 0) {
+            const { error: upsertErr } = await supabase
+                .from("meal_plan_dishes")
+                .upsert(newLinks, { onConflict: "plan_id,dish_id" });
+            if (upsertErr) throw upsertErr;
+        }
+        // Delete links for dishes no longer in the plan
         if (plan.dishIds.length > 0) {
-            await supabase.from("meal_plan_dishes").insert(
-                plan.dishIds.map((dish_id) => ({ plan_id: id!, dish_id })),
-            );
+            await supabase
+                .from("meal_plan_dishes")
+                .delete()
+                .eq("plan_id", id!)
+                .not("dish_id", "in", `(${plan.dishIds.join(",")})`);
+        } else {
+            await supabase.from("meal_plan_dishes").delete().eq("plan_id", id!);
         }
 
         return id!;
@@ -1094,7 +1108,12 @@ class SupabaseService {
 
             await fetch("/api/subscription/cancel-order", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(import.meta.env.VITE_INTERNAL_API_SECRET
+                        ? { "x-internal-secret": import.meta.env.VITE_INTERNAL_API_SECRET }
+                        : {}),
+                },
                 body: JSON.stringify({
                     subscriptionId: data.subscription_id,
                     restaurantId: data.restaurant_id,
