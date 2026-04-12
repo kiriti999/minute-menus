@@ -15,10 +15,10 @@ import { Resend } from "resend";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface SoldOutPayload {
-  to: string;
-  restaurantName: string;
-  dishName: string;
-  reason: "stock" | "manual";
+    to: string;
+    restaurantName: string;
+    dishName: string;
+    reason: "stock" | "manual";
 }
 
 // ─── Retry helper ──────────────────────────────────────────────────────────────
@@ -27,28 +27,28 @@ const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 300;
 
 async function withRetry<T>(
-  fn: () => Promise<T>,
-  retries = MAX_RETRIES,
-  delayMs = BASE_DELAY_MS,
+    fn: () => Promise<T>,
+    retries = MAX_RETRIES,
+    delayMs = BASE_DELAY_MS,
 ): Promise<T> {
-  try {
-    return await fn();
-  } catch (err) {
-    if (retries <= 0) throw err;
-    await new Promise((res) => setTimeout(res, delayMs));
-    return withRetry(fn, retries - 1, delayMs * 2);
-  }
+    try {
+        return await fn();
+    } catch (err) {
+        if (retries <= 0) throw err;
+        await new Promise((res) => setTimeout(res, delayMs));
+        return withRetry(fn, retries - 1, delayMs * 2);
+    }
 }
 
 // ─── Email HTML builder ────────────────────────────────────────────────────────
 
 function buildHtml(dishName: string, restaurantName: string, reason: "stock" | "manual"): string {
-  const reasonText =
-    reason === "manual"
-      ? "You manually marked this item as sold out from your dashboard."
-      : "This item's daily stock limit has been reached through customer orders.";
+    const reasonText =
+        reason === "manual"
+            ? "You manually marked this item as sold out from your dashboard."
+            : "This item's daily stock limit has been reached through customer orders.";
 
-  return `
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -97,51 +97,51 @@ function buildHtml(dishName: string, restaurantName: string, reason: "stock" | "
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method === "OPTIONS") {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Headers", "content-type, authorization");
-    return res.status(200).end();
-  }
+    if (req.method === "OPTIONS") {
+        res.setHeader("Access-Control-Allow-Origin", "*");
+        res.setHeader("Access-Control-Allow-Headers", "content-type, authorization");
+        return res.status(200).end();
+    }
 
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
-  }
+    if (req.method !== "POST") {
+        return res.status(405).json({ error: "Method not allowed" });
+    }
 
-  const { RESEND_API_KEY, FROM_EMAIL } = process.env;
+    const { RESEND_API_KEY, FROM_EMAIL } = process.env;
 
-  if (!RESEND_API_KEY) {
-    console.error("sold-out-email: RESEND_API_KEY not configured");
-    return res.status(500).json({ error: "Email not configured" });
-  }
+    if (!RESEND_API_KEY) {
+        console.error("sold-out-email: RESEND_API_KEY not configured");
+        return res.status(500).json({ error: "Email not configured" });
+    }
 
-  const payload = req.body as Partial<SoldOutPayload>;
-  const { to, restaurantName, dishName, reason } = payload;
+    const payload = req.body as Partial<SoldOutPayload>;
+    const { to, restaurantName, dishName, reason } = payload;
 
-  if (!to || !restaurantName || !dishName || !reason) {
-    return res.status(400).json({ error: "Missing required fields: to, restaurantName, dishName, reason" });
-  }
+    if (!to || !restaurantName || !dishName || !reason) {
+        return res.status(400).json({ error: "Missing required fields: to, restaurantName, dishName, reason" });
+    }
 
-  const subject =
-    reason === "manual"
-      ? `[${restaurantName}] "${dishName}" marked as Sold Out`
-      : `[${restaurantName}] "${dishName}" is now Sold Out (stock depleted)`;
+    const subject =
+        reason === "manual"
+            ? `[${restaurantName}] "${dishName}" marked as Sold Out`
+            : `[${restaurantName}] "${dishName}" is now Sold Out (stock depleted)`;
 
-  const resend = new Resend(RESEND_API_KEY);
+    const resend = new Resend(RESEND_API_KEY);
 
-  try {
-    await withRetry(() =>
-      resend.emails.send({
-        from: `Minute Menus <${FROM_EMAIL ?? "notifications@minutemenus.com"}>`,
-        to,
-        subject,
-        html: buildHtml(dishName, restaurantName, reason),
-      }),
-    );
+    try {
+        await withRetry(() =>
+            resend.emails.send({
+                from: `Minute Menus <${FROM_EMAIL ?? "notifications@minutemenus.com"}>`,
+                to,
+                subject,
+                html: buildHtml(dishName, restaurantName, reason),
+            }),
+        );
 
-    return res.status(200).json({ ok: true });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("sold-out-email: all retries exhausted —", message);
-    return res.status(502).json({ error: "Failed to send email after retries", detail: message });
-  }
+        return res.status(200).json({ ok: true });
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error("sold-out-email: all retries exhausted —", message);
+        return res.status(502).json({ error: "Failed to send email after retries", detail: message });
+    }
 }

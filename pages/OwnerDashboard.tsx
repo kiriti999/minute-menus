@@ -1816,11 +1816,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                             </button>
                             <button
                               onClick={() => handleToggleManualSoldOut(selectedCategoryIdx, idx)}
-                              className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 border-b ${
-                                dish.manualSoldOut
+                              className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 border-b ${dish.manualSoldOut
                                   ? isDarkTheme ? 'text-green-400 hover:bg-zinc-800 hover:text-green-300 border-zinc-800' : 'text-green-600 hover:bg-zinc-100 hover:text-green-700 border-zinc-200'
                                   : isDarkTheme ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white border-zinc-800' : 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 border-zinc-200'
-                              }`}
+                                }`}
                             >
                               <EyeOff size={14} />
                               {dish.manualSoldOut ? "Mark Available" : "Mark Sold Out"}

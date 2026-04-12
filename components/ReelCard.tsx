@@ -135,13 +135,12 @@ export const ReelCard: React.FC<ReelCardProps> = ({ dish, onAddToOrder, currency
         <button
           onClick={handleAdd}
           disabled={isSoldOut}
-          className={`pointer-events-auto w-full py-3 sm:py-4 rounded-sm font-bold text-sm tracking-[0.2em] uppercase transition-all duration-300 shadow-xl flex items-center justify-center gap-3 ${
-            isSoldOut
+          className={`pointer-events-auto w-full py-3 sm:py-4 rounded-sm font-bold text-sm tracking-[0.2em] uppercase transition-all duration-300 shadow-xl flex items-center justify-center gap-3 ${isSoldOut
               ? "bg-zinc-700 text-zinc-400 cursor-not-allowed"
               : added
-              ? "bg-green-500 text-black"
-              : "bg-white text-black hover:bg-zinc-200"
-          }`}
+                ? "bg-green-500 text-black"
+                : "bg-white text-black hover:bg-zinc-200"
+            }`}
         >
           {isSoldOut ? (
             "SOLD OUT"
