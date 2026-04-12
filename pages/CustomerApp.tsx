@@ -54,6 +54,19 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const [isOrdering, setIsOrdering] = useState(false);
   const [soldCounts, setSoldCounts] = useState<Record<string, number>>({});
 
+  // ── Customer identity (required before checkout) ───────────────────
+  type CustomerIdentity = { name: string; phone: string };
+  const IDENTITY_KEY = "mm_customer_identity";
+  const loadIdentity = (): CustomerIdentity | null => {
+    try { return JSON.parse(localStorage.getItem(IDENTITY_KEY) ?? "null"); } catch { return null; }
+  };
+  const [customerIdentity, setCustomerIdentity] = useState<CustomerIdentity | null>(loadIdentity);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authName, setAuthName] = useState("");
+  const [authPhone, setAuthPhone] = useState("");
+  const [authError, setAuthError] = useState("");
+  // ──────────────────────────────────────────────────────────────────
+
   // ── Subscription state ──────────────────────────────────────────────
   type SubView = "lookup" | "plans" | "subscribe" | "manage";
   const [isSubOpen, setIsSubOpen] = useState(false);
@@ -221,34 +234,89 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   };
 
   const handleConfirmOrder = async () => {
+    // Require identity before checkout
+    if (!customerIdentity) {
+      setAuthName("");
+      setAuthPhone("");
+      setAuthError("");
+      setIsAuthModalOpen(true);
+      return;
+    }
+    await processOrderPayment(customerIdentity);
+  };
+
+  const handleAuthSubmit = async () => {
+    if (!authName.trim()) { setAuthError("Please enter your name."); return; }
+    if (!authPhone.trim()) { setAuthError("Please enter your phone number."); return; }
+    const identity: CustomerIdentity = { name: authName.trim(), phone: authPhone.trim() };
+    localStorage.setItem(IDENTITY_KEY, JSON.stringify(identity));
+    setCustomerIdentity(identity);
+    setIsAuthModalOpen(false);
+    await processOrderPayment(identity);
+  };
+
+  const processOrderPayment = async (identity: CustomerIdentity) => {
+    if (!restaurantId) {
+      alert("Restaurant not found. Please scan the QR code again.");
+      return;
+    }
     setIsOrdering(true);
     const timeToOrder = (Date.now() - sessionStartTime) / 1000;
+    try {
+      // 1. Create Razorpay order server-side
+      const orderRes = await fetch("/api/order/create-razorpay-order", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ amount: total, currency, restaurantId, customerName: identity.name }),
+      });
+      if (!orderRes.ok) {
+        const err = await orderRes.json() as { error?: string };
+        throw new Error(err.error ?? "Failed to create payment");
+      }
+      const { orderId, amount: rzpAmount, currency: rzpCurrency, keyId } = await orderRes.json() as {
+        orderId: string; amount: number; currency: string; keyId: string;
+      };
 
-    setTimeout(() => {
-      // Calculate which dishes just hit their stock limit from this order
+      // 2. Open Razorpay checkout
+      await new Promise<void>((resolve, reject) => {
+        type RzpConstructor = new (opts: Record<string, unknown>) => { open: () => void };
+        const RzpClass = (window as Window & typeof globalThis & { Razorpay: RzpConstructor }).Razorpay;
+        const rzp = new RzpClass({
+          key: keyId,
+          order_id: orderId,
+          amount: rzpAmount,
+          currency: rzpCurrency,
+          name: restaurantName ?? "Minute Menus",
+          description: `Order — ${cart.length} item${cart.length !== 1 ? "s" : ""}`,
+          prefill: { name: identity.name, contact: identity.phone },
+          theme: { color: "#000000" },
+          handler: () => resolve(),
+          modal: { ondismiss: () => reject(new Error("Payment cancelled")) },
+        });
+        rzp.open();
+      });
+
+      // 3. Payment succeeded — record order
       const newlySoldOut = cart
         .map((item) => {
           const dish = flatDishes.find((d) => d.id === item.dishId);
           if (!dish || dish.stockQuantity == null) return null;
           const prevSold = soldCounts[item.dishId] ?? 0;
           const afterSold = prevSold + item.quantity;
-          const wasAlreadySoldOut = prevSold >= dish.stockQuantity;
-          const isNowSoldOut = afterSold >= dish.stockQuantity;
-          if (isNowSoldOut && !wasAlreadySoldOut) {
+          if (afterSold >= dish.stockQuantity && prevSold < dish.stockQuantity) {
             return { id: dish.id, name: dish.name };
           }
           return null;
         })
         .filter((d): d is { id: string; name: string } => d !== null);
 
-      supabaseService.recordOrder(
+      await supabaseService.recordOrder(
         cart,
         timeToOrder,
-        restaurantId ?? undefined,
+        restaurantId,
         newlySoldOut.length > 0 ? newlySoldOut : undefined,
       );
 
-      // Update local sold counts so sold-out state reflects immediately
       setSoldCounts((prev) => {
         const updated = { ...prev };
         cart.forEach((item) => {
@@ -257,10 +325,14 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         return updated;
       });
       setCart([]);
-      setIsOrdering(false);
       setIsCartOpen(false);
-      alert("Order sent to kitchen! Thanks for dining with us.");
-    }, 1500);
+      alert("Payment successful! Your order has been sent to the kitchen.");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Payment failed";
+      if (msg !== "Payment cancelled") alert(`Order failed: ${msg}`);
+    } finally {
+      setIsOrdering(false);
+    }
   };
 
   const total = useMemo(
@@ -692,6 +764,58 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           </div>
         </div>
       </div>
+
+      {/* === Customer Identity / Login Modal === */}
+      {isAuthModalOpen && (
+        <div className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-xl flex items-end sm:items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-2xl p-6 animate-in slide-in-from-bottom-4 duration-300">
+            <h2 className="text-xl font-light tracking-tight text-white mb-1">Almost there</h2>
+            <p className="text-zinc-500 text-sm mb-6">Enter your details to confirm your order.</p>
+            {authError && (
+              <div className="mb-4 px-4 py-3 rounded bg-red-950/60 border border-red-800 text-red-400 text-sm">{authError}</div>
+            )}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest mb-1.5 text-zinc-500">Your Name</label>
+                <input
+                  type="text"
+                  value={authName}
+                  autoFocus
+                  onChange={(e) => setAuthName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAuthSubmit()}
+                  placeholder="Full name"
+                  className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-3 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest mb-1.5 text-zinc-500">Phone Number</label>
+                <input
+                  type="tel"
+                  value={authPhone}
+                  onChange={(e) => setAuthPhone(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAuthSubmit()}
+                  placeholder="+91 98765 43210"
+                  className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-3 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
+                />
+              </div>
+            </div>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setIsAuthModalOpen(false)}
+                className="flex-1 py-3 border border-zinc-800 text-zinc-400 rounded text-sm font-bold tracking-widest hover:bg-zinc-900 transition-colors"
+              >
+                CANCEL
+              </button>
+              <button
+                onClick={handleAuthSubmit}
+                className="flex-1 py-3 bg-white text-black rounded text-sm font-bold tracking-widest hover:bg-zinc-200 transition-colors"
+              >
+                PROCEED TO PAY
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* === Subscription Panel === */}
       {isSubOpen && (
