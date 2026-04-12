@@ -791,6 +791,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   const triggerPaywall = (reason: string) => {
     if (userTier === UserTier.FREE) {
+      const seenKey = `mm_paywall_seen_${reason}`;
+      if (sessionStorage.getItem(seenKey)) return false; // already shown this session
+      sessionStorage.setItem(seenKey, "1");
       setPaywallTrigger(reason);
       return true;
     }
@@ -903,7 +906,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     setSelectedCategoryIdx(newMenu.length - 1);
     setTempCategoryTitle(newCategory.title);
     setIsEditingCategory(true);
-    setUnsavedChanges(true);
+    // Persist immediately so a refresh doesn't lose the new category
+    supabaseService.saveMenu(newMenu).catch(console.error);
   };
 
   const handleAddDish = () => {
@@ -943,27 +947,26 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   ) => {
     if (!editingMedia) return;
     const isVideo = editingMedia.file.type.startsWith("video/");
-    if (isVideo)
-      handleDishUpdate(
-        editingMedia.catIndex,
-        editingMedia.dishIndex,
-        "videoUrl",
-        processedUrl,
-      );
-    else
-      handleDishUpdate(
-        editingMedia.catIndex,
-        editingMedia.dishIndex,
-        "imageUrl",
-        processedUrl,
-      );
-    handleDishUpdate(
-      editingMedia.catIndex,
-      editingMedia.dishIndex,
-      "mediaTransform",
-      transform,
-    );
+    const urlField = isVideo ? "videoUrl" : "imageUrl";
+
+    // Build the updated menu with both changes applied at once
+    const newMenu = [...menuItems];
+    newMenu[editingMedia.catIndex].items[editingMedia.dishIndex] = {
+      ...newMenu[editingMedia.catIndex].items[editingMedia.dishIndex],
+      [urlField]: processedUrl,
+      mediaTransform: transform,
+    };
+    setMenuItems(newMenu);
     setEditingMedia(null);
+
+    // Persist immediately — no need to hit Save Changes on the navbar
+    supabaseService
+      .saveMenu(newMenu)
+      .then(() => setUnsavedChanges(false))
+      .catch((err: Error) => {
+        console.error("Media save failed:", err);
+        alert(`Failed to save media: ${err?.message ?? "Unknown error"}`);
+      });
   };
 
   const handleSaveAll = () => {
@@ -1813,6 +1816,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                           setMenuItems(newMenu);
                           setIsEditingCategory(false);
                           setUnsavedChanges(true);
+                          supabaseService.saveMenu(newMenu).catch(console.error);
                         }
                         if (e.key === "Escape") setIsEditingCategory(false);
                       }}
@@ -1824,6 +1828,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                         setMenuItems(newMenu);
                         setIsEditingCategory(false);
                         setUnsavedChanges(true);
+                        supabaseService.saveMenu(newMenu).catch(console.error);
                       }}
                       className={`text-xs px-4 py-2 rounded-lg font-bold ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
                     >
@@ -2075,8 +2080,12 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                               placeholder="0"
                               onFocus={(e) => {
                                 if (userTier === UserTier.FREE) {
-                                  e.target.blur();
-                                  setPaywallTrigger("Smart Pricing");
+                                  const seen = sessionStorage.getItem("mm_paywall_seen_Smart Pricing");
+                                  if (!seen) {
+                                    e.target.blur();
+                                    sessionStorage.setItem("mm_paywall_seen_Smart Pricing", "1");
+                                    setPaywallTrigger("Smart Pricing");
+                                  }
                                 }
                               }}
                               onChange={(e) => {
