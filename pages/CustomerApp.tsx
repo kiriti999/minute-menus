@@ -54,7 +54,22 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   restaurantName,
   currency = "USD",
 }) => {
-  const [cart, setCart] = useState<OrderItem[]>([]);
+  // ── Cart (persisted to localStorage so it survives OAuth/refresh) ──────────
+  const CART_KEY = `mm_cart_${restaurantId ?? "default"}`;
+  const loadCart = (): OrderItem[] => {
+    try {
+      return JSON.parse(localStorage.getItem(CART_KEY) ?? "[]");
+    } catch {
+      return [];
+    }
+  };
+  const [cart, setCart] = useState<OrderItem[]>(loadCart);
+
+  // Persist cart to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem(CART_KEY, JSON.stringify(cart));
+  }, [cart, CART_KEY]);
+
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [activeCategoryIndex, setActiveCategoryIndex] = useState(0);
   const [activeDishIndex, setActiveDishIndex] = useState(0);
