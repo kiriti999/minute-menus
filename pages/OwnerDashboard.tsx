@@ -2049,7 +2049,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                                 e.target.value === "" ? undefined : Math.max(0, isNaN(val) ? 0 : val),
                               );
                             }}
-                            className={`w-20 bg-transparent text-right font-mono focus:outline-none py-0.5 text-sm border-none ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}
+                            className={`w-20 bg-transparent text-right font-mono focus:outline-none py-0.5 pr-1 text-sm border-none ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}
                           />
                         </div>
                       </div>
