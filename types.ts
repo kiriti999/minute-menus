@@ -200,6 +200,54 @@ export interface RefundRequest {
   processedAt?: string;
 }
 
+export interface CustomerDirectoryEntry {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  planName: string;
+  subStatus: SubStatus;
+  totalOrders: number;
+  deliveredOrders: number;
+  lastActiveDate: string | null;
+  joinedAt: string;
+}
+
+// ─── Analytics Report ─────────────────────────────────────────────────────────
+
+export interface AnalyticsReport {
+  period: '24h' | '7d' | '30d';
+  generatedAt: string;
+  currency: string;
+  revenue: {
+    total: number;
+    avgOrderValue: number;
+    orderCount: number;
+    topDishRevenue: Array<{ name: string; revenue: number; units: number }>;
+  };
+  engagement: {
+    totalViews: number;
+    engagementRate: number;     // % views > 5s
+    avgWatchDuration: number;   // seconds
+    completionRate: number;     // % completed reels
+    topDishes: Array<{ name: string; views: number; conversionRate: number }>;
+    lowConversionDishes: Array<{ name: string; views: number; conversionRate: number }>;
+  };
+  subscriptions: {
+    active: number;
+    paused: number;
+    cancelled: number;
+    totalOrders: number;
+    deliveredOrders: number;
+    deliveryRate: number;       // %
+    planBreakdown: Array<{ planName: string; count: number; monthlyRevenue: number }>;
+  };
+  customers: {
+    total: number;
+    newThisPeriod: number;
+  };
+}
+
 // ─── Analytics ────────────────────────────────────────────────────────────────
 
 export interface AggregatedMetrics {

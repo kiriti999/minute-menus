@@ -557,6 +557,148 @@ class SupabaseService {
         };
     }
 
+    // ── Analytics Report ─────────────────────────────────────────────────────────
+    //
+    // Builds a rich, structured snapshot from internal data only.
+    // Source tables: watch_sessions, orders (JSONB items), customer_subscriptions,
+    //                subscription_daily_orders, meal_plans, dishes.
+    // No GA4 or external source needed — all restaurant KPIs live in Supabase.
+
+    async buildAnalyticsReport(
+        timeWindow: "24h" | "7d" | "30d" = "24h",
+    ): Promise<import("../types").AnalyticsReport> {
+        const rid = await getRestaurantId();
+        const now = new Date();
+        const msMap = { "24h": 86400000, "7d": 604800000, "30d": 2592000000 } as const;
+        const since = new Date(now.getTime() - msMap[timeWindow]).toISOString();
+        const todayStr = now.toISOString().slice(0, 10);
+
+        const [
+            { data: sessions },
+            { data: orders },
+            { data: dishes },
+            { data: subs },
+            { data: subOrders },
+            { data: plans },
+            { data: restaurant },
+        ] = await Promise.all([
+            supabase
+                .from("watch_sessions")
+                .select("dish_id, duration, completed")
+                .eq("restaurant_id", rid)
+                .gte("created_at", since),
+            supabase
+                .from("orders")
+                .select("items, total_amount, time_to_order")
+                .eq("restaurant_id", rid)
+                .gte("created_at", since),
+            supabase
+                .from("dishes")
+                .select("id, name")
+                .eq("restaurant_id", rid),
+            supabase
+                .from("customer_subscriptions")
+                .select("id, status, plan_id, created_at")
+                .eq("restaurant_id", rid),
+            supabase
+                .from("subscription_daily_orders")
+                .select("status")
+                .eq("restaurant_id", rid)
+                .lte("delivery_date", todayStr),
+            supabase
+                .from("meal_plans")
+                .select("id, name, price_monthly")
+                .eq("restaurant_id", rid),
+            supabase
+                .from("restaurants")
+                .select("currency")
+                .eq("id", rid)
+                .single(),
+        ]);
+
+        const s = sessions ?? [];
+        const o = orders ?? [];
+        const d = dishes ?? [];
+        const allSubs = subs ?? [];
+        const allSubOrders = subOrders ?? [];
+        const allPlans = plans ?? [];
+        const currency = (restaurant as { currency?: string } | null)?.currency ?? "USD";
+
+        // Revenue
+        const totalRevenue = o.reduce((sum, ord) => sum + Number(ord.total_amount), 0);
+        const orderCount = o.length;
+        const avgOrderValue = orderCount > 0 ? totalRevenue / orderCount : 0;
+
+        type OrderItem = { dishId: string; name: string; price: number; quantity: number };
+        const dishRevenueMap = new Map<string, { name: string; revenue: number; units: number }>();
+        o.forEach((ord) => {
+            (Array.isArray(ord.items) ? ord.items as OrderItem[] : []).forEach((item) => {
+                const cur = dishRevenueMap.get(item.dishId) ?? { name: item.name, revenue: 0, units: 0 };
+                cur.revenue += item.price * item.quantity;
+                cur.units += item.quantity;
+                dishRevenueMap.set(item.dishId, cur);
+            });
+        });
+        const topDishRevenue = Array.from(dishRevenueMap.values())
+            .sort((a, b) => b.revenue - a.revenue)
+            .slice(0, 5);
+
+        // Engagement
+        const totalViews = s.length;
+        const engagedViews = s.filter((ws) => Number(ws.duration) > 5).length;
+        const engagementRate = totalViews > 0 ? (engagedViews / totalViews) * 100 : 0;
+        const avgWatchDuration = totalViews > 0 ? s.reduce((sum, ws) => sum + Number(ws.duration), 0) / totalViews : 0;
+        const completionRate = totalViews > 0 ? (s.filter((ws) => ws.completed).length / totalViews) * 100 : 0;
+
+        const dishViewMap = new Map<string, { views: number; completions: number }>();
+        s.forEach((ws) => {
+            const cur = dishViewMap.get(ws.dish_id) ?? { views: 0, completions: 0 };
+            cur.views++;
+            if (ws.completed) cur.completions++;
+            dishViewMap.set(ws.dish_id, cur);
+        });
+
+        const dishOrderMap = new Map<string, number>();
+        o.forEach((ord) => {
+            (Array.isArray(ord.items) ? ord.items as OrderItem[] : []).forEach((item) => {
+                dishOrderMap.set(item.dishId, (dishOrderMap.get(item.dishId) ?? 0) + item.quantity);
+            });
+        });
+
+        const dishPerf = Array.from(dishViewMap.entries()).map(([id, stats]) => ({
+            name: d.find((dish) => dish.id === id)?.name ?? "Unknown",
+            views: stats.views,
+            conversionRate: stats.views > 0 ? ((dishOrderMap.get(id) ?? 0) / stats.views) * 100 : 0,
+        }));
+        const topDishes = [...dishPerf].sort((a, b) => b.views - a.views).slice(0, 3);
+        const lowConversionDishes = dishPerf
+            .filter((dp) => dp.views >= 3)
+            .sort((a, b) => a.conversionRate - b.conversionRate)
+            .slice(0, 3);
+
+        // Subscriptions
+        const active = allSubs.filter((sub) => sub.status === "active").length;
+        const paused = allSubs.filter((sub) => sub.status === "paused").length;
+        const cancelled = allSubs.filter((sub) => sub.status === "cancelled").length;
+        const deliveredOrders = allSubOrders.filter((subOrd) => subOrd.status === "delivered").length;
+        const totalSubOrders = allSubOrders.length;
+        const deliveryRate = totalSubOrders > 0 ? (deliveredOrders / totalSubOrders) * 100 : 0;
+        const planBreakdown = allPlans.map((p) => {
+            const count = allSubs.filter((sub) => sub.plan_id === p.id && sub.status === "active").length;
+            return { planName: p.name, count, monthlyRevenue: count * Number(p.price_monthly) };
+        });
+
+        return {
+            period: timeWindow,
+            generatedAt: now.toISOString(),
+            currency,
+            revenue: { total: totalRevenue, avgOrderValue, orderCount, topDishRevenue },
+            engagement: { totalViews, engagementRate, avgWatchDuration, completionRate, topDishes, lowConversionDishes },
+            subscriptions: { active, paused, cancelled, totalOrders: totalSubOrders, deliveredOrders, deliveryRate, planBreakdown },
+            customers: { total: allSubs.length, newThisPeriod: allSubs.filter((sub) => sub.created_at >= since).length },
+        };
+    }
+
     // ── CSV Export ───────────────────────────────────────────────────────────────
 
     async getCSVData(): Promise<string> {
@@ -865,6 +1007,48 @@ class SupabaseService {
             startDate: s.start_date,
             endDate: s.end_date,
             createdAt: s.created_at,
+        }));
+    }
+
+    async getCustomerDirectory(restaurantId?: string): Promise<import("../types").CustomerDirectoryEntry[]> {
+        const rid = restaurantId ?? (await getRestaurantId());
+
+        const [{ data: subs, error: subErr }, { data: orders }] = await Promise.all([
+            supabase
+                .from("customer_subscriptions")
+                .select("id, customer_name, phone, email, status, created_at, meal_plans(name)")
+                .eq("restaurant_id", rid)
+                .order("created_at", { ascending: false }),
+            supabase
+                .from("subscription_daily_orders")
+                .select("subscription_id, status, delivery_date")
+                .eq("restaurant_id", rid)
+                .neq("status", "cancelled"),
+        ]);
+
+        if (subErr) throw subErr;
+
+        type OrderRow = { subscription_id: string; status: string; delivery_date: string };
+        const statsMap = new Map<string, { total: number; delivered: number; lastDate: string | null }>();
+        for (const o of (orders ?? []) as OrderRow[]) {
+            const s = statsMap.get(o.subscription_id) ?? { total: 0, delivered: 0, lastDate: null };
+            s.total++;
+            if (o.status === "delivered") s.delivered++;
+            if (!s.lastDate || o.delivery_date > s.lastDate) s.lastDate = o.delivery_date;
+            statsMap.set(o.subscription_id, s);
+        }
+
+        return (subs ?? []).map((s) => ({
+            id: s.id,
+            name: s.customer_name,
+            phone: s.phone,
+            email: s.email ?? null,
+            planName: (s as unknown as { meal_plans?: { name?: string } }).meal_plans?.name ?? "—",
+            subStatus: s.status as import("../types").SubStatus,
+            totalOrders: statsMap.get(s.id)?.total ?? 0,
+            deliveredOrders: statsMap.get(s.id)?.delivered ?? 0,
+            lastActiveDate: statsMap.get(s.id)?.lastDate ?? null,
+            joinedAt: s.created_at,
         }));
     }
 

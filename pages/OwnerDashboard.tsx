@@ -3,6 +3,8 @@ import {
   BrainCircuit,
   Calendar,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Copy,
   CreditCard,
   Crown,
@@ -27,6 +29,7 @@ import {
   QrCode,
   RefreshCw,
   Save,
+  Search,
   Sparkles,
   Sun,
   Tag,
@@ -56,13 +59,15 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { getAiInsights } from "../services/geminiService";
+import { generateAnalyticsReport } from "../services/geminiService";
 import { supabase } from "../lib/supabase";
 import { supabaseService } from "../services/supabaseService";
 import { SUPPORTED_CURRENCIES, getSymbolForCurrency } from "../lib/currency";
 import {
   type AggregatedMetrics,
+  type AnalyticsReport,
   type Category,
+  type CustomerDirectoryEntry,
   type CustomerSubscription,
   type DailyOrder,
   type DeliveryTicket,
@@ -659,6 +664,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 }) => {
   const [currentView, setCurrentView] = useState<ViewMode>("DASHBOARD");
   const [insights, setInsights] = useState<string>("");
+  const [analyticsReport, setAnalyticsReport] = useState<AnalyticsReport | null>(null);
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
@@ -679,6 +685,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   // Tier & Paywall State
   const [userTier, setUserTier] = useState<UserTier>(UserTier.FREE);
   const [paywallTrigger, setPaywallTrigger] = useState<string | null>(null);
+
+  // Customer Directory State
+  const [customerDirectory, setCustomerDirectory] = useState<CustomerDirectoryEntry[]>([]);
+  const [custSearch, setCustSearch] = useState("");
+  const [custPage, setCustPage] = useState(0);
 
   // Subscription Management State
   const [subTab, setSubTab] = useState<SubTab>("plans");
@@ -737,6 +748,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     // Subscription data
     supabaseService.getMealPlans().then(setMealPlans).catch(console.error);
     supabaseService.getCustomerSubscriptions().then(setCustomerSubs).catch(console.error);
+    supabaseService.getCustomerDirectory().then(setCustomerDirectory).catch(console.error);
     supabaseService.getTomorrowsOrders().then(setTomorrowOrders).catch(console.error);
     supabaseService.getDeliveryTickets().then(setDeliveryTickets).catch(console.error);
     supabaseService.getRefundRequests().then(setRefundRequests).catch(console.error);
@@ -764,27 +776,19 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   const handleGenerateInsights = async () => {
     if (triggerPaywall("AI Analysis")) return;
-
     setIsLoadingInsights(true);
-    if (metrics) {
-      const dp = metrics.dishPerformance.map((d) => ({
-        id: d.id,
-        name: d.name,
-        views: d.views,
-        conversions: d.conversions,
-        conversionRate: d.conversionRate,
-        watchTime: d.watchTime,
-      }));
-      const traffic = metrics.hourlyTraffic.map((t) => ({
-        timestamp: t.hour,
-        views: t.views,
-        orders: 0,
-        avgTimeOnPage: 0,
-      }));
-      const result = await getAiInsights(dp, traffic);
-      setInsights(result);
+    try {
+      const report = await supabaseService.buildAnalyticsReport(timeWindow);
+      setAnalyticsReport(report);
+      const name = restaurantDetails?.name ?? "the restaurant";
+      const text = await generateAnalyticsReport(report, name);
+      setInsights(text);
+    } catch (err) {
+      console.error("Analytics report error:", err);
+      setInsights("Failed to generate report. Please try again.");
+    } finally {
+      setIsLoadingInsights(false);
     }
-    setIsLoadingInsights(false);
   };
 
   const handleExportCSV = async () => {
@@ -1297,14 +1301,44 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                     </button>
                   </div>
 
+                  {/* Data snapshot pills — visible once report is built */}
+                  {analyticsReport && (
+                    <div className="flex flex-wrap gap-2 mb-5">
+                      {[
+                        { label: "Revenue", value: `${analyticsReport.currency} ${analyticsReport.revenue.total.toFixed(2)}` },
+                        { label: "Orders", value: String(analyticsReport.revenue.orderCount) },
+                        { label: "Views", value: String(analyticsReport.engagement.totalViews) },
+                        { label: "Engagement", value: `${analyticsReport.engagement.engagementRate.toFixed(1)}%` },
+                        { label: "Active Subs", value: String(analyticsReport.subscriptions.active) },
+                        { label: "Delivery Rate", value: `${analyticsReport.subscriptions.deliveryRate.toFixed(1)}%` },
+                        { label: "New Customers", value: String(analyticsReport.customers.newThisPeriod) },
+                      ].map(({ label, value }) => (
+                        <span key={label} className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs border ${isDarkTheme ? 'border-zinc-700 text-zinc-400' : 'border-zinc-300 text-zinc-600'}`}>
+                          <span className={`font-bold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{value}</span>
+                          <span>{label}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
                   <div className="min-h-[80px]">
                     {insights ? (
-                      <div className={`prose max-w-none text-sm leading-relaxed font-light whitespace-pre-line ${isDarkTheme ? 'prose-invert text-zinc-300' : 'text-zinc-700'}`}>
-                        {insights}
+                      <div className="space-y-4">
+                        {insights.split(/^## /m).filter(Boolean).map((section) => {
+                          const newlineIdx = section.indexOf("\n");
+                          const title = newlineIdx === -1 ? section.trim() : section.slice(0, newlineIdx).trim();
+                          const body = newlineIdx === -1 ? "" : section.slice(newlineIdx + 1).trim();
+                          return (
+                            <div key={title} className={`border-l-2 pl-4 ${isDarkTheme ? 'border-zinc-700' : 'border-zinc-300'}`}>
+                              <h4 className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>{title}</h4>
+                              <p className={`text-sm leading-relaxed whitespace-pre-line ${isDarkTheme ? 'text-zinc-300' : 'text-zinc-700'}`}>{body}</p>
+                            </div>
+                          );
+                        })}
                       </div>
                     ) : (
                       <p className={`text-sm italic ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-500'}`}>
-                        Click generate to analyze real-time patterns...
+                        Click generate to analyse real-time patterns across orders, subscriptions, and menu engagement...
                       </p>
                     )}
                   </div>
@@ -2042,23 +2076,152 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           </div>
         )}
 
-        {currentView === "CUSTOMERS" && (
-          <div className={`flex items-center justify-center h-full animate-in fade-in ${isDarkTheme ? 'bg-black text-zinc-600' : 'bg-zinc-50 text-zinc-400'}`}>
-            <div className="text-center">
-              <Users
-                size={48}
-                strokeWidth={1}
-                className="mx-auto mb-6 opacity-50"
-              />
-              <h2 className={`text-xl font-light mb-2 ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
-                Customer Directory
-              </h2>
-              <p className="font-mono text-xs">
-                CRM MODULE v1.1 PENDING UPDATE
-              </p>
+        {currentView === "CUSTOMERS" && (() => {
+          const PAGE_SIZE = 20;
+          const filtered = customerDirectory.filter(
+            (c) =>
+              !custSearch ||
+              c.name.toLowerCase().includes(custSearch.toLowerCase()) ||
+              c.phone.includes(custSearch),
+          );
+          const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+          const safePage = Math.min(custPage, totalPages - 1);
+          const pageRows = filtered.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
+
+          return (
+            <div className={`flex-1 overflow-y-auto p-4 md:p-10 animate-in fade-in duration-500 pb-24 ${isDarkTheme ? 'bg-black' : 'bg-zinc-50'}`}>
+              {/* Header */}
+              <header className="flex flex-col md:flex-row justify-between md:items-end mb-8 gap-4">
+                <div>
+                  <h1 className={`text-3xl font-light tracking-tight mb-1 ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>Customers</h1>
+                  <p className={`text-sm ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>
+                    {filtered.length} customer{filtered.length !== 1 ? "s" : ""}{custSearch ? " matched" : " total"}
+                  </p>
+                </div>
+                {/* Search */}
+                <div className={`relative flex items-center ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                  <Search size={15} className="absolute left-3 pointer-events-none" />
+                  <input
+                    type="text"
+                    value={custSearch}
+                    onChange={(e) => { setCustSearch(e.target.value); setCustPage(0); }}
+                    placeholder="Search by name or phone…"
+                    className={`pl-9 pr-4 py-2 rounded-lg border text-sm outline-none w-64 ${isDarkTheme ? 'bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 focus:border-zinc-600' : 'bg-white border-zinc-300 text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400'}`}
+                  />
+                  {custSearch && (
+                    <button onClick={() => { setCustSearch(""); setCustPage(0); }} className="absolute right-3">
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
+              </header>
+
+              {/* Table */}
+              <div className={`rounded-xl border overflow-hidden ${isDarkTheme ? 'border-zinc-800' : 'border-zinc-200'}`}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className={`text-[10px] font-bold uppercase tracking-widest ${isDarkTheme ? 'bg-zinc-900 text-zinc-500' : 'bg-zinc-100 text-zinc-500'}`}>
+                        {["Name", "Mobile", "Subscription", "Orders", "Delivered", "Last Active", "Joined"].map((h) => (
+                          <th key={h} className="px-4 py-3 text-left whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className={`divide-y ${isDarkTheme ? 'divide-zinc-800' : 'divide-zinc-100'}`}>
+                      {pageRows.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className={`px-4 py-16 text-center ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-400'}`}>
+                            <Users size={32} strokeWidth={1} className="mx-auto mb-3 opacity-40" />
+                            {custSearch ? "No customers matched your search" : "No customers yet"}
+                          </td>
+                        </tr>
+                      )}
+                      {pageRows.map((c) => (
+                        <tr key={c.id} className={`transition-colors ${isDarkTheme ? 'hover:bg-zinc-900/60' : 'hover:bg-zinc-50'} ${isDarkTheme ? 'bg-black' : 'bg-white'}`}>
+                          {/* Name */}
+                          <td className="px-4 py-3">
+                            <span className={`font-medium ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{c.name}</span>
+                            {c.email && <p className={`text-xs mt-0.5 ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-400'}`}>{c.email}</p>}
+                          </td>
+                          {/* Mobile */}
+                          <td className={`px-4 py-3 font-mono text-xs ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>{c.phone}</td>
+                          {/* Subscription */}
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`text-xs ${isDarkTheme ? 'text-zinc-300' : 'text-zinc-700'}`}>{c.planName}</span>
+                              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${c.subStatus === "active" ? "bg-green-900/40 text-green-400" : c.subStatus === "paused" ? "bg-amber-900/40 text-amber-400" : "bg-red-900/40 text-red-400"}`}>
+                                {c.subStatus}
+                              </span>
+                            </div>
+                          </td>
+                          {/* Orders */}
+                          <td className={`px-4 py-3 text-center font-mono font-bold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{c.totalOrders}</td>
+                          {/* Delivered (most active metric) */}
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <span className={`font-mono font-bold text-xs ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{c.deliveredOrders}</span>
+                              {c.totalOrders > 0 && (
+                                <div className={`h-1.5 w-16 rounded-full overflow-hidden ${isDarkTheme ? 'bg-zinc-800' : 'bg-zinc-200'}`}>
+                                  <div
+                                    className="h-full rounded-full bg-green-500"
+                                    style={{ width: `${Math.round((c.deliveredOrders / Math.max(c.totalOrders, 1)) * 100)}%` }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          {/* Last Active */}
+                          <td className={`px-4 py-3 text-xs ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>
+                            {c.lastActiveDate ?? "—"}
+                          </td>
+                          {/* Joined */}
+                          <td className={`px-4 py-3 text-xs ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-400'}`}>
+                            {new Date(c.joinedAt).toLocaleDateString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className={`flex items-center justify-between px-4 py-3 border-t ${isDarkTheme ? 'border-zinc-800 bg-zinc-900' : 'border-zinc-200 bg-zinc-50'}`}>
+                    <p className={`text-xs ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>
+                      {safePage * PAGE_SIZE + 1}–{Math.min((safePage + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
+                    </p>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => setCustPage((p) => Math.max(0, p - 1))}
+                        disabled={safePage === 0}
+                        className={`p-1.5 rounded transition-colors disabled:opacity-30 ${isDarkTheme ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-200 text-zinc-500'}`}
+                      >
+                        <ChevronLeft size={16} />
+                      </button>
+                      {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                        const page = totalPages <= 7 ? i : i === 0 ? 0 : i === 6 ? totalPages - 1 : safePage - 2 + i;
+                        if (page < 0 || page >= totalPages) return null;
+                        return (
+                          <button key={page} onClick={() => setCustPage(page)}
+                            className={`w-7 h-7 rounded text-xs font-medium transition-colors ${safePage === page ? (isDarkTheme ? 'bg-white text-black' : 'bg-zinc-900 text-white') : isDarkTheme ? 'text-zinc-500 hover:bg-zinc-800' : 'text-zinc-500 hover:bg-zinc-200'}`}>
+                            {page + 1}
+                          </button>
+                        );
+                      })}
+                      <button
+                        onClick={() => setCustPage((p) => Math.min(totalPages - 1, p + 1))}
+                        disabled={safePage >= totalPages - 1}
+                        className={`p-1.5 rounded transition-colors disabled:opacity-30 ${isDarkTheme ? 'hover:bg-zinc-800 text-zinc-400' : 'hover:bg-zinc-200 text-zinc-500'}`}
+                      >
+                        <ChevronRight size={16} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ─── Subscriptions View ─────────────────────────────────────────── */}
         {currentView === "SUBSCRIPTIONS" && (
