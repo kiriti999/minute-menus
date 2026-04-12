@@ -731,3 +731,55 @@ create index if not exists idx_sessions_created      on watch_sessions(created_a
 -- ALTER TABLE customer_subscriptions
 --   ADD COLUMN IF NOT EXISTS rotation_dish_ids uuid[] NOT NULL DEFAULT '{}';
 -- ─────────────────────────────────────────────
+
+-- ─────────────────────────────────────────────
+-- 17. CUSTOMER PROFILES
+-- Stores authenticated customer info (auth via Supabase Auth).
+-- One profile per auth user. Address used for delivery checkout.
+-- ─────────────────────────────────────────────
+create table if not exists customer_profiles (
+  id               uuid primary key default gen_random_uuid(),
+  user_id          uuid not null unique,  -- Supabase Auth user id
+  email            text not null,
+  email_verified   boolean not null default false,
+  phone            text,
+  name             text,
+  -- Address fields
+  address_line1    text,    -- apartment/building name, house number
+  address_line2    text,    -- plot/flat number
+  street           text,
+  area             text,
+  landmark         text,
+  city             text,
+  state            text,
+  pincode          text,
+  -- Google Maps location (optional)
+  lat              decimal(10, 8),
+  lng              decimal(11, 8),
+  formatted_address text,   -- full address from Google Places
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+
+alter table customer_profiles enable row level security;
+
+-- Customers can read/update only their own profile
+create policy "Users can view own profile"
+  on customer_profiles for select
+  using (auth.uid() = user_id);
+
+create policy "Users can update own profile"
+  on customer_profiles for update
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own profile"
+  on customer_profiles for insert
+  with check (auth.uid() = user_id);
+
+-- Index for fast lookup by user_id
+create index if not exists idx_customer_profiles_user on customer_profiles(user_id);
+
+-- ─────────────────────────────────────────────
+-- MIGRATION: run these on existing databases:
+-- CREATE TABLE IF NOT EXISTS customer_profiles (...);  -- full definition above
+-- ─────────────────────────────────────────────

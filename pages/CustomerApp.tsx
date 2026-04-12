@@ -7,16 +7,22 @@ import {
   ChevronLeft,
   Clock,
   CreditCard,
+  Eye,
+  EyeOff,
   Loader2,
+  Mail,
+  MapPin,
   Minus,
   Moon,
   Pause,
+  Phone,
   Play,
   Plus,
   RefreshCw,
   ShoppingBag,
   Sun,
   Tag,
+  User,
   X,
 } from "lucide-react";
 import type React from "react";
@@ -24,7 +30,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ReelCard } from "../components/ReelCard";
 import { formatPriceInCurrency } from "../lib/currency";
 import { supabaseService } from "../services/supabaseService";
-import type { Category, CustomerSubscription, DailyOrder, Dish, MealPlan, OrderItem, SubDeliveryType, DeliveryFeeMode, TicketReason, TimeSlot } from "../types";
+import { supabase } from "../lib/supabase";
+import type { Category, CustomerProfile, CustomerSubscription, DailyOrder, Dish, MealPlan, OrderItem, SubDeliveryType, DeliveryFeeMode, TicketReason, TimeSlot } from "../types";
 import { TICKET_REASON_LABELS, TIME_SLOT_LABELS } from "../types";
 
 interface CustomerAppProps {
@@ -54,18 +61,32 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const [isOrdering, setIsOrdering] = useState(false);
   const [soldCounts, setSoldCounts] = useState<Record<string, number>>({});
 
-  // ── Customer identity (required before checkout) ───────────────────
-  type CustomerIdentity = { name: string; phone: string };
-  const IDENTITY_KEY = "mm_customer_identity";
-  const loadIdentity = (): CustomerIdentity | null => {
-    try { return JSON.parse(localStorage.getItem(IDENTITY_KEY) ?? "null"); } catch { return null; }
-  };
-  const [customerIdentity, setCustomerIdentity] = useState<CustomerIdentity | null>(loadIdentity);
+  // ── Customer Auth & Profile (required before checkout) ─────────────────────
+  type AuthStep = "auth" | "otp" | "details";
+  const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authName, setAuthName] = useState("");
-  const [authPhone, setAuthPhone] = useState("");
+  const [authStep, setAuthStep] = useState<AuthStep>("auth");
+  const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
-  // ──────────────────────────────────────────────────────────────────
+  // Auth step fields
+  const [authEmail, setAuthEmail] = useState("");
+  const [authPassword, setAuthPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(true);
+  // OTP step fields
+  const [otpCode, setOtpCode] = useState("");
+  // Details step fields
+  const [detailsName, setDetailsName] = useState("");
+  const [detailsPhone, setDetailsPhone] = useState("");
+  const [detailsAddressLine1, setDetailsAddressLine1] = useState("");
+  const [detailsAddressLine2, setDetailsAddressLine2] = useState("");
+  const [detailsStreet, setDetailsStreet] = useState("");
+  const [detailsArea, setDetailsArea] = useState("");
+  const [detailsLandmark, setDetailsLandmark] = useState("");
+  const [detailsCity, setDetailsCity] = useState("");
+  const [detailsState, setDetailsState] = useState("");
+  const [detailsPincode, setDetailsPincode] = useState("");
+  // ──────────────────────────────────────────────────────────────────────────
 
   // ── Subscription state ──────────────────────────────────────────────
   type SubView = "lookup" | "plans" | "subscribe" | "manage";
@@ -128,6 +149,43 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       .catch(console.error)
       .finally(() => setMenuLoading(false));
   }, [restaurantId]);
+
+  // Check if customer is logged in on mount and handle OAuth callbacks
+  useEffect(() => {
+    const loadProfile = async () => {
+      const profile = await supabaseService.ensureCustomerProfile();
+      setCustomerProfile(profile);
+      if (profile) {
+        setDetailsName(profile.name ?? "");
+        setDetailsPhone(profile.phone ?? "");
+        setDetailsAddressLine1(profile.addressLine1 ?? "");
+        setDetailsAddressLine2(profile.addressLine2 ?? "");
+        setDetailsStreet(profile.street ?? "");
+        setDetailsArea(profile.area ?? "");
+        setDetailsLandmark(profile.landmark ?? "");
+        setDetailsCity(profile.city ?? "");
+        setDetailsState(profile.state ?? "");
+        setDetailsPincode(profile.pincode ?? "");
+        // If profile incomplete and auth modal is not open, open it at details step
+        if (!supabaseService.isProfileComplete(profile) && isAuthModalOpen) {
+          setAuthStep("details");
+        }
+      }
+    };
+
+    loadProfile().catch(() => { /* not logged in */ });
+
+    // Listen for auth state changes (handles OAuth callback)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN") {
+        loadProfile().catch(console.error);
+      } else if (event === "SIGNED_OUT") {
+        setCustomerProfile(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [isAuthModalOpen]);
 
   // Flatten the menu structure for continuous vertical scrolling
   // STRICT LIMIT: Limit to first 10 items only as per requirements.
@@ -236,28 +294,171 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   };
 
   const handleConfirmOrder = async () => {
-    // Require identity before checkout
-    if (!customerIdentity) {
-      setAuthName("");
-      setAuthPhone("");
+    // Check if profile is complete for checkout
+    if (!customerProfile) {
+      // Not logged in — start at auth step
+      setAuthStep("auth");
       setAuthError("");
       setIsAuthModalOpen(true);
       return;
     }
-    await processOrderPayment(customerIdentity);
+    if (!supabaseService.isProfileComplete(customerProfile)) {
+      // Logged in but missing required fields — go to details step
+      setAuthStep("details");
+      setAuthError("");
+      setIsAuthModalOpen(true);
+      return;
+    }
+    // Profile complete — proceed to payment
+    await processOrderPayment(customerProfile);
   };
 
-  const handleAuthSubmit = async () => {
-    if (!authName.trim()) { setAuthError("Please enter your name."); return; }
-    if (!authPhone.trim()) { setAuthError("Please enter your phone number."); return; }
-    const identity: CustomerIdentity = { name: authName.trim(), phone: authPhone.trim() };
-    localStorage.setItem(IDENTITY_KEY, JSON.stringify(identity));
-    setCustomerIdentity(identity);
-    setIsAuthModalOpen(false);
-    await processOrderPayment(identity);
+  // Auth step: email/password signup or login
+  const handleAuthEmailSubmit = async () => {
+    if (!authEmail.trim()) { setAuthError("Please enter your email."); return; }
+    if (!authPassword.trim()) { setAuthError("Please enter your password."); return; }
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      if (isSignUp) {
+        await supabaseService.customerSignUp(authEmail.trim(), authPassword);
+        setAuthStep("otp");
+      } else {
+        const { profile } = await supabaseService.customerSignIn(authEmail.trim(), authPassword);
+        setCustomerProfile(profile);
+        if (profile) {
+          setDetailsName(profile.name ?? "");
+          setDetailsPhone(profile.phone ?? "");
+          setDetailsAddressLine1(profile.addressLine1 ?? "");
+          setDetailsAddressLine2(profile.addressLine2 ?? "");
+          setDetailsStreet(profile.street ?? "");
+          setDetailsArea(profile.area ?? "");
+          setDetailsLandmark(profile.landmark ?? "");
+          setDetailsCity(profile.city ?? "");
+          setDetailsState(profile.state ?? "");
+          setDetailsPincode(profile.pincode ?? "");
+        }
+        if (profile && supabaseService.isProfileComplete(profile)) {
+          setIsAuthModalOpen(false);
+          await processOrderPayment(profile);
+        } else {
+          setAuthStep("details");
+        }
+      }
+    } catch (e) {
+      setAuthError(e instanceof Error ? e.message : "Authentication failed");
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
-  const processOrderPayment = async (identity: CustomerIdentity) => {
+  // Google OAuth
+  const handleGoogleSignIn = async () => {
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      await supabaseService.customerGoogleSignIn();
+      // OAuth will redirect, then on return the useEffect will handle profile
+    } catch (e) {
+      setAuthError(e instanceof Error ? e.message : "Google sign-in failed");
+      setAuthLoading(false);
+    }
+  };
+
+  // OTP verification
+  const handleOTPSubmit = async () => {
+    if (!otpCode.trim() || otpCode.length < 6) {
+      setAuthError("Please enter the 6-digit code from your email.");
+      return;
+    }
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      const verified = await supabaseService.verifyEmailOTP(authEmail, otpCode.trim());
+      if (!verified) throw new Error("Invalid or expired code");
+      // Get profile after verification
+      const profile = await supabaseService.ensureCustomerProfile();
+      setCustomerProfile(profile);
+      setAuthStep("details");
+    } catch (e) {
+      setAuthError(e instanceof Error ? e.message : "Verification failed");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleResendOTP = async () => {
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      await supabaseService.resendOTP(authEmail);
+      setAuthError(""); // Clear any error, show success implicitly
+    } catch (e) {
+      setAuthError(e instanceof Error ? e.message : "Failed to resend code");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // Details step: phone + address
+  const handleDetailsSubmit = async () => {
+    if (!detailsName.trim()) { setAuthError("Please enter your name."); return; }
+    if (!detailsPhone.trim()) { setAuthError("Please enter your phone number."); return; }
+    if (!detailsAddressLine1.trim()) { setAuthError("Please enter your building/house name."); return; }
+    if (!detailsCity.trim()) { setAuthError("Please enter your city."); return; }
+    if (!detailsPincode.trim()) { setAuthError("Please enter your pincode."); return; }
+
+    setAuthLoading(true);
+    setAuthError("");
+    try {
+      const customer = await supabaseService.getCurrentCustomer();
+      if (!customer) throw new Error("Not logged in");
+
+      await supabaseService.updateCustomerProfile(customer.userId, {
+        name: detailsName.trim(),
+        phone: detailsPhone.trim(),
+        addressLine1: detailsAddressLine1.trim(),
+        addressLine2: detailsAddressLine2.trim() || undefined,
+        street: detailsStreet.trim() || undefined,
+        area: detailsArea.trim() || undefined,
+        landmark: detailsLandmark.trim() || undefined,
+        city: detailsCity.trim(),
+        state: detailsState.trim() || undefined,
+        pincode: detailsPincode.trim(),
+      });
+
+      const updatedProfile = await supabaseService.getCustomerProfile(customer.userId);
+      setCustomerProfile(updatedProfile);
+      setIsAuthModalOpen(false);
+      if (updatedProfile) {
+        await processOrderPayment(updatedProfile);
+      }
+    } catch (e) {
+      setAuthError(e instanceof Error ? e.message : "Failed to save details");
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  const handleCustomerSignOut = async () => {
+    await supabaseService.customerSignOut();
+    setCustomerProfile(null);
+    setAuthEmail("");
+    setAuthPassword("");
+    setOtpCode("");
+    setDetailsName("");
+    setDetailsPhone("");
+    setDetailsAddressLine1("");
+    setDetailsAddressLine2("");
+    setDetailsStreet("");
+    setDetailsArea("");
+    setDetailsLandmark("");
+    setDetailsCity("");
+    setDetailsState("");
+    setDetailsPincode("");
+  };
+
+  const processOrderPayment = async (profile: CustomerProfile) => {
     if (!restaurantId) {
       alert("Restaurant not found. Please scan the QR code again.");
       return;
@@ -269,7 +470,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       const orderRes = await fetch("/api/order/create-razorpay-order", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ amount: total, currency, restaurantId, customerName: identity.name }),
+        body: JSON.stringify({ amount: total, currency, restaurantId, customerName: profile.name ?? "Customer" }),
       });
       if (!orderRes.ok) {
         const err = await orderRes.json() as { error?: string };
@@ -290,7 +491,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           currency: rzpCurrency,
           name: restaurantName ?? "Minute Menus",
           description: `Order — ${cart.length} item${cart.length !== 1 ? "s" : ""}`,
-          prefill: { name: identity.name, contact: identity.phone },
+          prefill: { name: profile.name, contact: profile.phone, email: profile.email },
           theme: { color: "#000000" },
           handler: () => resolve(),
           modal: { ondismiss: () => reject(new Error("Payment cancelled")) },
@@ -662,6 +863,24 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           </button>
 
           <div className="flex items-center gap-2 pointer-events-auto">
+            {/* User Account Button */}
+            {customerProfile ? (
+              <button
+                onClick={handleCustomerSignOut}
+                className={`p-2.5 rounded-full backdrop-blur-md border transition-colors shadow-lg ${isDarkTheme ? 'bg-black/40 border-white/20 hover:bg-black/60' : 'bg-white/40 border-black/20 hover:bg-white/60'}`}
+                title={`Signed in as ${customerProfile.email} — tap to sign out`}
+              >
+                <User size={18} className={isDarkTheme ? 'text-white' : 'text-zinc-800'} />
+              </button>
+            ) : (
+              <button
+                onClick={() => { setAuthStep("auth"); setAuthError(""); setIsAuthModalOpen(true); }}
+                className={`p-2.5 rounded-full backdrop-blur-md border transition-colors shadow-lg ${isDarkTheme ? 'bg-black/40 border-white/20 hover:bg-black/60' : 'bg-white/40 border-black/20 hover:bg-white/60'}`}
+                title="Sign in"
+              >
+                <User size={18} className={isDarkTheme ? 'text-white/50' : 'text-zinc-400'} />
+              </button>
+            )}
             <button
               onClick={openSubPanel}
               className={`p-2.5 rounded-full backdrop-blur-md border transition-colors shadow-lg ${isDarkTheme ? 'bg-black/40 border-white/20 hover:bg-black/60' : 'bg-white/40 border-black/20 hover:bg-white/60'}`}
@@ -767,53 +986,256 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         </div>
       </div>
 
-      {/* === Customer Identity / Login Modal === */}
+      {/* === Customer Auth Modal (Multi-step) === */}
       {isAuthModalOpen && (
         <div className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-xl flex items-end sm:items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="w-full max-w-sm bg-zinc-950 border border-zinc-800 rounded-2xl p-6 animate-in slide-in-from-bottom-4 duration-300">
-            <h2 className="text-xl font-light tracking-tight text-white mb-1">Almost there</h2>
-            <p className="text-zinc-500 text-sm mb-6">Enter your details to confirm your order.</p>
-            {authError && (
-              <div className="mb-4 px-4 py-3 rounded bg-red-950/60 border border-red-800 text-red-400 text-sm">{authError}</div>
-            )}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-widest mb-1.5 text-zinc-500">Your Name</label>
-                <input
-                  type="text"
-                  value={authName}
-                  autoFocus
-                  onChange={(e) => setAuthName(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAuthSubmit()}
-                  placeholder="Full name"
-                  className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-3 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
-                />
+          <div className="w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-2xl animate-in slide-in-from-bottom-4 duration-300 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="p-6 border-b border-zinc-800 flex items-center gap-3">
+              {authStep !== "auth" && (
+                <button
+                  onClick={() => setAuthStep(authStep === "details" && !customerProfile?.emailVerified ? "otp" : "auth")}
+                  className="p-1.5 hover:bg-zinc-900 rounded-full transition-colors"
+                >
+                  <ChevronLeft size={20} className="text-zinc-400" />
+                </button>
+              )}
+              <div className="flex-1">
+                <h2 className="text-xl font-light tracking-tight text-white">
+                  {authStep === "auth" && (isSignUp ? "Create Account" : "Welcome Back")}
+                  {authStep === "otp" && "Verify Email"}
+                  {authStep === "details" && "Delivery Details"}
+                </h2>
+                <p className="text-zinc-500 text-sm mt-0.5">
+                  {authStep === "auth" && "Sign up or log in to complete your order"}
+                  {authStep === "otp" && `Enter the code sent to ${authEmail}`}
+                  {authStep === "details" && "We need your details for delivery"}
+                </p>
               </div>
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-widest mb-1.5 text-zinc-500">Phone Number</label>
-                <input
-                  type="tel"
-                  value={authPhone}
-                  onChange={(e) => setAuthPhone(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAuthSubmit()}
-                  placeholder="+91 98765 43210"
-                  className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-3 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
-                />
-              </div>
+              <button onClick={() => setIsAuthModalOpen(false)} className="p-2 hover:bg-zinc-900 rounded-full transition-colors">
+                <X size={24} strokeWidth={1} className="text-zinc-400" />
+              </button>
             </div>
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={() => setIsAuthModalOpen(false)}
-                className="flex-1 py-3 border border-zinc-800 text-zinc-400 rounded text-sm font-bold tracking-widest hover:bg-zinc-900 transition-colors"
-              >
-                CANCEL
-              </button>
-              <button
-                onClick={handleAuthSubmit}
-                className="flex-1 py-3 bg-white text-black rounded text-sm font-bold tracking-widest hover:bg-zinc-200 transition-colors"
-              >
-                PROCEED TO PAY
-              </button>
+
+            {/* Body */}
+            <div className="p-6">
+              {authError && (
+                <div className="mb-4 px-4 py-3 rounded bg-red-950/60 border border-red-800 text-red-400 text-sm">{authError}</div>
+              )}
+
+              {/* Step 1: Auth (email/password or Google) */}
+              {authStep === "auth" && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-widest mb-1.5 text-zinc-500">Email</label>
+                    <div className="relative">
+                      <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                      <input
+                        type="email"
+                        value={authEmail}
+                        autoFocus
+                        onChange={(e) => setAuthEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        className="w-full bg-zinc-900 border border-zinc-700 text-white pl-10 pr-4 py-3 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-widest mb-1.5 text-zinc-500">Password</label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={authPassword}
+                        onChange={(e) => setAuthPassword(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && handleAuthEmailSubmit()}
+                        placeholder={isSignUp ? "Create a password" : "Enter password"}
+                        className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-3 rounded text-sm outline-none focus:border-zinc-500 transition-colors pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                      >
+                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleAuthEmailSubmit}
+                    disabled={authLoading}
+                    className="w-full py-3.5 bg-white text-black rounded font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {authLoading ? <Loader2 className="animate-spin" size={18} /> : (isSignUp ? "SIGN UP" : "LOG IN")}
+                  </button>
+
+                  <div className="relative my-4">
+                    <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-zinc-800" /></div>
+                    <div className="relative flex justify-center text-xs"><span className="bg-zinc-950 px-2 text-zinc-500">OR</span></div>
+                  </div>
+
+                  <button
+                    onClick={handleGoogleSignIn}
+                    disabled={authLoading}
+                    className="w-full py-3 border border-zinc-700 rounded font-medium text-sm text-white hover:bg-zinc-900 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    <svg className="w-4 h-4" viewBox="0 0 24 24"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" /><path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" /><path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" /></svg>
+                    Continue with Google
+                  </button>
+
+                  <p className="text-center text-zinc-500 text-sm mt-4">
+                    {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+                    <button onClick={() => { setIsSignUp(!isSignUp); setAuthError(""); }} className="text-white underline underline-offset-2 hover:text-zinc-300">
+                      {isSignUp ? "Log in" : "Sign up"}
+                    </button>
+                  </p>
+                </div>
+              )}
+
+              {/* Step 2: OTP Verification */}
+              {authStep === "otp" && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-widest mb-1.5 text-zinc-500">Verification Code</label>
+                    <input
+                      type="text"
+                      value={otpCode}
+                      autoFocus
+                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      onKeyDown={(e) => e.key === "Enter" && handleOTPSubmit()}
+                      placeholder="Enter 6-digit code"
+                      className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-3 rounded text-sm outline-none focus:border-zinc-500 transition-colors text-center tracking-[0.5em] font-mono text-lg"
+                      maxLength={6}
+                    />
+                  </div>
+                  <button
+                    onClick={handleOTPSubmit}
+                    disabled={authLoading || otpCode.length < 6}
+                    className="w-full py-3.5 bg-white text-black rounded font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {authLoading ? <Loader2 className="animate-spin" size={18} /> : "VERIFY"}
+                  </button>
+                  <p className="text-center text-zinc-500 text-sm">
+                    Didn't receive the code?{" "}
+                    <button onClick={handleResendOTP} disabled={authLoading} className="text-white underline underline-offset-2 hover:text-zinc-300 disabled:opacity-50">
+                      Resend
+                    </button>
+                  </p>
+                </div>
+              )}
+
+              {/* Step 3: Details (phone + address) */}
+              {authStep === "details" && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="block text-xs font-bold uppercase tracking-widest mb-1.5 text-zinc-500">Full Name</label>
+                      <div className="relative">
+                        <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                        <input
+                          type="text"
+                          value={detailsName}
+                          autoFocus
+                          onChange={(e) => setDetailsName(e.target.value)}
+                          placeholder="Your name"
+                          className="w-full bg-zinc-900 border border-zinc-700 text-white pl-10 pr-4 py-2.5 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
+                        />
+                      </div>
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="block text-xs font-bold uppercase tracking-widest mb-1.5 text-zinc-500">Phone</label>
+                      <div className="relative">
+                        <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                        <input
+                          type="tel"
+                          value={detailsPhone}
+                          onChange={(e) => setDetailsPhone(e.target.value)}
+                          placeholder="+91 98765 43210"
+                          className="w-full bg-zinc-900 border border-zinc-700 text-white pl-10 pr-4 py-2.5 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-zinc-800">
+                    <div className="flex items-center gap-2 mb-3">
+                      <MapPin size={14} className="text-zinc-500" />
+                      <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">Delivery Address</span>
+                    </div>
+
+                    <div className="space-y-3">
+                      <input
+                        type="text"
+                        value={detailsAddressLine1}
+                        onChange={(e) => setDetailsAddressLine1(e.target.value)}
+                        placeholder="Apartment / Building / House name *"
+                        className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-2.5 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
+                      />
+                      <input
+                        type="text"
+                        value={detailsAddressLine2}
+                        onChange={(e) => setDetailsAddressLine2(e.target.value)}
+                        placeholder="Flat / Plot number"
+                        className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-2.5 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
+                      />
+                      <input
+                        type="text"
+                        value={detailsStreet}
+                        onChange={(e) => setDetailsStreet(e.target.value)}
+                        placeholder="Street"
+                        className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-2.5 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
+                      />
+                      <div className="grid grid-cols-2 gap-3">
+                        <input
+                          type="text"
+                          value={detailsArea}
+                          onChange={(e) => setDetailsArea(e.target.value)}
+                          placeholder="Area / Locality"
+                          className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-2.5 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
+                        />
+                        <input
+                          type="text"
+                          value={detailsLandmark}
+                          onChange={(e) => setDetailsLandmark(e.target.value)}
+                          placeholder="Landmark"
+                          className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-2.5 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
+                        />
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <input
+                          type="text"
+                          value={detailsCity}
+                          onChange={(e) => setDetailsCity(e.target.value)}
+                          placeholder="City *"
+                          className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-2.5 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
+                        />
+                        <input
+                          type="text"
+                          value={detailsState}
+                          onChange={(e) => setDetailsState(e.target.value)}
+                          placeholder="State"
+                          className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-2.5 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
+                        />
+                        <input
+                          type="text"
+                          value={detailsPincode}
+                          onChange={(e) => setDetailsPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                          placeholder="Pincode *"
+                          className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-2.5 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleDetailsSubmit}
+                    disabled={authLoading}
+                    className="w-full py-3.5 bg-white text-black rounded font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mt-4"
+                  >
+                    {authLoading ? <Loader2 className="animate-spin" size={18} /> : "PROCEED TO PAY"}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -1359,6 +1359,205 @@ class SupabaseService {
         });
         if (error) throw error;
     }
+
+    // ─── Customer Auth ────────────────────────────────────────────────────────
+
+    /**
+     * Sign up a new customer with email and password.
+     * Sends OTP verification email automatically.
+     */
+    async customerSignUp(email: string, password: string): Promise<{ userId: string; needsVerification: boolean }> {
+        const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                emailRedirectTo: window.location.origin,
+            },
+        });
+        if (error) throw error;
+        if (!data.user) throw new Error("Signup failed");
+
+        // Create customer profile (email not yet verified)
+        await supabase.from("customer_profiles").insert({
+            user_id: data.user.id,
+            email,
+            email_verified: false,
+        });
+
+        return { userId: data.user.id, needsVerification: true };
+    }
+
+    /**
+     * Sign in existing customer with email and password.
+     */
+    async customerSignIn(email: string, password: string): Promise<{ userId: string; profile: import("../types").CustomerProfile | null }> {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        if (!data.user) throw new Error("Login failed");
+
+        const profile = await this.getCustomerProfile(data.user.id);
+        return { userId: data.user.id, profile };
+    }
+
+    /**
+     * Sign in (or sign up) with Google OAuth.
+     */
+    async customerGoogleSignIn(): Promise<void> {
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: "google",
+            options: {
+                redirectTo: window.location.href,
+            },
+        });
+        if (error) throw error;
+    }
+
+    /**
+     * Verify email with OTP code.
+     */
+    async verifyEmailOTP(email: string, token: string): Promise<boolean> {
+        const { data, error } = await supabase.auth.verifyOtp({
+            email,
+            token,
+            type: "email",
+        });
+        if (error) throw error;
+        if (!data.user) return false;
+
+        // Mark profile as verified
+        await supabase.from("customer_profiles")
+            .update({ email_verified: true })
+            .eq("user_id", data.user.id);
+
+        return true;
+    }
+
+    /**
+     * Resend OTP verification email.
+     */
+    async resendOTP(email: string): Promise<void> {
+        const { error } = await supabase.auth.resend({
+            type: "signup",
+            email,
+        });
+        if (error) throw error;
+    }
+
+    /**
+     * Get current authenticated customer user.
+     */
+    async getCurrentCustomer(): Promise<{ userId: string; email: string } | null> {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+        return { userId: user.id, email: user.email ?? "" };
+    }
+
+    /**
+     * Sign out customer.
+     */
+    async customerSignOut(): Promise<void> {
+        await supabase.auth.signOut();
+    }
+
+    /**
+     * Get customer profile by user ID.
+     */
+    async getCustomerProfile(userId: string): Promise<import("../types").CustomerProfile | null> {
+        const { data, error } = await supabase
+            .from("customer_profiles")
+            .select("*")
+            .eq("user_id", userId)
+            .single();
+
+        if (error && error.code !== "PGRST116") throw error;
+        if (!data) return null;
+
+        return {
+            id: data.id,
+            userId: data.user_id,
+            email: data.email,
+            emailVerified: data.email_verified,
+            phone: data.phone ?? undefined,
+            name: data.name ?? undefined,
+            addressLine1: data.address_line1 ?? undefined,
+            addressLine2: data.address_line2 ?? undefined,
+            street: data.street ?? undefined,
+            area: data.area ?? undefined,
+            landmark: data.landmark ?? undefined,
+            city: data.city ?? undefined,
+            state: data.state ?? undefined,
+            pincode: data.pincode ?? undefined,
+            lat: data.lat ? Number(data.lat) : undefined,
+            lng: data.lng ? Number(data.lng) : undefined,
+            formattedAddress: data.formatted_address ?? undefined,
+            createdAt: data.created_at,
+            updatedAt: data.updated_at,
+        };
+    }
+
+    /**
+     * Update customer profile (phone, name, address).
+     */
+    async updateCustomerProfile(userId: string, updates: Partial<import("../types").CustomerAddress> & { phone?: string; name?: string }): Promise<void> {
+        const { error } = await supabase.from("customer_profiles")
+            .update({
+                phone: updates.phone,
+                name: updates.name,
+                address_line1: updates.addressLine1,
+                address_line2: updates.addressLine2,
+                street: updates.street,
+                area: updates.area,
+                landmark: updates.landmark,
+                city: updates.city,
+                state: updates.state,
+                pincode: updates.pincode,
+                lat: updates.lat,
+                lng: updates.lng,
+                formatted_address: updates.formattedAddress,
+                updated_at: new Date().toISOString(),
+            })
+            .eq("user_id", userId);
+
+        if (error) throw error;
+    }
+
+    /**
+     * Ensure customer profile exists after Google OAuth callback.
+     * Creates profile if not exists, otherwise returns existing.
+     */
+    async ensureCustomerProfile(): Promise<import("../types").CustomerProfile | null> {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+
+        // Check if profile exists
+        let profile = await this.getCustomerProfile(user.id);
+        if (profile) return profile;
+
+        // Create new profile for OAuth user (email is already verified)
+        const { error } = await supabase.from("customer_profiles").insert({
+            user_id: user.id,
+            email: user.email ?? "",
+            email_verified: true, // OAuth users are verified
+        });
+        if (error && error.code !== "23505") throw error; // ignore duplicate key
+
+        return this.getCustomerProfile(user.id);
+    }
+
+    /**
+     * Check if customer profile has required fields for checkout.
+     */
+    isProfileComplete(profile: import("../types").CustomerProfile | null): boolean {
+        if (!profile) return false;
+        return !!(
+            profile.emailVerified &&
+            profile.phone &&
+            profile.name &&
+            profile.addressLine1 &&
+            profile.city &&
+            profile.pincode
+        );
+    }
 }
 
 export const supabaseService = new SupabaseService();

@@ -271,3 +271,43 @@ export interface AggregatedMetrics {
   conversionFunnel: { stage: string; count: number; fill: string }[];
   dishPerformance: DishPerformance[];
 }
+
+// ─── Customer Profile ─────────────────────────────────────────────────────────
+
+export interface CustomerProfile {
+  id: string;
+  userId: string;
+  email: string;
+  emailVerified: boolean;
+  phone?: string;
+  name?: string;
+  // Address fields
+  addressLine1?: string;   // apartment/building name, house number
+  addressLine2?: string;   // plot/flat number
+  street?: string;
+  area?: string;
+  landmark?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  // Google Maps location
+  lat?: number;
+  lng?: number;
+  formattedAddress?: string;  // full address from Google Places
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CustomerAddress {
+  addressLine1?: string;
+  addressLine2?: string;
+  street?: string;
+  area?: string;
+  landmark?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  lat?: number;
+  lng?: number;
+  formattedAddress?: string;
+}
