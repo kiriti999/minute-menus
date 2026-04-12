@@ -303,6 +303,13 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     setSubView("lookup");
     setSubError("");
     setIsSubOpen(true);
+    // Pre-load plans so new customers see them without needing to look up first
+    if (restaurantId) {
+      try {
+        const plans = await supabaseService.getMealPlans(restaurantId);
+        setAvailablePlans(plans.filter((p) => p.isActive));
+      } catch { /* non-fatal — plans will load on lookup */ }
+    }
   };
 
   const handleSubLookup = async () => {
@@ -658,6 +665,14 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                   >
                     {subLoading ? <Loader2 className="animate-spin" size={18} /> : "CONTINUE"}
                   </button>
+                  {availablePlans.length > 0 && (
+                    <button
+                      onClick={() => setSubView("plans")}
+                      className="w-full text-zinc-500 text-sm underline underline-offset-2 hover:text-zinc-300 transition-colors"
+                    >
+                      Browse plans without signing in
+                    </button>
+                  )}
                 </div>
               )}
 
