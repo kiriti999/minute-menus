@@ -6,6 +6,24 @@
 -- Enable UUID generation
 create extension if not exists "pgcrypto";
 
+-- Enable pg_net for HTTP calls from functions (notify_sold_out)
+create extension if not exists "pg_net";
+
+-- ─────────────────────────────────────────────
+-- IDEMPOTENCY: drop all existing policies so this script is re-runnable
+-- ─────────────────────────────────────────────
+do $$
+declare r record;
+begin
+  for r in
+    select policyname, tablename
+    from pg_policies
+    where schemaname = 'public'
+  loop
+    execute format('drop policy if exists %I on public.%I', r.policyname, r.tablename);
+  end loop;
+end $$;
+
 -- ─────────────────────────────────────────────
 -- 1. RESTAURANTS
 -- One row per restaurant. Linked to auth.users via owner_id.
@@ -107,8 +125,12 @@ create policy "Public can read dishes"
 -- Customer orders. status tracks kitchen flow.
 -- payment_provider: 'razorpay' (India) | 'clover' (US/CA)
 -- ─────────────────────────────────────────────
-create type order_status as enum ('pending', 'confirmed', 'preparing', 'ready', 'completed');
-create type payment_provider as enum ('razorpay', 'clover');
+do $$ begin
+  create type order_status as enum ('pending', 'confirmed', 'preparing', 'ready', 'completed');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type payment_provider as enum ('razorpay', 'clover');
+exception when duplicate_object then null; end $$;
 
 create table if not exists orders (
   id                  uuid primary key default gen_random_uuid(),
@@ -172,7 +194,9 @@ create policy "Anyone can record a watch session"
 -- 6. SUBSCRIPTIONS
 -- Tracks each restaurant's Plus tier status.
 -- ─────────────────────────────────────────────
-create type subscription_tier as enum ('free', 'plus');
+do $$ begin
+  create type subscription_tier as enum ('free', 'plus');
+exception when duplicate_object then null; end $$;
 
 create table if not exists subscriptions (
   id                       uuid primary key default gen_random_uuid(),
@@ -361,9 +385,15 @@ create policy "Public can read meal plan dishes"
 -- 12. CUSTOMER SUBSCRIPTIONS
 -- One active subscription per phone number per restaurant.
 -- ─────────────────────────────────────────────
-create type sub_delivery_type as enum ('delivery', 'pickup');
-create type sub_time_slot     as enum ('08-09', '12-14', '19-21');
-create type sub_status        as enum ('active', 'paused', 'cancelled');
+do $$ begin
+  create type sub_delivery_type as enum ('delivery', 'pickup');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type sub_time_slot as enum ('08-09', '12-14', '19-21');
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type sub_status as enum ('active', 'paused', 'cancelled');
+exception when duplicate_object then null; end $$;
 
 create table if not exists customer_subscriptions (
   id               uuid primary key default gen_random_uuid(),
@@ -401,7 +431,9 @@ create policy "Public can read subscriptions"
 -- 13. DAILY SUBSCRIPTION ORDERS
 -- Customer selects one dish per delivery day (before 5pm IST cutoff).
 -- ─────────────────────────────────────────────
-create type daily_order_status_t as enum ('pending', 'delivered', 'cancelled', 'skipped');
+do $$ begin
+  create type daily_order_status_t as enum ('pending', 'delivered', 'cancelled', 'skipped');
+exception when duplicate_object then null; end $$;
 
 create table if not exists subscription_daily_orders (
   id                  uuid primary key default gen_random_uuid(),
@@ -441,7 +473,9 @@ create policy "Public can update daily orders"
 -- Customer requests refund on cancellation.
 -- Restaurant manually processes within 7 days.
 -- ─────────────────────────────────────────────
-create type refund_status_t as enum ('pending', 'approved', 'rejected', 'processed');
+do $$ begin
+  create type refund_status_t as enum ('pending', 'approved', 'rejected', 'processed');
+exception when duplicate_object then null; end $$;
 
 create table if not exists subscription_refund_requests (
   id               uuid primary key default gen_random_uuid(),
@@ -473,11 +507,15 @@ create policy "Public can read refund requests"
 -- 15. DELIVERY TICKETS
 -- Customer raises a ticket when delivery is not received / incorrect.
 -- ─────────────────────────────────────────────
-create type ticket_reason_t as enum (
-  'not_received', 'wrong_item', 'partial_delivery',
-  'damaged', 'late_delivery', 'other'
-);
-create type ticket_status_t as enum ('open', 'investigating', 'resolved');
+do $$ begin
+  create type ticket_reason_t as enum (
+    'not_received', 'wrong_item', 'partial_delivery',
+    'damaged', 'late_delivery', 'other'
+  );
+exception when duplicate_object then null; end $$;
+do $$ begin
+  create type ticket_status_t as enum ('open', 'investigating', 'resolved');
+exception when duplicate_object then null; end $$;
 
 create table if not exists delivery_tickets (
   id               uuid primary key default gen_random_uuid(),
