@@ -28,6 +28,8 @@ export interface Dish {
   category: string;
   popularityScore: number; // 0-100
   prepTime: number; // minutes
+  stockQuantity?: number; // max orderable units per day (undefined = unlimited)
+  manualSoldOut?: boolean; // owner can force sold-out at any time
   mediaTransform?: {
     x: number; // percentage
     y: number; // percentage

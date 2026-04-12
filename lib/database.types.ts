@@ -70,6 +70,8 @@ export type Database = {
                     popularity_score: number;
                     prep_time: number;
                     media_transform: Json | null;
+                    stock_quantity: number | null;
+                    manual_sold_out: boolean;
                     created_at: string;
                 };
                 Insert: {
@@ -84,6 +86,8 @@ export type Database = {
                     popularity_score?: number;
                     prep_time?: number;
                     media_transform?: Json | null;
+                    stock_quantity?: number | null;
+                    manual_sold_out?: boolean;
                     created_at?: string;
                 };
                 Update: {
@@ -98,7 +102,30 @@ export type Database = {
                     popularity_score?: number;
                     prep_time?: number;
                     media_transform?: Json | null;
+                    stock_quantity?: number | null;
+                    manual_sold_out?: boolean;
                     created_at?: string;
+                };
+                Relationships: [];
+            };
+            dish_stock_daily: {
+                Row: {
+                    dish_id: string;
+                    restaurant_id: string;
+                    sold_date: string;
+                    quantity_sold: number;
+                };
+                Insert: {
+                    dish_id: string;
+                    restaurant_id: string;
+                    sold_date?: string;
+                    quantity_sold?: number;
+                };
+                Update: {
+                    dish_id?: string;
+                    restaurant_id?: string;
+                    sold_date?: string;
+                    quantity_sold?: number;
                 };
                 Relationships: [];
             };
@@ -197,7 +224,17 @@ export type Database = {
             };
         };
         Views: { [_ in never]?: never };
-        Functions: { [_ in never]?: never };
+        Functions: {
+            increment_dish_stock: {
+                Args: {
+                    p_dish_id: string;
+                    p_restaurant_id: string;
+                    p_sold_date: string;
+                    p_quantity: number;
+                };
+                Returns: void;
+            };
+        };
         Enums: { [_ in never]?: never };
         CompositeTypes: { [_ in never]?: never };
     };

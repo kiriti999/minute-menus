@@ -40,6 +40,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const [activeCategoryIndex, setActiveCategoryIndex] = useState(0);
   const [activeDishIndex, setActiveDishIndex] = useState(0);
   const [isOrdering, setIsOrdering] = useState(false);
+  const [soldCounts, setSoldCounts] = useState<Record<string, number>>({});
 
   // Tracking "Time to Order"
   const [sessionStartTime] = useState<number>(Date.now());
@@ -57,9 +58,14 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
 
   useEffect(() => {
     setMenuLoading(true);
-    supabaseService
-      .getMenu(restaurantId ?? undefined)
-      .then(setMenuCategories)
+    Promise.all([
+      supabaseService.getMenu(restaurantId ?? undefined),
+      supabaseService.getDishSoldCounts(restaurantId ?? undefined).catch(() => ({})),
+    ])
+      .then(([menu, counts]) => {
+        setMenuCategories(menu);
+        setSoldCounts(counts);
+      })
       .catch(console.error)
       .finally(() => setMenuLoading(false));
   }, [restaurantId]);
@@ -119,6 +125,15 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   // ---------------------------
 
   const handleAddToOrder = (dish: Dish) => {
+    if (dish.manualSoldOut) return;
+    const currentCartQty = cart.find((i) => i.dishId === dish.id)?.quantity ?? 0;
+    const soldQty = soldCounts[dish.id] ?? 0;
+    if (
+      dish.stockQuantity != null &&
+      currentCartQty + soldQty >= dish.stockQuantity
+    ) {
+      return; // already at or over limit
+    }
     setCart((prev) => {
       const existing = prev.find((i) => i.dishId === dish.id);
       if (existing) {
@@ -148,12 +163,40 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
 
   const handleConfirmOrder = async () => {
     setIsOrdering(true);
-    // Calculate time spent from app open to order confirmation
     const timeToOrder = (Date.now() - sessionStartTime) / 1000;
 
-    // Simulate network delay
     setTimeout(() => {
-      supabaseService.recordOrder(cart, timeToOrder, restaurantId ?? undefined);
+      // Calculate which dishes just hit their stock limit from this order
+      const newlySoldOut = cart
+        .map((item) => {
+          const dish = flatDishes.find((d) => d.id === item.dishId);
+          if (!dish || dish.stockQuantity == null) return null;
+          const prevSold = soldCounts[item.dishId] ?? 0;
+          const afterSold = prevSold + item.quantity;
+          const wasAlreadySoldOut = prevSold >= dish.stockQuantity;
+          const isNowSoldOut = afterSold >= dish.stockQuantity;
+          if (isNowSoldOut && !wasAlreadySoldOut) {
+            return { id: dish.id, name: dish.name };
+          }
+          return null;
+        })
+        .filter((d): d is { id: string; name: string } => d !== null);
+
+      supabaseService.recordOrder(
+        cart,
+        timeToOrder,
+        restaurantId ?? undefined,
+        newlySoldOut.length > 0 ? newlySoldOut : undefined,
+      );
+
+      // Update local sold counts so sold-out state reflects immediately
+      setSoldCounts((prev) => {
+        const updated = { ...prev };
+        cart.forEach((item) => {
+          updated[item.dishId] = (updated[item.dishId] ?? 0) + item.quantity;
+        });
+        return updated;
+      });
       setCart([]);
       setIsOrdering(false);
       setIsCartOpen(false);
@@ -290,7 +333,19 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
             className="h-full w-full snap-start relative"
             style={{ scrollSnapStop: "always" }}
           >
-            <ReelCard dish={dish} onAddToOrder={handleAddToOrder} currency={currency} />
+            <ReelCard
+              dish={dish}
+              onAddToOrder={handleAddToOrder}
+              currency={currency}
+              isSoldOut={
+                dish.manualSoldOut === true ||
+                (
+                  dish.stockQuantity != null &&
+                  dish.stockQuantity > 0 &&
+                  (soldCounts[dish.id] ?? 0) >= dish.stockQuantity
+                )
+              }
+            />
 
             {/* Hint Arrow (except on last item) */}
             {idx < flatDishes.length - 1 && (

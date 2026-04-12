@@ -8,15 +8,17 @@ interface ReelCardProps {
   dish: Dish;
   onAddToOrder: (dish: Dish) => void;
   currency?: string;
+  isSoldOut?: boolean;
 }
 
-export const ReelCard: React.FC<ReelCardProps> = ({ dish, onAddToOrder, currency = "USD" }) => {
+export const ReelCard: React.FC<ReelCardProps> = ({ dish, onAddToOrder, currency = "USD", isSoldOut = false }) => {
   const [added, setAdded] = useState(false);
   const [isMuted, setIsMuted] = useState(true); // Default muted for autoplay
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const handleAdd = (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent toggling mute when clicking button
+    if (isSoldOut) return;
     onAddToOrder(dish);
     setAdded(true);
     setTimeout(() => setAdded(false), 1500);
@@ -79,6 +81,17 @@ export const ReelCard: React.FC<ReelCardProps> = ({ dish, onAddToOrder, currency
       {/* Cinematic Gradient Overlay */}
       <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/90 pointer-events-none" />
 
+      {/* Sold Out Overlay */}
+      {isSoldOut && (
+        <div className="absolute inset-0 bg-black/50 flex items-center justify-center pointer-events-none z-10">
+          <div className="border-2 border-white/60 px-6 py-3 rotate-[-12deg]">
+            <span className="text-white font-black text-3xl tracking-[0.3em] uppercase drop-shadow-lg">
+              Sold Out
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Right Side Actions */}
       <div className="absolute right-4 bottom-28 sm:bottom-32 flex flex-col items-center gap-6 z-20 pointer-events-none">
         {/* Price Badge */}
@@ -121,13 +134,22 @@ export const ReelCard: React.FC<ReelCardProps> = ({ dish, onAddToOrder, currency
         {/* Single CTA Button */}
         <button
           onClick={handleAdd}
-          className={`pointer-events-auto w-full py-3 sm:py-4 rounded-sm font-bold text-sm tracking-[0.2em] uppercase transition-all duration-300 shadow-xl flex items-center justify-center gap-3 ${added
-            ? "bg-green-500 text-black"
-            : "bg-white text-black hover:bg-zinc-200"
-            }`}
+          disabled={isSoldOut}
+          className={`pointer-events-auto w-full py-3 sm:py-4 rounded-sm font-bold text-sm tracking-[0.2em] uppercase transition-all duration-300 shadow-xl flex items-center justify-center gap-3 ${
+            isSoldOut
+              ? "bg-zinc-700 text-zinc-400 cursor-not-allowed"
+              : added
+              ? "bg-green-500 text-black"
+              : "bg-white text-black hover:bg-zinc-200"
+          }`}
         >
-          {added ? <Check size={18} /> : <Plus size={18} />}
-          {added ? "ADDED TO ORDER" : "ADD TO ORDER"}
+          {isSoldOut ? (
+            "SOLD OUT"
+          ) : added ? (
+            <><Check size={18} /> ADDED TO ORDER</>
+          ) : (
+            <><Plus size={18} /> ADD TO ORDER</>
+          )}
         </button>
       </div>
     </div>

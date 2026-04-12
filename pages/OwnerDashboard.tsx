@@ -815,6 +815,23 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     }
   };
 
+  const handleToggleManualSoldOut = (catIndex: number, dishIndex: number) => {
+    const dish = menuItems[catIndex].items[dishIndex];
+    const newValue = !dish.manualSoldOut;
+    const newMenu = [...menuItems];
+    newMenu[catIndex].items[dishIndex] = { ...dish, manualSoldOut: newValue };
+    setMenuItems(newMenu);
+    setActiveOptionsDishId(null);
+    supabaseService
+      .toggleManualSoldOut(dish.id, dish.name, newValue)
+      .catch((err: Error) => {
+        // Revert on failure
+        setMenuItems(menuItems);
+        console.error("Failed to toggle sold-out:", err);
+        alert(`Failed to update sold-out status: ${err?.message ?? "Unknown error"}`);
+      });
+  };
+
   const handleAddCategory = () => {
     if (menuItems.length >= 2) {
       if (triggerPaywall("Unlimited Categories")) return;
@@ -1798,11 +1815,15 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                               Duplicate Item
                             </button>
                             <button
-                              onClick={() => { alert("Marked as sold out"); setActiveOptionsDishId(null); }}
-                              className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 border-b ${isDarkTheme ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white border-zinc-800' : 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 border-zinc-200'}`}
+                              onClick={() => handleToggleManualSoldOut(selectedCategoryIdx, idx)}
+                              className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 border-b ${
+                                dish.manualSoldOut
+                                  ? isDarkTheme ? 'text-green-400 hover:bg-zinc-800 hover:text-green-300 border-zinc-800' : 'text-green-600 hover:bg-zinc-100 hover:text-green-700 border-zinc-200'
+                                  : isDarkTheme ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white border-zinc-800' : 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 border-zinc-200'
+                              }`}
                             >
                               <EyeOff size={14} />
-                              Mark Sold Out
+                              {dish.manualSoldOut ? "Mark Available" : "Mark Sold Out"}
                             </button>
                             <button
                               onClick={() => handleDeleteDish(selectedCategoryIdx, idx)}
@@ -1875,6 +1896,15 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                         <div className={`absolute top-3 left-3 text-[10px] font-mono px-2 py-0.5 rounded z-10 ${isDarkTheme ? 'text-zinc-500 bg-black/60' : 'text-zinc-600 bg-white/60'}`}>
                           #{idx + 1}
                         </div>
+
+                        {/* Manual sold-out badge */}
+                        {dish.manualSoldOut && (
+                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center pointer-events-none z-20 rounded-xl">
+                            <div className="border-2 border-red-400/80 px-4 py-2 rotate-[-12deg]">
+                              <span className="text-red-400 font-black text-xl tracking-[0.25em] uppercase">Sold Out</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Form Fields */}
@@ -1927,6 +1957,29 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                               className={`w-20 bg-transparent text-right font-mono focus:outline-none py-0.5 text-sm ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}
                             />
                           </div>
+                        </div>
+                        <div className={`flex items-center justify-between border rounded-lg px-3 py-2 ${isDarkTheme ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-300'}`}>
+                          <div>
+                            <label className={`text-xs font-bold uppercase tracking-widest ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>Daily Stock (SKU)</label>
+                            <p className={`text-[10px] mt-0.5 font-mono ${isDarkTheme ? 'text-zinc-700' : 'text-zinc-400'}`}>Leave blank for unlimited</p>
+                          </div>
+                          <input
+                            type="number"
+                            value={dish.stockQuantity ?? ""}
+                            placeholder="∞"
+                            min={0}
+                            step={1}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              handleDishUpdate(
+                                selectedCategoryIdx,
+                                idx,
+                                "stockQuantity",
+                                e.target.value === "" ? undefined : Math.max(0, isNaN(val) ? 0 : val),
+                              );
+                            }}
+                            className={`w-20 bg-transparent text-right font-mono focus:outline-none py-0.5 text-sm border-none ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}
+                          />
                         </div>
                       </div>
                     </div>

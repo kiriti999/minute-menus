@@ -128,6 +128,8 @@ const rowsToCategoryTree = (
         popularity_score: number;
         prep_time: number;
         media_transform: unknown;
+        stock_quantity?: number | null;
+        manual_sold_out?: boolean | null;
     }>,
 ): Category[] =>
     categoryRows
@@ -149,6 +151,8 @@ const rowsToCategoryTree = (
                         popularityScore: d.popularity_score,
                         prepTime: d.prep_time,
                         mediaTransform: d.media_transform as Dish["mediaTransform"],
+                        stockQuantity: d.stock_quantity ?? undefined,
+                        manualSoldOut: d.manual_sold_out ?? false,
                     }),
                 ),
         }));
@@ -213,6 +217,8 @@ class SupabaseService {
                 popularity_score: d.popularityScore,
                 prep_time: d.prepTime,
                 media_transform: d.mediaTransform ?? null,
+                stock_quantity: d.stockQuantity ?? null,
+                manual_sold_out: d.manualSoldOut ?? false,
             })),
         );
         const { error: dishErr } = await supabase
@@ -245,7 +251,81 @@ class SupabaseService {
             .not("id", "in", `(${keptCatIds.join(",")})`);
     }
 
+    /**
+     * Toggle the manual sold-out flag for a single dish.
+     * Auto-saves directly to the DB without a full menu save.
+     * Sends a sold-out email notification when enabling.
+     */
+    async toggleManualSoldOut(dishId: string, dishName: string, soldOut: boolean): Promise<void> {
+        const { error } = await supabase
+            .from("dishes")
+            .update({ manual_sold_out: soldOut })
+            .eq("id", dishId);
+        if (error) throw new Error(`Failed to update sold-out status: ${error.message}`);
+
+        if (soldOut) {
+            await this.sendSoldOutEmail(dishId, dishName, "manual");
+        }
+    }
+
+    /**
+     * Sends a sold-out notification email to the restaurant owner.
+     * POSTs to the Vercel API route /api/sold-out-email which uses
+     * Nodemailer with exponential back-off retry (up to 3 attempts).
+     * Failures are logged but never throw — email is best-effort.
+     */
+    async sendSoldOutEmail(
+        dishId: string,
+        dishName: string,
+        reason: "stock" | "manual",
+    ): Promise<void> {
+        try {
+            const rid = await getRestaurantId();
+            const [{ data: { user } }, { data: restaurant }] = await Promise.all([
+                supabase.auth.getUser(),
+                supabase.from("restaurants").select("name").eq("id", rid).single(),
+            ]);
+
+            await fetch("/api/sold-out-email", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    to: user?.email ?? "",
+                    restaurantName: restaurant?.name ?? "Your Restaurant",
+                    dishName,
+                    reason,
+                }),
+            });
+        } catch (err) {
+            console.error("sendSoldOutEmail failed:", err);
+        }
+    }
+
     // ── Analytics Recording ──────────────────────────────────────────────────────
+
+    /**
+     * Returns the total ordered quantity per dish for today (UTC date).
+     * Reads from `dish_stock_daily` which is publicly readable (no PII).
+     * Safe to call from unauthenticated customer sessions.
+     */
+    async getDishSoldCounts(restaurantId?: string): Promise<Record<string, number>> {
+        const rid = restaurantId;
+        if (!rid) return {};
+
+        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+        const { data } = await supabase
+            .from("dish_stock_daily")
+            .select("dish_id, quantity_sold")
+            .eq("restaurant_id", rid)
+            .eq("sold_date", today);
+
+        const counts: Record<string, number> = {};
+        (data ?? []).forEach((row) => {
+            counts[row.dish_id] = row.quantity_sold;
+        });
+        return counts;
+    }
 
     async recordWatchSession(
         session: WatchSession,
@@ -265,6 +345,8 @@ class SupabaseService {
         items: OrderItem[],
         timeToOrder: number,
         restaurantId?: string,
+        /** Dishes that became sold-out as a result of this order */
+        newlySoldOutDishes?: Array<{ id: string; name: string }>,
     ): Promise<void> {
         const rid = restaurantId ?? (await getRestaurantId());
         const totalAmount = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
@@ -277,6 +359,26 @@ class SupabaseService {
             status: "pending",
         });
         if (error) console.error("Failed to record order:", error.message);
+
+        // Update daily sold counts for each ordered dish (upsert per dish+date)
+        const today = new Date().toISOString().slice(0, 10);
+        await Promise.allSettled(
+            items.map((item) =>
+                supabase.rpc("increment_dish_stock", {
+                    p_dish_id: item.dishId,
+                    p_restaurant_id: rid,
+                    p_sold_date: today,
+                    p_quantity: item.quantity,
+                }),
+            ),
+        );
+
+        // Send sold-out email for any dishes that just hit their stock limit
+        if (newlySoldOutDishes && newlySoldOutDishes.length > 0) {
+            await Promise.allSettled(
+                newlySoldOutDishes.map((d) => this.sendSoldOutEmail(d.id, d.name, "stock")),
+            );
+        }
     }
 
     // ── Subscription Tier ────────────────────────────────────────────────────────
