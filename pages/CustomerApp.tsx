@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   Bookmark,
   Calendar,
+  Check,
   ChevronDown,
   ChevronLeft,
   Clock,
@@ -12,6 +13,7 @@ import {
   Pause,
   Play,
   Plus,
+  RefreshCw,
   ShoppingBag,
   Sun,
   Tag,
@@ -73,6 +75,15 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const [cancelReason, setCancelReason] = useState("");
   const [ticketNotes, setTicketNotes] = useState("");
   const [ticketReason, setTicketReason] = useState<TicketReason>("not_received");
+  // Meal plan modal (dish-select → subscribe flow)
+  const [isMealPlanModalOpen, setIsMealPlanModalOpen] = useState(false);
+  const [modalPlan, setModalPlan] = useState<MealPlan | null>(null);
+  const [rotationDishIds, setRotationDishIds] = useState<string[]>([]);
+  const [modalStep, setModalStep] = useState<1 | 2>(1);
+  // Per-day schedule override date (manage view)
+  const [selectedScheduleDate, setSelectedScheduleDate] = useState(
+    () => new Date(Date.now() + 86400000).toISOString().slice(0, 10)
+  );
   // ────────────────────────────────────────────────────────────────────
 
   // Tracking "Time to Order"
@@ -109,6 +120,21 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     () => menuCategories.flatMap((cat) => cat.items).slice(0, 10),
     [menuCategories],
   );
+
+  // Map dishId → plan for subscription bands on reel cards
+  const dishPlanMap = useMemo(() => {
+    const map: Record<string, MealPlan> = {};
+    availablePlans.forEach(plan => {
+      plan.dishIds.forEach(id => { map[id] = plan; });
+    });
+    return map;
+  }, [availablePlans]);
+
+  // Dishes available in the modal plan (for rotation selection)
+  const modalPlanDishes = useMemo(() => {
+    if (!modalPlan) return [];
+    return menuCategories.flatMap(c => c.items).filter(d => modalPlan.dishIds.includes(d.id));
+  }, [modalPlan, menuCategories]);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -294,6 +320,18 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
 
   const tomorrowDate = () => new Date(Date.now() + 86400000).toISOString().slice(0, 10);
 
+  const isDateModifiable = (date: string) =>
+    date > tomorrowDate() || (date === tomorrowDate() && !isPastCutoff());
+
+  const getRotationDishForDate = (date: string): Dish | undefined => {
+    const ids = customerSub?.rotationDishIds ?? [];
+    if (!ids.length || !customerSub) return planDishes[0];
+    const msPerDay = 86400000;
+    const dayIndex = Math.floor((new Date(date).getTime() - new Date(customerSub.startDate).getTime()) / msPerDay);
+    const idx = ((dayIndex % ids.length) + ids.length) % ids.length;
+    return planDishes.find(d => d.id === ids[idx]);
+  };
+
   const loadDishesForPlan = (plan: MealPlan) => {
     const dishes = menuCategories.flatMap((c) => c.items).filter((d) => plan.dishIds.includes(d.id));
     setPlanDishes(dishes);
@@ -310,6 +348,37 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         setAvailablePlans(plans.filter((p) => p.isActive));
       } catch { /* non-fatal — plans will load on lookup */ }
     }
+  };
+
+  const openMealPlanModal = async (dish: Dish) => {
+    // Ensure plans are loaded first
+    let plans = availablePlans;
+    if (!plans.length && restaurantId) {
+      try {
+        const fetched = await supabaseService.getMealPlans(restaurantId);
+        plans = fetched.filter(p => p.isActive);
+        setAvailablePlans(plans);
+      } catch { return; }
+    }
+    const plan = plans.find(p => p.dishIds.includes(dish.id));
+    if (!plan) return;
+    setModalPlan(plan);
+    setRotationDishIds([dish.id]);
+    setModalStep(1);
+    setIsMealPlanModalOpen(true);
+  };
+
+  const closeMealPlanModal = () => {
+    setIsMealPlanModalOpen(false);
+    setModalPlan(null);
+    setRotationDishIds([]);
+    setModalStep(1);
+  };
+
+  const toggleRotationDish = (dishId: string) => {
+    setRotationDishIds(prev =>
+      prev.includes(dishId) ? prev.filter(id => id !== dishId) : [...prev, dishId]
+    );
   };
 
   const handleSubLookup = async () => {
@@ -345,8 +414,10 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     setSubView("subscribe");
   };
 
-  const handleCreateSubscription = async () => {
-    if (!subPhone.trim() || !subName.trim() || !selectedPlan || !restaurantId) return;
+  const handleCreateSubscription = async (planOverride?: MealPlan, rotationOverride?: string[]) => {
+    const plan = planOverride ?? selectedPlan;
+    const rotation = rotationOverride ?? [];
+    if (!subPhone.trim() || !subName.trim() || !plan || !restaurantId) return;
     setSubLoading(true);
     setSubError("");
     try {
@@ -354,7 +425,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       const orderRes = await fetch("/api/subscription/create-razorpay-order", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ planId: selectedPlan.id, restaurantId, deliveryFeeMode: subDeliveryFeeMode, deliveryType: subDeliveryType }),
+        body: JSON.stringify({ planId: plan.id, restaurantId, deliveryFeeMode: subDeliveryFeeMode, deliveryType: subDeliveryType }),
       });
       if (!orderRes.ok) {
         const err = await orderRes.json() as { error?: string };
@@ -374,7 +445,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           amount,
           currency: rzpCurrency,
           name: restaurantName ?? "Minute Menus",
-          description: selectedPlan.name,
+          description: plan.name,
           prefill: { name: subName, contact: subPhone, email: subEmail || undefined },
           theme: { color: "#000000" },
           handler: () => resolve(),
@@ -386,17 +457,23 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       // 3. Payment succeeded — create subscription
       await supabaseService.createCustomerSubscription({
         restaurantId,
-        planId: selectedPlan.id,
+        planId: plan.id,
         customerName: subName.trim(),
         phone: subPhone.trim(),
         email: subEmail.trim() || undefined,
         deliveryType: subDeliveryType,
         deliveryFeeMode: subDeliveryFeeMode,
         timeSlot: subTimeSlot,
+        rotationDishIds: rotation.length ? rotation : undefined,
       });
       const newSub = await supabaseService.getCustomerSubscription(subPhone.trim(), restaurantId);
       setCustomerSub(newSub);
       setDailyOrders([]);
+      if (planOverride) {
+        // Came from the meal plan modal — close it and open manage in side panel
+        closeMealPlanModal();
+        setIsSubOpen(true);
+      }
       setSubView("manage");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to subscribe. Please try again.";
@@ -410,7 +487,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     if (!subPhone.trim() || !restaurantId || !customerSub) return;
     setSubLoading(true);
     try {
-      await supabaseService.selectDailyDish(subPhone.trim(), restaurantId, tomorrowDate(), dishId);
+      await supabaseService.selectDailyDish(subPhone.trim(), restaurantId, selectedScheduleDate, dishId);
       const orders = await supabaseService.getCustomerDailyOrders(customerSub.id, tomorrowDate());
       setDailyOrders(orders);
     } catch (e) {
@@ -581,6 +658,10 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                   (soldCounts[dish.id] ?? 0) >= dish.stockQuantity
                 )
               }
+              subscriptionBand={dishPlanMap[dish.id] ? {
+                planName: dishPlanMap[dish.id].name,
+                onSubscribe: () => openMealPlanModal(dish),
+              } : undefined}
             />
 
             {/* Hint Arrow (except on last item) */}
@@ -747,7 +828,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                   </div>
                   {subError && <p className="text-red-400 text-sm">{subError}</p>}
                   <button
-                    onClick={handleCreateSubscription}
+                    onClick={() => handleCreateSubscription()}
                     disabled={subLoading || !subName.trim()}
                     className="w-full bg-white text-black py-3.5 rounded font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
@@ -776,31 +857,75 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                     )}
                   </div>
 
-                  {/* Tomorrow's dish selection */}
+                  {/* Schedule: 7-day rotation strip + per-day override */}
                   {customerSub.status === "active" && (
                     <div>
                       <div className="flex items-center gap-2 mb-3">
                         <Calendar size={14} className="text-zinc-500" />
-                        <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400">Tomorrow's Selection</h3>
+                        <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400">Delivery Schedule</h3>
                       </div>
-                      {isPastCutoff() ? (
-                        <p className="text-zinc-500 text-sm">Selection locked — cutoff was 5:00 PM IST. Check back after midnight.</p>
-                      ) : (
+
+                      {/* 7-day date strip */}
+                      <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3">
+                        {Array.from({ length: 7 }, (_, i) => {
+                          const d = new Date(Date.now() + (i + 1) * 86400000);
+                          const dateStr = d.toISOString().slice(0, 10);
+                          const dayLabel = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()];
+                          const dayNum = d.getDate();
+                          const overrideOrder = dailyOrders.find(o => o.deliveryDate === dateStr);
+                          const rotationDish = getRotationDishForDate(dateStr);
+                          const dishLabel = overrideOrder?.dishName ?? rotationDish?.name ?? "—";
+                          const isSelected = selectedScheduleDate === dateStr;
+                          const modifiable = isDateModifiable(dateStr);
+                          return (
+                            <button
+                              key={dateStr}
+                              onClick={() => modifiable && setSelectedScheduleDate(dateStr)}
+                              disabled={!modifiable}
+                              className={`shrink-0 flex flex-col items-center gap-1 px-2 py-2 rounded border text-center min-w-[52px] transition-colors ${isSelected ? "bg-white text-black border-white" : modifiable ? "border-zinc-700 text-zinc-400 hover:border-zinc-500" : "border-zinc-800 text-zinc-700 cursor-default"}`}
+                            >
+                              <span className="text-[10px] font-bold uppercase">{dayLabel}</span>
+                              <span className="text-sm font-mono font-bold">{dayNum}</span>
+                              <span className="text-[9px] leading-tight truncate max-w-[44px]">{dishLabel}</span>
+                              {overrideOrder?.dishId && <span className="text-[8px] opacity-60">override</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Dish selector for selected date */}
+                      {isDateModifiable(selectedScheduleDate) ? (
                         <div className="space-y-2">
-                          {(() => {
-                            const todayOrder = dailyOrders.find((o) => o.deliveryDate === tomorrowDate());
-                            return planDishes.map((dish) => (
+                          <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold mb-1">
+                            Dish for {new Date(selectedScheduleDate + "T00:00:00").toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })}
+                          </p>
+                          {planDishes.map(dish => {
+                            const orderForDate = dailyOrders.find(o => o.deliveryDate === selectedScheduleDate);
+                            const rotationDish = getRotationDishForDate(selectedScheduleDate);
+                            const isActive = orderForDate ? orderForDate.dishId === dish.id : rotationDish?.id === dish.id;
+                            return (
                               <button key={dish.id}
                                 onClick={() => handleSelectDish(dish.id)}
                                 disabled={subLoading}
-                                className={`w-full text-left px-4 py-3 rounded border flex items-center justify-between transition-colors ${todayOrder?.dishId === dish.id ? 'bg-white text-black border-white' : 'border-zinc-700 text-zinc-300 hover:border-zinc-500'}`}>
+                                className={`w-full text-left px-4 py-3 rounded border flex items-center justify-between transition-colors ${isActive ? "bg-white text-black border-white" : "border-zinc-700 text-zinc-300 hover:border-zinc-500"}`}>
                                 <span className="font-medium text-sm">{dish.name}</span>
-                                {todayOrder?.dishId === dish.id && <span className="text-xs font-bold">Selected</span>}
+                                <div className="flex items-center gap-2">
+                                  {!dailyOrders.find(o => o.deliveryDate === selectedScheduleDate) && isActive && (
+                                    <span className="text-[10px] opacity-60">rotation</span>
+                                  )}
+                                  {isActive && <Check size={14} />}
+                                </div>
                               </button>
-                            ));
-                          })()}
+                            );
+                          })}
                           {planDishes.length === 0 && <p className="text-zinc-500 text-sm">No dishes available in your plan.</p>}
                         </div>
+                      ) : (
+                        <p className="text-zinc-500 text-sm">
+                          {selectedScheduleDate === tomorrowDate()
+                            ? "Tomorrow's order is locked — cutoff was 5:00 PM IST."
+                            : "Select a future date to change your delivery."}
+                        </p>
                       )}
                     </div>
                   )}
@@ -876,6 +1001,165 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* === Meal Plan Modal (dish-driven subscription creation) === */}
+      {isMealPlanModalOpen && modalPlan && (
+        <div className="fixed inset-0 z-[70] bg-black flex flex-col animate-in fade-in duration-200">
+          {/* Header */}
+          <div className="flex items-center gap-3 p-4 border-b border-zinc-800 shrink-0">
+            {modalStep === 2 && (
+              <button onClick={() => setModalStep(1)} className="p-1.5 hover:bg-zinc-900 rounded-full transition-colors">
+                <ChevronLeft size={20} className="text-zinc-400" />
+              </button>
+            )}
+            <div className="flex-1">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                {modalStep === 1 ? "Build Your Rotation" : "Your Details"}
+              </p>
+              <h2 className="text-lg font-light text-white leading-tight">{modalPlan.name}</h2>
+            </div>
+            <button onClick={closeMealPlanModal} className="p-2 hover:bg-zinc-900 rounded-full transition-colors">
+              <X size={22} strokeWidth={1} className="text-zinc-400" />
+            </button>
+          </div>
+
+          {/* Step indicator */}
+          <div className="flex gap-1.5 px-4 pt-3 shrink-0">
+            {[1, 2].map(s => (
+              <div key={s} className={`h-0.5 flex-1 rounded-full transition-colors ${modalStep >= s ? "bg-white" : "bg-zinc-800"}`} />
+            ))}
+          </div>
+
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-5">
+            {modalStep === 1 && (
+              <>
+                <p className="text-zinc-400 text-sm">Select the dishes you want in your daily rotation. They'll be delivered in order, cycling automatically.</p>
+                <div className="space-y-2">
+                  {modalPlanDishes.map(dish => {
+                    const isSelected = rotationDishIds.includes(dish.id);
+                    return (
+                      <button
+                        key={dish.id}
+                        onClick={() => toggleRotationDish(dish.id)}
+                        className={`w-full text-left px-4 py-3 rounded border flex items-center justify-between gap-3 transition-colors ${isSelected ? "bg-white text-black border-white" : "border-zinc-700 text-zinc-300 hover:border-zinc-500"}`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{dish.name}</p>
+                          <p className={`text-xs truncate ${isSelected ? "text-zinc-500" : "text-zinc-500"}`}>{dish.description}</p>
+                        </div>
+                        <div className={`w-5 h-5 rounded-full border-2 shrink-0 flex items-center justify-center ${isSelected ? "bg-black border-black" : "border-zinc-500"}`}>
+                          {isSelected && <Check size={12} className="text-white" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Rotation preview */}
+                {rotationDishIds.length > 0 && (
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Rotation Preview</p>
+                    <div className="space-y-1">
+                      {Array.from({ length: Math.min(7, rotationDishIds.length * 2) }, (_, i) => {
+                        const dishId = rotationDishIds[i % rotationDishIds.length];
+                        const d = modalPlanDishes.find(x => x.id === dishId);
+                        const dayLabel = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][i % 7];
+                        return d ? (
+                          <div key={i} className="flex items-center gap-2 text-xs text-zinc-400">
+                            <span className="w-8 text-zinc-600 font-mono">{dayLabel}</span>
+                            <span className="text-white">{d.name}</span>
+                            {rotationDishIds.length > 1 && i >= rotationDishIds.length && (
+                              <span className="text-zinc-600 text-[10px]">↺</span>
+                            )}
+                          </div>
+                        ) : null;
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {modalStep === 2 && (
+              <div className="space-y-5">
+                {([
+                  { label: "Phone Number", key: "phone", type: "tel" as const, value: subPhone, set: setSubPhone, placeholder: "+91 98765 43210" },
+                  { label: "Your Name", key: "name", type: "text" as const, value: subName, set: setSubName, placeholder: "Full name" },
+                  { label: "Email (optional)", key: "email", type: "email" as const, value: subEmail, set: setSubEmail, placeholder: "for order confirmations" },
+                ] as const).map(({ label, type, value, set, placeholder }) => (
+                  <div key={label}>
+                    <label className="block text-xs font-bold uppercase tracking-widest mb-1.5 text-zinc-500">{label}</label>
+                    <input type={type} value={value} onChange={(e) => (set as (v: string) => void)(e.target.value)} placeholder={placeholder}
+                      className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-2.5 rounded text-sm outline-none focus:border-zinc-500" />
+                  </div>
+                ))}
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest mb-2 text-zinc-500">Delivery Type</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["delivery", "pickup"] as SubDeliveryType[]).map(t => (
+                      <button key={t} onClick={() => setSubDeliveryType(t)}
+                        className={`py-2.5 rounded border text-sm font-medium capitalize transition-colors ${subDeliveryType === t ? "bg-white text-black border-white" : "border-zinc-700 text-zinc-400 hover:border-zinc-500"}`}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                  {subDeliveryType === "delivery" && modalPlan.deliveryFee > 0 && (
+                    <div className="mt-2 space-y-1.5">
+                      <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Delivery fee — {currency} {modalPlan.deliveryFee}/order</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {(["cash_on_delivery", "upfront"] as DeliveryFeeMode[]).map(mode => (
+                          <button key={mode} onClick={() => setSubDeliveryFeeMode(mode)}
+                            className={`py-2 rounded border text-xs font-medium transition-colors ${subDeliveryFeeMode === mode ? "bg-white text-black border-white" : "border-zinc-700 text-zinc-400 hover:border-zinc-500"}`}>
+                            {mode === "upfront" ? `Pay upfront (+${currency} ${modalPlan.deliveryFee * 30}/mo)` : "Pay on delivery"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-xs font-bold uppercase tracking-widest mb-2 text-zinc-500">Delivery Time Slot</label>
+                  <div className="space-y-2">
+                    {(Object.entries(TIME_SLOT_LABELS) as [TimeSlot, string][]).map(([slot, label]) => (
+                      <button key={slot} onClick={() => setSubTimeSlot(slot)}
+                        className={`w-full py-2.5 px-4 rounded border text-sm text-left flex items-center gap-2 transition-colors ${subTimeSlot === slot ? "bg-white text-black border-white" : "border-zinc-700 text-zinc-400 hover:border-zinc-500"}`}>
+                        <Clock size={14} />{label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {subError && <p className="text-red-400 text-sm">{subError}</p>}
+              </div>
+            )}
+          </div>
+
+          {/* Footer CTA */}
+          <div className="p-4 border-t border-zinc-800 shrink-0">
+            {modalStep === 1 ? (
+              <button
+                onClick={() => setModalStep(2)}
+                disabled={rotationDishIds.length === 0}
+                className="w-full bg-white text-black py-3.5 rounded font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-40"
+              >
+                NEXT →
+              </button>
+            ) : (
+              <button
+                onClick={() => handleCreateSubscription(modalPlan, rotationDishIds)}
+                disabled={subLoading || !subName.trim() || !subPhone.trim()}
+                className="w-full bg-white text-black py-3.5 rounded font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+              >
+                {subLoading ? <Loader2 className="animate-spin" size={18} /> : (() => {
+                  const deliveryTotal = subDeliveryType === "delivery" && subDeliveryFeeMode === "upfront"
+                    ? modalPlan.deliveryFee * 30 : 0;
+                  return `PAY ${currency} ${modalPlan.priceMonthly + deliveryTotal}/mo`;
+                })()}
+              </button>
+            )}
           </div>
         </div>
       )}

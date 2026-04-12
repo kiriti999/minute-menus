@@ -721,7 +721,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     supabase.auth.getUser().then(async ({ data }) => {
       const uid = data.user?.id;
       if (uid) {
-        try { await supabaseService.ensureRestaurant("My Restaurant", uid); } catch { /* already exists */ }
+        try {
+          const pendingName = localStorage.getItem("mm_pending_restaurant_name") ?? "My Restaurant";
+          await supabaseService.ensureRestaurant(pendingName, uid);
+          localStorage.removeItem("mm_pending_restaurant_name");
+        } catch { /* already exists */ }
       }
       // Load restaurant details only after ensuring the row exists
       supabaseService.getRestaurantDetails().then(setRestaurantDetails).catch(console.error);
@@ -1122,10 +1126,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       <div className={`md:hidden fixed top-0 left-0 right-0 z-50 border-b px-4 py-3 flex justify-between items-center ${isDarkTheme ? 'bg-black border-zinc-800' : 'bg-white border-zinc-200'}`}>
         <div className="flex items-center gap-2">
           <div className={`w-6 h-6 rounded flex items-center justify-center ${isDarkTheme ? 'bg-white' : 'bg-zinc-900'}`}>
-            <span className={`font-bold text-xs ${isDarkTheme ? 'text-black' : 'text-white'}`}>M</span>
+            <span className={`font-bold text-xs ${isDarkTheme ? 'text-black' : 'text-white'}`}>{(restaurantDetails?.name?.[0] ?? 'M').toUpperCase()}</span>
           </div>
           <span className={`text-sm font-bold tracking-tight ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
-            Minute Menus
+            {restaurantDetails?.name ?? 'Minute Menus'}
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -1168,11 +1172,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       <aside className={`w-64 border-r flex-col hidden md:flex h-full ${isDarkTheme ? 'bg-black border-zinc-800' : 'bg-white border-zinc-200'}`}>
         <div className="p-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded flex items-center justify-center ${isDarkTheme ? 'bg-white' : 'bg-zinc-900'}`}>
-              <span className={`font-bold text-lg ${isDarkTheme ? 'text-black' : 'text-white'}`}>M</span>
+            <div className={`w-8 h-8 rounded flex items-center justify-center shrink-0 ${isDarkTheme ? 'bg-white' : 'bg-zinc-900'}`}>
+              <span className={`font-bold text-lg ${isDarkTheme ? 'text-black' : 'text-white'}`}>{(restaurantDetails?.name?.[0] ?? 'M').toUpperCase()}</span>
             </div>
-            <span className={`text-xl font-bold tracking-tight ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
-              Minute Menus
+            <span className={`text-sm font-bold tracking-tight truncate ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
+              {restaurantDetails?.name ?? 'Minute Menus'}
             </span>
           </div>
           <button

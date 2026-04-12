@@ -1,4 +1,4 @@
-import { Check, Plus, Volume2, VolumeX } from "lucide-react";
+import { Check, Plus, RefreshCw, Volume2, VolumeX } from "lucide-react";
 import type React from "react";
 import { useRef, useState } from "react";
 import { formatPriceCompactInCurrency } from "../lib/currency";
@@ -9,9 +9,10 @@ interface ReelCardProps {
   onAddToOrder: (dish: Dish) => void;
   currency?: string;
   isSoldOut?: boolean;
+  subscriptionBand?: { planName: string; onSubscribe: () => void };
 }
 
-export const ReelCard: React.FC<ReelCardProps> = ({ dish, onAddToOrder, currency = "USD", isSoldOut = false }) => {
+export const ReelCard: React.FC<ReelCardProps> = ({ dish, onAddToOrder, currency = "USD", isSoldOut = false, subscriptionBand }) => {
   const [added, setAdded] = useState(false);
   const [isMuted, setIsMuted] = useState(true); // Default muted for autoplay
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -131,15 +132,29 @@ export const ReelCard: React.FC<ReelCardProps> = ({ dish, onAddToOrder, currency
           </p>
         </div>
 
-        {/* Single CTA Button */}
+        {/* Subscription Band */}
+        {subscriptionBand && (
+          <button
+            onClick={(e) => { e.stopPropagation(); subscriptionBand.onSubscribe(); }}
+            className="pointer-events-auto w-full mb-3 py-2 px-3 rounded bg-white/10 backdrop-blur border border-white/20 text-white flex items-center justify-between gap-2 hover:bg-white/20 transition-colors"
+          >
+            <span className="flex items-center gap-1.5 text-xs">
+              <RefreshCw size={11} className="text-white/60 shrink-0" />
+              <span>Subscribe — <strong>{subscriptionBand.planName}</strong></span>
+            </span>
+            <span className="text-[10px] text-white/50 tracking-widest uppercase shrink-0">Plan →</span>
+          </button>
+        )}
+
+        {/* CTA Button */}
         <button
           onClick={handleAdd}
           disabled={isSoldOut}
           className={`pointer-events-auto w-full py-3 sm:py-4 rounded-sm font-bold text-sm tracking-[0.2em] uppercase transition-all duration-300 shadow-xl flex items-center justify-center gap-3 ${isSoldOut
-              ? "bg-zinc-700 text-zinc-400 cursor-not-allowed"
-              : added
-                ? "bg-green-500 text-black"
-                : "bg-white text-black hover:bg-zinc-200"
+            ? "bg-zinc-700 text-zinc-400 cursor-not-allowed"
+            : added
+              ? "bg-green-500 text-black"
+              : "bg-white text-black hover:bg-zinc-200"
             }`}
         >
           {isSoldOut ? (

@@ -155,6 +155,7 @@ export interface CustomerSubscription {
   startDate: string;
   endDate: string;
   createdAt: string;
+  rotationDishIds?: string[];
 }
 
 export interface DailyOrder {

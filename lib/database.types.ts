@@ -277,6 +277,7 @@ export type Database = {
                     start_date: string;
                     end_date: string;
                     created_at: string;
+                    rotation_dish_ids: string[] | null;
                 };
                 Insert: {
                     id?: string;
@@ -294,6 +295,7 @@ export type Database = {
                     start_date?: string;
                     end_date: string;
                     created_at?: string;
+                    rotation_dish_ids?: string[] | null;
                 };
                 Update: {
                     id?: string;
@@ -311,6 +313,7 @@ export type Database = {
                     start_date?: string;
                     end_date?: string;
                     created_at?: string;
+                    rotation_dish_ids?: string[] | null;
                 };
                 Relationships: [];
             };

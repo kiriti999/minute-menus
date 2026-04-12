@@ -413,6 +413,7 @@ create table if not exists customer_subscriptions (
   paused_days_used int not null default 0,  -- cumulative days paused this cycle
   start_date       date not null default current_date,
   end_date         date not null,           -- set to start_date + 30 on insert
+  rotation_dish_ids uuid[] not null default '{}',  -- ordered dish IDs for round-robin delivery
   created_at       timestamptz not null default now(),
   unique (restaurant_id, phone)
 );
@@ -722,3 +723,11 @@ create index if not exists idx_sessions_restaurant   on watch_sessions(restauran
 create index if not exists idx_sessions_dish         on watch_sessions(dish_id);
 create index if not exists idx_orders_created        on orders(created_at desc);
 create index if not exists idx_sessions_created      on watch_sessions(created_at desc);
+
+
+-- ─────────────────────────────────────────────
+-- MIGRATION: add rotation_dish_ids to existing DBs
+-- Run this once on any database created before this column was added:
+-- ALTER TABLE customer_subscriptions
+--   ADD COLUMN IF NOT EXISTS rotation_dish_ids uuid[] NOT NULL DEFAULT '{}';
+-- ─────────────────────────────────────────────

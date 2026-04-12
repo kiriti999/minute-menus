@@ -1,4 +1,4 @@
-import { Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
+import { Building2, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
@@ -16,6 +16,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [restaurantName, setRestaurantName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
 
@@ -45,6 +46,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
       setError("Please fill in all fields.");
       return;
     }
+    if (isSignUp && targetMode !== "CUSTOMER" && !restaurantName.trim()) {
+      setError("Please enter your restaurant name.");
+      return;
+    }
     if (password.length < 6) {
       setError("Password must be at least 6 characters.");
       return;
@@ -65,6 +70,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({
 
     // signUp sends a confirmation email — inform the user
     if (isSignUp) {
+      // Persist restaurant name so OwnerDashboard can use it on first login
+      if (targetMode !== "CUSTOMER" && restaurantName.trim()) {
+        localStorage.setItem("mm_pending_restaurant_name", restaurantName.trim());
+      }
       setError(""); // clear errors
       alert("Check your email to confirm your account, then log in.");
       return;
@@ -102,6 +111,23 @@ export const LoginPage: React.FC<LoginPageProps> = ({
         )}
 
         <form onSubmit={handleEmailAuth} className="space-y-4">
+          {/* Restaurant Name (sign-up, owner only) */}
+          {isSignUp && targetMode !== "CUSTOMER" && (
+            <div className="relative group">
+              <Building2
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 group-focus-within:text-white transition-colors"
+                size={18}
+              />
+              <input
+                type="text"
+                value={restaurantName}
+                onChange={(e) => setRestaurantName(e.target.value)}
+                placeholder="Restaurant name"
+                className="w-full bg-black/50 border border-zinc-700 text-white pl-10 pr-4 py-3 rounded-lg outline-none focus:border-white transition-all placeholder-zinc-600 text-sm"
+              />
+            </div>
+          )}
+
           {/* Email Input */}
           <div className="relative group">
             <Mail

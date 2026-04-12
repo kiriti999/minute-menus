@@ -1022,6 +1022,7 @@ class SupabaseService {
             startDate: s.start_date,
             endDate: s.end_date,
             createdAt: s.created_at,
+            rotationDishIds: ((s as unknown as Record<string, unknown>).rotation_dish_ids ?? []) as string[],
         }));
     }
 
@@ -1240,6 +1241,7 @@ class SupabaseService {
             startDate: data.start_date,
             endDate: data.end_date,
             createdAt: data.created_at,
+            rotationDishIds: ((data as unknown as Record<string, unknown>).rotation_dish_ids ?? []) as string[],
         };
     }
 
@@ -1252,6 +1254,7 @@ class SupabaseService {
         deliveryType: import("../types").SubDeliveryType;
         deliveryFeeMode: import("../types").DeliveryFeeMode;
         timeSlot: import("../types").TimeSlot;
+        rotationDishIds?: string[];
     }): Promise<string> {
         const startDate = new Date().toISOString().slice(0, 10);
         const end = new Date();
@@ -1271,6 +1274,7 @@ class SupabaseService {
                 time_slot: params.timeSlot,
                 start_date: startDate,
                 end_date: endDate,
+                rotation_dish_ids: params.rotationDishIds ?? [],
             })
             .select("id")
             .single();
