@@ -98,6 +98,7 @@ export interface WatchSession {
 
 export type TimeSlot = '08-09' | '12-14' | '19-21';
 export type SubDeliveryType = 'delivery' | 'pickup';
+export type DeliveryFeeMode = 'upfront' | 'cash_on_delivery';
 export type SubStatus = 'active' | 'paused' | 'cancelled';
 export type DailyOrderStatus = 'pending' | 'delivered' | 'cancelled' | 'skipped';
 export type TicketReason =
@@ -146,6 +147,7 @@ export interface CustomerSubscription {
   phone: string;
   email?: string;
   deliveryType: SubDeliveryType;
+  deliveryFeeMode: DeliveryFeeMode;
   timeSlot: TimeSlot;
   status: SubStatus;
   pauseUntil?: string;

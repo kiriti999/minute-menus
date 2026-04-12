@@ -2290,7 +2290,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                               className={`w-full px-3 py-2 rounded border text-sm outline-none ${isDarkTheme ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-zinc-50 border-zinc-300 text-zinc-900'}`} />
                           </div>
                           <div>
-                            <label className={`block text-xs font-bold uppercase tracking-widest mb-1.5 ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>Delivery Fee (0 = free)</label>
+                            <label className={`block text-xs font-bold uppercase tracking-widest mb-1.5 ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>Delivery Fee per order (0 = free)</label>
                             <input type="number" min="0" value={editingPlan.deliveryFee ?? 0}
                               onChange={(e) => setEditingPlan(prev => ({ ...prev!, deliveryFee: parseFloat(e.target.value) || 0 }))}
                               className={`w-full px-3 py-2 rounded border text-sm outline-none ${isDarkTheme ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-zinc-50 border-zinc-300 text-zinc-900'}`} />

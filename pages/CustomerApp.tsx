@@ -22,7 +22,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ReelCard } from "../components/ReelCard";
 import { formatPriceInCurrency } from "../lib/currency";
 import { supabaseService } from "../services/supabaseService";
-import type { Category, CustomerSubscription, DailyOrder, Dish, MealPlan, OrderItem, SubDeliveryType, TicketReason, TimeSlot } from "../types";
+import type { Category, CustomerSubscription, DailyOrder, Dish, MealPlan, OrderItem, SubDeliveryType, DeliveryFeeMode, TicketReason, TimeSlot } from "../types";
 import { TICKET_REASON_LABELS, TIME_SLOT_LABELS } from "../types";
 
 interface CustomerAppProps {
@@ -60,6 +60,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const [subName, setSubName] = useState("");
   const [subEmail, setSubEmail] = useState("");
   const [subDeliveryType, setSubDeliveryType] = useState<SubDeliveryType>("delivery");
+  const [subDeliveryFeeMode, setSubDeliveryFeeMode] = useState<DeliveryFeeMode>("cash_on_delivery");
   const [subTimeSlot, setSubTimeSlot] = useState<TimeSlot>("08-09");
   const [availablePlans, setAvailablePlans] = useState<MealPlan[]>([]);
   const [selectedPlan, setSelectedPlan] = useState<MealPlan | null>(null);
@@ -342,6 +343,40 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     setSubLoading(true);
     setSubError("");
     try {
+      // 1. Create Razorpay order server-side
+      const orderRes = await fetch("/api/subscription/create-razorpay-order", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ planId: selectedPlan.id, restaurantId, deliveryFeeMode: subDeliveryFeeMode, deliveryType: subDeliveryType }),
+      });
+      if (!orderRes.ok) {
+        const err = await orderRes.json() as { error?: string };
+        throw new Error(err.error ?? "Failed to create payment");
+      }
+      const { orderId, amount, currency: rzpCurrency, keyId } = await orderRes.json() as {
+        orderId: string; amount: number; currency: string; keyId: string;
+      };
+
+      // 2. Open Razorpay checkout
+      await new Promise<void>((resolve, reject) => {
+        type RzpConstructor = new (opts: Record<string, unknown>) => { open: () => void };
+        const RzpClass = (window as Window & typeof globalThis & { Razorpay: RzpConstructor }).Razorpay;
+        const rzp = new RzpClass({
+          key: keyId,
+          order_id: orderId,
+          amount,
+          currency: rzpCurrency,
+          name: restaurantName ?? "Minute Menus",
+          description: selectedPlan.name,
+          prefill: { name: subName, contact: subPhone, email: subEmail || undefined },
+          theme: { color: "#000000" },
+          handler: () => resolve(),
+          modal: { ondismiss: () => reject(new Error("Payment cancelled")) },
+        });
+        rzp.open();
+      });
+
+      // 3. Payment succeeded — create subscription
       await supabaseService.createCustomerSubscription({
         restaurantId,
         planId: selectedPlan.id,
@@ -349,6 +384,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         phone: subPhone.trim(),
         email: subEmail.trim() || undefined,
         deliveryType: subDeliveryType,
+        deliveryFeeMode: subDeliveryFeeMode,
         timeSlot: subTimeSlot,
       });
       const newSub = await supabaseService.getCustomerSubscription(subPhone.trim(), restaurantId);
@@ -356,7 +392,8 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       setDailyOrders([]);
       setSubView("manage");
     } catch (e) {
-      setSubError(e instanceof Error ? e.message : "Failed to subscribe. Please try again.");
+      const msg = e instanceof Error ? e.message : "Failed to subscribe. Please try again.";
+      if (msg !== "Payment cancelled") setSubError(msg);
     } finally {
       setSubLoading(false);
     }
@@ -669,7 +706,17 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                       ))}
                     </div>
                     {subDeliveryType === "delivery" && selectedPlan.deliveryFee > 0 && (
-                      <p className="text-xs text-zinc-500 mt-1.5">+{currency} {selectedPlan.deliveryFee} delivery fee will be added</p>
+                      <div className="mt-2 space-y-1.5">
+                        <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Delivery fee — {currency} {selectedPlan.deliveryFee}/order</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {(["cash_on_delivery", "upfront"] as DeliveryFeeMode[]).map((mode) => (
+                            <button key={mode} onClick={() => setSubDeliveryFeeMode(mode)}
+                              className={`py-2 rounded border text-xs font-medium transition-colors ${subDeliveryFeeMode === mode ? 'bg-white text-black border-white' : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}>
+                              {mode === "upfront" ? `Pay upfront (+${currency} ${selectedPlan.deliveryFee * 30}/mo)` : "Pay on delivery"}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
                   <div>
@@ -689,7 +736,11 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                     disabled={subLoading || !subName.trim()}
                     className="w-full bg-white text-black py-3.5 rounded font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {subLoading ? <Loader2 className="animate-spin" size={18} /> : `SUBSCRIBE — ${currency} ${selectedPlan.priceMonthly}/mo`}
+                    {subLoading ? <Loader2 className="animate-spin" size={18} /> : (() => {
+                      const deliveryTotal = subDeliveryType === "delivery" && subDeliveryFeeMode === "upfront" ? selectedPlan.deliveryFee * 30 : 0;
+                      const total = selectedPlan.priceMonthly + deliveryTotal;
+                      return `PAY ${currency} ${total}/mo`;
+                    })()}
                   </button>
                 </div>
               )}

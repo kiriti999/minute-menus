@@ -1014,6 +1014,7 @@ class SupabaseService {
             phone: s.phone,
             email: s.email ?? undefined,
             deliveryType: s.delivery_type as import("../types").SubDeliveryType,
+            deliveryFeeMode: ((s as unknown as Record<string, unknown>).delivery_fee_mode ?? "cash_on_delivery") as import("../types").DeliveryFeeMode,
             timeSlot: s.time_slot as import("../types").TimeSlot,
             status: s.status as import("../types").SubStatus,
             pauseUntil: s.pause_until ?? undefined,
@@ -1231,6 +1232,7 @@ class SupabaseService {
             phone: data.phone,
             email: data.email ?? undefined,
             deliveryType: data.delivery_type as import("../types").SubDeliveryType,
+            deliveryFeeMode: ((data as unknown as Record<string, unknown>).delivery_fee_mode ?? "cash_on_delivery") as import("../types").DeliveryFeeMode,
             timeSlot: data.time_slot as import("../types").TimeSlot,
             status: data.status as import("../types").SubStatus,
             pauseUntil: data.pause_until ?? undefined,
@@ -1248,6 +1250,7 @@ class SupabaseService {
         phone: string;
         email?: string;
         deliveryType: import("../types").SubDeliveryType;
+        deliveryFeeMode: import("../types").DeliveryFeeMode;
         timeSlot: import("../types").TimeSlot;
     }): Promise<string> {
         const startDate = new Date().toISOString().slice(0, 10);
@@ -1264,6 +1267,7 @@ class SupabaseService {
                 phone: params.phone,
                 email: params.email ?? null,
                 delivery_type: params.deliveryType,
+                delivery_fee_mode: params.deliveryFeeMode,
                 time_slot: params.timeSlot,
                 start_date: startDate,
                 end_date: endDate,

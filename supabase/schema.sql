@@ -389,6 +389,9 @@ do $$ begin
   create type sub_delivery_type as enum ('delivery', 'pickup');
 exception when duplicate_object then null; end $$;
 do $$ begin
+  create type delivery_fee_mode as enum ('upfront', 'cash_on_delivery');
+exception when duplicate_object then null; end $$;
+do $$ begin
   create type sub_time_slot as enum ('08-09', '12-14', '19-21');
 exception when duplicate_object then null; end $$;
 do $$ begin
@@ -403,6 +406,7 @@ create table if not exists customer_subscriptions (
   phone            text not null,
   email            text,
   delivery_type    sub_delivery_type not null,
+  delivery_fee_mode delivery_fee_mode not null default 'cash_on_delivery',
   time_slot        sub_time_slot not null,
   status           sub_status not null default 'active',
   pause_until      date,

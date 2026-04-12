@@ -286,6 +286,7 @@ export type Database = {
                     phone: string;
                     email?: string | null;
                     delivery_type: "delivery" | "pickup";
+                    delivery_fee_mode?: "upfront" | "cash_on_delivery";
                     time_slot: "08-09" | "12-14" | "19-21";
                     status?: "active" | "paused" | "cancelled";
                     pause_until?: string | null;
@@ -302,6 +303,7 @@ export type Database = {
                     phone?: string;
                     email?: string | null;
                     delivery_type?: "delivery" | "pickup";
+                    delivery_fee_mode?: "upfront" | "cash_on_delivery";
                     time_slot?: "08-09" | "12-14" | "19-21";
                     status?: "active" | "paused" | "cancelled";
                     pause_until?: string | null;
