@@ -118,10 +118,12 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     Promise.all([
       supabaseService.getMenu(restaurantId ?? undefined),
       supabaseService.getDishSoldCounts(restaurantId ?? undefined).catch(() => ({})),
+      restaurantId ? supabaseService.getMealPlans(restaurantId).catch(() => []) : Promise.resolve([]),
     ])
-      .then(([menu, counts]) => {
+      .then(([menu, counts, plans]) => {
         setMenuCategories(menu);
         setSoldCounts(counts);
+        setAvailablePlans((plans as MealPlan[]).filter((p) => p.isActive));
       })
       .catch(console.error)
       .finally(() => setMenuLoading(false));
