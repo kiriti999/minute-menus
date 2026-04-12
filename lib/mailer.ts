@@ -1,10 +1,10 @@
 /**
- * Shared SMTP mailer using Microsoft Outlook (minutemenus@outlook.com).
- * Host: smtp-mail.outlook.com, Port: 587, STARTTLS.
+ * Shared mailer using Brevo SMTP relay.
  *
  * Required env vars:
- *   SMTP_USER  — e.g. minutemenus@outlook.com
- *   SMTP_PASS  — Outlook account password (or app password if 2FA enabled)
+ *   BREVO_SMTP_USER — your Brevo account email
+ *   BREVO_SMTP_KEY  — SMTP key from Brevo → Transactional → Settings → SMTP & API
+ *   FROM_EMAIL      — verified sender address (e.g. minutemenus@outlook.com)
  */
 
 import nodemailer from "nodemailer";
@@ -17,24 +17,25 @@ export interface MailOptions {
     html: string;
 }
 
-function createTransport() {
-    return nodemailer.createTransport({
-        host: "smtp-mail.outlook.com",
+export async function sendMail(options: MailOptions): Promise<void> {
+    if (!process.env.BREVO_SMTP_KEY) {
+        console.warn("mailer: BREVO_SMTP_KEY not set — skipping email send");
+        return;
+    }
+    const transporter = nodemailer.createTransport({
+        host: "smtp-relay.brevo.com",
         port: 587,
         secure: false,
         auth: {
-            user: process.env.SMTP_USER ?? "",
-            pass: process.env.SMTP_PASS ?? "",
+            user: process.env.BREVO_SMTP_USER,
+            pass: process.env.BREVO_SMTP_KEY,
         },
-        tls: { ciphers: "SSLv3" },
     });
-}
-
-export async function sendMail(options: MailOptions): Promise<void> {
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-        console.warn("mailer: SMTP_USER / SMTP_PASS not set — skipping email send");
-        return;
-    }
-    const transporter = createTransport();
-    await transporter.sendMail(options);
+    await transporter.sendMail({
+        from: options.from,
+        replyTo: options.replyTo,
+        to: options.to,
+        subject: options.subject,
+        html: options.html,
+    });
 }

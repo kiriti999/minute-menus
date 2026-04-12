@@ -128,7 +128,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
 
         try {
             await sendMail({
-                from: `${restaurant.name} via Minute Menus <${process.env.SMTP_USER ?? "minutemenus@outlook.com"}>`,
+                from: `${restaurant.name} via Minute Menus <${process.env.FROM_EMAIL ?? "onboarding@resend.dev"}>`,
                 replyTo: ownerEmail,
                 to: ownerEmail,
                 subject: `${restaurantOrders.length} order${restaurantOrders.length !== 1 ? "s" : ""} for tomorrow (${tomorrowStr})`,

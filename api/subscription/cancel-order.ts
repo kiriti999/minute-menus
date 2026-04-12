@@ -52,7 +52,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(restaurant.owner_id);
     const ownerEmail = user?.email;
 
-    const from = `${restaurant.name} via Minute Menus <${process.env.SMTP_USER ?? "minutemenus@outlook.com"}>`;
+    const from = `${restaurant.name} via Minute Menus <${process.env.FROM_EMAIL ?? "onboarding@resend.dev"}>`;
 
     const buildHtml = (recipient: "customer" | "owner") => `<!DOCTYPE html>
 <html lang="en">

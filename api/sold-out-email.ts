@@ -1,16 +1,17 @@
 /**
  * Vercel Serverless Function: POST /api/sold-out-email
  *
- * Sends a sold-out notification email to the restaurant owner via Resend.
+ * Sends a sold-out notification email to the restaurant owner via Brevo SMTP.
  * Retries up to MAX_RETRIES times with exponential back-off on transient failures.
  *
  * Required env vars (set in Vercel Dashboard → Project → Environment Variables):
- *   RESEND_API_KEY  — from https://resend.com/api-keys
- *   FROM_EMAIL      — Verified sender address (must be from a domain verified in Resend)
+ *   BREVO_SMTP_USER — your Brevo login email
+ *   BREVO_SMTP_KEY  — SMTP key from Brevo → Transactional → Settings → SMTP & API
+ *   FROM_EMAIL      — verified sender address
  */
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { Resend } from "resend";
+import { sendMail } from "../lib/mailer";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -107,10 +108,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(405).json({ error: "Method not allowed" });
     }
 
-    const { RESEND_API_KEY, FROM_EMAIL } = process.env;
+    const { BREVO_SMTP_KEY, FROM_EMAIL } = process.env;
 
-    if (!RESEND_API_KEY) {
-        console.error("sold-out-email: RESEND_API_KEY not configured");
+    if (!BREVO_SMTP_KEY) {
+        console.error("sold-out-email: BREVO_SMTP_KEY not configured");
         return res.status(500).json({ error: "Email not configured" });
     }
 
@@ -126,12 +127,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? `[${restaurantName}] "${dishName}" marked as Sold Out`
             : `[${restaurantName}] "${dishName}" is now Sold Out (stock depleted)`;
 
-    const resend = new Resend(RESEND_API_KEY);
-
     try {
         await withRetry(() =>
-            resend.emails.send({
-                from: `Minute Menus <${FROM_EMAIL ?? "notifications@minutemenus.com"}>`,
+            sendMail({
+                from: `Minute Menus <${FROM_EMAIL ?? "minutemenus@outlook.com"}>`,
                 to,
                 subject,
                 html: buildHtml(dishName, restaurantName, reason),
