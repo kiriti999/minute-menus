@@ -949,7 +949,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     const isVideo = editingMedia.file.type.startsWith("video/");
     const urlField = isVideo ? "videoUrl" : "imageUrl";
 
-    // Build the updated menu with both changes applied at once
     const newMenu = [...menuItems];
     newMenu[editingMedia.catIndex].items[editingMedia.dishIndex] = {
       ...newMenu[editingMedia.catIndex].items[editingMedia.dishIndex],
@@ -958,15 +957,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     };
     setMenuItems(newMenu);
     setEditingMedia(null);
-
-    // Persist immediately — no need to hit Save Changes on the navbar
-    supabaseService
-      .saveMenu(newMenu)
-      .then(() => setUnsavedChanges(false))
-      .catch((err: Error) => {
-        console.error("Media save failed:", err);
-        alert(`Failed to save media: ${err?.message ?? "Unknown error"}`);
-      });
+    setUnsavedChanges(true);
   };
 
   const handleSaveAll = () => {
