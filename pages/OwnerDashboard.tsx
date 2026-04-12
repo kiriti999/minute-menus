@@ -16,6 +16,7 @@ import {
   Link as LinkIcon,
   Lock,
   LogOut,
+  Loader2,
   Menu,
   Moon,
   MoreVertical,
@@ -668,6 +669,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [setupName, setSetupName] = useState("");
+  const [setupSaving, setSetupSaving] = useState(false);
+  const [setupError, setSetupError] = useState("");
 
   // Restaurant Details (for QR code)
   const [restaurantDetails, setRestaurantDetails] = useState<{
@@ -676,6 +680,23 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     slug: string;
     currency: string;
   } | null>(null);
+
+  // Show first-time setup modal when restaurant was created with default name
+  const needsSetup = restaurantDetails?.name === "My Restaurant";
+
+  const handleSetupSave = async () => {
+    if (!setupName.trim()) { setSetupError("Please enter a name."); return; }
+    setSetupSaving(true);
+    setSetupError("");
+    try {
+      const updated = await supabaseService.updateRestaurantName(setupName.trim());
+      setRestaurantDetails(prev => prev ? { ...prev, name: updated.name, slug: updated.slug } : null);
+    } catch (e) {
+      setSetupError(e instanceof Error ? e.message : "Failed to save. Try again.");
+    } finally {
+      setSetupSaving(false);
+    }
+  };
 
   // Data State
   const [metrics, setMetrics] = useState<AggregatedMetrics | null>(null);
@@ -1109,6 +1130,40 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           onSlugUpdated={(newSlug) => setRestaurantDetails(prev => prev ? { ...prev, slug: newSlug } : null)}
           isDarkTheme={isDarkTheme}
         />
+      )}
+
+      {/* First-time restaurant setup (Google/OAuth signups bypass the sign-up form) */}
+      {needsSetup && (
+        <div className="fixed inset-0 z-[80] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6">
+          <div className="w-full max-w-sm bg-zinc-900 border border-zinc-700 rounded-2xl p-8 shadow-2xl space-y-6 animate-in fade-in zoom-in-95 duration-300">
+            <div className="text-center">
+              <div className="w-12 h-12 bg-white rounded-lg mx-auto flex items-center justify-center mb-4">
+                <span className="font-bold text-black text-xl">M</span>
+              </div>
+              <h2 className="text-xl font-bold text-white mb-1">Name your restaurant</h2>
+              <p className="text-zinc-400 text-sm">This is shown to customers on your menu and QR code.</p>
+            </div>
+            <div>
+              <input
+                type="text"
+                value={setupName}
+                onChange={(e) => setSetupName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSetupSave()}
+                placeholder="e.g. The Spice Garden"
+                autoFocus
+                className="w-full bg-black border border-zinc-700 text-white px-4 py-3 rounded-lg outline-none focus:border-white transition-all placeholder-zinc-600 text-sm"
+              />
+              {setupError && <p className="text-red-400 text-xs mt-2">{setupError}</p>}
+            </div>
+            <button
+              onClick={handleSetupSave}
+              disabled={setupSaving || !setupName.trim()}
+              className="w-full bg-white text-black py-3 rounded-lg font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {setupSaving ? <Loader2 className="animate-spin" size={18} /> : "GET STARTED"}
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Media Editor Modal */}
