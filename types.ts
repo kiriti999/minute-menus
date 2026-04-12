@@ -94,6 +94,114 @@ export interface WatchSession {
   timestamp: number;
 }
 
+// ─── Subscription Feature Types ───────────────────────────────────────────────
+
+export type TimeSlot = '08-09' | '12-14' | '19-21';
+export type SubDeliveryType = 'delivery' | 'pickup';
+export type SubStatus = 'active' | 'paused' | 'cancelled';
+export type DailyOrderStatus = 'pending' | 'delivered' | 'cancelled' | 'skipped';
+export type TicketReason =
+  | 'not_received'
+  | 'wrong_item'
+  | 'partial_delivery'
+  | 'damaged'
+  | 'late_delivery'
+  | 'other';
+export type TicketStatus = 'open' | 'investigating' | 'resolved';
+export type RefundStatus = 'pending' | 'approved' | 'rejected' | 'processed';
+
+export const TIME_SLOT_LABELS: Record<TimeSlot, string> = {
+  '08-09': '8:00 AM – 9:00 AM',
+  '12-14': '12:00 PM – 2:00 PM',
+  '19-21': '7:00 PM – 9:00 PM',
+};
+
+export const TICKET_REASON_LABELS: Record<TicketReason, string> = {
+  not_received: 'Item not received',
+  wrong_item: 'Wrong item delivered',
+  partial_delivery: 'Partial delivery',
+  damaged: 'Item damaged',
+  late_delivery: 'Delivered late (after slot)',
+  other: 'Other',
+};
+
+export interface MealPlan {
+  id: string;
+  restaurantId: string;
+  name: string;
+  description: string;
+  priceMonthly: number;
+  deliveryFee: number;
+  isActive: boolean;
+  dishIds: string[];
+  createdAt: string;
+}
+
+export interface CustomerSubscription {
+  id: string;
+  restaurantId: string;
+  planId: string;
+  planName: string;
+  customerName: string;
+  phone: string;
+  email?: string;
+  deliveryType: SubDeliveryType;
+  timeSlot: TimeSlot;
+  status: SubStatus;
+  pauseUntil?: string;
+  pausedDaysUsed: number;
+  startDate: string;
+  endDate: string;
+  createdAt: string;
+}
+
+export interface DailyOrder {
+  id: string;
+  subscriptionId: string;
+  restaurantId: string;
+  deliveryDate: string;
+  dishId?: string;
+  dishName: string;
+  status: DailyOrderStatus;
+  cancelledBy?: string;
+  cancellationReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DeliveryTicket {
+  id: string;
+  subscriptionId: string;
+  dailyOrderId: string;
+  restaurantId: string;
+  reason: TicketReason;
+  notes?: string;
+  status: TicketStatus;
+  createdAt: string;
+  adjustments?: DeliveryAdjustment[];
+}
+
+export interface DeliveryAdjustment {
+  id: string;
+  ticketId: string;
+  notes: string;
+  createdAt: string;
+}
+
+export interface RefundRequest {
+  id: string;
+  subscriptionId: string;
+  restaurantId: string;
+  reason: string;
+  amount: number;
+  status: RefundStatus;
+  restaurantNotes?: string;
+  createdAt: string;
+  processedAt?: string;
+}
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
 export interface AggregatedMetrics {
   totalViews: number;
   totalWatchTime: number; // seconds

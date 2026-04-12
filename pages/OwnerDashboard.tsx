@@ -1,8 +1,10 @@
 import {
+  AlertTriangle,
   BrainCircuit,
   Calendar,
   Check,
   Copy,
+  CreditCard,
   Crown,
   Download,
   Edit2,
@@ -17,13 +19,17 @@ import {
   MoreVertical,
   MousePointer2,
   Move,
+  Package,
+  PauseCircle,
   Play,
   Plus,
   Printer,
   QrCode,
+  RefreshCw,
   Save,
   Sparkles,
   Sun,
+  Tag,
   Trash2,
   TrendingUp,
   Upload,
@@ -57,11 +63,20 @@ import { SUPPORTED_CURRENCIES, getSymbolForCurrency } from "../lib/currency";
 import {
   type AggregatedMetrics,
   type Category,
+  type CustomerSubscription,
+  type DailyOrder,
+  type DeliveryTicket,
   type Dish,
+  type MealPlan,
+  type RefundRequest,
+  type TicketReason,
+  TICKET_REASON_LABELS,
+  TIME_SLOT_LABELS,
   UserTier,
 } from "../types";
 
-type ViewMode = "DASHBOARD" | "MENU" | "CUSTOMERS";
+type ViewMode = "DASHBOARD" | "MENU" | "CUSTOMERS" | "SUBSCRIPTIONS";
+type SubTab = "plans" | "subscribers" | "tomorrow" | "tickets" | "refunds";
 type TimeWindow = "24h" | "7d" | "30d";
 
 // --- Paywall Modal Component ---
@@ -665,6 +680,15 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const [userTier, setUserTier] = useState<UserTier>(UserTier.FREE);
   const [paywallTrigger, setPaywallTrigger] = useState<string | null>(null);
 
+  // Subscription Management State
+  const [subTab, setSubTab] = useState<SubTab>("plans");
+  const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
+  const [customerSubs, setCustomerSubs] = useState<CustomerSubscription[]>([]);
+  const [tomorrowOrders, setTomorrowOrders] = useState<DailyOrder[]>([]);
+  const [deliveryTickets, setDeliveryTickets] = useState<DeliveryTicket[]>([]);
+  const [refundRequests, setRefundRequests] = useState<RefundRequest[]>([]);
+  const [editingPlan, setEditingPlan] = useState<Partial<MealPlan> | null>(null);
+
   // Editor State
   const [selectedCategoryIdx, setSelectedCategoryIdx] = useState(0);
   const [isEditingCategory, setIsEditingCategory] = useState(false);
@@ -710,6 +734,12 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     if (!restaurantDetails) {
       supabaseService.getRestaurantDetails().then(setRestaurantDetails).catch(console.error);
     }
+    // Subscription data
+    supabaseService.getMealPlans().then(setMealPlans).catch(console.error);
+    supabaseService.getCustomerSubscriptions().then(setCustomerSubs).catch(console.error);
+    supabaseService.getTomorrowsOrders().then(setTomorrowOrders).catch(console.error);
+    supabaseService.getDeliveryTickets().then(setDeliveryTickets).catch(console.error);
+    supabaseService.getRefundRequests().then(setRefundRequests).catch(console.error);
   };
 
   const handleUpgrade = () => {
@@ -997,6 +1027,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       >
         <Users size={18} />
         <span className="font-medium">Customers</span>
+      </button>
+      <button
+        onClick={() => {
+          setCurrentView("SUBSCRIPTIONS");
+          setIsMobileMenuOpen(false);
+        }}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-300 ${currentView === "SUBSCRIPTIONS" ? (isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white") + " shadow-[0_0_15px_rgba(255,255,255,0.1)]" : isDarkTheme ? "text-zinc-500 hover:text-white hover:bg-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200"}`}
+      >
+        <Package size={18} />
+        <span className="font-medium">Subscriptions</span>
       </button>
 
       {/* QR Code Button - Standalone action */}
@@ -1817,8 +1857,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                             <button
                               onClick={() => handleToggleManualSoldOut(selectedCategoryIdx, idx)}
                               className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 border-b ${dish.manualSoldOut
-                                  ? isDarkTheme ? 'text-green-400 hover:bg-zinc-800 hover:text-green-300 border-zinc-800' : 'text-green-600 hover:bg-zinc-100 hover:text-green-700 border-zinc-200'
-                                  : isDarkTheme ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white border-zinc-800' : 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 border-zinc-200'
+                                ? isDarkTheme ? 'text-green-400 hover:bg-zinc-800 hover:text-green-300 border-zinc-800' : 'text-green-600 hover:bg-zinc-100 hover:text-green-700 border-zinc-200'
+                                : isDarkTheme ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white border-zinc-800' : 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 border-zinc-200'
                                 }`}
                             >
                               <EyeOff size={14} />
@@ -2017,6 +2057,329 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 CRM MODULE v1.1 PENDING UPDATE
               </p>
             </div>
+          </div>
+        )}
+
+        {/* ─── Subscriptions View ─────────────────────────────────────────── */}
+        {currentView === "SUBSCRIPTIONS" && (
+          <div className={`flex-1 overflow-y-auto p-4 md:p-10 animate-in fade-in duration-500 pb-24 ${isDarkTheme ? 'bg-black' : 'bg-zinc-50'}`}>
+            <header className="flex flex-col md:flex-row justify-between md:items-end mb-8 gap-4">
+              <div>
+                <h1 className={`text-3xl font-light tracking-tight mb-1 ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>Subscriptions</h1>
+                <p className={`text-sm ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>Manage meal plans, subscribers, and daily deliveries</p>
+              </div>
+              {subTab === "plans" && (
+                <button
+                  onClick={() => setEditingPlan({ name: "", description: "", priceMonthly: 0, deliveryFee: 0, isActive: true, dishIds: [] })}
+                  className={`flex items-center gap-2 px-5 py-2 rounded text-sm font-bold transition-colors ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
+                >
+                  <Plus size={14} /> New Plan
+                </button>
+              )}
+            </header>
+
+            {/* Sub-tabs */}
+            <div className={`flex gap-1 mb-8 rounded-md p-1 w-fit ${isDarkTheme ? 'bg-zinc-900' : 'bg-zinc-200'}`}>
+              {(["plans", "subscribers", "tomorrow", "tickets", "refunds"] as SubTab[]).map((t) => (
+                <button key={t} onClick={() => setSubTab(t)}
+                  className={`px-4 py-1.5 text-xs font-bold rounded capitalize ${subTab === t ? (isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white") : isDarkTheme ? "text-zinc-500 hover:text-white" : "text-zinc-500 hover:text-zinc-900"}`}>
+                  {t === "tomorrow" ? "Tomorrow" : t.charAt(0).toUpperCase() + t.slice(1)}
+                  {t === "tickets" && deliveryTickets.filter(tk => tk.status !== "resolved").length > 0 && (
+                    <span className="ml-1.5 text-[10px] bg-red-500 text-white rounded-full px-1.5 py-0.5">
+                      {deliveryTickets.filter(tk => tk.status !== "resolved").length}
+                    </span>
+                  )}
+                  {t === "refunds" && refundRequests.filter(r => r.status === "pending").length > 0 && (
+                    <span className="ml-1.5 text-[10px] bg-amber-500 text-white rounded-full px-1.5 py-0.5">
+                      {refundRequests.filter(r => r.status === "pending").length}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* ── Plans Tab ──────────────────────────────────────────────────── */}
+            {subTab === "plans" && (
+              <div className="space-y-4">
+                {/* Plan Editor Modal */}
+                {editingPlan !== null && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                    <div className={`w-full max-w-lg rounded-xl border shadow-2xl ${isDarkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+                      <div className={`flex items-center justify-between p-5 border-b ${isDarkTheme ? 'border-zinc-800' : 'border-zinc-200'}`}>
+                        <h2 className={`text-lg font-bold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{editingPlan.id ? "Edit Plan" : "New Meal Plan"}</h2>
+                        <button onClick={() => setEditingPlan(null)}><X size={18} className={isDarkTheme ? 'text-zinc-500' : 'text-zinc-400'} /></button>
+                      </div>
+                      <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+                        {([
+                          { label: "Plan Name", key: "name", type: "text", placeholder: "e.g. Lunch Box Monthly" },
+                          { label: "Description", key: "description", type: "text", placeholder: "Short description for customers" },
+                        ] as const).map(({ label, key, type, placeholder }) => (
+                          <div key={key}>
+                            <label className={`block text-xs font-bold uppercase tracking-widest mb-1.5 ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>{label}</label>
+                            <input type={type} value={(editingPlan as Record<string, unknown>)[key] as string ?? ""} placeholder={placeholder}
+                              onChange={(e) => setEditingPlan(prev => ({ ...prev!, [key]: e.target.value }))}
+                              className={`w-full px-3 py-2 rounded border text-sm outline-none ${isDarkTheme ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-zinc-50 border-zinc-300 text-zinc-900'}`} />
+                          </div>
+                        ))}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className={`block text-xs font-bold uppercase tracking-widest mb-1.5 ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>Monthly Price ({restaurantDetails?.currency ?? "USD"})</label>
+                            <input type="number" min="0" value={editingPlan.priceMonthly ?? 0}
+                              onChange={(e) => setEditingPlan(prev => ({ ...prev!, priceMonthly: parseFloat(e.target.value) || 0 }))}
+                              className={`w-full px-3 py-2 rounded border text-sm outline-none ${isDarkTheme ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-zinc-50 border-zinc-300 text-zinc-900'}`} />
+                          </div>
+                          <div>
+                            <label className={`block text-xs font-bold uppercase tracking-widest mb-1.5 ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>Delivery Fee (0 = free)</label>
+                            <input type="number" min="0" value={editingPlan.deliveryFee ?? 0}
+                              onChange={(e) => setEditingPlan(prev => ({ ...prev!, deliveryFee: parseFloat(e.target.value) || 0 }))}
+                              className={`w-full px-3 py-2 rounded border text-sm outline-none ${isDarkTheme ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-zinc-50 border-zinc-300 text-zinc-900'}`} />
+                          </div>
+                        </div>
+                        <div>
+                          <label className={`block text-xs font-bold uppercase tracking-widest mb-2 ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>Dishes in this plan</label>
+                          <div className="space-y-1 max-h-48 overflow-y-auto">
+                            {menuItems.flatMap(c => c.items).map(dish => (
+                              <label key={dish.id} className={`flex items-center gap-2 px-3 py-2 rounded cursor-pointer ${isDarkTheme ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'}`}>
+                                <input type="checkbox"
+                                  checked={(editingPlan.dishIds ?? []).includes(dish.id)}
+                                  onChange={(e) => setEditingPlan(prev => ({
+                                    ...prev!,
+                                    dishIds: e.target.checked
+                                      ? [...(prev!.dishIds ?? []), dish.id]
+                                      : (prev!.dishIds ?? []).filter(id => id !== dish.id),
+                                  }))}
+                                  className="accent-white"
+                                />
+                                <span className={`text-sm ${isDarkTheme ? 'text-zinc-300' : 'text-zinc-700'}`}>{dish.name}</span>
+                              </label>
+                            ))}
+                            {menuItems.flatMap(c => c.items).length === 0 && (
+                              <p className={`text-xs text-center py-3 ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-400'}`}>Add dishes in Menu Editor first</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className={`flex gap-3 p-5 border-t ${isDarkTheme ? 'border-zinc-800' : 'border-zinc-200'}`}>
+                        <button onClick={() => setEditingPlan(null)}
+                          className={`flex-none px-4 py-2 rounded text-sm font-medium ${isDarkTheme ? 'bg-zinc-800 text-white hover:bg-zinc-700' : 'bg-zinc-100 text-zinc-900 hover:bg-zinc-200'}`}>
+                          Cancel
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (!editingPlan.name) return;
+                            supabaseService.saveMealPlan(
+                              { name: editingPlan.name!, description: editingPlan.description ?? "", priceMonthly: editingPlan.priceMonthly ?? 0, deliveryFee: editingPlan.deliveryFee ?? 0, isActive: editingPlan.isActive ?? true, dishIds: editingPlan.dishIds ?? [] },
+                              editingPlan.id,
+                            ).then(() => { supabaseService.getMealPlans().then(setMealPlans); setEditingPlan(null); })
+                              .catch((e: Error) => alert(e.message));
+                          }}
+                          className={`flex-1 py-2 rounded text-sm font-bold ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}>
+                          Save Plan
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {mealPlans.length === 0 && (
+                  <div className={`text-center py-16 border rounded-xl ${isDarkTheme ? 'border-zinc-800 text-zinc-600' : 'border-zinc-200 text-zinc-400'}`}>
+                    <Package size={40} strokeWidth={1} className="mx-auto mb-4 opacity-40" />
+                    <p className={`font-medium ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>No meal plans yet</p>
+                    <p className="text-sm mt-1">Create a plan to start offering subscriptions</p>
+                  </div>
+                )}
+
+                {mealPlans.map(plan => (
+                  <div key={plan.id} className={`border rounded-xl p-5 ${isDarkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className={`font-bold text-base ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{plan.name}</h3>
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${plan.isActive ? 'bg-green-900/40 text-green-400' : 'bg-zinc-800 text-zinc-500'}`}>{plan.isActive ? "Active" : "Inactive"}</span>
+                        </div>
+                        <p className={`text-sm mt-0.5 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>{plan.description}</p>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button onClick={() => setEditingPlan({ ...plan })} className={`p-1.5 rounded ${isDarkTheme ? 'hover:bg-zinc-800 text-zinc-500 hover:text-white' : 'hover:bg-zinc-100 text-zinc-500 hover:text-zinc-900'}`}><Edit2 size={14} /></button>
+                        <button onClick={() => { if (confirm("Delete this plan?")) supabaseService.deleteMealPlan(plan.id).then(() => supabaseService.getMealPlans().then(setMealPlans)).catch((e: Error) => alert(e.message)); }} className={`p-1.5 rounded ${isDarkTheme ? 'hover:bg-zinc-800 text-zinc-500 hover:text-red-400' : 'hover:bg-zinc-100 text-zinc-500 hover:text-red-500'}`}><Trash2 size={14} /></button>
+                      </div>
+                    </div>
+                    <div className={`flex gap-4 text-sm ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                      <span className="flex items-center gap-1"><Tag size={12} /> {plan.priceMonthly}/{restaurantDetails?.currency ?? "mo"}</span>
+                      <span className="flex items-center gap-1"><Package size={12} /> {plan.deliveryFee > 0 ? `+${plan.deliveryFee} delivery` : "Free delivery"}</span>
+                      <span>{plan.dishIds.length} dish{plan.dishIds.length !== 1 ? "es" : ""}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── Subscribers Tab ─────────────────────────────────────────────── */}
+            {subTab === "subscribers" && (
+              <div className="space-y-3">
+                {customerSubs.length === 0 && (
+                  <div className={`text-center py-16 border rounded-xl ${isDarkTheme ? 'border-zinc-800 text-zinc-600' : 'border-zinc-200 text-zinc-400'}`}>
+                    <Users size={40} strokeWidth={1} className="mx-auto mb-4 opacity-40" />
+                    <p className={`font-medium ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>No subscribers yet</p>
+                  </div>
+                )}
+                {customerSubs.map(sub => (
+                  <div key={sub.id} className={`border rounded-xl p-4 flex items-center gap-4 ${isDarkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`font-bold text-sm ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{sub.customerName}</span>
+                        <span className={`text-xs font-mono ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>{sub.phone}</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${sub.status === "active" ? 'bg-green-900/40 text-green-400' : sub.status === "paused" ? 'bg-amber-900/40 text-amber-400' : 'bg-red-900/40 text-red-400'}`}>{sub.status}</span>
+                      </div>
+                      <div className={`text-xs mt-0.5 flex gap-3 flex-wrap ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>
+                        <span>{sub.planName}</span>
+                        <span>{sub.deliveryType}</span>
+                        <span>{TIME_SLOT_LABELS[sub.timeSlot]}</span>
+                        <span>until {sub.endDate}</span>
+                        {sub.status === "paused" && sub.pauseUntil && <span className="text-amber-400">paused till {sub.pauseUntil}</span>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── Tomorrow's Orders Tab ───────────────────────────────────────── */}
+            {subTab === "tomorrow" && (
+              <div>
+                {tomorrowOrders.length === 0 && (
+                  <div className={`text-center py-16 border rounded-xl ${isDarkTheme ? 'border-zinc-800 text-zinc-600' : 'border-zinc-200 text-zinc-400'}`}>
+                    <Calendar size={40} strokeWidth={1} className="mx-auto mb-4 opacity-40" />
+                    <p className={`font-medium ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>No orders for tomorrow yet</p>
+                    <p className="text-sm mt-1">Customers can select their dish until 5:00 PM IST today</p>
+                  </div>
+                )}
+                <div className="space-y-3">
+                  {(["08-09", "12-14", "19-21"] as const).map(slot => {
+                    const slotOrders = tomorrowOrders.filter(o => {
+                      const sub = customerSubs.find(s => s.id === o.subscriptionId);
+                      return sub?.timeSlot === slot;
+                    });
+                    if (slotOrders.length === 0) return null;
+                    return (
+                      <div key={slot}>
+                        <h3 className={`text-xs font-bold uppercase tracking-widest mb-2 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>{TIME_SLOT_LABELS[slot]}</h3>
+                        <div className="space-y-2">
+                          {slotOrders.map(order => {
+                            const sub = customerSubs.find(s => s.id === order.subscriptionId);
+                            return (
+                              <div key={order.id} className={`border rounded-lg px-4 py-3 flex items-center justify-between ${isDarkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+                                <div>
+                                  <span className={`font-medium text-sm ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{sub?.customerName ?? "—"}</span>
+                                  <span className={`text-xs ml-3 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>{order.dishName || "No selection yet"}</span>
+                                  {sub && <span className={`text-xs ml-3 ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-400'}`}>{sub.deliveryType}</span>}
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    const reason = window.prompt("Cancellation reason:");
+                                    if (!reason) return;
+                                    supabaseService.cancelDailyOrder(order.id, reason)
+                                      .then(() => supabaseService.getTomorrowsOrders().then(setTomorrowOrders))
+                                      .catch((e: Error) => alert(e.message));
+                                  }}
+                                  className={`text-xs px-3 py-1.5 rounded border font-medium transition-colors ${isDarkTheme ? 'border-zinc-700 text-zinc-400 hover:border-red-500 hover:text-red-400' : 'border-zinc-300 text-zinc-500 hover:border-red-400 hover:text-red-500'}`}>
+                                  Cancel
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── Tickets Tab ────────────────────────────────────────────────── */}
+            {subTab === "tickets" && (
+              <div className="space-y-3">
+                {deliveryTickets.length === 0 && (
+                  <div className={`text-center py-16 border rounded-xl ${isDarkTheme ? 'border-zinc-800 text-zinc-600' : 'border-zinc-200 text-zinc-400'}`}>
+                    <AlertTriangle size={40} strokeWidth={1} className="mx-auto mb-4 opacity-40" />
+                    <p className={`font-medium ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>No delivery tickets</p>
+                  </div>
+                )}
+                {deliveryTickets.map(ticket => (
+                  <div key={ticket.id} className={`border rounded-xl p-4 ${isDarkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`font-bold text-sm ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{TICKET_REASON_LABELS[ticket.reason]}</span>
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${ticket.status === "open" ? 'bg-red-900/40 text-red-400' : ticket.status === "investigating" ? 'bg-amber-900/40 text-amber-400' : 'bg-green-900/40 text-green-400'}`}>{ticket.status}</span>
+                        </div>
+                        {ticket.notes && <p className={`text-sm mt-1 ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>{ticket.notes}</p>}
+                        <p className={`text-xs mt-1 ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-400'}`}>{new Date(ticket.createdAt).toLocaleDateString()}</p>
+                        {(ticket.adjustments ?? []).map(adj => (
+                          <p key={adj.id} className={`text-xs mt-1 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>Resolution: {adj.notes}</p>
+                        ))}
+                      </div>
+                      {ticket.status !== "resolved" && (
+                        <button
+                          onClick={() => {
+                            const notes = window.prompt("Resolution notes:");
+                            if (!notes) return;
+                            supabaseService.resolveDeliveryTicket(ticket.id, notes)
+                              .then(() => supabaseService.getDeliveryTickets().then(setDeliveryTickets))
+                              .catch((e: Error) => alert(e.message));
+                          }}
+                          className={`shrink-0 text-xs px-3 py-1.5 rounded border font-medium ${isDarkTheme ? 'border-zinc-700 text-zinc-400 hover:border-green-500 hover:text-green-400' : 'border-zinc-300 text-zinc-500 hover:border-green-500 hover:text-green-600'}`}>
+                          Resolve
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── Refunds Tab ────────────────────────────────────────────────── */}
+            {subTab === "refunds" && (
+              <div className="space-y-3">
+                {refundRequests.length === 0 && (
+                  <div className={`text-center py-16 border rounded-xl ${isDarkTheme ? 'border-zinc-800 text-zinc-600' : 'border-zinc-200 text-zinc-400'}`}>
+                    <CreditCard size={40} strokeWidth={1} className="mx-auto mb-4 opacity-40" />
+                    <p className={`font-medium ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>No refund requests</p>
+                  </div>
+                )}
+                {refundRequests.map(refund => (
+                  <div key={refund.id} className={`border rounded-xl p-4 ${isDarkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className={`font-bold text-sm ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{restaurantDetails?.currency} {refund.amount.toFixed(2)}</span>
+                          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${refund.status === "pending" ? 'bg-amber-900/40 text-amber-400' : refund.status === "approved" ? 'bg-blue-900/40 text-blue-400' : refund.status === "processed" ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`}>{refund.status}</span>
+                        </div>
+                        <p className={`text-sm ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>{refund.reason}</p>
+                        <p className={`text-xs mt-1 ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-400'}`}>{new Date(refund.createdAt).toLocaleDateString()}</p>
+                        {refund.restaurantNotes && <p className={`text-xs mt-1 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>Note: {refund.restaurantNotes}</p>}
+                      </div>
+                      {refund.status === "pending" && (
+                        <div className="flex gap-2 shrink-0">
+                          {(["approved", "rejected", "processed"] as const).map(action => (
+                            <button key={action}
+                              onClick={() => {
+                                const notes = action !== "rejected" ? undefined : (window.prompt("Rejection reason:") ?? undefined);
+                                supabaseService.updateRefundStatus(refund.id, action, notes)
+                                  .then(() => supabaseService.getRefundRequests().then(setRefundRequests))
+                                  .catch((e: Error) => alert(e.message));
+                              }}
+                              className={`text-xs px-3 py-1.5 rounded border font-medium capitalize transition-colors ${isDarkTheme ? 'border-zinc-700 text-zinc-400 hover:text-white hover:border-zinc-500' : 'border-zinc-300 text-zinc-500 hover:text-zinc-900 hover:border-zinc-400'}`}>
+                              {action}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </main>

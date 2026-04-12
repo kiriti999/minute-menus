@@ -157,6 +157,29 @@ const rowsToCategoryTree = (
                 ),
         }));
 
+/** Maps raw subscription_daily_orders rows to DailyOrder app type */
+const mapDailyOrders = (
+    rows: Array<{
+        id: string; subscription_id: string; restaurant_id: string;
+        delivery_date: string; dish_id: string | null; dish_name: string;
+        status: string; cancelled_by: string | null;
+        cancellation_reason: string | null; created_at: string; updated_at: string;
+    }>,
+): import("../types").DailyOrder[] =>
+    rows.map((r) => ({
+        id: r.id,
+        subscriptionId: r.subscription_id,
+        restaurantId: r.restaurant_id,
+        deliveryDate: r.delivery_date,
+        dishId: r.dish_id ?? undefined,
+        dishName: r.dish_name,
+        status: r.status as import("../types").DailyOrderStatus,
+        cancelledBy: r.cancelled_by ?? undefined,
+        cancellationReason: r.cancellation_reason ?? undefined,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+    }));
+
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 class SupabaseService {
@@ -739,6 +762,391 @@ class SupabaseService {
         }
 
         return data.slug;
+    }
+
+    // ── Meal Plan Management (owner) ────────────────────────────────────────────
+
+    async getMealPlans(restaurantId?: string): Promise<import("../types").MealPlan[]> {
+        const rid = restaurantId ?? (await getRestaurantId());
+
+        const [{ data: plans, error: planErr }, { data: links }] = await Promise.all([
+            supabase.from("meal_plans").select("*").eq("restaurant_id", rid).order("created_at"),
+            supabase.from("meal_plan_dishes").select("plan_id, dish_id").in(
+                "plan_id",
+                (await supabase.from("meal_plans").select("id").eq("restaurant_id", rid)).data?.map((p) => p.id) ?? [],
+            ),
+        ]);
+
+        if (planErr) throw planErr;
+
+        const dishIdsByPlan: Record<string, string[]> = {};
+        (links ?? []).forEach((l) => {
+            dishIdsByPlan[l.plan_id] = [...(dishIdsByPlan[l.plan_id] ?? []), l.dish_id];
+        });
+
+        return (plans ?? []).map((p) => ({
+            id: p.id,
+            restaurantId: p.restaurant_id,
+            name: p.name,
+            description: p.description,
+            priceMonthly: p.price_monthly,
+            deliveryFee: p.delivery_fee,
+            isActive: p.is_active,
+            dishIds: dishIdsByPlan[p.id] ?? [],
+            createdAt: p.created_at,
+        }));
+    }
+
+    async saveMealPlan(
+        plan: Omit<import("../types").MealPlan, "id" | "restaurantId" | "createdAt">,
+        planId?: string,
+    ): Promise<string> {
+        const rid = await getRestaurantId();
+        const row = {
+            restaurant_id: rid,
+            name: plan.name,
+            description: plan.description,
+            price_monthly: plan.priceMonthly,
+            delivery_fee: plan.deliveryFee,
+            is_active: plan.isActive,
+        };
+
+        let id = planId;
+        if (id) {
+            const { error } = await supabase.from("meal_plans").update(row).eq("id", id);
+            if (error) throw error;
+        } else {
+            const { data, error } = await supabase.from("meal_plans").insert({ ...row }).select("id").single();
+            if (error || !data) throw error ?? new Error("Failed to create plan");
+            id = data.id;
+        }
+
+        // Sync dish links: delete all, re-insert
+        await supabase.from("meal_plan_dishes").delete().eq("plan_id", id);
+        if (plan.dishIds.length > 0) {
+            await supabase.from("meal_plan_dishes").insert(
+                plan.dishIds.map((dish_id) => ({ plan_id: id!, dish_id })),
+            );
+        }
+
+        return id!;
+    }
+
+    async deleteMealPlan(planId: string): Promise<void> {
+        const { error } = await supabase.from("meal_plans").delete().eq("id", planId);
+        if (error) throw error;
+    }
+
+    // ── Owner: Subscription Operations ─────────────────────────────────────────
+
+    async getCustomerSubscriptions(restaurantId?: string): Promise<import("../types").CustomerSubscription[]> {
+        const rid = restaurantId ?? (await getRestaurantId());
+        const { data, error } = await supabase
+            .from("customer_subscriptions")
+            .select("*, meal_plans(name)")
+            .eq("restaurant_id", rid)
+            .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        return (data ?? []).map((s) => ({
+            id: s.id,
+            restaurantId: s.restaurant_id,
+            planId: s.plan_id,
+            planName: (s as unknown as { meal_plans?: { name?: string } }).meal_plans?.name ?? "",
+            customerName: s.customer_name,
+            phone: s.phone,
+            email: s.email ?? undefined,
+            deliveryType: s.delivery_type as import("../types").SubDeliveryType,
+            timeSlot: s.time_slot as import("../types").TimeSlot,
+            status: s.status as import("../types").SubStatus,
+            pauseUntil: s.pause_until ?? undefined,
+            pausedDaysUsed: s.paused_days_used,
+            startDate: s.start_date,
+            endDate: s.end_date,
+            createdAt: s.created_at,
+        }));
+    }
+
+    async getTomorrowsOrders(restaurantId?: string): Promise<import("../types").DailyOrder[]> {
+        const rid = restaurantId ?? (await getRestaurantId());
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const date = tomorrow.toISOString().slice(0, 10);
+
+        const { data, error } = await supabase
+            .from("subscription_daily_orders")
+            .select("*")
+            .eq("restaurant_id", rid)
+            .eq("delivery_date", date)
+            .neq("status", "cancelled");
+
+        if (error) throw error;
+        return mapDailyOrders(data ?? []);
+    }
+
+    async cancelDailyOrder(orderId: string, reason: string): Promise<void> {
+        const { data, error } = await supabase
+            .from("subscription_daily_orders")
+            .update({
+                status: "cancelled",
+                cancelled_by: "restaurant",
+                cancellation_reason: reason,
+                updated_at: new Date().toISOString(),
+            })
+            .eq("id", orderId)
+            .select("subscription_id, delivery_date, dish_name, restaurant_id")
+            .single();
+
+        if (error) throw error;
+
+        // Fire cancel email best-effort
+        if (data) {
+            const sub = await supabase
+                .from("customer_subscriptions")
+                .select("email, customer_name")
+                .eq("id", data.subscription_id)
+                .single();
+
+            await fetch("/api/subscription/cancel-order", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    subscriptionId: data.subscription_id,
+                    restaurantId: data.restaurant_id,
+                    deliveryDate: data.delivery_date,
+                    dishName: data.dish_name,
+                    reason,
+                    customerEmail: sub.data?.email ?? null,
+                    customerName: sub.data?.customer_name ?? null,
+                }),
+            }).catch(console.error);
+        }
+    }
+
+    async getDeliveryTickets(restaurantId?: string): Promise<import("../types").DeliveryTicket[]> {
+        const rid = restaurantId ?? (await getRestaurantId());
+        const { data, error } = await supabase
+            .from("delivery_tickets")
+            .select("*, delivery_adjustments(*)")
+            .eq("restaurant_id", rid)
+            .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        return (data ?? []).map((t) => ({
+            id: t.id,
+            subscriptionId: t.subscription_id,
+            dailyOrderId: t.daily_order_id,
+            restaurantId: t.restaurant_id,
+            reason: t.reason as import("../types").TicketReason,
+            notes: t.notes ?? undefined,
+            status: t.status as import("../types").TicketStatus,
+            createdAt: t.created_at,
+            adjustments: ((t as unknown as { delivery_adjustments?: Array<{ id: string; ticket_id: string; notes: string; created_at: string }> }).delivery_adjustments ?? []).map((a) => ({
+                id: a.id,
+                ticketId: a.ticket_id,
+                notes: a.notes,
+                createdAt: a.created_at,
+            })),
+        }));
+    }
+
+    async resolveDeliveryTicket(ticketId: string, notes: string): Promise<void> {
+        const { error: ticketErr } = await supabase
+            .from("delivery_tickets")
+            .update({ status: "resolved" })
+            .eq("id", ticketId);
+        if (ticketErr) throw ticketErr;
+
+        const { error: adjErr } = await supabase
+            .from("delivery_adjustments")
+            .insert({ ticket_id: ticketId, notes });
+        if (adjErr) throw adjErr;
+    }
+
+    async getRefundRequests(restaurantId?: string): Promise<import("../types").RefundRequest[]> {
+        const rid = restaurantId ?? (await getRestaurantId());
+        const { data, error } = await supabase
+            .from("subscription_refund_requests")
+            .select("*")
+            .eq("restaurant_id", rid)
+            .order("created_at", { ascending: false });
+
+        if (error) throw error;
+
+        return (data ?? []).map((r) => ({
+            id: r.id,
+            subscriptionId: r.subscription_id,
+            restaurantId: r.restaurant_id,
+            reason: r.reason,
+            amount: r.amount,
+            status: r.status as import("../types").RefundStatus,
+            restaurantNotes: r.restaurant_notes ?? undefined,
+            createdAt: r.created_at,
+            processedAt: r.processed_at ?? undefined,
+        }));
+    }
+
+    async updateRefundStatus(
+        refundId: string,
+        status: import("../types").RefundStatus,
+        notes?: string,
+    ): Promise<void> {
+        const update: Record<string, unknown> = { status };
+        if (notes) update.restaurant_notes = notes;
+        if (status === "processed") update.processed_at = new Date().toISOString();
+
+        const { error } = await supabase
+            .from("subscription_refund_requests")
+            .update(update)
+            .eq("id", refundId);
+        if (error) throw error;
+    }
+
+    // ── Customer: Subscription Operations (no auth) ─────────────────────────────
+
+    async getCustomerSubscription(
+        phone: string,
+        restaurantId: string,
+    ): Promise<import("../types").CustomerSubscription | null> {
+        const { data } = await supabase
+            .from("customer_subscriptions")
+            .select("*, meal_plans(name)")
+            .eq("phone", phone)
+            .eq("restaurant_id", restaurantId)
+            .single();
+
+        if (!data) return null;
+
+        return {
+            id: data.id,
+            restaurantId: data.restaurant_id,
+            planId: data.plan_id,
+            planName: (data as unknown as { meal_plans?: { name?: string } }).meal_plans?.name ?? "",
+            customerName: data.customer_name,
+            phone: data.phone,
+            email: data.email ?? undefined,
+            deliveryType: data.delivery_type as import("../types").SubDeliveryType,
+            timeSlot: data.time_slot as import("../types").TimeSlot,
+            status: data.status as import("../types").SubStatus,
+            pauseUntil: data.pause_until ?? undefined,
+            pausedDaysUsed: data.paused_days_used,
+            startDate: data.start_date,
+            endDate: data.end_date,
+            createdAt: data.created_at,
+        };
+    }
+
+    async createCustomerSubscription(params: {
+        restaurantId: string;
+        planId: string;
+        customerName: string;
+        phone: string;
+        email?: string;
+        deliveryType: import("../types").SubDeliveryType;
+        timeSlot: import("../types").TimeSlot;
+    }): Promise<string> {
+        const startDate = new Date().toISOString().slice(0, 10);
+        const end = new Date();
+        end.setDate(end.getDate() + 30);
+        const endDate = end.toISOString().slice(0, 10);
+
+        const { data, error } = await supabase
+            .from("customer_subscriptions")
+            .insert({
+                restaurant_id: params.restaurantId,
+                plan_id: params.planId,
+                customer_name: params.customerName,
+                phone: params.phone,
+                email: params.email ?? null,
+                delivery_type: params.deliveryType,
+                time_slot: params.timeSlot,
+                start_date: startDate,
+                end_date: endDate,
+            })
+            .select("id")
+            .single();
+
+        if (error) throw new Error(error.message);
+        return data.id;
+    }
+
+    async selectDailyDish(
+        phone: string,
+        restaurantId: string,
+        deliveryDate: string,
+        dishId: string,
+    ): Promise<void> {
+        const { error } = await supabase.rpc("upsert_daily_selection", {
+            p_phone: phone,
+            p_restaurant_id: restaurantId,
+            p_delivery_date: deliveryDate,
+            p_dish_id: dishId,
+        });
+        if (error) throw new Error(error.message);
+    }
+
+    async pauseSubscription(phone: string, restaurantId: string, pauseUntil: string): Promise<void> {
+        const { error } = await supabase.rpc("update_subscription_status", {
+            p_phone: phone,
+            p_restaurant_id: restaurantId,
+            p_new_status: "paused",
+            p_pause_until: pauseUntil,
+        });
+        if (error) throw new Error(error.message);
+    }
+
+    async resumeSubscription(phone: string, restaurantId: string): Promise<void> {
+        const { error } = await supabase.rpc("update_subscription_status", {
+            p_phone: phone,
+            p_restaurant_id: restaurantId,
+            p_new_status: "active",
+        });
+        if (error) throw new Error(error.message);
+    }
+
+    async cancelCustomerSubscription(
+        phone: string,
+        restaurantId: string,
+        reason: string,
+    ): Promise<void> {
+        const { error } = await supabase.rpc("update_subscription_status", {
+            p_phone: phone,
+            p_restaurant_id: restaurantId,
+            p_new_status: "cancelled",
+            p_cancel_reason: reason,
+        });
+        if (error) throw new Error(error.message);
+    }
+
+    async getCustomerDailyOrders(subscriptionId: string, fromDate: string): Promise<import("../types").DailyOrder[]> {
+        const { data, error } = await supabase
+            .from("subscription_daily_orders")
+            .select("*")
+            .eq("subscription_id", subscriptionId)
+            .gte("delivery_date", fromDate)
+            .order("delivery_date");
+
+        if (error) throw error;
+        return mapDailyOrders(data ?? []);
+    }
+
+    async raiseDeliveryTicket(params: {
+        subscriptionId: string;
+        dailyOrderId: string;
+        restaurantId: string;
+        reason: import("../types").TicketReason;
+        notes?: string;
+    }): Promise<void> {
+        const { error } = await supabase.from("delivery_tickets").insert({
+            subscription_id: params.subscriptionId,
+            daily_order_id: params.dailyOrderId,
+            restaurant_id: params.restaurantId,
+            reason: params.reason,
+            notes: params.notes ?? null,
+        });
+        if (error) throw error;
     }
 }
 

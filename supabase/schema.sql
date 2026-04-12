@@ -309,6 +309,359 @@ $$;
 
 grant execute on function notify_sold_out to anon, authenticated;
 
+-- ─────────────────────────────────────────────
+-- 11. MEAL PLANS
+-- Restaurant-defined subscription bundles for customers.
+-- ─────────────────────────────────────────────
+create table if not exists meal_plans (
+  id             uuid primary key default gen_random_uuid(),
+  restaurant_id  uuid not null references restaurants(id) on delete cascade,
+  name           text not null,
+  description    text not null default '',
+  price_monthly  numeric(10, 2) not null default 0,
+  delivery_fee   numeric(10, 2) not null default 0, -- 0 = free delivery
+  is_active      boolean not null default true,
+  created_at     timestamptz not null default now()
+);
+
+alter table meal_plans enable row level security;
+
+create policy "Owner can manage meal plans"
+  on meal_plans for all
+  using (exists (select 1 from restaurants r where r.id = meal_plans.restaurant_id and r.owner_id = auth.uid()));
+
+create policy "Public can read active meal plans"
+  on meal_plans for select
+  using (is_active = true);
+
+-- Dishes available under each meal plan
+create table if not exists meal_plan_dishes (
+  plan_id  uuid not null references meal_plans(id) on delete cascade,
+  dish_id  uuid not null references dishes(id) on delete cascade,
+  primary key (plan_id, dish_id)
+);
+
+alter table meal_plan_dishes enable row level security;
+
+create policy "Owner can manage meal plan dishes"
+  on meal_plan_dishes for all
+  using (
+    exists (
+      select 1 from meal_plans mp
+      join restaurants r on r.id = mp.restaurant_id
+      where mp.id = meal_plan_dishes.plan_id and r.owner_id = auth.uid()
+    )
+  );
+
+create policy "Public can read meal plan dishes"
+  on meal_plan_dishes for select
+  using (true);
+
+-- ─────────────────────────────────────────────
+-- 12. CUSTOMER SUBSCRIPTIONS
+-- One active subscription per phone number per restaurant.
+-- ─────────────────────────────────────────────
+create type sub_delivery_type as enum ('delivery', 'pickup');
+create type sub_time_slot     as enum ('08-09', '12-14', '19-21');
+create type sub_status        as enum ('active', 'paused', 'cancelled');
+
+create table if not exists customer_subscriptions (
+  id               uuid primary key default gen_random_uuid(),
+  restaurant_id    uuid not null references restaurants(id) on delete cascade,
+  plan_id          uuid not null references meal_plans(id),
+  customer_name    text not null,
+  phone            text not null,
+  email            text,
+  delivery_type    sub_delivery_type not null,
+  time_slot        sub_time_slot not null,
+  status           sub_status not null default 'active',
+  pause_until      date,
+  paused_days_used int not null default 0,  -- cumulative days paused this cycle
+  start_date       date not null default current_date,
+  end_date         date not null,           -- set to start_date + 30 on insert
+  created_at       timestamptz not null default now(),
+  unique (restaurant_id, phone)
+);
+
+alter table customer_subscriptions enable row level security;
+
+create policy "Owner can manage customer subscriptions"
+  on customer_subscriptions for all
+  using (exists (select 1 from restaurants r where r.id = customer_subscriptions.restaurant_id and r.owner_id = auth.uid()));
+
+create policy "Public can insert subscriptions"
+  on customer_subscriptions for insert
+  with check (true);
+
+create policy "Public can read subscriptions"
+  on customer_subscriptions for select
+  using (true);
+
+-- ─────────────────────────────────────────────
+-- 13. DAILY SUBSCRIPTION ORDERS
+-- Customer selects one dish per delivery day (before 5pm IST cutoff).
+-- ─────────────────────────────────────────────
+create type daily_order_status_t as enum ('pending', 'delivered', 'cancelled', 'skipped');
+
+create table if not exists subscription_daily_orders (
+  id                  uuid primary key default gen_random_uuid(),
+  subscription_id     uuid not null references customer_subscriptions(id) on delete cascade,
+  restaurant_id       uuid not null references restaurants(id) on delete cascade,
+  delivery_date       date not null,
+  dish_id             uuid references dishes(id) on delete set null,
+  dish_name           text not null default '',  -- snapshot at selection time
+  status              daily_order_status_t not null default 'pending',
+  cancelled_by        text,                      -- 'restaurant' | 'customer' | 'system'
+  cancellation_reason text,
+  created_at          timestamptz not null default now(),
+  updated_at          timestamptz not null default now(),
+  unique (subscription_id, delivery_date)
+);
+
+alter table subscription_daily_orders enable row level security;
+
+create policy "Owner can manage daily orders"
+  on subscription_daily_orders for all
+  using (exists (select 1 from restaurants r where r.id = subscription_daily_orders.restaurant_id and r.owner_id = auth.uid()));
+
+create policy "Public can insert daily orders"
+  on subscription_daily_orders for insert
+  with check (true);
+
+create policy "Public can read daily orders"
+  on subscription_daily_orders for select
+  using (true);
+
+create policy "Public can update daily orders"
+  on subscription_daily_orders for update
+  using (true);
+
+-- ─────────────────────────────────────────────
+-- 14. SUBSCRIPTION REFUND REQUESTS
+-- Customer requests refund on cancellation.
+-- Restaurant manually processes within 7 days.
+-- ─────────────────────────────────────────────
+create type refund_status_t as enum ('pending', 'approved', 'rejected', 'processed');
+
+create table if not exists subscription_refund_requests (
+  id               uuid primary key default gen_random_uuid(),
+  subscription_id  uuid not null references customer_subscriptions(id) on delete cascade,
+  restaurant_id    uuid not null references restaurants(id) on delete cascade,
+  reason           text not null,
+  amount           numeric(10, 2) not null default 0,
+  status           refund_status_t not null default 'pending',
+  restaurant_notes text,
+  created_at       timestamptz not null default now(),
+  processed_at     timestamptz
+);
+
+alter table subscription_refund_requests enable row level security;
+
+create policy "Owner can manage refund requests"
+  on subscription_refund_requests for all
+  using (exists (select 1 from restaurants r where r.id = subscription_refund_requests.restaurant_id and r.owner_id = auth.uid()));
+
+create policy "Public can insert refund requests"
+  on subscription_refund_requests for insert
+  with check (true);
+
+create policy "Public can read refund requests"
+  on subscription_refund_requests for select
+  using (true);
+
+-- ─────────────────────────────────────────────
+-- 15. DELIVERY TICKETS
+-- Customer raises a ticket when delivery is not received / incorrect.
+-- ─────────────────────────────────────────────
+create type ticket_reason_t as enum (
+  'not_received', 'wrong_item', 'partial_delivery',
+  'damaged', 'late_delivery', 'other'
+);
+create type ticket_status_t as enum ('open', 'investigating', 'resolved');
+
+create table if not exists delivery_tickets (
+  id               uuid primary key default gen_random_uuid(),
+  subscription_id  uuid not null references customer_subscriptions(id) on delete cascade,
+  daily_order_id   uuid not null references subscription_daily_orders(id) on delete cascade,
+  restaurant_id    uuid not null references restaurants(id) on delete cascade,
+  reason           ticket_reason_t not null,
+  notes            text,
+  status           ticket_status_t not null default 'open',
+  created_at       timestamptz not null default now()
+);
+
+alter table delivery_tickets enable row level security;
+
+create policy "Owner can manage delivery tickets"
+  on delivery_tickets for all
+  using (exists (select 1 from restaurants r where r.id = delivery_tickets.restaurant_id and r.owner_id = auth.uid()));
+
+create policy "Public can insert delivery tickets"
+  on delivery_tickets for insert
+  with check (true);
+
+create policy "Public can read delivery tickets"
+  on delivery_tickets for select
+  using (true);
+
+-- ─────────────────────────────────────────────
+-- 16. DELIVERY ADJUSTMENTS
+-- Audit trail of restaurant corrections after ticket verification.
+-- ─────────────────────────────────────────────
+create table if not exists delivery_adjustments (
+  id        uuid primary key default gen_random_uuid(),
+  ticket_id uuid not null references delivery_tickets(id) on delete cascade,
+  notes     text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table delivery_adjustments enable row level security;
+
+create policy "Owner can manage delivery adjustments"
+  on delivery_adjustments for all
+  using (
+    exists (
+      select 1 from delivery_tickets dt
+      join restaurants r on r.id = dt.restaurant_id
+      where dt.id = delivery_adjustments.ticket_id and r.owner_id = auth.uid()
+    )
+  );
+
+create policy "Public can read delivery adjustments"
+  on delivery_adjustments for select
+  using (true);
+
+-- ─────────────────────────────────────────────
+-- 17. RPC: upsert_daily_selection
+-- Phone-authenticated customer selects a dish for tomorrow (before 5pm IST cutoff).
+-- 5pm IST = 11:30 UTC.
+-- ─────────────────────────────────────────────
+create or replace function upsert_daily_selection(
+  p_phone         text,
+  p_restaurant_id uuid,
+  p_delivery_date date,
+  p_dish_id       uuid
+) returns uuid
+language plpgsql
+security definer
+as $$
+declare
+  v_sub      customer_subscriptions;
+  v_order_id uuid;
+  v_dish_name text;
+begin
+  select * into v_sub
+  from customer_subscriptions
+  where phone = p_phone and restaurant_id = p_restaurant_id and status = 'active';
+
+  if not found then
+    raise exception 'No active subscription found for this phone number';
+  end if;
+
+  -- 5pm IST cutoff = 11:30 UTC for next-day orders
+  if now() at time zone 'UTC' > (current_date::text || ' 11:30:00')::timestamptz
+     and p_delivery_date = current_date + 1 then
+    raise exception 'Modification cutoff has passed (5:00 PM IST)';
+  end if;
+
+  if not exists (
+    select 1 from meal_plan_dishes mpd
+    where mpd.plan_id = v_sub.plan_id and mpd.dish_id = p_dish_id
+  ) then
+    raise exception 'Selected dish is not in this subscription plan';
+  end if;
+
+  select name into v_dish_name from dishes where id = p_dish_id;
+
+  insert into subscription_daily_orders
+    (subscription_id, restaurant_id, delivery_date, dish_id, dish_name, status)
+  values
+    (v_sub.id, p_restaurant_id, p_delivery_date, p_dish_id, v_dish_name, 'pending')
+  on conflict (subscription_id, delivery_date)
+  do update set
+    dish_id   = excluded.dish_id,
+    dish_name = excluded.dish_name,
+    status    = 'pending',
+    updated_at = now()
+  returning id into v_order_id;
+
+  return v_order_id;
+end;
+$$;
+
+grant execute on function upsert_daily_selection to anon, authenticated;
+
+-- ─────────────────────────────────────────────
+-- 18. RPC: update_subscription_status
+-- Phone-authenticated pause / resume / cancel.
+-- Pause is capped at 7 cumulative days per subscription cycle.
+-- ─────────────────────────────────────────────
+create or replace function update_subscription_status(
+  p_phone         text,
+  p_restaurant_id uuid,
+  p_new_status    sub_status,
+  p_pause_until   date   default null,
+  p_cancel_reason text   default null
+) returns uuid
+language plpgsql
+security definer
+as $$
+declare
+  v_sub      customer_subscriptions;
+  v_days     int;
+begin
+  select * into v_sub
+  from customer_subscriptions
+  where phone = p_phone and restaurant_id = p_restaurant_id;
+
+  if not found then
+    raise exception 'Subscription not found';
+  end if;
+
+  if v_sub.status = 'cancelled' then
+    raise exception 'Subscription is already cancelled';
+  end if;
+
+  if p_new_status = 'paused' then
+    if p_pause_until is null then
+      raise exception 'pause_until date is required';
+    end if;
+    v_days := p_pause_until - current_date;
+    if v_days < 1 then
+      raise exception 'pause_until must be a future date';
+    end if;
+    if v_sub.paused_days_used + v_days > 7 then
+      raise exception 'Maximum 7-day pause limit per cycle would be exceeded';
+    end if;
+    update customer_subscriptions
+    set status           = 'paused',
+        pause_until      = p_pause_until,
+        paused_days_used = paused_days_used + v_days
+    where id = v_sub.id;
+
+  elsif p_new_status = 'active' then
+    update customer_subscriptions
+    set status = 'active', pause_until = null
+    where id = v_sub.id;
+
+  elsif p_new_status = 'cancelled' then
+    update customer_subscriptions
+    set status = 'cancelled'
+    where id = v_sub.id;
+    if p_cancel_reason is not null then
+      insert into subscription_refund_requests
+        (subscription_id, restaurant_id, reason, amount)
+      select v_sub.id, v_sub.restaurant_id, p_cancel_reason, mp.price_monthly
+      from meal_plans mp where mp.id = v_sub.plan_id;
+    end if;
+  end if;
+
+  return v_sub.id;
+end;
+$$;
+
+grant execute on function update_subscription_status to anon, authenticated;
+
 -- NOTE: notify_sold_out requires the pg_net extension and the following
 -- Supabase settings to be configured:
 --   ALTER DATABASE postgres SET app.supabase_url = 'https://YOUR_PROJECT.supabase.co';

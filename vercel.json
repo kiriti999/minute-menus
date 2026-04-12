@@ -2,5 +2,11 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "crons": [
+    { "path": "/api/subscription/daily-digest",      "schedule": "35 11 * * *" },
+    { "path": "/api/subscription/auto-deliver?slot=08-09", "schedule": "0 4 * * *"  },
+    { "path": "/api/subscription/auto-deliver?slot=12-14", "schedule": "0 9 * * *"  },
+    { "path": "/api/subscription/auto-deliver?slot=19-21", "schedule": "0 16 * * *" }
   ]
 }

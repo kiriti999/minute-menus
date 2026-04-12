@@ -1,11 +1,20 @@
 import {
+  AlertTriangle,
+  Bookmark,
+  Calendar,
   ChevronDown,
+  ChevronLeft,
+  Clock,
+  CreditCard,
   Loader2,
   Minus,
   Moon,
+  Pause,
+  Play,
   Plus,
   ShoppingBag,
   Sun,
+  Tag,
   X,
 } from "lucide-react";
 import type React from "react";
@@ -13,7 +22,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ReelCard } from "../components/ReelCard";
 import { formatPriceInCurrency } from "../lib/currency";
 import { supabaseService } from "../services/supabaseService";
-import type { Category, Dish, OrderItem } from "../types";
+import type { Category, CustomerSubscription, DailyOrder, Dish, MealPlan, OrderItem, SubDeliveryType, TicketReason, TimeSlot } from "../types";
+import { TICKET_REASON_LABELS, TIME_SLOT_LABELS } from "../types";
 
 interface CustomerAppProps {
   onNavigateToDashboard: () => void;
@@ -41,6 +51,28 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const [activeDishIndex, setActiveDishIndex] = useState(0);
   const [isOrdering, setIsOrdering] = useState(false);
   const [soldCounts, setSoldCounts] = useState<Record<string, number>>({});
+
+  // ── Subscription state ──────────────────────────────────────────────
+  type SubView = "lookup" | "plans" | "subscribe" | "manage";
+  const [isSubOpen, setIsSubOpen] = useState(false);
+  const [subView, setSubView] = useState<SubView>("lookup");
+  const [subPhone, setSubPhone] = useState("");
+  const [subName, setSubName] = useState("");
+  const [subEmail, setSubEmail] = useState("");
+  const [subDeliveryType, setSubDeliveryType] = useState<SubDeliveryType>("delivery");
+  const [subTimeSlot, setSubTimeSlot] = useState<TimeSlot>("08-09");
+  const [availablePlans, setAvailablePlans] = useState<MealPlan[]>([]);
+  const [selectedPlan, setSelectedPlan] = useState<MealPlan | null>(null);
+  const [customerSub, setCustomerSub] = useState<CustomerSubscription | null>(null);
+  const [planDishes, setPlanDishes] = useState<Dish[]>([]);
+  const [dailyOrders, setDailyOrders] = useState<DailyOrder[]>([]);
+  const [subLoading, setSubLoading] = useState(false);
+  const [subError, setSubError] = useState("");
+  const [pauseUntil, setPauseUntil] = useState("");
+  const [cancelReason, setCancelReason] = useState("");
+  const [ticketNotes, setTicketNotes] = useState("");
+  const [ticketReason, setTicketReason] = useState<TicketReason>("not_received");
+  // ────────────────────────────────────────────────────────────────────
 
   // Tracking "Time to Order"
   const [sessionStartTime] = useState<number>(Date.now());
@@ -254,6 +286,160 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     }
   };
 
+  // ── Subscription helpers ──────────────────────────────────────────
+  const isPastCutoff = () => {
+    const now = new Date();
+    return now.getUTCHours() > 11 || (now.getUTCHours() === 11 && now.getUTCMinutes() >= 30);
+  };
+
+  const tomorrowDate = () => new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+
+  const loadDishesForPlan = (plan: MealPlan) => {
+    const dishes = menuCategories.flatMap((c) => c.items).filter((d) => plan.dishIds.includes(d.id));
+    setPlanDishes(dishes);
+  };
+
+  const openSubPanel = async () => {
+    setSubView("lookup");
+    setSubError("");
+    setIsSubOpen(true);
+  };
+
+  const handleSubLookup = async () => {
+    if (!subPhone.trim() || !restaurantId) return;
+    setSubLoading(true);
+    setSubError("");
+    try {
+      const sub = await supabaseService.getCustomerSubscription(subPhone.trim(), restaurantId);
+      if (sub) {
+        setCustomerSub(sub);
+        const orders = await supabaseService.getCustomerDailyOrders(sub.id, tomorrowDate());
+        setDailyOrders(orders);
+        const plans = await supabaseService.getMealPlans(restaurantId);
+        setAvailablePlans(plans.filter((p) => p.isActive));
+        const plan = plans.find((p) => p.id === sub.planId);
+        if (plan) loadDishesForPlan(plan);
+        setSubView("manage");
+      } else {
+        const plans = await supabaseService.getMealPlans(restaurantId);
+        setAvailablePlans(plans.filter((p) => p.isActive));
+        setSubView("plans");
+      }
+    } catch {
+      setSubError("Failed to look up subscription. Please try again.");
+    } finally {
+      setSubLoading(false);
+    }
+  };
+
+  const handleSelectPlan = (plan: MealPlan) => {
+    setSelectedPlan(plan);
+    loadDishesForPlan(plan);
+    setSubView("subscribe");
+  };
+
+  const handleCreateSubscription = async () => {
+    if (!subPhone.trim() || !subName.trim() || !selectedPlan || !restaurantId) return;
+    setSubLoading(true);
+    setSubError("");
+    try {
+      await supabaseService.createCustomerSubscription({
+        restaurantId,
+        planId: selectedPlan.id,
+        customerName: subName.trim(),
+        phone: subPhone.trim(),
+        email: subEmail.trim() || undefined,
+        deliveryType: subDeliveryType,
+        timeSlot: subTimeSlot,
+      });
+      const newSub = await supabaseService.getCustomerSubscription(subPhone.trim(), restaurantId);
+      setCustomerSub(newSub);
+      setDailyOrders([]);
+      setSubView("manage");
+    } catch (e) {
+      setSubError(e instanceof Error ? e.message : "Failed to subscribe. Please try again.");
+    } finally {
+      setSubLoading(false);
+    }
+  };
+
+  const handleSelectDish = async (dishId: string) => {
+    if (!subPhone.trim() || !restaurantId || !customerSub) return;
+    setSubLoading(true);
+    try {
+      await supabaseService.selectDailyDish(subPhone.trim(), restaurantId, tomorrowDate(), dishId);
+      const orders = await supabaseService.getCustomerDailyOrders(customerSub.id, tomorrowDate());
+      setDailyOrders(orders);
+    } catch (e) {
+      setSubError(e instanceof Error ? e.message : "Failed to update selection.");
+    } finally {
+      setSubLoading(false);
+    }
+  };
+
+  const handlePauseSubscription = async () => {
+    if (!subPhone.trim() || !restaurantId || !pauseUntil) return;
+    setSubLoading(true);
+    try {
+      await supabaseService.pauseSubscription(subPhone.trim(), restaurantId, pauseUntil);
+      setCustomerSub((prev) => (prev ? { ...prev, status: "paused", pauseUntil } : prev));
+      setPauseUntil("");
+    } catch (e) {
+      setSubError(e instanceof Error ? e.message : "Failed to pause subscription.");
+    } finally {
+      setSubLoading(false);
+    }
+  };
+
+  const handleResumeSubscription = async () => {
+    if (!subPhone.trim() || !restaurantId) return;
+    setSubLoading(true);
+    try {
+      await supabaseService.resumeSubscription(subPhone.trim(), restaurantId);
+      setCustomerSub((prev) => (prev ? { ...prev, status: "active", pauseUntil: undefined } : prev));
+    } catch (e) {
+      setSubError(e instanceof Error ? e.message : "Failed to resume subscription.");
+    } finally {
+      setSubLoading(false);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    if (!subPhone.trim() || !restaurantId || !cancelReason.trim()) return;
+    if (!confirm("Are you sure you want to cancel your subscription? A refund request will be submitted.")) return;
+    setSubLoading(true);
+    try {
+      await supabaseService.cancelCustomerSubscription(subPhone.trim(), restaurantId, cancelReason.trim());
+      setCustomerSub((prev) => (prev ? { ...prev, status: "cancelled" } : prev));
+      setCancelReason("");
+    } catch (e) {
+      setSubError(e instanceof Error ? e.message : "Failed to cancel subscription.");
+    } finally {
+      setSubLoading(false);
+    }
+  };
+
+  const handleRaiseTicket = async (dailyOrderId: string) => {
+    if (!customerSub || !restaurantId || !ticketNotes.trim()) return;
+    setSubLoading(true);
+    try {
+      await supabaseService.raiseDeliveryTicket({
+        subscriptionId: customerSub.id,
+        dailyOrderId,
+        restaurantId,
+        reason: ticketReason,
+        notes: ticketNotes.trim(),
+      });
+      setTicketNotes("");
+      alert("Ticket raised. The restaurant will investigate and contact you.");
+    } catch {
+      alert("Failed to raise ticket. Please try again.");
+    } finally {
+      setSubLoading(false);
+    }
+  };
+  // ────────────────────────────────────────────────────────────────────
+
   const scrollNext = () => {
     if (containerRef.current) {
       const h = containerRef.current.clientHeight;
@@ -282,6 +468,13 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           </button>
 
           <div className="flex items-center gap-2 pointer-events-auto">
+            <button
+              onClick={openSubPanel}
+              className={`p-2.5 rounded-full backdrop-blur-md border transition-colors shadow-lg ${isDarkTheme ? 'bg-black/40 border-white/20 hover:bg-black/60' : 'bg-white/40 border-black/20 hover:bg-white/60'}`}
+              title="Subscriptions"
+            >
+              <Bookmark size={18} className={isDarkTheme ? 'text-white' : 'text-zinc-800'} />
+            </button>
             <button
               onClick={onToggleTheme}
               className={`p-2.5 rounded-full backdrop-blur-md border transition-colors shadow-lg ${isDarkTheme ? 'bg-black/40 border-white/20 hover:bg-black/60' : 'bg-white/40 border-black/20 hover:bg-white/60'}`}
@@ -375,6 +568,252 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           </div>
         </div>
       </div>
+
+      {/* === Subscription Panel === */}
+      {isSubOpen && (
+        <div className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-xl flex justify-end animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-black h-full shadow-2xl border-l border-zinc-800 flex flex-col animate-in slide-in-from-right duration-300">
+            {/* Header */}
+            <div className="p-4 sm:p-6 border-b border-zinc-800 flex items-center gap-3">
+              {subView !== "lookup" && (
+                <button
+                  onClick={() => setSubView(subView === "subscribe" ? "plans" : "lookup")}
+                  className="p-1.5 hover:bg-zinc-900 rounded-full transition-colors"
+                >
+                  <ChevronLeft size={20} className="text-zinc-400" />
+                </button>
+              )}
+              <h2 className="text-xl font-light tracking-tight text-white flex-1">
+                {subView === "lookup" && "My Subscription"}
+                {subView === "plans" && "Choose a Plan"}
+                {subView === "subscribe" && (selectedPlan?.name ?? "Subscribe")}
+                {subView === "manage" && "Manage Subscription"}
+              </h2>
+              <button onClick={() => setIsSubOpen(false)} className="p-2 hover:bg-zinc-900 rounded-full transition-colors">
+                <X size={24} strokeWidth={1} />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              {subError && (
+                <div className="mb-4 px-4 py-3 rounded bg-red-950/60 border border-red-800 text-red-400 text-sm">{subError}</div>
+              )}
+
+              {/* ── Lookup view ── */}
+              {subView === "lookup" && (
+                <div className="space-y-6 mt-2">
+                  <p className="text-zinc-400 text-sm">Enter your phone number to access or create a subscription for {restaurantName ?? "this restaurant"}.</p>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-widest mb-2 text-zinc-500">Phone Number</label>
+                    <input
+                      type="tel"
+                      value={subPhone}
+                      onChange={(e) => setSubPhone(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleSubLookup()}
+                      placeholder="+1 234 567 8900"
+                      className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-3 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSubLookup}
+                    disabled={subLoading || !subPhone.trim()}
+                    className="w-full bg-white text-black py-3.5 rounded font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {subLoading ? <Loader2 className="animate-spin" size={18} /> : "CONTINUE"}
+                  </button>
+                </div>
+              )}
+
+              {/* ── Plans view ── */}
+              {subView === "plans" && (
+                <div className="space-y-4 mt-2">
+                  {availablePlans.length === 0 && (
+                    <p className="text-zinc-500 text-sm text-center py-8">No active subscription plans available right now.</p>
+                  )}
+                  {availablePlans.map((plan) => (
+                    <div key={plan.id} className="border border-zinc-800 rounded-xl p-4 hover:border-zinc-600 transition-colors cursor-pointer" onClick={() => handleSelectPlan(plan)}>
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h3 className="font-bold text-white">{plan.name}</h3>
+                        <span className="font-mono text-white text-lg shrink-0">{currency} {plan.priceMonthly}<span className="text-zinc-500 text-sm">/mo</span></span>
+                      </div>
+                      {plan.description && <p className="text-zinc-400 text-sm mb-3">{plan.description}</p>}
+                      <div className="flex gap-3 text-xs text-zinc-500">
+                        <span className="flex items-center gap-1"><Tag size={11} /> {plan.dishIds.length} dishes</span>
+                        <span className="flex items-center gap-1"><CreditCard size={11} /> {plan.deliveryFee > 0 ? `+${currency} ${plan.deliveryFee} delivery` : "Free delivery"}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* ── Subscribe form view ── */}
+              {subView === "subscribe" && selectedPlan && (
+                <div className="space-y-5 mt-2">
+                  {([{ label: "Your Name", key: "name", type: "text", value: subName, set: setSubName, placeholder: "Full name" },
+                  { label: "Email (optional)", key: "email", type: "email", value: subEmail, set: setSubEmail, placeholder: "for order confirmations" },
+                  ] as const).map(({ label, type, value, set, placeholder }) => (
+                    <div key={label}>
+                      <label className="block text-xs font-bold uppercase tracking-widest mb-1.5 text-zinc-500">{label}</label>
+                      <input type={type} value={value} onChange={(e) => set(e.target.value)} placeholder={placeholder}
+                        className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-2.5 rounded text-sm outline-none focus:border-zinc-500" />
+                    </div>
+                  ))}
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-widest mb-2 text-zinc-500">Delivery Type</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(["delivery", "pickup"] as SubDeliveryType[]).map((t) => (
+                        <button key={t} onClick={() => setSubDeliveryType(t)}
+                          className={`py-2.5 rounded border text-sm font-medium capitalize transition-colors ${subDeliveryType === t ? 'bg-white text-black border-white' : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}>
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                    {subDeliveryType === "delivery" && selectedPlan.deliveryFee > 0 && (
+                      <p className="text-xs text-zinc-500 mt-1.5">+{currency} {selectedPlan.deliveryFee} delivery fee will be added</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-widest mb-2 text-zinc-500">Delivery Time Slot</label>
+                    <div className="space-y-2">
+                      {(Object.entries(TIME_SLOT_LABELS) as [TimeSlot, string][]).map(([slot, label]) => (
+                        <button key={slot} onClick={() => setSubTimeSlot(slot)}
+                          className={`w-full py-2.5 px-4 rounded border text-sm text-left flex items-center gap-2 transition-colors ${subTimeSlot === slot ? 'bg-white text-black border-white' : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}>
+                          <Clock size={14} />{label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {subError && <p className="text-red-400 text-sm">{subError}</p>}
+                  <button
+                    onClick={handleCreateSubscription}
+                    disabled={subLoading || !subName.trim()}
+                    className="w-full bg-white text-black py-3.5 rounded font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {subLoading ? <Loader2 className="animate-spin" size={18} /> : `SUBSCRIBE — ${currency} ${selectedPlan.priceMonthly}/mo`}
+                  </button>
+                </div>
+              )}
+
+              {/* ── Manage view ── */}
+              {subView === "manage" && customerSub && (
+                <div className="space-y-6 mt-2">
+                  {/* Status card */}
+                  <div className="border border-zinc-800 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-white">{customerSub.planName}</span>
+                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${customerSub.status === "active" ? 'bg-green-900/40 text-green-400' : customerSub.status === "paused" ? 'bg-amber-900/40 text-amber-400' : 'bg-red-900/40 text-red-400'}`}>{customerSub.status}</span>
+                    </div>
+                    <p className="text-zinc-500 text-xs">{customerSub.deliveryType} · {TIME_SLOT_LABELS[customerSub.timeSlot]}</p>
+                    <p className="text-zinc-600 text-xs mt-0.5">until {customerSub.endDate}</p>
+                    {customerSub.status === "paused" && customerSub.pauseUntil && (
+                      <p className="text-amber-400 text-xs mt-1">Paused until {customerSub.pauseUntil}</p>
+                    )}
+                  </div>
+
+                  {/* Tomorrow's dish selection */}
+                  {customerSub.status === "active" && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <Calendar size={14} className="text-zinc-500" />
+                        <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400">Tomorrow's Selection</h3>
+                      </div>
+                      {isPastCutoff() ? (
+                        <p className="text-zinc-500 text-sm">Selection locked — cutoff was 5:00 PM IST. Check back after midnight.</p>
+                      ) : (
+                        <div className="space-y-2">
+                          {(() => {
+                            const todayOrder = dailyOrders.find((o) => o.deliveryDate === tomorrowDate());
+                            return planDishes.map((dish) => (
+                              <button key={dish.id}
+                                onClick={() => handleSelectDish(dish.id)}
+                                disabled={subLoading}
+                                className={`w-full text-left px-4 py-3 rounded border flex items-center justify-between transition-colors ${todayOrder?.dishId === dish.id ? 'bg-white text-black border-white' : 'border-zinc-700 text-zinc-300 hover:border-zinc-500'}`}>
+                                <span className="font-medium text-sm">{dish.name}</span>
+                                {todayOrder?.dishId === dish.id && <span className="text-xs font-bold">Selected</span>}
+                              </button>
+                            ));
+                          })()}
+                          {planDishes.length === 0 && <p className="text-zinc-500 text-sm">No dishes available in your plan.</p>}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Pause / Resume */}
+                  {customerSub.status === "active" && (
+                    <div className="border border-zinc-800 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Pause size={14} className="text-zinc-500" />
+                        <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400">Pause Delivery</h3>
+                      </div>
+                      <p className="text-zinc-500 text-xs">Pause for up to 7 days per billing cycle.</p>
+                      <input type="date" value={pauseUntil} onChange={(e) => setPauseUntil(e.target.value)}
+                        min={tomorrowDate()}
+                        className="w-full bg-zinc-900 border border-zinc-700 text-white px-3 py-2 rounded text-sm outline-none focus:border-zinc-500" />
+                      <button onClick={handlePauseSubscription} disabled={subLoading || !pauseUntil}
+                        className="w-full py-2.5 rounded border border-zinc-700 text-zinc-300 text-sm font-medium hover:border-zinc-500 disabled:opacity-50 flex items-center justify-center gap-2">
+                        {subLoading ? <Loader2 className="animate-spin" size={16} /> : <><Pause size={14} /> Pause Subscription</>}
+                      </button>
+                    </div>
+                  )}
+
+                  {customerSub.status === "paused" && (
+                    <button onClick={handleResumeSubscription} disabled={subLoading}
+                      className="w-full py-3 rounded border border-zinc-700 text-zinc-300 text-sm font-medium hover:border-zinc-500 disabled:opacity-50 flex items-center justify-center gap-2">
+                      {subLoading ? <Loader2 className="animate-spin" size={16} /> : <><Play size={14} /> Resume Subscription</>}
+                    </button>
+                  )}
+
+                  {/* Raise a ticket for recent delivered orders */}
+                  {dailyOrders.some((o) => o.status === "delivered") && (
+                    <div className="border border-zinc-800 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle size={14} className="text-zinc-500" />
+                        <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400">Report an Issue</h3>
+                      </div>
+                      <select value={ticketReason} onChange={(e) => setTicketReason(e.target.value as TicketReason)}
+                        className="w-full bg-zinc-900 border border-zinc-700 text-zinc-300 px-3 py-2 rounded text-sm outline-none">
+                        {(Object.entries(TICKET_REASON_LABELS) as [TicketReason, string][]).map(([key, label]) => (
+                          <option key={key} value={key}>{label}</option>
+                        ))}
+                      </select>
+                      <textarea value={ticketNotes} onChange={(e) => setTicketNotes(e.target.value)} rows={2}
+                        placeholder="Describe what happened..."
+                        className="w-full bg-zinc-900 border border-zinc-700 text-zinc-300 px-3 py-2 rounded text-sm outline-none focus:border-zinc-500 resize-none" />
+                      <select onChange={(e) => e.target.value && handleRaiseTicket(e.target.value)}
+                        defaultValue="" className="w-full bg-zinc-900 border border-zinc-700 text-zinc-300 px-3 py-2 rounded text-sm outline-none">
+                        <option value="" disabled>Select affected delivery…</option>
+                        {dailyOrders.filter((o) => o.status === "delivered").map((o) => (
+                          <option key={o.id} value={o.id}>{o.deliveryDate} — {o.dishName}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Cancel subscription */}
+                  {customerSub.status !== "cancelled" && (
+                    <div className="border border-red-950/50 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <X size={14} className="text-red-500" />
+                        <h3 className="text-xs font-bold uppercase tracking-widest text-red-500">Cancel Subscription</h3>
+                      </div>
+                      <p className="text-zinc-500 text-xs">A refund request will be submitted for the unused portion.</p>
+                      <textarea value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} rows={2}
+                        placeholder="Reason for cancellation..."
+                        className="w-full bg-zinc-900 border border-zinc-700 text-zinc-300 px-3 py-2 rounded text-sm outline-none focus:border-red-900 resize-none" />
+                      <button onClick={handleCancelSubscription} disabled={subLoading || !cancelReason.trim()}
+                        className="w-full py-2.5 rounded border border-red-900 text-red-400 text-sm font-medium hover:bg-red-950/40 disabled:opacity-50 flex items-center justify-center gap-2">
+                        {subLoading ? <Loader2 className="animate-spin" size={16} /> : "Cancel Subscription"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* === Cart Modal === */}
       {isCartOpen && (

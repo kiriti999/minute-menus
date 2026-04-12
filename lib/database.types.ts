@@ -222,6 +222,228 @@ export type Database = {
                 };
                 Relationships: [];
             };
+            meal_plans: {
+                Row: {
+                    id: string;
+                    restaurant_id: string;
+                    name: string;
+                    description: string;
+                    price_monthly: number;
+                    delivery_fee: number;
+                    is_active: boolean;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    restaurant_id: string;
+                    name: string;
+                    description?: string;
+                    price_monthly?: number;
+                    delivery_fee?: number;
+                    is_active?: boolean;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    restaurant_id?: string;
+                    name?: string;
+                    description?: string;
+                    price_monthly?: number;
+                    delivery_fee?: number;
+                    is_active?: boolean;
+                    created_at?: string;
+                };
+                Relationships: [];
+            };
+            meal_plan_dishes: {
+                Row: { plan_id: string; dish_id: string };
+                Insert: { plan_id: string; dish_id: string };
+                Update: { plan_id?: string; dish_id?: string };
+                Relationships: [];
+            };
+            customer_subscriptions: {
+                Row: {
+                    id: string;
+                    restaurant_id: string;
+                    plan_id: string;
+                    customer_name: string;
+                    phone: string;
+                    email: string | null;
+                    delivery_type: "delivery" | "pickup";
+                    time_slot: "08-09" | "12-14" | "19-21";
+                    status: "active" | "paused" | "cancelled";
+                    pause_until: string | null;
+                    paused_days_used: number;
+                    start_date: string;
+                    end_date: string;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    restaurant_id: string;
+                    plan_id: string;
+                    customer_name: string;
+                    phone: string;
+                    email?: string | null;
+                    delivery_type: "delivery" | "pickup";
+                    time_slot: "08-09" | "12-14" | "19-21";
+                    status?: "active" | "paused" | "cancelled";
+                    pause_until?: string | null;
+                    paused_days_used?: number;
+                    start_date?: string;
+                    end_date: string;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    restaurant_id?: string;
+                    plan_id?: string;
+                    customer_name?: string;
+                    phone?: string;
+                    email?: string | null;
+                    delivery_type?: "delivery" | "pickup";
+                    time_slot?: "08-09" | "12-14" | "19-21";
+                    status?: "active" | "paused" | "cancelled";
+                    pause_until?: string | null;
+                    paused_days_used?: number;
+                    start_date?: string;
+                    end_date?: string;
+                    created_at?: string;
+                };
+                Relationships: [];
+            };
+            subscription_daily_orders: {
+                Row: {
+                    id: string;
+                    subscription_id: string;
+                    restaurant_id: string;
+                    delivery_date: string;
+                    dish_id: string | null;
+                    dish_name: string;
+                    status: "pending" | "delivered" | "cancelled" | "skipped";
+                    cancelled_by: string | null;
+                    cancellation_reason: string | null;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    subscription_id: string;
+                    restaurant_id: string;
+                    delivery_date: string;
+                    dish_id?: string | null;
+                    dish_name?: string;
+                    status?: "pending" | "delivered" | "cancelled" | "skipped";
+                    cancelled_by?: string | null;
+                    cancellation_reason?: string | null;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    subscription_id?: string;
+                    restaurant_id?: string;
+                    delivery_date?: string;
+                    dish_id?: string | null;
+                    dish_name?: string;
+                    status?: "pending" | "delivered" | "cancelled" | "skipped";
+                    cancelled_by?: string | null;
+                    cancellation_reason?: string | null;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Relationships: [];
+            };
+            subscription_refund_requests: {
+                Row: {
+                    id: string;
+                    subscription_id: string;
+                    restaurant_id: string;
+                    reason: string;
+                    amount: number;
+                    status: "pending" | "approved" | "rejected" | "processed";
+                    restaurant_notes: string | null;
+                    created_at: string;
+                    processed_at: string | null;
+                };
+                Insert: {
+                    id?: string;
+                    subscription_id: string;
+                    restaurant_id: string;
+                    reason: string;
+                    amount?: number;
+                    status?: "pending" | "approved" | "rejected" | "processed";
+                    restaurant_notes?: string | null;
+                    created_at?: string;
+                    processed_at?: string | null;
+                };
+                Update: {
+                    id?: string;
+                    subscription_id?: string;
+                    restaurant_id?: string;
+                    reason?: string;
+                    amount?: number;
+                    status?: "pending" | "approved" | "rejected" | "processed";
+                    restaurant_notes?: string | null;
+                    created_at?: string;
+                    processed_at?: string | null;
+                };
+                Relationships: [];
+            };
+            delivery_tickets: {
+                Row: {
+                    id: string;
+                    subscription_id: string;
+                    daily_order_id: string;
+                    restaurant_id: string;
+                    reason: "not_received" | "wrong_item" | "partial_delivery" | "damaged" | "late_delivery" | "other";
+                    notes: string | null;
+                    status: "open" | "investigating" | "resolved";
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    subscription_id: string;
+                    daily_order_id: string;
+                    restaurant_id: string;
+                    reason: "not_received" | "wrong_item" | "partial_delivery" | "damaged" | "late_delivery" | "other";
+                    notes?: string | null;
+                    status?: "open" | "investigating" | "resolved";
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    subscription_id?: string;
+                    daily_order_id?: string;
+                    restaurant_id?: string;
+                    reason?: "not_received" | "wrong_item" | "partial_delivery" | "damaged" | "late_delivery" | "other";
+                    notes?: string | null;
+                    status?: "open" | "investigating" | "resolved";
+                    created_at?: string;
+                };
+                Relationships: [];
+            };
+            delivery_adjustments: {
+                Row: {
+                    id: string;
+                    ticket_id: string;
+                    notes: string;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    ticket_id: string;
+                    notes: string;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    ticket_id?: string;
+                    notes?: string;
+                    created_at?: string;
+                };
+                Relationships: [];
+            };
         };
         Views: { [_ in never]?: never };
         Functions: {
@@ -233,6 +455,25 @@ export type Database = {
                     p_quantity: number;
                 };
                 Returns: void;
+            };
+            upsert_daily_selection: {
+                Args: {
+                    p_phone: string;
+                    p_restaurant_id: string;
+                    p_delivery_date: string;
+                    p_dish_id: string;
+                };
+                Returns: string;
+            };
+            update_subscription_status: {
+                Args: {
+                    p_phone: string;
+                    p_restaurant_id: string;
+                    p_new_status: "active" | "paused" | "cancelled";
+                    p_pause_until?: string | null;
+                    p_cancel_reason?: string | null;
+                };
+                Returns: string;
             };
         };
         Enums: { [_ in never]?: never };
