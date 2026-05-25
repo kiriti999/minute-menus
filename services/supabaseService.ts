@@ -249,29 +249,43 @@ class SupabaseService {
             .upsert(dishRows, { onConflict: "id" });
         if (dishErr) throw dishErr;
 
-        // Delete removed dishes
-        const keptDishIds = safeCategories.flatMap((c) => c.items.map((d) => d.id));
-        if (keptDishIds.length > 0) {
-            await supabase
+        // Delete removed dishes (use .in() — string-based .not('id','in',...) is unreliable for UUIDs)
+        const keptDishIds = new Set(safeCategories.flatMap((c) => c.items.map((d) => d.id)));
+        const { data: existingDishes, error: existingDishErr } = await supabase
+            .from("dishes")
+            .select("id")
+            .eq("restaurant_id", rid);
+        if (existingDishErr) throw existingDishErr;
+
+        const dishIdsToDelete = (existingDishes ?? [])
+            .map((d) => d.id)
+            .filter((id) => !keptDishIds.has(id));
+        if (dishIdsToDelete.length > 0) {
+            const { error: deleteDishErr } = await supabase
                 .from("dishes")
                 .delete()
-                .eq("restaurant_id", rid)
-                .not("id", "in", `(${keptDishIds.join(",")})`);
-        } else {
-            // If no dishes left, delete all dishes for this restaurant
-            await supabase
-                .from("dishes")
-                .delete()
-                .eq("restaurant_id", rid);
+                .in("id", dishIdsToDelete);
+            if (deleteDishErr) throw deleteDishErr;
         }
 
         // Delete removed categories (cascade deletes their dishes via FK)
-        const keptCatIds = safeCategories.map((c) => c.id);
-        await supabase
+        const keptCatIds = new Set(safeCategories.map((c) => c.id));
+        const { data: existingCats, error: existingCatErr } = await supabase
             .from("categories")
-            .delete()
-            .eq("restaurant_id", rid)
-            .not("id", "in", `(${keptCatIds.join(",")})`);
+            .select("id")
+            .eq("restaurant_id", rid);
+        if (existingCatErr) throw existingCatErr;
+
+        const catIdsToDelete = (existingCats ?? [])
+            .map((c) => c.id)
+            .filter((id) => !keptCatIds.has(id));
+        if (catIdsToDelete.length > 0) {
+            const { error: deleteCatErr } = await supabase
+                .from("categories")
+                .delete()
+                .in("id", catIdsToDelete);
+            if (deleteCatErr) throw deleteCatErr;
+        }
     }
 
     /**

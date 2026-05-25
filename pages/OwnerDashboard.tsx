@@ -726,6 +726,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const [isEditingCategory, setIsEditingCategory] = useState(false);
   const [tempCategoryTitle, setTempCategoryTitle] = useState("");
   const [unsavedChanges, setUnsavedChanges] = useState(false);
+  const unsavedChangesRef = useRef(false);
   const [editingMedia, setEditingMedia] = useState<{
     file: File;
     previewUrl: string;
@@ -735,6 +736,15 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const [activeOptionsDishId, setActiveOptionsDishId] = useState<string | null>(
     null,
   );
+
+  useEffect(() => {
+    unsavedChangesRef.current = unsavedChanges;
+  }, [unsavedChanges]);
+
+  const loadMenuFromServer = () => {
+    if (unsavedChangesRef.current) return;
+    supabaseService.getMenu().then(setMenuItems).catch(console.error);
+  };
 
   // Load Initial Data
   useEffect(() => {
@@ -752,16 +762,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       supabaseService.getRestaurantDetails().then(setRestaurantDetails).catch(console.error);
     });
 
-    refreshData();
+    loadMenuFromServer();
+    refreshDashboardData();
 
-    // Poll for real-time updates every 30 seconds
-    const interval = setInterval(refreshData, 30000);
+    // Poll analytics/subscriptions only — menu is saved explicitly by the owner
+    const interval = setInterval(refreshDashboardData, 30000);
     return () => clearInterval(interval);
   }, [timeWindow]);
 
-  const refreshData = () => {
+  const refreshDashboardData = () => {
     supabaseService.getTier().then(setUserTier).catch(console.error);
-    supabaseService.getMenu().then(setMenuItems).catch(console.error);
     supabaseService
       .getAggregatedMetrics(timeWindow)
       .then(setMetrics)
@@ -1807,7 +1817,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                           setMenuItems(newMenu);
                           setIsEditingCategory(false);
                           setUnsavedChanges(true);
-                          supabaseService.saveMenu(newMenu).catch(console.error);
                         }
                         if (e.key === "Escape") setIsEditingCategory(false);
                       }}
@@ -1819,7 +1828,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                         setMenuItems(newMenu);
                         setIsEditingCategory(false);
                         setUnsavedChanges(true);
-                        supabaseService.saveMenu(newMenu).catch(console.error);
                       }}
                       className={`text-xs px-4 py-2 rounded-lg font-bold ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
                     >
