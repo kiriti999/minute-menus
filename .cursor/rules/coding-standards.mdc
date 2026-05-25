@@ -1,0 +1,14 @@
+---
+description: Global SOLID discipline, complexity limits, minimal diffs, quality bar
+alwaysApply: true
+---
+
+# Coding standards (condensed)
+
+- **SOLID, DRY, KISS, YAGNI** — small cohesive units; extend via boundaries; predictable contracts; narrow interfaces; depend on abstractions at integration edges; no speculative features.
+- **Fail fast** at boundaries — clear validation; pair with graceful UX only where product rules say so (e.g. AI fallbacks elsewhere).
+- **Cyclomatic complexity:** functions and **plain .ts** ≤ 6, **TSX** ≤ 11 — split flow or responsibilities before hitting the ceiling; avoid hollow helper extraction.
+- **Change discipline** — minimal scoped diffs; no drive-by refactors or unrelated churn; match existing naming, structure, and Tailwind patterns.
+- **Quality bar** — grep or read targeted sections of large files; honor CLAUDE.md / agents.md hard constraints (destructive menu save, RLS, no service role on client, pinned model, reel cap); toward sub‑2s perceived load where the app already expects it.
+
+Details: `.claude/rules/coding-standards.md`.

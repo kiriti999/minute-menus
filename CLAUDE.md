@@ -1,153 +1,104 @@
 # CLAUDE.md — Minute Menus
 
-> Context file for AI assistants working on this codebase.
+> Lean orientation for AI assistants. Read this first; grep source files only for the task at hand. Workflow rules live in `agents.md`.
 
-- Always follow solid priniciples, cyclomatic code complexity of 6
-- Always follow DRY principle
-- Always follow KISS principle
-- Always follow YAGNI principle
-- Always follow Fail Fast principle
-- Always follow Open/Closed principle
-- Always follow Liskov Substitution principle
-- Always follow Interface Segregation principle
-- Always follow Dependency Inversion principle
-- Always follow Single Responsibility principle
-- Always follow Composition over Inheritance
-- Always follow Single Source of Truth
-- Always follow Keep It Simple, Stupid principle
-- Always follow You Ain't Gonna Need This principle
-- Always follow best design patterns
-- App should be performant and scalable and should load in less than 2 seconds
+## What this is
 
----
+A restaurant platform with TikTok-style dish reels for customers and an owner dashboard for menu management, analytics, subscriptions, and QR-based multi-tenant access. Each restaurant has a public slug URL.
 
-## Project Overview
+## How to work in this repo
 
-**Minute Menus** is a restaurant digital menu platform built with a short-video/reel UX (TikTok-style). Customers browse dishes as vertically-scrolling video reels and order directly. Restaurant owners get a rich analytics dashboard with AI-generated insights.
+- Prefer **grep and targeted reads** over loading large files wholesale (especially the owner dashboard and Supabase service layer).
+- Keep diffs **minimal and scoped** — no drive-by refactors.
+- Follow **`.claude/rules/`**: `coding-standards.md` (global norms), `typescript-conventions.md` (plain `.ts`), and `react-conventions.md` (TSX, `components/**`, `pages/**`). Cursor also loads **`.cursor/rules/coding-standards.mdc`** (always-on) plus scoped **`typescript-conventions.mdc`** and **`react-conventions.mdc`** — use them for SOLID discipline, fail-fast stance, Tailwind/React patterns, and cyclomatic complexity limits (functions and .ts: 6, TSX: 11).
+- Target **under 2 seconds** initial load; use React hooks only for state; Tailwind only for styling.
 
----
+## Commands
+
+- **pnpm dev** — local Vite dev server
+- **pnpm build** — production build
+- **pnpm seed** — seed Supabase (requires service role env vars)
+- **pnpm db:push** — apply database schema via Supabase Management API
 
 ## Tech Stack
 
 | Layer | Technology |
 |---|---|
 | Framework | React 19 + TypeScript |
-| Build Tool | Vite 6 |
-| Styling | Tailwind CSS (utility-first, dark/monochrome theme) |
+| Build | Vite 6 |
+| Styling | Tailwind CSS (dark/light theme) |
 | Charts | Recharts |
 | Icons | lucide-react |
-| AI | Anthropic Claude (`@anthropic-ai/sdk`, model: `claude-sonnet-4-5`) |
-| State | React `useState` / `useMemo` / `useRef` (no external store) |
-| Persistence | `localStorage` (auth flag, menu edits, watch sessions, orders) |
-| Package Manager | pnpm |
+| Database & Auth | Supabase (Postgres, RLS, Auth) |
+| Serverless APIs | Vercel functions + crons |
+| Email | Nodemailer (Outlook SMTP) |
+| Payments | Razorpay (India); Clover planned (US/CA) |
+| AI | Anthropic Claude via services/geminiService.ts |
+| QR codes | qrcode.react |
+| Package manager | pnpm |
 
----
+## Where things live
 
-## Key Commands
-
-```bash
-pnpm dev        # Start Vite dev server
-pnpm build      # Production build (TypeScript + Vite)
-pnpm preview    # Preview production build locally
-```
-
----
-
-## Environment Variables
-
-| Variable | Purpose |
+| Area | Primary file(s) |
 |---|---|
-| `ANTHROPIC_API_KEY` | Anthropic API key — set in `.env`. If missing, the app falls back to demo-mode strings. |
+| App routing, auth session, slug-based customer entry | App.tsx |
+| Customer reels, cart, checkout, customer auth | pages/CustomerApp.tsx |
+| Owner dashboard, menu editor, paywall, subscriptions admin | pages/OwnerDashboard.tsx (very large — grep first) |
+| Owner login (Google OAuth, email/password) | pages/LoginPage.tsx |
+| All production browser-side data access | services/supabaseService.ts |
+| Browser Supabase client | lib/supabase.ts |
+| Server-side Supabase (API routes only) | lib/supabase-admin.ts |
+| Database schema, RLS policies, RPC functions | supabase/schema.sql |
+| AI-generated insights and marketing copy | services/geminiService.ts |
+| Shared TypeScript interfaces | types.ts |
+| Generated DB types | lib/database.types.ts |
+| Scheduled jobs | vercel.json |
+| Environment variable names | .env.example |
+| Legacy local mock layer (not used in production) | mockData.ts — do not extend |
 
----
+## How the app flows
 
-## Project Structure
+**Customer path:** Landing or QR slug opens the reel viewer for one restaurant. Dishes scroll vertically; watch time and orders are recorded. Cart and checkout do not require owner login.
 
-```
-/
-├── App.tsx                  # Root — routing between LANDING / LOGIN / CUSTOMER / OWNER modes
-├── index.tsx                # React DOM entry point
-├── index.html               # Vite HTML shell
-├── types.ts                 # All shared TypeScript interfaces + enums
-├── mockData.ts              # DataService class + seed data (persisted via localStorage)
-├── metadata.json            # Static app metadata
-│
-├── pages/
-│   ├── CustomerApp.tsx      # Customer-facing reel viewer + cart + checkout
-│   ├── OwnerDashboard.tsx   # Owner analytics dashboard + menu editor (1100 lines)
-│   └── LoginPage.tsx        # Simple login gate (mock auth)
-│
-├── components/
-│   ├── ReelCard.tsx         # Single dish reel card (video + overlay UI)
-│   └── ReelStrip.tsx        # Horizontal strip/category navigator
-│
-└── services/
-    └── geminiService.ts     # Google Gemini API wrappers
-```
+**Owner path:** Landing → login (Supabase session) → dashboard. Owners manage menu content, view analytics, handle subscriptions, and generate QR codes.
 
----
+**Server path:** Vercel API routes handle email, payments, subscription crons, sold-out notifications, and Supabase keepalive. These use the admin Supabase client and must never expose the service role key to the browser.
 
-## Architecture & Data Flow
+## Data and auth rules
 
-### App Modes (`AppMode` enum)
-```
-LANDING → user selects Customer or Owner
-LOGIN   → gate for Owner mode (mock auth, persisted in localStorage)
-CUSTOMER → CustomerApp
-OWNER    → OwnerDashboard (requires auth)
-```
+- **Production data** goes through the Supabase service layer or Supabase clients — not mockData, not direct localStorage (except one pending-restaurant-name flag used briefly after OAuth signup).
+- **Auth** is Supabase Auth: Google OAuth and email/password for owners; separate customer flows in the customer app including OTP verification.
+- **Multi-tenancy** is enforced by Postgres RLS tied to restaurant ownership and public read policies for customer-facing menu data.
+- **Menu saves are destructive syncs:** saving sends the full menu tree; anything omitted from the payload may be deleted server-side.
 
-### DataService (`mockData.ts`)
-A singleton class (`dataService`) that wraps all data access. Persists to `localStorage` keys:
-- `mm_menu` — menu categories/dishes (owner edits survive refresh)
-- `mm_watch_sessions` — array of `WatchSession` objects
-- `mm_orders` — array of `Order` objects
-- `mm_auth` — `'true'` string flag for auth state
+## Menu editor — important behavior
 
-### Customer Flow
-1. `CustomerApp` loads all dishes (max **10 items** shown — strict product requirement).
-2. Vertical scroll snaps between reels.
-3. Watch sessions auto-recorded per dish view (>1s threshold; "completed" if >5s).
-4. Cart managed locally; checkout writes an `Order` to `dataService`.
+- Menu loads once on mount; it is **not** refreshed on the same interval as analytics.
+- While the owner has **unsaved changes**, do not overwrite local menu state from the server.
+- Saving is **explicit** via the Save Changes control; renaming a category marks unsaved state but does not auto-persist.
+- Show loading state while the menu fetch is in flight; show save-in-progress on the save action.
 
-### Owner Dashboard Features
-- **Dashboard tab** — aggregated metrics, recharts graphs, AI insights button
-- **Menu tab** — CRUD for categories and dishes, image/video transform controls
-- **Customers tab** — per-dish engagement table
-- **Paywall** — `UserTier.FREE` vs `UserTier.PLUS`; Plus features show `PaywallModal`
-- AI insights call `getAiInsights()` → Gemini with dish performance + traffic history
+## AI integration
 
----
+All AI calls live in the geminiService module (Anthropic Claude under the hood). The model name is pinned for cost and speed. Missing API keys or failed requests must degrade to friendly fallback text — never break the UI.
 
-## Types Quick Reference
+## Do not change without explicit approval
 
-```typescript
-Dish            // id, name, description, price, imageUrl, videoUrl, category, popularityScore, prepTime, mediaTransform?
-Category        // id, title, items: Dish[]
-OrderItem       // dishId, quantity, name, price
-Order           // id, items, totalAmount, timestamp, timeToOrder
-WatchSession    // reelId, startTime, duration, completed, timestamp
-AggregatedMetrics // totalViews, totalOrders, conversionRate, hourlyTraffic, dishPerformance, ...
-AppMode         // LANDING | LOGIN | CUSTOMER | OWNER
-UserTier        // FREE | PLUS
-```
+- The hard cap on dishes shown in the customer reel view (product requirement)
+- The pinned Claude model identifier
+- Supabase RLS policies without a deliberate migration and security review
 
----
+## Operations note
 
-## Coding Conventions
+Supabase free-tier projects pause after prolonged inactivity, which breaks OAuth until resumed. Production uses a daily keepalive cron; Supabase Pro or self-hosting is the long-term fix.
 
-- **No external state library** — keep state in React hooks, lifted where needed.
-- **Tailwind only** — no CSS modules or global stylesheets. Dark (`bg-black`, `bg-zinc-*`) monochrome palette.
-- **TypeScript strict** — all props and return types explicitly typed.
-- **Component size** — large page-level components (e.g., `OwnerDashboard.tsx`) are intentional monoliths; extract sub-components with inline definitions inside the file.
-- **Mock auth** — `localStorage.getItem('mm_auth') === 'true'`; do not add a real backend without updating `DataService`.
-- **Anthropic fallback** — always return a user-friendly string if `ANTHROPIC_API_KEY` is missing or the API call fails.
+## Cursor IDE context
 
----
+Cursor auto-loads **CLAUDE.md** and **agents.md** from the project root. Additional rules live under **`.claude/rules/`** (canonical prose for assistants) and **`.cursor/rules/`** (including always-applied `coding-standards.mdc`, project context, Supabase, owner dashboard, API routes, and customer-app rules). Prefer those docs over re-explaining architecture in chat.
 
-## Things to Watch Out For
+## When stuck
 
-- `CustomerApp` hard-limits dishes to **10** via `.slice(0, 10)`. Do not remove this without product approval.
-- `OwnerDashboard.tsx` is ~1100 lines. When editing, search for the relevant inner component (e.g., `PaywallModal`, `MenuEditor`) rather than scrolling linearly.
-- Media (images/videos) come from Pexels CDN. Offline or CORS environments may not load them.
-- `dataService` is a module-level singleton — state mutations from tests will persist across test cases if `localStorage` is not cleared.
+1. Grep for the symbol or UI label in the owner dashboard or Supabase service.
+2. Read the relevant section of supabase/schema.sql for tables, policies, and RPCs.
+3. Check .env.example for required configuration.
+4. See agents.md for step-by-step agent workflows.

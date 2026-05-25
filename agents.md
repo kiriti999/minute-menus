@@ -1,123 +1,121 @@
 # agents.md — AI Agent Guide for Minute Menus
 
-> Guidelines and context for AI coding agents (Copilot, Cursor, Claude, etc.) working on this repo.
+> Task-level rules for coding agents. Project orientation and file map live in CLAUDE.md. Cursor loads this file and `.cursor/rules/` automatically. **Do not paste code into these docs** — describe patterns here; implement in source files.
 
-- Always follow solid priniciples, cyclomatic code complexity of 6 for functions and 11 for .tsx and 18 .ts files
-- Always follow solid priniciples, cyclomatic code complexity of 6
-- Always follow DRY principle
-- Always follow KISS principle
-- Always follow YAGNI principle
-- Always follow Fail Fast principle
-- Always follow Open/Closed principle
-- Always follow Liskov Substitution principle
-- Always follow Interface Segregation principle
-- Always follow Dependency Inversion principle
-- Always follow Single Responsibility principle
-- Always follow Composition over Inheritance
-- Always follow Single Source of Truth
-- Always follow Keep It Simple, Stupid principle
-- Always follow You Ain't Gonna Need This principle
-- Always follow best design patterns
-- App should be performant and scalable and should load in less than 2 seconds
+## Engineering standards
+
+Canonical guidance lives in **`.claude/rules/coding-standards.md`** (global bar), **`.claude/rules/typescript-conventions.md`**, and **`.claude/rules/react-conventions.md`**. In Cursor, the always-applied **`.cursor/rules/coding-standards.mdc`** mirrors the condensed global rules; **`.cursor/rules/typescript-conventions.mdc`** and **`.cursor/rules/react-conventions.mdc`** attach to plain TypeScript and TSX surfaces respectively.
+
+Interpret **SOLID** as: **S**ingle responsibility per module; **O**pen for extension through clear seams rather than editing many concerns in one place; **L**iskov-safe substitutability where types model behavior; **I**nterface segregation so callers depend on narrow contracts; **D**ependency inversion so integrations depend on stable abstractions. Pair that with **DRY**, **KISS**, **YAGNI**, and **fail-fast** validation at boundaries (with graceful UX only where product rules demand it).
+
+Respect cyclomatic complexity limits (**functions and plain .ts:** 6, **TSX:** 11). Ship **minimal scoped diffs**; match existing naming, structure, and Tailwind patterns. Aim for sub-2-second load performance where the SPA already targets it.
 
 ---
 
-## Active AI Integration
+## How data should work
 
-### `services/geminiService.ts`
-The only production AI integration (backed by Anthropic Claude). Two exported async functions:
+**Browser (customer and owner UI):** All reads and writes go through the Supabase service module. It resolves the current restaurant from the authenticated session (owners) or from the slug/restaurant ID passed into the customer app.
 
-| Function | Model | Purpose |
-|---|---|---|
-| `getAiInsights(dishPerformance, trafficHistory)` | `claude-sonnet-4-5` | Returns 3-bullet executive summary (Star Dish, Opportunity, A/B test suggestion) |
-| `generateMarketingCopy(dishName, ingredients)` | `claude-sonnet-4-5` | Returns a 10-word marketing hook string |
+**Server (Vercel API routes):** Use the admin Supabase client with the service role key. Never import or expose that key in client-side code.
 
-**Always guard against missing `ANTHROPIC_API_KEY`** — both functions return a safe fallback string when `process.env.ANTHROPIC_API_KEY` is falsy. Maintain this pattern for any new AI calls.
+**Schema changes:** Update supabase/schema.sql, regenerate or adjust lib/database.types.ts if needed, push via db:push or the Supabase SQL editor, then update types.ts and the service layer mappings.
 
----
+**Legacy mockData:** Exists for early prototyping only. Do not add new features there or route production flows through it.
 
-## Agent Task Guidelines
-
-### When adding a new feature
-1. Check `types.ts` first — add any new interfaces/enums there, not inline.
-2. Persist new data through `DataService` in `mockData.ts`, not directly via `localStorage`.
-3. If the feature is Plus-tier only, wrap it in the existing `PaywallModal` pattern inside `OwnerDashboard.tsx`.
-
-### When modifying the menu schema (`Dish` / `Category`)
-- Update `types.ts` → update seed data in `mockData.ts` → update all spreads in `OwnerDashboard.tsx` menu editor.
-- `mediaTransform` is optional — guard with `?.` everywhere.
-
-### When adding a new AI call
-```typescript
-// Template
-import Anthropic from "@anthropic-ai/sdk";
-
-export const myNewAiCall = async (input: MyType): Promise<string> => {
-  if (!process.env.ANTHROPIC_API_KEY) return "Fallback message.";
-  try {
-    const client = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-      dangerouslyAllowBrowser: true,
-    });
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-5",
-      max_tokens: 512,
-      messages: [{ role: "user", content: `Your prompt here: ${JSON.stringify(input)}` }],
-    });
-    const block = response.content[0];
-    return block.type === "text" ? block.text : "No result.";
-  } catch (e) {
-    console.error("Anthropic error:", e);
-    return "Error fallback.";
-  }
-};
-```
-
-### When editing `OwnerDashboard.tsx`
-- The file is ~1100 lines. Use search/grep to navigate to the relevant section.
-- Inner components (`PaywallModal`, `StatCard`, menu editor sections) are defined inline — keep this pattern.
-- The `userTier` state mock defaults to `UserTier.FREE`; toggling it simulates the Plus upgrade flow.
+**localStorage:** Not for app data. The only acceptable exception is the short-lived pending-restaurant-name flag after OAuth registration.
 
 ---
 
-## Data Access Patterns
+## How auth should work
 
-| Goal | How |
-|---|---|
-| Read menu | `dataService.getMenu()` → `Category[]` |
-| Save menu changes | `dataService.saveMenu(categories)` |
-| Record a watch session | `dataService.recordWatchSession(session)` |
-| Record an order | `dataService.recordOrder(order)` |
-| Get aggregated analytics | `dataService.getAggregatedMetrics(timeWindow)` |
+- Owners authenticate via Supabase (Google OAuth or email/password) on the login page; App.tsx holds session state and redirects into the dashboard.
+- OAuth redirect URLs must match VITE_SITE_URL in production.
+- Customers have a separate auth modal flow inside the customer app (sign-up, sign-in, OTP, profile completion).
+- Sign-out clears the Supabase session and returns to landing.
 
-**Do not read `localStorage` directly** — always go through `dataService`.
+When adding auth-related features, follow existing Supabase Auth patterns rather than introducing a second auth library.
 
 ---
 
-## Testing Considerations
+## How the menu editor should work
 
-- `dataService` is a module singleton backed by `localStorage`.
-- In test environments, mock `localStorage` or call a reset method before each test to avoid state bleed.
-- Gemini calls should be mocked in tests (check for missing `API_KEY` or mock `@google/genai`).
+- Categories contain dishes; each dish supports name, description, price, image or video media, optional crop/transform, daily stock SKU, and manual sold-out flag.
+- Local edits set an unsaved-changes flag; the save button persists the **entire** menu tree to the database.
+- Do not background-refresh menu data on a timer — only load on mount (and after a successful save if reload is ever needed).
+- Never replace in-memory menu state with a server fetch while unsaved changes exist.
+- Deleting a dish from the UI and saving removes it from the database; partial payloads can delete data unintentionally — always save the complete current menu.
+- Media may be external URLs or processed uploads; optional transform metadata must be treated as nullable everywhere.
+
+When changing the Dish or Category shape: update types.ts, schema/seed if columns change, service layer field mapping, and all menu editor spreads in the owner dashboard.
 
 ---
 
-## Out-of-Scope for Agents (Do Not Change Without Discussion)
+## How analytics and subscriptions should work
+
+- Watch sessions and orders feed owner analytics; metrics are aggregated in the service layer from Supabase tables, not external analytics SDKs.
+- Subscription features (meal plans, daily orders, delivery tickets, refunds) have dedicated service methods and owner-dashboard tabs.
+- Plus-tier features use the existing paywall modal pattern — gate in UI and respect UserTier state.
+- Scheduled digest and auto-delivery jobs are Vercel crons defined in vercel.json; they call API routes that use the admin client and SMTP where applicable.
+
+---
+
+## How AI features should work
+
+Production AI lives in services/geminiService.ts (Anthropic Claude). Current capabilities include analytics narrative reports and short marketing copy generation.
+
+When adding a new AI call:
+
+- Keep it in the geminiService module (or a sibling service file if scope is large).
+- Use the same pinned model unless the user explicitly requests a change.
+- Check for a missing ANTHROPIC_API_KEY before calling the API.
+- On failure, log the error and return a safe fallback string — never throw uncaught errors to the UI.
+- Copy the guard-and-fallback pattern from the existing functions in that file rather than inventing a new error strategy.
+
+---
+
+## How to edit the owner dashboard
+
+The file is thousands of lines with inline subcomponents (paywall modal, stat cards, menu editor, subscription panels). **Search for the section you need** instead of reading top to bottom. Preserve the inline-component pattern unless extracting a component clearly reduces duplication.
+
+User tier defaults to FREE; upgrade flow is simulated until payment integration is completed.
+
+---
+
+## How to add a new feature (checklist)
+
+1. Define or extend types in types.ts.
+2. Add database tables/columns/policies in supabase/schema.sql if persistence is needed.
+3. Add service-layer methods in supabaseService.ts (browser) and/or an API route (server-only logic).
+4. Wire UI in CustomerApp or OwnerDashboard as appropriate.
+5. Add env vars to .env.example with a one-line comment — never commit secrets.
+6. If Plus-only, wrap with the paywall modal pattern.
+
+---
+
+## Testing and scripts
+
+- Seed and reset scripts write to Supabase using the service role; clear state between test runs if reusing a shared project.
+- Email test script validates SMTP configuration.
+- Mock Anthropic calls in tests; verify fallback behavior when the API key is absent.
+
+---
+
+## Out of scope without discussion
 
 | Rule | Reason |
 |---|---|
-| 10-item dish limit in `CustomerApp` | Hard product requirement |
-| Mock auth pattern (`mm_auth` in localStorage) | No real backend; changing breaks logout flow |
-| Dark monochrome Tailwind palette | Brand constraint |
-| `claude-sonnet-4-5` model name | Pinned for cost/speed; update only when explicitly asked |
+| Removing or raising the customer reel dish display limit | Hard product requirement |
+| Changing the pinned Claude model | Cost and latency pin |
+| Replacing Supabase auth or bypassing RLS | Security and multi-tenant isolation |
+| Adding a global state library | Architectural constraint |
+| Committing .env or service role keys | Security |
 
 ---
 
-## Suggested Next Features (Safe to Implement)
+## Suggested safe extensions
 
-- [ ] **Search/filter** on the customer reel view
-- [ ] **Dish category tabs** persistent scroll position
-- [ ] **Order history page** for owners using `dataService.getOrders()`
-- [ ] **`generateMarketingCopy`** integration into the menu editor UI (function exists but is unused in UI)
-- [ ] **Export analytics as CSV** (Plus tier — use `PaywallModal` gate)
-- [ ] **Dark/light theme toggle** (currently hard-coded dark)
+- Customer reel search or filter
+- Persistent category scroll position in the customer view
+- Owner order history view from existing orders table
+- Marketing copy generation hooked into the menu editor UI
+- CSV export gated behind Plus (pattern already exists for other Plus features)

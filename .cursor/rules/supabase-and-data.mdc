@@ -1,0 +1,25 @@
+---
+description: Supabase schema, service layer, and data access patterns
+globs: services/supabaseService.ts,lib/supabase.ts,lib/supabase-admin.ts,lib/database.types.ts,supabase/**,scripts/seed.ts,scripts/db-push.ts
+alwaysApply: false
+---
+
+# Supabase and data layer
+
+Read **agents.md** section "How data should work" and **CLAUDE.md** "Data and auth rules".
+
+## Responsibilities
+
+- **Browser:** supabaseService resolves restaurant context from session (owner) or slug/id (customer). All UI reads/writes go here.
+- **Server API routes:** supabase-admin only; service role env var never in Vite client bundle.
+- **Schema:** supabase/schema.sql defines tables, RLS, RPCs — update schema, types, and service mappings together.
+
+## Menu persistence
+
+saveMenu is a full sync: upsert all categories/dishes, delete anything not in the payload. Use explicit id lists for deletes — avoid fragile filter strings.
+
+## Schema changes workflow
+
+Update schema file → push via db:push or SQL editor → adjust database.types and types.ts → extend service layer → update UI field mapping.
+
+Do not extend mockData.ts for new features.

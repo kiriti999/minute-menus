@@ -1,0 +1,16 @@
+---
+description: React / TSX — hooks, Tailwind, TSX cyclomatic complexity up to 11
+globs: **/*.tsx,components/**,pages/**
+alwaysApply: false
+---
+
+# React / TSX — condensed
+
+Aligned with `.claude/rules/react-conventions.md` and coding-standards.
+
+- **Complexity:** keep TSX branching within **cyclomatic complexity ≤ 11**; split sections or pure helpers before density hurts readability.
+- **State/effects:** hooks for UI state; effects for real external sync — cleanup timers and subscriptions; avoid duplicating derive-able state.
+- **Styling:** Tailwind utilities; match existing theme patterns; minimize ad-hoc inline styles.
+- **Data:** flows through props and established loaders; persist domain behavior in the Supabase service layer per agents.md — not duplicated in leaves.
+
+Full detail in `.claude/rules/react-conventions.md`.

@@ -1,0 +1,26 @@
+---
+description: Minute Menus — required project docs and hard constraints for every task
+alwaysApply: true
+---
+
+# Required context
+
+Align with these project docs before non-trivial work:
+
+- **CLAUDE.md** — product overview, tech stack, file map, app flows, do-not-change list
+- **agents.md** — how data, auth, menu editor, subscriptions, and AI should behave; feature checklist
+
+Do not duplicate architecture in chat — grep source files for implementation details. Prefer minimal scoped diffs.
+
+## Hard constraints
+
+- Production data via the Supabase service layer — not mockData, not localStorage (except pending-restaurant-name after OAuth)
+- Customer reel dish display limit is a product requirement — do not raise without approval
+- Pinned Claude model — change only when the user explicitly asks
+- Menu save sends the full tree; omitted items may be deleted in the database
+- Never expose Supabase service role key in client-side code
+- Engineering norms — **SOLID, DRY, KISS, YAGNI**, fail-fast stance, cyclomatic complexity limits, and change discipline live in **`coding-standards.mdc`** (and `.claude/rules/coding-standards.md`)
+
+## Navigation
+
+Large files (owner dashboard, Supabase service): grep first, read targeted sections only.

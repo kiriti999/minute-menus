@@ -1,0 +1,31 @@
+---
+description: Owner dashboard and menu editor — unsaved state, loading, save behavior
+globs: pages/OwnerDashboard.tsx
+alwaysApply: false
+---
+
+# Owner dashboard and menu editor
+
+Read **agents.md** sections on menu editor and owner dashboard editing.
+
+## File size
+
+Thousands of lines with inline subcomponents. Search for the tab or label you need — do not read the entire file.
+
+## Menu editor rules
+
+- Load menu once on mount — do not poll getMenu on the analytics refresh interval
+- While unsavedChanges is true, never overwrite menuItems from a server fetch
+- Save is explicit (Save Changes button); show loading during fetch and during save
+- Category rename marks unsaved state — does not auto-persist to database
+- Always save the complete in-memory menu tree; partial state can wipe images, SKU, or dishes
+
+## Dashboard refresh
+
+Analytics, subscriptions, and tickets may poll on an interval — menu data is excluded from that poll.
+
+## Plus tier
+
+Gate premium features with the existing paywall modal pattern; default tier is FREE.
+
+Preserve inline component pattern unless extraction clearly reduces duplication.

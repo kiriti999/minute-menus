@@ -1,0 +1,16 @@
+---
+description: Plain TypeScript — services, api, lib, scripts — cyclomatic complexity up to 6
+globs: **/*.ts,api/**,services/**,lib/**,scripts/**
+alwaysApply: false
+---
+
+# TypeScript (.ts) — condensed
+
+Aligned with `.claude/rules/typescript-conventions.md` and coding-standards.
+
+- Keep **cyclomatic complexity ≤ 6** for all non-TSX TypeScript; fail fast at module boundaries where appropriate.
+- **Service layer:** browser data through Supabase service patterns; cohesive mapping; no service role client in the browser.
+- **API routes:** admin client server-only; validate inputs; clear HTTP semantics; typed payloads shared via project types modules.
+- **lib / scripts:** narrow utilities; explicit errors for programmer mistakes; scripts assume secrets stay off the client bundle.
+
+Product-specific constraints stay in CLAUDE.md / agents.md.

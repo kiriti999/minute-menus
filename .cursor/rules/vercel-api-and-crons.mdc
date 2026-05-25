@@ -1,0 +1,23 @@
+---
+description: Vercel serverless API routes, crons, email, and payments
+globs: api/**,vercel.json,lib/mailer.ts
+alwaysApply: false
+---
+
+# Vercel API routes and crons
+
+Read **CLAUDE.md** server path and **agents.md** analytics/subscriptions section.
+
+## Server-only
+
+Use supabase-admin and server env vars (service role, SMTP, Razorpay secrets, internal API secret). Never import admin client in pages or components.
+
+## Crons
+
+Scheduled jobs are declared in vercel.json — keepalive (Supabase idle prevention), subscription daily digest, auto-deliver slots. Match route paths when adding new crons.
+
+## Patterns
+
+Follow existing route structure: typed Vercel handler, admin client for DB, user-friendly errors, log failures. Email is best-effort where already documented.
+
+New env vars: add to .env.example with a short comment; never commit secrets.

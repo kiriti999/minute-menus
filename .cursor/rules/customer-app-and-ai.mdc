@@ -1,0 +1,28 @@
+---
+description: Customer reel app, auth flows, types, and AI service
+globs: pages/CustomerApp.tsx,pages/LoginPage.tsx,App.tsx,services/geminiService.ts,types.ts,components/**
+alwaysApply: false
+---
+
+# Customer app, auth, and AI
+
+Read **CLAUDE.md** app flows and **agents.md** auth and AI sections.
+
+## Customer app
+
+- Slug-based multi-tenant entry from App.tsx URL routing
+- Reel UX: vertical scroll, watch sessions, cart, checkout
+- Hard cap on dishes shown in reel — product requirement
+- Separate customer auth (sign-up, OTP, profile) from owner Supabase session
+
+## Owner login
+
+Google OAuth and email/password via Supabase; redirect URL uses VITE_SITE_URL in production.
+
+## AI (geminiService)
+
+Anthropic Claude behind legacy filename. Pinned model for cost/speed. Missing API key or API failure → friendly fallback string, never uncaught throw to UI. New AI features follow the same guard pattern as existing functions in that module.
+
+## Types
+
+Shared interfaces in types.ts — extend there before inline types in components.
