@@ -6,10 +6,9 @@
  */
 
 import { rejectUnlessPost } from "@minute-menus/api-helpers";
-import { putDishMediaFromDataUrl } from "@minute-menus/menu-persistence";
 import { createLogger } from "@minute-menus/logger";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { supabaseAdmin } from "../../lib/supabase-admin";
+import { createClient } from "@supabase/supabase-js";
 
 const log = createLogger("menu-upload-media");
 
@@ -37,8 +36,23 @@ const getBearerToken = (req: VercelRequest): string | null => {
     return header.slice("Bearer ".length).trim() || null;
 };
 
+const getAdminClient = () => {
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL;
+    if (!serviceKey || !supabaseUrl) return null;
+    return createClient(supabaseUrl, serviceKey, {
+        auth: { autoRefreshToken: false, persistSession: false },
+    });
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (rejectUnlessPost(req, res)) return;
+
+    const admin = getAdminClient();
+    if (!admin) {
+        log.error("missing supabase env");
+        return res.status(500).json({ error: "Server storage is not configured" });
+    }
 
     const token = getBearerToken(req);
     if (!token) {
@@ -58,12 +72,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
     }
 
-    const { data: authData, error: authErr } = await supabaseAdmin.auth.getUser(token);
+    const { data: authData, error: authErr } = await admin.auth.getUser(token);
     if (authErr || !authData.user) {
         return res.status(401).json({ error: "Invalid or expired session" });
     }
 
-    const { data: restaurant, error: restaurantErr } = await supabaseAdmin
+    const { data: restaurant, error: restaurantErr } = await admin
         .from("restaurants")
         .select("id")
         .eq("id", payload.restaurantId!)
@@ -75,8 +89,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     try {
+        const { putDishMediaFromDataUrl } = await import("@minute-menus/menu-persistence");
         const publicUrl = await putDishMediaFromDataUrl(
-            supabaseAdmin,
+            admin,
             payload.restaurantId!,
             payload.dishId!,
             payload.dataUrl!,

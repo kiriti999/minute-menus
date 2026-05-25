@@ -34,7 +34,13 @@ export const putDishMediaFromDataUrl = async (
 ): Promise<string> => {
     let blob = dataUrlToBlob(dataUrl);
     if (kind === "image") {
-        blob = await compressImageBlob(blob, MAX_IMAGE_BYTES);
+        if (typeof document !== "undefined") {
+            blob = await compressImageBlob(blob, MAX_IMAGE_BYTES);
+        } else if (blob.size > MAX_IMAGE_BYTES) {
+            throw new Error(
+                `Image is too large (${Math.round(blob.size / 1024 / 1024)}MB). Max 1MB.`,
+            );
+        }
     } else if (blob.size > 50 * 1024 * 1024) {
         throw new Error(
             `Video is too large (${Math.round(blob.size / 1024 / 1024)}MB). Max 50MB.`,
