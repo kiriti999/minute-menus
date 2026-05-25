@@ -1,6 +1,7 @@
 ---
 paths:
   - "**/*.ts"
+  - "packages/**/*.ts"
 exclude_paths:
   - "**/*.tsx"
 description: Plain TypeScript — services, API routes, lib, scripts — cyclomatic complexity up to 6
@@ -12,15 +13,19 @@ Follow global coding standards in coding-standards.md for SOLID, DRY, KISS, YAGN
 
 ## Service layer
 
-Browser-facing data access belongs in the Supabase service module and related helpers — keep orchestration cohesive, respect RLS through the authenticated client pattern already in the project, and avoid duplicating mapping logic across call sites. Never surface the service role key to the browser. Treat nullable database fields and optional JSON consistently at mapping boundaries.
+Browser-facing data access belongs in `@minute-menus/supabase-service` (app facade: `services/supabaseService.ts`) and related workspace packages — menu persistence, metrics, meal-plan persistence. Keep orchestration cohesive, respect RLS through the injected authenticated client, and avoid duplicating mapping logic. Never surface the service role key to the browser. Use `@minute-menus/errors` when surfacing or wrapping Supabase failures.
 
 ## API routes and server-only code
 
-Vercel handlers and other server entry points should use the admin Supabase client only on the server, validate inputs, return appropriate HTTP status semantics, and keep side effects (email, payments, crons) explicit. Share types with the rest of the app via types.ts or shared modules rather than leaking untyped payloads.
+Vercel handlers use the admin Supabase client and workspace packages (`mailer`, `email-templates`, `api-helpers`, `payments`, `logger`). Validate inputs, return appropriate HTTP status semantics, and keep route files thin. Share types via `@minute-menus/types` rather than untyped payloads.
 
 ## lib and utilities
 
-Pure helpers belong in lib or adjacent modules with clear naming. Prefer deterministic behavior, explicit errors for programmer mistakes, and narrow exports. Database types generation under lib should mirror schema changes without hand-waving unknown fields.
+App-root `lib/*` shims re-export workspace packages where noted in workspace-packages.mdc. New shared logic should go into the appropriate `packages/*` module. DB types live in `@minute-menus/types/db` — sync after schema changes.
+
+## Workspace packages
+
+Plain `.ts` under `packages/` follows the same complexity and SOLID rules. Packages export via `package.json` `"exports"`; no separate build step. See `.claude/rules/workspace-packages.md`.
 
 ## Scripts
 

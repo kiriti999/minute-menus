@@ -1,28 +1,30 @@
 ---
 description: Customer reel app, auth flows, types, and AI service
-globs: pages/CustomerApp.tsx,pages/LoginPage.tsx,App.tsx,services/geminiService.ts,types.ts,components/**
+globs: pages/CustomerApp.tsx,pages/LoginPage.tsx,App.tsx,services/geminiService.ts,packages/ai/**,packages/reels/**,packages/types/**,packages/currency/**,hooks/**
 alwaysApply: false
 ---
 
 # Customer app, auth, and AI
 
-Read **CLAUDE.md** app flows and **agents.md** auth and AI sections.
+Read **CLAUDE.md** app flows, **agents.md** auth and AI sections, and **workspace-packages.mdc**.
 
 ## Customer app
 
-- Slug-based multi-tenant entry from App.tsx URL routing
-- Reel UX: vertical scroll, watch sessions, cart, checkout
+- Slug-based multi-tenant entry from App.tsx URL routing (`hooks/useRestaurantSlugRoute.tsx`)
+- Reel UX: vertical scroll via `@minute-menus/reels` (`ReelCard`), watch sessions, cart, checkout
 - Hard cap on dishes shown in reel — product requirement
-- Separate customer auth (sign-up, OTP, profile) from owner Supabase session
+- Separate customer auth (sign-up, OTP, profile) from owner Supabase session — methods in supabase-service
+- Price display: `@minute-menus/currency`
+- Auth button loading: `@minute-menus/ui` (`ButtonSpinner`)
 
 ## Owner login
 
-Google OAuth and email/password via Supabase; redirect URL uses VITE_SITE_URL in production.
+Google OAuth and email/password via Supabase; redirect URL uses VITE_SITE_URL in production. Login loading uses `@minute-menus/ui`.
 
-## AI (geminiService)
+## AI
 
-Anthropic Claude behind legacy filename. Pinned model for cost/speed. Missing API key or API failure → friendly fallback string, never uncaught throw to UI. New AI features follow the same guard pattern as existing functions in that module.
+`@minute-menus/ai` — Anthropic Claude. Pinned model for cost/speed. `services/geminiService.ts` is a re-export shim only. Missing API key or API failure → friendly fallback string, never uncaught throw to UI.
 
 ## Types
 
-Shared interfaces in types.ts — extend there before inline types in components.
+Shared interfaces in `@minute-menus/types` — extend there before inline types in pages. Do not recreate a root `types.ts` shim.

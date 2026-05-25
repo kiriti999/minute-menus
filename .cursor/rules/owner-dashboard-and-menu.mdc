@@ -1,6 +1,6 @@
 ---
 description: Owner dashboard and menu editor — unsaved state, loading, save behavior
-globs: pages/OwnerDashboard.tsx
+globs: pages/OwnerDashboard.tsx,packages/ui/**
 alwaysApply: false
 ---
 
@@ -16,9 +16,10 @@ Thousands of lines with inline subcomponents. Search for the tab or label you ne
 
 - Load menu once on mount — do not poll getMenu on the analytics refresh interval
 - While unsavedChanges is true, never overwrite menuItems from a server fetch
-- Save is explicit (Save Changes button); show loading during fetch and during save
+- Save is explicit — use `@minute-menus/ui` `SaveChangesButton`; show `@minute-menus/ui` loaders during menu fetch
 - Category rename marks unsaved state — does not auto-persist to database
 - Always save the complete in-memory menu tree; partial state can wipe images, SKU, or dishes
+- Save failures: `@minute-menus/errors` for user-facing messages
 
 ## Dashboard refresh
 
@@ -27,5 +28,9 @@ Analytics, subscriptions, and tickets may poll on an interval — menu data is e
 ## Plus tier
 
 Gate premium features with the existing paywall modal pattern; default tier is FREE.
+
+## Shared UI
+
+Prefer `@minute-menus/ui` (`InlineLoader`, `PanelLoader`, `SaveChangesButton`) over ad-hoc Loader2 spinners for menu/auth loading states.
 
 Preserve inline component pattern unless extraction clearly reduces duplication.

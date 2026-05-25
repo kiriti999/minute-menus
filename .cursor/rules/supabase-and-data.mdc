@@ -1,25 +1,37 @@
 ---
 description: Supabase schema, service layer, and data access patterns
-globs: services/supabaseService.ts,lib/supabase.ts,lib/supabase-admin.ts,lib/database.types.ts,supabase/**,scripts/seed.ts,scripts/db-push.ts
+globs: services/supabaseService.ts,packages/supabase-service/**,packages/menu-persistence/**,packages/meal-plan-persistence/**,lib/supabase.ts,lib/supabase-admin.ts,lib/database.types.ts,supabase/**,scripts/seed.ts,scripts/db-push.ts
 alwaysApply: false
 ---
 
 # Supabase and data layer
 
-Read **agents.md** section "How data should work" and **CLAUDE.md** "Data and auth rules".
+Read **agents.md** "How data should work" and **`.cursor/rules/workspace-packages.mdc`**.
 
 ## Responsibilities
 
-- **Browser:** supabaseService resolves restaurant context from session (owner) or slug/id (customer). All UI reads/writes go here.
-- **Server API routes:** supabase-admin only; service role env var never in Vite client bundle.
-- **Schema:** supabase/schema.sql defines tables, RLS, RPCs — update schema, types, and service mappings together.
+- **Browser:** `@minute-menus/supabase-service` (facade: `services/supabaseService.ts`) resolves restaurant context from session (owner) or slug/id (customer). All UI reads/writes go through `supabaseService`.
+- **Server API routes:** `lib/supabase-admin.ts` only; service role env var never in Vite client bundle.
+- **Schema:** `supabase/schema.sql` defines tables, RLS, RPCs — update schema, `@minute-menus/types/db`, and service mappings together.
+
+## Package split
+
+| Concern | Package |
+|---|---|
+| Service class + restaurant context | `@minute-menus/supabase-service` |
+| Menu upsert/sync/delete | `@minute-menus/menu-persistence` |
+| Meal plan rows + dish links | `@minute-menus/meal-plan-persistence` |
+| Analytics builders (pure) | `@minute-menus/metrics` |
+| Domain + DB types | `@minute-menus/types`, `@minute-menus/types/db` |
+
+Inject the browser client via `createSupabaseService(supabase)` — no module-level Supabase import inside the package.
 
 ## Menu persistence
 
-saveMenu is a full sync: upsert all categories/dishes, delete anything not in the payload. Use explicit id lists for deletes — avoid fragile filter strings.
+`saveMenu` is a full sync: upsert all categories/dishes, delete anything not in the payload. Use explicit id lists for deletes. Throw via `@minute-menus/errors`.
 
 ## Schema changes workflow
 
-Update schema file → push via db:push or SQL editor → adjust database.types and types.ts → extend service layer → update UI field mapping.
+Update schema file → push via db:push or SQL editor → sync `packages/types/src/database.types.ts` → extend `@minute-menus/types` and supabase-service mappers → update UI field mapping.
 
 Do not extend mockData.ts for new features.

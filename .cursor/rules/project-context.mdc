@@ -7,8 +7,9 @@ alwaysApply: true
 
 Align with these project docs before non-trivial work:
 
-- **CLAUDE.md** — product overview, tech stack, file map, app flows, do-not-change list
-- **agents.md** — how data, auth, menu editor, subscriptions, and AI should behave; feature checklist
+- **CLAUDE.md** — product overview, tech stack, workspace summary, file map, app flows, do-not-change list
+- **agents.md** — data, auth, menu editor, subscriptions, packages, AI; feature checklist
+- **`.cursor/rules/workspace-packages.mdc`** — full `@minute-menus/*` map
 
 Do not duplicate architecture in chat — grep source files for implementation details. Prefer minimal scoped diffs.
 
@@ -23,4 +24,4 @@ Do not duplicate architecture in chat — grep source files for implementation d
 
 ## Navigation
 
-Large files (owner dashboard, Supabase service): grep first, read targeted sections only.
+Large files (owner dashboard, supabase-service package): grep first, read targeted sections only.

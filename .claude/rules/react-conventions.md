@@ -1,8 +1,10 @@
 ---
 paths:
   - "**/*.tsx"
-  - "components/**"
   - "pages/**"
+  - "packages/ui/**"
+  - "packages/reels/**"
+  - "hooks/**"
 description: React and TSX — hooks, UI composition, Tailwind — cyclomatic complexity up to 11
 ---
 
@@ -24,7 +26,9 @@ Tailwind is the styling layer; stay within utility-first patterns already used f
 
 ## Data into the tree
 
-Feed components through props and established data hooks; do not introduce alternative client state stores. For owner and customer flows, route reads and writes through the Supabase service layer per agents.md rather than duplicating fetch logic in leaves.
+Feed components through props and established data hooks; do not introduce alternative client state stores. For owner and customer flows, route reads and writes through `@minute-menus/supabase-service` (app facade: `services/supabaseService.ts`) per agents.md rather than duplicating fetch logic in leaves.
+
+Use `@minute-menus/ui` for loaders and save affordances; `@minute-menus/reels` for customer reel cards — extend those packages before copying markup into pages.
 
 ## Performance and UX expectations
 

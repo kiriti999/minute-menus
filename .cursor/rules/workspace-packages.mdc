@@ -1,0 +1,63 @@
+---
+description: pnpm workspace packages — where shared code lives and how to extend it
+alwaysApply: false
+globs: packages/**,pnpm-workspace.yaml,services/supabaseService.ts,services/geminiService.ts,lib/currency.ts,lib/errorMessage.ts,lib/mailer.ts
+---
+
+# Workspace packages
+
+The repo is a **pnpm workspace** (`pnpm-workspace.yaml` → `packages/*`). The Vite app and `api/` stay at the **repo root** for Vercel. After pulling, run **pnpm install** to link workspace packages.
+
+## Package map
+
+| Package | Purpose |
+|---|---|
+| `@minute-menus/types` | Domain interfaces and enums (`AppMode`, `Dish`, subscriptions, etc.) |
+| `@minute-menus/types/db` | Generated Supabase `Database` types (source: `packages/types/src/database.types.ts`) |
+| `@minute-menus/logger` | `createLogger(scope)` for API routes and services |
+| `@minute-menus/errors` | `getErrorMessage`, `toError`, `throwStepError` (Supabase errors are plain objects) |
+| `@minute-menus/currency` | Price formatting, `SUPPORTED_CURRENCIES`, locale detection |
+| `@minute-menus/ui` | Loaders, spinners, `SaveChangesButton`, `ButtonSpinner` |
+| `@minute-menus/reels` | `ReelCard`, `ReelStrip` (customer reel UI) |
+| `@minute-menus/metrics` | Pure analytics builders (`buildAggregatedMetrics`, `buildAnalyticsReport`, time windows) |
+| `@minute-menus/menu-persistence` | Menu upsert/sync/delete (`persistMenu`) |
+| `@minute-menus/meal-plan-persistence` | Meal plan row upsert and dish link sync |
+| `@minute-menus/supabase-service` | Full data layer — `createSupabaseService(client)` |
+| `@minute-menus/ai` | Anthropic Claude (analytics reports, marketing copy) |
+| `@minute-menus/mailer` | Brevo SMTP `sendMail` (server-side) |
+| `@minute-menus/email-templates` | HTML for sold-out, cancel-order, daily-digest emails |
+| `@minute-menus/api-helpers` | Vercel handler guards, CORS, payload parsing, internal secret check |
+| `@minute-menus/payments` | Razorpay order creation and subscription amount helpers |
+
+## App-root shims (backward compat)
+
+These re-export packages — prefer importing the package directly in new code:
+
+- `services/supabaseService.ts` → `createSupabaseService(supabase)` from `@minute-menus/supabase-service`
+- `services/geminiService.ts` → `@minute-menus/ai`
+- `lib/database.types.ts` → `@minute-menus/types/db`
+- `lib/currency.ts`, `lib/errorMessage.ts`, `lib/mailer.ts` → respective packages
+
+## Where to put new code
+
+| Need | Package |
+|---|---|
+| Shared type or enum | `@minute-menus/types` |
+| DB column type change | Regenerate/copy into `packages/types/src/database.types.ts`, then service mappings |
+| Reusable UI loader/button | `@minute-menus/ui` |
+| Customer reel component | `@minute-menus/reels` |
+| Pure analytics logic | `@minute-menus/metrics` |
+| Menu or meal-plan DB sync | `@minute-menus/menu-persistence` or `meal-plan-persistence` |
+| New Supabase service method | `@minute-menus/supabase-service` (split modules if file grows) |
+| API route helper or email HTML | `@minute-menus/api-helpers` or `email-templates` |
+| Payment provider logic | `@minute-menus/payments` |
+| AI call | `@minute-menus/ai` |
+
+Add `"@minute-menus/…": "workspace:*"` to root `package.json` when introducing a new package. Run **pnpm build** after wiring.
+
+## Conventions
+
+- Packages use `"exports"` in their `package.json`; no build step — TypeScript sources consumed directly by Vite.
+- React packages (`ui`, `reels`) declare `react` / `react-dom` as peer dependencies.
+- Server-only packages (`mailer`, `payments`, `api-helpers`) must not be imported from browser pages unless already safe (mailer is API-only today).
+- Do not duplicate error helpers — always use `@minute-menus/errors`.

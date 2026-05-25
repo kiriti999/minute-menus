@@ -1,16 +1,28 @@
 ---
 description: Vercel serverless API routes, crons, email, and payments
-globs: api/**,vercel.json,lib/mailer.ts
+globs: api/**,vercel.json,packages/mailer/**,packages/email-templates/**,packages/api-helpers/**,packages/payments/**,lib/mailer.ts
 alwaysApply: false
 ---
 
 # Vercel API routes and crons
 
-Read **CLAUDE.md** server path and **agents.md** analytics/subscriptions section.
+Read **CLAUDE.md** server path, **agents.md** analytics/subscriptions section, and **workspace-packages.mdc**.
 
 ## Server-only
 
-Use supabase-admin and server env vars (service role, SMTP, Razorpay secrets, internal API secret). Never import admin client in pages or components.
+Use `lib/supabase-admin` and server env vars (service role, Brevo SMTP, Razorpay secrets, internal API secret). Never import admin client in pages or components.
+
+## Workspace packages for API routes
+
+| Concern | Package |
+|---|---|
+| Scoped logging | `@minute-menus/logger` |
+| SMTP send | `@minute-menus/mailer` |
+| Email HTML | `@minute-menus/email-templates` |
+| POST/CORS/secret guards, payload parsing | `@minute-menus/api-helpers` |
+| Razorpay orders | `@minute-menus/payments` |
+
+Keep route handlers thin — validation and orchestration in `api/`, logic in packages.
 
 ## Crons
 
@@ -18,6 +30,4 @@ Scheduled jobs are declared in vercel.json — keepalive (Supabase idle preventi
 
 ## Patterns
 
-Follow existing route structure: typed Vercel handler, admin client for DB, user-friendly errors, log failures. Email is best-effort where already documented.
-
-New env vars: add to .env.example with a short comment; never commit secrets.
+Use `createLogger(scope)`, `@minute-menus/errors` for error detail in responses, and best-effort email where already documented. New env vars: add to `.env.example`; never commit secrets.
