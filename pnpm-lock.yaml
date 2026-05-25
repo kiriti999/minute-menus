@@ -11,6 +11,15 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.78.0
         version: 0.78.0
+      '@minute-menus/logger':
+        specifier: workspace:*
+        version: link:packages/logger
+      '@minute-menus/types':
+        specifier: workspace:*
+        version: link:packages/types
+      '@minute-menus/ui':
+        specifier: workspace:*
+        version: link:packages/ui
       '@supabase/supabase-js':
         specifier: ^2.97.0
         version: 2.97.0
@@ -72,6 +81,19 @@ importers:
       vite:
         specifier: ^6.2.0
         version: 6.4.1(@types/node@22.19.3)(tsx@4.21.0)
+
+  packages/logger: {}
+
+  packages/types: {}
+
+  packages/ui:
+    dependencies:
+      react:
+        specifier: ^19.0.0
+        version: 19.2.3
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.3(react@19.2.3)
 
 packages:
 

@@ -71,16 +71,3 @@ export const useRestaurantSlugRoute = (): SlugRouteState => {
         },
     };
 };
-
-export const AppLoadingScreen: React.FC<{ label?: string }> = ({ label }) => (
-    <div className="min-h-screen bg-black flex items-center justify-center">
-        {label ? (
-            <div className="text-center">
-                <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                <p className="text-zinc-400">{label}</p>
-            </div>
-        ) : (
-            <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-        )}
-    </div>
-);

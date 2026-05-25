@@ -8,14 +8,17 @@
  *   VITE_SUPABASE_URL / SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  */
 
+import { createLogger } from "@minute-menus/logger";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { supabaseAdmin } from "../lib/supabase-admin";
+
+const log = createLogger("keepalive");
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
     const { error } = await supabaseAdmin.from("restaurants").select("id").limit(1);
 
     if (error) {
-        console.error("keepalive failed:", error.message);
+        log.error("keepalive failed", { message: error.message });
         return res.status(500).json({ ok: false, error: error.message });
     }
 

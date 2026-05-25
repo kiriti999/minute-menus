@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "../../lib/database.types";
-import type { Category } from "../../types";
+import type { Database } from "../lib/database.types";
+import { toError } from "../lib/errorMessage";
+import type { Category } from "../types";
 
 const UUID_RE =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -29,18 +30,22 @@ const toDishRows = (categories: Category[], restaurantId: string) =>
             id: dish.id,
             category_id: category.id,
             restaurant_id: restaurantId,
-            name: dish.name,
-            description: dish.description,
-            price: dish.price,
-            image_url: dish.imageUrl,
-            video_url: dish.videoUrl,
-            popularity_score: dish.popularityScore,
-            prep_time: dish.prepTime,
+            name: dish.name?.trim() || "Untitled item",
+            description: dish.description ?? "",
+            price: Number.isFinite(dish.price) ? dish.price : 0,
+            image_url: dish.imageUrl ?? "",
+            video_url: dish.videoUrl ?? "",
+            popularity_score: dish.popularityScore ?? 0,
+            prep_time: dish.prepTime ?? 0,
             media_transform: dish.mediaTransform ?? null,
             stock_quantity: dish.stockQuantity ?? null,
             manual_sold_out: dish.manualSoldOut ?? false,
         })),
     );
+
+const throwStepError = (step: string, err: unknown): never => {
+    throw toError(err, `${step} failed`);
+};
 
 const deleteMissingIds = async (
     client: SupabaseClient<Database>,
@@ -52,7 +57,7 @@ const deleteMissingIds = async (
         .from(table)
         .select("id")
         .eq("restaurant_id", restaurantId);
-    if (existingErr) throw existingErr;
+    if (existingErr) throwStepError(`Load existing ${table}`, existingErr);
 
     const idsToDelete = (existing ?? [])
         .map((row) => row.id)
@@ -60,7 +65,7 @@ const deleteMissingIds = async (
     if (idsToDelete.length === 0) return;
 
     const { error: deleteErr } = await client.from(table).delete().in("id", idsToDelete);
-    if (deleteErr) throw deleteErr;
+    if (deleteErr) throwStepError(`Delete removed ${table}`, deleteErr);
 };
 
 export const persistMenu = async (
@@ -73,12 +78,12 @@ export const persistMenu = async (
     const { error: categoryErr } = await client
         .from("categories")
         .upsert(toCategoryRows(safeCategories, restaurantId), { onConflict: "id" });
-    if (categoryErr) throw categoryErr;
+    if (categoryErr) throwStepError("Save categories", categoryErr);
 
     const { error: dishErr } = await client
         .from("dishes")
         .upsert(toDishRows(safeCategories, restaurantId), { onConflict: "id" });
-    if (dishErr) throw dishErr;
+    if (dishErr) throwStepError("Save dishes", dishErr);
 
     const keptDishIds = new Set(
         safeCategories.flatMap((category) => category.items.map((dish) => dish.id)),

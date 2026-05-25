@@ -13,6 +13,9 @@
     "db:push": "tsx scripts/db-push.ts"
   },
   "dependencies": {
+    "@minute-menus/logger": "workspace:*",
+    "@minute-menus/types": "workspace:*",
+    "@minute-menus/ui": "workspace:*",
     "@anthropic-ai/sdk": "^0.78.0",
     "@supabase/supabase-js": "^2.97.0",
     "lucide-react": "^0.554.0",

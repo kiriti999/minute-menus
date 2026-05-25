@@ -11,7 +11,8 @@ import {
 import type React from "react";
 import { useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
-import { AppLoadingScreen, useRestaurantSlugRoute } from "./hooks/useRestaurantSlugRoute";
+import { AppLoadingScreen } from "@minute-menus/ui";
+import { useRestaurantSlugRoute } from "./hooks/useRestaurantSlugRoute";
 import { CustomerApp } from "./pages/CustomerApp";
 import { LoginPage } from "./pages/LoginPage";
 import { OwnerDashboard } from "./pages/OwnerDashboard";

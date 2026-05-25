@@ -61,8 +61,9 @@ import {
   YAxis,
 } from "recharts";
 import { generateAnalyticsReport } from "../services/geminiService";
-import { supabase } from "../lib/supabase";
 import { supabaseService } from "../services/supabaseService";
+import { supabase } from "../lib/supabase";
+import { getErrorMessage } from "../lib/errorMessage";
 import { SUPPORTED_CURRENCIES, getSymbolForCurrency } from "../lib/currency";
 import {
   type AggregatedMetrics,
@@ -261,7 +262,7 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
       setIsEditing(false);
       onSlugUpdated(slug);
     } catch (err) {
-      setSlugError(err instanceof Error ? err.message : "Failed to update URL");
+      setSlugError(getErrorMessage(err, "Failed to update URL"));
     } finally {
       setIsSaving(false);
     }
@@ -885,9 +886,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       supabaseService
         .saveMenu(newMenu)
         .then(() => setUnsavedChanges(false))
-        .catch((err: Error) => {
+        .catch((err: unknown) => {
           console.error("Delete save failed:", err);
-          alert(`Failed to delete item: ${err?.message ?? "Unknown error"}`);
+          alert(`Failed to delete item: ${getErrorMessage(err)}`);
         });
     }
   };
@@ -901,11 +902,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     setActiveOptionsDishId(null);
     supabaseService
       .toggleManualSoldOut(dish.id, dish.name, newValue)
-      .catch((err: Error) => {
+      .catch((err: unknown) => {
         // Revert on failure
         setMenuItems(menuItems);
         console.error("Failed to toggle sold-out:", err);
-        alert(`Failed to update sold-out status: ${err?.message ?? "Unknown error"}`);
+        alert(`Failed to update sold-out status: ${getErrorMessage(err)}`);
       });
   };
 
@@ -984,9 +985,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       setUnsavedChanges(false);
     } catch (err) {
       console.error("Save failed:", err);
-      alert(
-        `Failed to save menu: ${err instanceof Error ? err.message : "Unknown error"}. Please try again.`,
-      );
+      alert(`Failed to save menu: ${getErrorMessage(err)}. Please try again.`);
     } finally {
       setIsSavingMenu(false);
     }
