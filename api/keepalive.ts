@@ -10,11 +10,18 @@
 
 import { createLogger } from "@minute-menus/logger";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { ensureDishMediaStorage } from "../lib/ensure-dish-media-storage";
 import { supabaseAdmin } from "../lib/supabase-admin";
 
 const log = createLogger("keepalive");
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
+    try {
+        await ensureDishMediaStorage();
+    } catch (error) {
+        log.error("storage ensure failed", { message: error instanceof Error ? error.message : String(error) });
+    }
+
     const { error } = await supabaseAdmin.from("restaurants").select("id").limit(1);
 
     if (error) {

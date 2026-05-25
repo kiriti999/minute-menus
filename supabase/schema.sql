@@ -787,11 +787,8 @@ create index if not exists idx_customer_profiles_user on customer_profiles(user_
 -- ─────────────────────────────────────────────
 -- 18. STORAGE — dish-media (reel videos / photos)
 -- Large uploads go to Storage; dishes table stores public URLs only.
+-- Bucket is created via Storage API (pnpm storage:ensure / db:push); policies below.
 -- ─────────────────────────────────────────────
-insert into storage.buckets (id, name, public)
-values ('dish-media', 'dish-media', true)
-on conflict (id) do nothing;
-
 create policy "Public read dish media"
   on storage.objects for select
   using (bucket_id = 'dish-media');

@@ -144,5 +144,26 @@ if (failed > 0) {
 }
 
 console.log(`✓ Done — ${applied} applied, ${skipped} already existed\n`);
+
+if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    try {
+        const { ensureDishMediaStorage } = await import("../lib/ensure-dish-media-storage");
+        const storage = await ensureDishMediaStorage();
+        console.log(
+            storage.created
+                ? "✓ Created dish-media storage bucket via Storage API"
+                : "✓ dish-media storage bucket already exists",
+        );
+    } catch (error) {
+        console.error(
+            `✗ dish-media bucket ensure failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        console.error("  Run: pnpm storage:ensure\n");
+        process.exit(1);
+    }
+} else {
+    console.warn("⚠ SUPABASE_SERVICE_ROLE_KEY not set — run pnpm storage:ensure to create dish-media bucket\n");
+}
+
 console.log("Run 'pnpm seed' (or 'pnpm seed:reset') to populate test data.\n");
 

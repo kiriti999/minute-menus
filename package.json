@@ -10,7 +10,8 @@
     "seed": "tsx scripts/seed.ts",
     "seed:reset": "tsx scripts/seed.ts --reset",
     "test:emails": "tsx scripts/test-emails.ts",
-    "db:push": "tsx scripts/db-push.ts"
+    "db:push": "tsx scripts/db-push.ts",
+    "storage:ensure": "tsx scripts/ensure-storage.ts"
   },
   "dependencies": {
     "@minute-menus/ai": "workspace:*",
