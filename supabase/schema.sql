@@ -789,39 +789,40 @@ create index if not exists idx_customer_profiles_user on customer_profiles(user_
 -- Large uploads go to Storage; dishes table stores public URLs only.
 -- Bucket is created via Storage API (pnpm storage:ensure / db:push); policies below.
 -- ─────────────────────────────────────────────
+drop policy if exists "Public read dish media" on storage.objects;
+drop policy if exists "Owner upload dish media" on storage.objects;
+drop policy if exists "Owner update dish media" on storage.objects;
+drop policy if exists "Owner delete dish media" on storage.objects;
+drop policy if exists "Owner manage dish media" on storage.objects;
+
+create or replace function public.is_dish_media_owner(object_name text)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.restaurants r
+    where r.owner_id = auth.uid()
+      and split_part(object_name, '/', 1) = r.id::text
+  );
+$$;
+
+grant execute on function public.is_dish_media_owner(text) to authenticated, anon;
+
 create policy "Public read dish media"
   on storage.objects for select
   using (bucket_id = 'dish-media');
 
-create policy "Owner upload dish media"
-  on storage.objects for insert to authenticated
+create policy "Owner manage dish media"
+  on storage.objects for all to authenticated
+  using (
+    bucket_id = 'dish-media'
+    and public.is_dish_media_owner(name)
+  )
   with check (
     bucket_id = 'dish-media'
-    and exists (
-      select 1 from restaurants r
-      where r.owner_id = auth.uid()
-        and split_part(name, '/', 1) = r.id::text
-    )
-  );
-
-create policy "Owner update dish media"
-  on storage.objects for update to authenticated
-  using (
-    bucket_id = 'dish-media'
-    and exists (
-      select 1 from restaurants r
-      where r.owner_id = auth.uid()
-        and split_part(name, '/', 1) = r.id::text
-    )
-  );
-
-create policy "Owner delete dish media"
-  on storage.objects for delete to authenticated
-  using (
-    bucket_id = 'dish-media'
-    and exists (
-      select 1 from restaurants r
-      where r.owner_id = auth.uid()
-        and split_part(name, '/', 1) = r.id::text
-    )
+    and public.is_dish_media_owner(name)
   );

@@ -12,6 +12,7 @@ const DISH_UPSERT_CHUNK = 20;
 const DELETE_CHUNK = 100;
 
 export { compressDataUrl, compressImageBlob, MAX_IMAGE_BYTES } from "./imageCompress";
+export { putDishMediaFromDataUrl, DISH_MEDIA_BUCKET } from "./putDishMedia";
 
 export const normalizeMenuIds = (categories: Category[]): Category[] =>
     categories.map((category) => ({
