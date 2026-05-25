@@ -11,12 +11,12 @@ import {
 import type React from "react";
 import { useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
-import { AppLoadingScreen } from "@minute-menus/ui";
+import { LoadingScreen } from "@minute-menus/ui";
 import { useRestaurantSlugRoute } from "./hooks/useRestaurantSlugRoute";
 import { CustomerApp } from "./pages/CustomerApp";
 import { LoginPage } from "./pages/LoginPage";
 import { OwnerDashboard } from "./pages/OwnerDashboard";
-import { AppMode } from "./types";
+import { AppMode } from "@minute-menus/types";
 
 const App: React.FC = () => {
     const [mode, setMode] = useState<AppMode>(AppMode.LANDING);
@@ -88,11 +88,11 @@ const App: React.FC = () => {
     };
 
     if (authLoading) {
-        return <AppLoadingScreen />;
+        return <LoadingScreen />;
     }
 
     if (slugLoading) {
-        return <AppLoadingScreen label="Loading restaurant..." />;
+        return <LoadingScreen label="Loading restaurant..." />;
     }
 
     // Error state for invalid restaurant slug
