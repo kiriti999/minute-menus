@@ -1808,8 +1808,13 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 </button>
 
                 <button
-                  onClick={onNavigateToCustomer}
-                  className={`group flex items-center gap-2 border pl-4 pr-3 py-2 rounded-full transition-all duration-300 ${isDarkTheme ? 'border-zinc-700 hover:bg-white hover:border-white hover:text-black text-white' : 'border-zinc-300 hover:bg-zinc-900 hover:border-zinc-900 hover:text-white text-zinc-900'}`}
+                  onClick={() => {
+                    if (restaurantDetails?.slug) {
+                      window.location.assign(`/${restaurantDetails.slug}`);
+                    }
+                  }}
+                  disabled={!restaurantDetails?.slug}
+                  className={`group flex items-center gap-2 border pl-4 pr-3 py-2 rounded-full transition-all duration-300 disabled:opacity-40 ${isDarkTheme ? 'border-zinc-700 hover:bg-white hover:border-white hover:text-black text-white' : 'border-zinc-300 hover:bg-zinc-900 hover:border-zinc-900 hover:text-white text-zinc-900'}`}
                   title="Open Live Customer View"
                 >
                   <span className="text-xs font-bold tracking-widest">LIVE VIEW</span>

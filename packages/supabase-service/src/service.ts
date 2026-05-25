@@ -36,7 +36,7 @@ const log = createLogger("supabaseService");
 export class SupabaseService {
     private readonly client: SupabaseClient<Database>;
     private readonly getRestaurantId: () => Promise<string>;
-    private readonly generateUniqueSlug: (baseName: string) => Promise<string>;
+    private readonly generateUniqueSlug: (baseName: string, excludeRestaurantId?: string) => Promise<string>;
 
     constructor(client: SupabaseClient<Database>) {
         this.client = client;
@@ -480,7 +480,7 @@ export class SupabaseService {
         const updateData: { name: string; slug?: string } = { name: newName };
 
         if (regenerateSlug) {
-            updateData.slug = await this.generateUniqueSlug(newName);
+            updateData.slug = await this.generateUniqueSlug(newName, rid);
         }
 
         const { data, error } = await this.client
@@ -522,7 +522,7 @@ export class SupabaseService {
         // Check if current slug looks like a UUID
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (uuidRegex.test(data.slug)) {
-            const newSlug = await this.generateUniqueSlug(data.name);
+            const newSlug = await this.generateUniqueSlug(data.name, rid);
             await this.client
                 .from("restaurants")
                 .update({ slug: newSlug })

@@ -17,6 +17,7 @@ export const slugify = (name: string): string =>
 export const generateUniqueSlug = async (
     client: SupabaseClient<Database>,
     baseName: string,
+    excludeRestaurantId?: string,
 ): Promise<string> => {
     const baseSlug = slugify(baseName);
 
@@ -24,9 +25,9 @@ export const generateUniqueSlug = async (
         .from("restaurants")
         .select("id")
         .eq("slug", baseSlug)
-        .single();
+        .maybeSingle();
 
-    if (!existing) return baseSlug;
+    if (!existing || existing.id === excludeRestaurantId) return baseSlug;
 
     const suffix = Math.random().toString(36).substring(2, 6);
     return `${baseSlug}-${suffix}`;
@@ -69,8 +70,8 @@ const bootstrapRestaurant = async (
 };
 
 export const createRestaurantContext = (client: SupabaseClient<Database>) => {
-    const boundGenerateUniqueSlug = (baseName: string) =>
-        generateUniqueSlug(client, baseName);
+    const boundGenerateUniqueSlug = (baseName: string, excludeRestaurantId?: string) =>
+        generateUniqueSlug(client, baseName, excludeRestaurantId);
 
     let cachedRestaurantId: string | null = null;
     let cachedForUserId: string | null = null;
