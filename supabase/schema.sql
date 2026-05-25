@@ -101,8 +101,8 @@ create table if not exists dishes (
 );
 
 -- Migration: run this on existing databases
--- ALTER TABLE dishes ADD COLUMN IF NOT EXISTS stock_quantity int;
--- ALTER TABLE dishes ADD COLUMN IF NOT EXISTS manual_sold_out boolean NOT NULL DEFAULT false;
+ALTER TABLE dishes ADD COLUMN IF NOT EXISTS stock_quantity int;
+ALTER TABLE dishes ADD COLUMN IF NOT EXISTS manual_sold_out boolean NOT NULL DEFAULT false;
 
 alter table dishes enable row level security;
 
