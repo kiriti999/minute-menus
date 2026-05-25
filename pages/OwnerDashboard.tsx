@@ -701,6 +701,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   // Data State
   const [metrics, setMetrics] = useState<AggregatedMetrics | null>(null);
   const [menuItems, setMenuItems] = useState<Category[]>([]);
+  const [menuLoading, setMenuLoading] = useState(true);
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("24h");
 
   // Tier & Paywall State
@@ -726,6 +727,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const [isEditingCategory, setIsEditingCategory] = useState(false);
   const [tempCategoryTitle, setTempCategoryTitle] = useState("");
   const [unsavedChanges, setUnsavedChanges] = useState(false);
+  const [isSavingMenu, setIsSavingMenu] = useState(false);
   const unsavedChangesRef = useRef(false);
   const [editingMedia, setEditingMedia] = useState<{
     file: File;
@@ -743,7 +745,12 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   const loadMenuFromServer = () => {
     if (unsavedChangesRef.current) return;
-    supabaseService.getMenu().then(setMenuItems).catch(console.error);
+    setMenuLoading(true);
+    supabaseService
+      .getMenu()
+      .then(setMenuItems)
+      .catch(console.error)
+      .finally(() => setMenuLoading(false));
   };
 
   // Load Initial Data
@@ -970,14 +977,19 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     setUnsavedChanges(true);
   };
 
-  const handleSaveAll = () => {
-    supabaseService
-      .saveMenu(menuItems)
-      .then(() => setUnsavedChanges(false))
-      .catch((err: Error) => {
-        console.error("Save failed:", err);
-        alert(`Failed to save menu: ${err?.message ?? "Unknown error"}. Please try again.`);
-      });
+  const handleSaveAll = async () => {
+    setIsSavingMenu(true);
+    try {
+      await supabaseService.saveMenu(menuItems);
+      setUnsavedChanges(false);
+    } catch (err) {
+      console.error("Save failed:", err);
+      alert(
+        `Failed to save menu: ${err instanceof Error ? err.message : "Unknown error"}. Please try again.`,
+      );
+    } finally {
+      setIsSavingMenu(false);
+    }
   };
 
   const COLORS = ["#fff", "#666", "#333", "#999"];
@@ -1730,13 +1742,23 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
               <div className="flex items-center gap-3 self-end md:self-auto">
                 {/* Unsaved changes pill */}
-                {unsavedChanges && (
+                {(unsavedChanges || isSavingMenu) && (
                   <button
                     onClick={handleSaveAll}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold tracking-widest transition-all animate-in fade-in duration-300 ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200 shadow-[0_0_20px_rgba(255,255,255,0.25)]' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-lg'}`}
+                    disabled={isSavingMenu}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold tracking-widest transition-all animate-in fade-in duration-300 disabled:opacity-80 ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200 shadow-[0_0_20px_rgba(255,255,255,0.25)]' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-lg'}`}
                   >
-                    <Save size={13} />
-                    SAVE CHANGES
+                    {isSavingMenu ? (
+                      <>
+                        <Loader2 size={13} className="animate-spin" />
+                        SAVING…
+                      </>
+                    ) : (
+                      <>
+                        <Save size={13} />
+                        SAVE CHANGES
+                      </>
+                    )}
                   </button>
                 )}
 
@@ -1767,10 +1789,15 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             {/* Category Tabs */}
             <div className={`px-4 md:px-8 pt-6 pb-0 border-b ${isDarkTheme ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-100 border-zinc-300'}`}>
               <div className="flex items-center gap-1 overflow-x-auto">
-                {menuItems.length === 0 && (
+                {menuLoading ? (
+                  <span className={`text-sm flex items-center gap-2 mr-4 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>
+                    <Loader2 size={14} className="animate-spin" />
+                    Loading menu…
+                  </span>
+                ) : menuItems.length === 0 ? (
                   <span className={`text-sm italic mr-4 ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-500'}`}>No categories yet — click + to add one</span>
-                )}
-                {menuItems.map((cat, idx) => (
+                ) : null}
+                {!menuLoading && menuItems.map((cat, idx) => (
                   <button
                     key={cat.id}
                     onClick={() => setSelectedCategoryIdx(idx)}
@@ -1791,8 +1818,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 ))}
                 <button
                   onClick={handleAddCategory}
+                  disabled={menuLoading}
                   title="Add Category"
-                  className={`ml-2 flex items-center gap-1.5 px-3 py-2 rounded-md transition-colors text-xs font-bold tracking-widest border border-transparent ${isDarkTheme ? 'text-zinc-500 hover:text-white hover:bg-zinc-900 hover:border-zinc-700' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200 hover:border-zinc-300'}`}
+                  className={`ml-2 flex items-center gap-1.5 px-3 py-2 rounded-md transition-colors text-xs font-bold tracking-widest border border-transparent disabled:opacity-40 disabled:pointer-events-none ${isDarkTheme ? 'text-zinc-500 hover:text-white hover:bg-zinc-900 hover:border-zinc-700' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200 hover:border-zinc-300'}`}
                 >
                   <Plus size={14} />
                   ADD CATEGORY
@@ -1863,7 +1891,12 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             )}
 
             {/* Items Grid or Empty State */}
-            {menuItems.length === 0 ? (
+            {menuLoading ? (
+              <div className="flex flex-col items-center justify-center py-32 px-8 text-center">
+                <Loader2 size={36} className={`animate-spin mb-4 ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-500'}`} />
+                <p className={`text-sm font-medium ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>Loading your menu…</p>
+              </div>
+            ) : menuItems.length === 0 ? (
               /* ── Full empty state: no categories at all ── */
               <div className="flex flex-col items-center justify-center py-24 px-8 text-center">
                 <div className={`w-20 h-20 rounded-2xl border flex items-center justify-center mb-6 ${isDarkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-zinc-100 border-zinc-300'}`}>
