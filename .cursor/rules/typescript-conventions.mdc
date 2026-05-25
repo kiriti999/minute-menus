@@ -1,9 +1,7 @@
 ---
 description: Plain TypeScript — services, api, lib, scripts — cyclomatic complexity up to 6
-globs: **/*.ts,api/**,services/**,lib/**,scripts/**
 alwaysApply: false
 ---
-
 # TypeScript (.ts) — condensed
 
 Aligned with `.claude/rules/typescript-conventions.md` and coding-standards.

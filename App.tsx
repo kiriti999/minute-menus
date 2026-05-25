@@ -11,14 +11,11 @@ import {
 import type React from "react";
 import { useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
+import { AppLoadingScreen, useRestaurantSlugRoute } from "./hooks/useRestaurantSlugRoute";
 import { CustomerApp } from "./pages/CustomerApp";
 import { LoginPage } from "./pages/LoginPage";
 import { OwnerDashboard } from "./pages/OwnerDashboard";
-import { supabaseService } from "./services/supabaseService";
 import { AppMode } from "./types";
-
-// Reserved paths that should not be treated as restaurant slugs
-const RESERVED_PATHS = ["dashboard", "login", "owner", "admin", "api"];
 
 const App: React.FC = () => {
     const [mode, setMode] = useState<AppMode>(AppMode.LANDING);
@@ -27,53 +24,19 @@ const App: React.FC = () => {
     const [authLoading, setAuthLoading] = useState(true);
     const [isDarkTheme, setIsDarkTheme] = useState(true);
 
-    // Restaurant context for QR code flow
-    const [restaurantSlug, setRestaurantSlug] = useState<string | null>(null);
-    const [restaurantId, setRestaurantId] = useState<string | null>(null);
-    const [restaurantName, setRestaurantName] = useState<string | null>(null);
-    const [restaurantCurrency, setRestaurantCurrency] = useState<string>("USD");
-    const [slugLoading, setSlugLoading] = useState(false);
-    const [slugError, setSlugError] = useState<string | null>(null);
+    const slugRoute = useRestaurantSlugRoute();
+    const restaurantSlug = slugRoute.slug;
+    const restaurantId = slugRoute.id;
+    const restaurantName = slugRoute.name;
+    const restaurantCurrency = slugRoute.currency;
+    const slugLoading = slugRoute.loading;
+    const slugError = slugRoute.error;
 
     const toggleTheme = () => setIsDarkTheme((prev) => !prev);
 
-    // Handle URL-based restaurant routing
     useEffect(() => {
-        const path = window.location.pathname;
-        const slugMatch = path.match(/^\/([a-z0-9-]+)$/i);
-
-        if (slugMatch) {
-            const potentialSlug = slugMatch[1].toLowerCase();
-
-            // Skip reserved paths
-            if (RESERVED_PATHS.includes(potentialSlug)) {
-                return;
-            }
-
-            // Attempt to load restaurant by slug
-            setSlugLoading(true);
-            supabaseService
-                .getRestaurantBySlug(potentialSlug)
-                .then((restaurant) => {
-                    if (restaurant) {
-                        setRestaurantSlug(restaurant.slug);
-                        setRestaurantId(restaurant.id);
-                        setRestaurantName(restaurant.name);
-                        setRestaurantCurrency(restaurant.currency);
-                        setMode(AppMode.CUSTOMER);
-                    } else {
-                        setSlugError(`Restaurant "${potentialSlug}" not found`);
-                    }
-                })
-                .catch((err) => {
-                    console.error("Slug lookup error:", err);
-                    setSlugError("Failed to load restaurant");
-                })
-                .finally(() => {
-                    setSlugLoading(false);
-                });
-        }
-    }, []);
+        if (slugRoute.slug) setMode(AppMode.CUSTOMER);
+    }, [slugRoute.slug]);
 
     // Restore session on mount and listen for auth state changes
     useEffect(() => {
@@ -124,23 +87,11 @@ const App: React.FC = () => {
     };
 
     if (authLoading) {
-        return (
-            <div className="min-h-screen bg-black flex items-center justify-center">
-                <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            </div>
-        );
+        return <AppLoadingScreen />;
     }
 
-    // Loading state for restaurant slug lookup
     if (slugLoading) {
-        return (
-            <div className="min-h-screen bg-black flex items-center justify-center">
-                <div className="text-center">
-                    <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-zinc-400">Loading restaurant...</p>
-                </div>
-            </div>
-        );
+        return <AppLoadingScreen label="Loading restaurant..." />;
     }
 
     // Error state for invalid restaurant slug
@@ -155,7 +106,7 @@ const App: React.FC = () => {
                     <p className="text-zinc-400 mb-6">{slugError}</p>
                     <button
                         onClick={() => {
-                            setSlugError(null);
+                            slugRoute.resetRestaurantContext();
                             window.history.pushState({}, "", "/");
                             setMode(AppMode.LANDING);
                         }}
@@ -178,11 +129,7 @@ const App: React.FC = () => {
         return (
             <CustomerApp
                 onNavigateToDashboard={() => {
-                    // Clear restaurant context when going back to landing
-                    setRestaurantSlug(null);
-                    setRestaurantId(null);
-                    setRestaurantName(null);
-                    setRestaurantCurrency("USD");
+                    slugRoute.resetRestaurantContext();
                     window.history.pushState({}, "", "/");
                     setMode(AppMode.LANDING);
                 }}

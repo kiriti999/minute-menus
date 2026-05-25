@@ -12,11 +12,15 @@
 
 import type { Json } from "../lib/database.types";
 import { supabase } from "../lib/supabase";
+import { persistMenu } from "./menuPersistence";
+import { syncMealPlanDishLinks, upsertMealPlanRow } from "./mealPlanPersistence";
+import { buildAggregatedMetrics } from "./metrics/aggregatedMetrics";
+import { buildAnalyticsReport } from "./metrics/analyticsReport";
+import { sinceIso } from "./metrics/timeWindow";
 import type {
     AggregatedMetrics,
     Category,
     Dish,
-    DishPerformance,
     OrderItem,
     UserTier,
     WatchSession,
@@ -202,90 +206,7 @@ class SupabaseService {
 
     async saveMenu(categories: Category[]): Promise<void> {
         const rid = await getRestaurantId();
-
-        // Guard: remap any stale non-UUID IDs (e.g. old "cat_timestamp" format)
-        const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        const safeCategories = categories.map((cat) => ({
-            ...cat,
-            id: UUID_RE.test(cat.id) ? cat.id : crypto.randomUUID(),
-            items: cat.items.map((dish) => ({
-                ...dish,
-                id: UUID_RE.test(dish.id) ? dish.id : crypto.randomUUID(),
-            })),
-        }));
-
-        // Upsert categories
-        const catRows = safeCategories.map((c, idx) => ({
-            id: c.id,
-            restaurant_id: rid,
-            title: c.title,
-            sort_order: idx,
-        }));
-        const { error: catErr } = await supabase
-            .from("categories")
-            .upsert(catRows, { onConflict: "id" });
-        if (catErr) throw catErr;
-
-        // Upsert all dishes
-        const dishRows = safeCategories.flatMap((c) =>
-            c.items.map((d) => ({
-                id: d.id,
-                category_id: c.id,
-                restaurant_id: rid,
-                name: d.name,
-                description: d.description,
-                price: d.price,
-                image_url: d.imageUrl,
-                video_url: d.videoUrl,
-                popularity_score: d.popularityScore,
-                prep_time: d.prepTime,
-                media_transform: d.mediaTransform ?? null,
-                stock_quantity: d.stockQuantity ?? null,
-                manual_sold_out: d.manualSoldOut ?? false,
-            })),
-        );
-        const { error: dishErr } = await supabase
-            .from("dishes")
-            .upsert(dishRows, { onConflict: "id" });
-        if (dishErr) throw dishErr;
-
-        // Delete removed dishes (use .in() — string-based .not('id','in',...) is unreliable for UUIDs)
-        const keptDishIds = new Set(safeCategories.flatMap((c) => c.items.map((d) => d.id)));
-        const { data: existingDishes, error: existingDishErr } = await supabase
-            .from("dishes")
-            .select("id")
-            .eq("restaurant_id", rid);
-        if (existingDishErr) throw existingDishErr;
-
-        const dishIdsToDelete = (existingDishes ?? [])
-            .map((d) => d.id)
-            .filter((id) => !keptDishIds.has(id));
-        if (dishIdsToDelete.length > 0) {
-            const { error: deleteDishErr } = await supabase
-                .from("dishes")
-                .delete()
-                .in("id", dishIdsToDelete);
-            if (deleteDishErr) throw deleteDishErr;
-        }
-
-        // Delete removed categories (cascade deletes their dishes via FK)
-        const keptCatIds = new Set(safeCategories.map((c) => c.id));
-        const { data: existingCats, error: existingCatErr } = await supabase
-            .from("categories")
-            .select("id")
-            .eq("restaurant_id", rid);
-        if (existingCatErr) throw existingCatErr;
-
-        const catIdsToDelete = (existingCats ?? [])
-            .map((c) => c.id)
-            .filter((id) => !keptCatIds.has(id));
-        if (catIdsToDelete.length > 0) {
-            const { error: deleteCatErr } = await supabase
-                .from("categories")
-                .delete()
-                .in("id", catIdsToDelete);
-            if (deleteCatErr) throw deleteCatErr;
-        }
+        await persistMenu(supabase, rid, categories);
     }
 
     /**
@@ -452,8 +373,7 @@ class SupabaseService {
     ): Promise<AggregatedMetrics> {
         const rid = restaurantId ?? (await getRestaurantId());
         const now = new Date();
-        const msMap = { "24h": 86400000, "7d": 604800000, "30d": 2592000000 };
-        const since = new Date(now.getTime() - msMap[timeWindow]).toISOString();
+        const since = sinceIso(timeWindow, now);
 
         const [{ data: sessions }, { data: orders }, { data: dishes }] =
             await Promise.all([
@@ -470,105 +390,13 @@ class SupabaseService {
                 supabase.from("dishes").select("id, name").eq("restaurant_id", rid),
             ]);
 
-        const s = sessions ?? [];
-        const o = orders ?? [];
-
-        const totalViews = s.length;
-        const totalWatchTime = s.reduce((acc, ws) => acc + Number(ws.duration), 0);
-        const avgWatchDuration = totalViews > 0 ? totalWatchTime / totalViews : 0;
-        const completedSessions = s.filter((ws) => ws.completed).length;
-        const completionRate =
-            totalViews > 0 ? (completedSessions / totalViews) * 100 : 0;
-        const engagedViews = s.filter((ws) => Number(ws.duration) > 5).length;
-        const engagementRate =
-            totalViews > 0 ? (engagedViews / totalViews) * 100 : 0;
-
-        const totalOrders = o.length;
-        const avgOrderTime =
-            totalOrders > 0
-                ? o.reduce((acc, ord) => acc + Number(ord.time_to_order), 0) /
-                totalOrders
-                : 0;
-        const estimatedSessions = Math.max(1, Math.floor(totalViews / 4));
-        const conversionRate = (totalOrders / estimatedSessions) * 100;
-
-        // Dish performance map
-        const dishMap = new Map<
-            string,
-            { views: number; watchTime: number; completions: number }
-        >();
-        s.forEach((ws) => {
-            const cur = dishMap.get(ws.dish_id) ?? {
-                views: 0,
-                watchTime: 0,
-                completions: 0,
-            };
-            cur.views += 1;
-            cur.watchTime += Number(ws.duration);
-            if (ws.completed) cur.completions += 1;
-            dishMap.set(ws.dish_id, cur);
-        });
-
-        const dishPerformance: DishPerformance[] = Array.from(dishMap.entries())
-            .map(([id, stats]) => ({
-                id,
-                name: (dishes ?? []).find((d) => d.id === id)?.name ?? "Unknown",
-                views: stats.views,
-                watchTime: stats.watchTime,
-                conversions: stats.completions,
-                conversionRate:
-                    stats.views > 0 ? (stats.completions / stats.views) * 100 : 0,
-            }))
-            .sort((a, b) => b.views - a.views);
-
-        const mostPopularDishId = dishPerformance[0]?.id ?? "";
-
-        // Hourly / daily traffic buckets
-        const points = timeWindow === "24h" ? 24 : timeWindow === "7d" ? 7 : 30;
-        const interval = msMap[timeWindow] / points;
-        const buckets = new Map<string, number>();
-
-        for (let i = points - 1; i >= 0; i--) {
-            const d = new Date(now.getTime() - i * interval);
-            const key =
-                timeWindow === "24h"
-                    ? `${d.getHours()}:00`
-                    : `${d.getMonth() + 1}/${d.getDate()}`;
-            if (!buckets.has(key)) buckets.set(key, 0);
-        }
-        s.forEach((ws) => {
-            const d = new Date(ws.created_at);
-            const key =
-                timeWindow === "24h"
-                    ? `${d.getHours()}:00`
-                    : `${d.getMonth() + 1}/${d.getDate()}`;
-            if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + 1);
-        });
-
-        const hourlyTraffic = Array.from(buckets.entries()).map(
-            ([hour, views]) => ({ hour, views }),
+        return buildAggregatedMetrics(
+            sessions ?? [],
+            orders ?? [],
+            dishes ?? [],
+            timeWindow,
+            now,
         );
-
-        const conversionFunnel = [
-            { stage: "Menu Views", count: totalViews, fill: "#fff" },
-            { stage: "Engaged (>5s)", count: engagedViews, fill: "#aaa" },
-            { stage: "Orders", count: totalOrders, fill: "#4ade80" },
-        ];
-
-        return {
-            totalViews,
-            totalWatchTime,
-            avgWatchDuration,
-            completionRate,
-            mostPopularDishId,
-            engagementRate,
-            totalOrders,
-            avgOrderTime,
-            conversionRate,
-            hourlyTraffic,
-            conversionFunnel,
-            dishPerformance,
-        };
     }
 
     // ── Analytics Report ─────────────────────────────────────────────────────────
@@ -583,8 +411,7 @@ class SupabaseService {
     ): Promise<import("../types").AnalyticsReport> {
         const rid = await getRestaurantId();
         const now = new Date();
-        const msMap = { "24h": 86400000, "7d": 604800000, "30d": 2592000000 } as const;
-        const since = new Date(now.getTime() - msMap[timeWindow]).toISOString();
+        const since = sinceIso(timeWindow, now);
         const todayStr = now.toISOString().slice(0, 10);
 
         const [
@@ -630,87 +457,18 @@ class SupabaseService {
                 .single(),
         ]);
 
-        const s = sessions ?? [];
-        const o = orders ?? [];
-        const d = dishes ?? [];
-        const allSubs = subs ?? [];
-        const allSubOrders = subOrders ?? [];
-        const allPlans = plans ?? [];
-        const currency = (restaurant as { currency?: string } | null)?.currency ?? "USD";
-
-        // Revenue
-        const totalRevenue = o.reduce((sum, ord) => sum + Number(ord.total_amount), 0);
-        const orderCount = o.length;
-        const avgOrderValue = orderCount > 0 ? totalRevenue / orderCount : 0;
-
-        type OrderItem = { dishId: string; name: string; price: number; quantity: number };
-        const dishRevenueMap = new Map<string, { name: string; revenue: number; units: number }>();
-        o.forEach((ord) => {
-            (Array.isArray(ord.items) ? ord.items as OrderItem[] : []).forEach((item) => {
-                const cur = dishRevenueMap.get(item.dishId) ?? { name: item.name, revenue: 0, units: 0 };
-                cur.revenue += item.price * item.quantity;
-                cur.units += item.quantity;
-                dishRevenueMap.set(item.dishId, cur);
-            });
-        });
-        const topDishRevenue = Array.from(dishRevenueMap.values())
-            .sort((a, b) => b.revenue - a.revenue)
-            .slice(0, 5);
-
-        // Engagement
-        const totalViews = s.length;
-        const engagedViews = s.filter((ws) => Number(ws.duration) > 5).length;
-        const engagementRate = totalViews > 0 ? (engagedViews / totalViews) * 100 : 0;
-        const avgWatchDuration = totalViews > 0 ? s.reduce((sum, ws) => sum + Number(ws.duration), 0) / totalViews : 0;
-        const completionRate = totalViews > 0 ? (s.filter((ws) => ws.completed).length / totalViews) * 100 : 0;
-
-        const dishViewMap = new Map<string, { views: number; completions: number }>();
-        s.forEach((ws) => {
-            const cur = dishViewMap.get(ws.dish_id) ?? { views: 0, completions: 0 };
-            cur.views++;
-            if (ws.completed) cur.completions++;
-            dishViewMap.set(ws.dish_id, cur);
-        });
-
-        const dishOrderMap = new Map<string, number>();
-        o.forEach((ord) => {
-            (Array.isArray(ord.items) ? ord.items as OrderItem[] : []).forEach((item) => {
-                dishOrderMap.set(item.dishId, (dishOrderMap.get(item.dishId) ?? 0) + item.quantity);
-            });
-        });
-
-        const dishPerf = Array.from(dishViewMap.entries()).map(([id, stats]) => ({
-            name: d.find((dish) => dish.id === id)?.name ?? "Unknown",
-            views: stats.views,
-            conversionRate: stats.views > 0 ? ((dishOrderMap.get(id) ?? 0) / stats.views) * 100 : 0,
-        }));
-        const topDishes = [...dishPerf].sort((a, b) => b.views - a.views).slice(0, 3);
-        const lowConversionDishes = dishPerf
-            .filter((dp) => dp.views >= 3)
-            .sort((a, b) => a.conversionRate - b.conversionRate)
-            .slice(0, 3);
-
-        // Subscriptions
-        const active = allSubs.filter((sub) => sub.status === "active").length;
-        const paused = allSubs.filter((sub) => sub.status === "paused").length;
-        const cancelled = allSubs.filter((sub) => sub.status === "cancelled").length;
-        const deliveredOrders = allSubOrders.filter((subOrd) => subOrd.status === "delivered").length;
-        const totalSubOrders = allSubOrders.length;
-        const deliveryRate = totalSubOrders > 0 ? (deliveredOrders / totalSubOrders) * 100 : 0;
-        const planBreakdown = allPlans.map((p) => {
-            const count = allSubs.filter((sub) => sub.plan_id === p.id && sub.status === "active").length;
-            return { planName: p.name, count, monthlyRevenue: count * Number(p.price_monthly) };
-        });
-
-        return {
-            period: timeWindow,
+        return buildAnalyticsReport({
+            timeWindow,
             generatedAt: now.toISOString(),
-            currency,
-            revenue: { total: totalRevenue, avgOrderValue, orderCount, topDishRevenue },
-            engagement: { totalViews, engagementRate, avgWatchDuration, completionRate, topDishes, lowConversionDishes },
-            subscriptions: { active, paused, cancelled, totalOrders: totalSubOrders, deliveredOrders, deliveryRate, planBreakdown },
-            customers: { total: allSubs.length, newThisPeriod: allSubs.filter((sub) => sub.created_at >= since).length },
-        };
+            currency: (restaurant as { currency?: string } | null)?.currency ?? "USD",
+            since,
+            sessions: sessions ?? [],
+            orders: orders ?? [],
+            dishes: dishes ?? [],
+            subscriptions: subs ?? [],
+            subOrders: subOrders ?? [],
+            plans: plans ?? [],
+        });
     }
 
     // ── CSV Export ───────────────────────────────────────────────────────────────
@@ -961,45 +719,20 @@ class SupabaseService {
         planId?: string,
     ): Promise<string> {
         const rid = await getRestaurantId();
-        const row = {
-            restaurant_id: rid,
-            name: plan.name,
-            description: plan.description,
-            price_monthly: plan.priceMonthly,
-            delivery_fee: plan.deliveryFee,
-            is_active: plan.isActive,
-        };
-
-        let id = planId;
-        if (id) {
-            const { error } = await supabase.from("meal_plans").update(row).eq("id", id);
-            if (error) throw error;
-        } else {
-            const { data, error } = await supabase.from("meal_plans").insert({ ...row }).select("id").single();
-            if (error || !data) throw error ?? new Error("Failed to create plan");
-            id = data.id;
-        }
-
-        // Sync dish links: upsert new, delete removed (two-step to avoid gap)
-        const newLinks = plan.dishIds.map((dish_id) => ({ plan_id: id!, dish_id }));
-        if (newLinks.length > 0) {
-            const { error: upsertErr } = await supabase
-                .from("meal_plan_dishes")
-                .upsert(newLinks, { onConflict: "plan_id,dish_id" });
-            if (upsertErr) throw upsertErr;
-        }
-        // Delete links for dishes no longer in the plan
-        if (plan.dishIds.length > 0) {
-            await supabase
-                .from("meal_plan_dishes")
-                .delete()
-                .eq("plan_id", id!)
-                .not("dish_id", "in", `(${plan.dishIds.join(",")})`);
-        } else {
-            await supabase.from("meal_plan_dishes").delete().eq("plan_id", id!);
-        }
-
-        return id!;
+        const id = await upsertMealPlanRow(
+            supabase,
+            rid,
+            {
+                name: plan.name,
+                description: plan.description,
+                priceMonthly: plan.priceMonthly,
+                deliveryFee: plan.deliveryFee,
+                isActive: plan.isActive,
+            },
+            planId,
+        );
+        await syncMealPlanDishLinks(supabase, id, plan.dishIds);
+        return id;
     }
 
     async deleteMealPlan(planId: string): Promise<void> {

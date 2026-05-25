@@ -12,15 +12,11 @@
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sendMail } from "../lib/mailer";
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface SoldOutPayload {
-    to: string;
-    restaurantName: string;
-    dishName: string;
-    reason: "stock" | "manual";
-}
+import {
+    parseSoldOutPayload,
+    rejectUnlessPost,
+    soldOutEmailSubject,
+} from "./emailRequestHelpers";
 
 // ─── Retry helper ──────────────────────────────────────────────────────────────
 
@@ -98,41 +94,29 @@ function buildHtml(dishName: string, restaurantName: string, reason: "stock" | "
 // ─── Handler ──────────────────────────────────────────────────────────────────
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-    if (req.method === "OPTIONS") {
-        res.setHeader("Access-Control-Allow-Origin", "*");
-        res.setHeader("Access-Control-Allow-Headers", "content-type, authorization");
-        return res.status(200).end();
-    }
+    if (rejectUnlessPost(req, res)) return;
 
-    if (req.method !== "POST") {
-        return res.status(405).json({ error: "Method not allowed" });
-    }
-
-    const { BREVO_SMTP_KEY, FROM_EMAIL } = process.env;
-
-    if (!BREVO_SMTP_KEY) {
+    if (!process.env.BREVO_SMTP_KEY) {
         console.error("sold-out-email: BREVO_SMTP_KEY not configured");
         return res.status(500).json({ error: "Email not configured" });
     }
 
-    const payload = req.body as Partial<SoldOutPayload>;
-    const { to, restaurantName, dishName, reason } = payload;
-
-    if (!to || !restaurantName || !dishName || !reason) {
-        return res.status(400).json({ error: "Missing required fields: to, restaurantName, dishName, reason" });
+    const payload = parseSoldOutPayload(req.body);
+    if (!payload) {
+        return res.status(400).json({
+            error: "Missing required fields: to, restaurantName, dishName, reason",
+        });
     }
 
-    const subject =
-        reason === "manual"
-            ? `[${restaurantName}] "${dishName}" marked as Sold Out`
-            : `[${restaurantName}] "${dishName}" is now Sold Out (stock depleted)`;
+    const { to, restaurantName, dishName, reason } = payload;
+    const { BREVO_SMTP_KEY, FROM_EMAIL } = process.env;
 
     try {
         await withRetry(() =>
             sendMail({
                 from: `Minute Menus <${FROM_EMAIL ?? "minutemenus@outlook.com"}>`,
                 to,
-                subject,
+                subject: soldOutEmailSubject(restaurantName, dishName, reason),
                 html: buildHtml(dishName, restaurantName, reason),
             }),
         );
