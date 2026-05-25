@@ -783,9 +783,35 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       .finally(() => setMenuLoading(false));
   };
 
-  // Load Initial Data
+  const loadRestaurantDetails = () => {
+    supabaseService.getRestaurantDetails().then(setRestaurantDetails).catch(console.error);
+  };
+
+  const loadDashboardMetrics = () => {
+    supabaseService.getAggregatedMetrics(timeWindow).then(setMetrics).catch(console.error);
+  };
+
+  const loadSubscriptionData = () => {
+    supabaseService.getMealPlans().then(setMealPlans).catch(console.error);
+    supabaseService.getCustomerSubscriptions().then(setCustomerSubs).catch(console.error);
+    supabaseService.getTomorrowsOrders().then(setTomorrowOrders).catch(console.error);
+    supabaseService.getDeliveryTickets().then(setDeliveryTickets).catch(console.error);
+    supabaseService.getRefundRequests().then(setRefundRequests).catch(console.error);
+  };
+
+  const loadCustomersData = () => {
+    supabaseService.getCustomerDirectory().then(setCustomerDirectory).catch(console.error);
+  };
+
+  const refreshViewData = (view: ViewMode) => {
+    if (view === "DASHBOARD") loadDashboardMetrics();
+    if (view === "MENU") loadMenuFromServer();
+    if (view === "CUSTOMERS") loadCustomersData();
+    if (view === "SUBSCRIPTIONS") loadSubscriptionData();
+  };
+
+  // Bootstrap restaurant row + shared owner context (once)
   useEffect(() => {
-    // One-time: ensure restaurant row exists, then load details for QR code
     supabase.auth.getUser().then(async ({ data }) => {
       const uid = data.user?.id;
       if (uid) {
@@ -795,34 +821,22 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           localStorage.removeItem("mm_pending_restaurant_name");
         } catch { /* already exists */ }
       }
-      // Load restaurant details only after ensuring the row exists
-      supabaseService.getRestaurantDetails().then(setRestaurantDetails).catch(console.error);
+      loadRestaurantDetails();
+      supabaseService.getTier().then(setUserTier).catch(console.error);
     });
+  }, []);
 
-    loadMenuFromServer();
-    refreshDashboardData();
+  // Load data only for the active tab
+  useEffect(() => {
+    refreshViewData(currentView);
+  }, [currentView, timeWindow]);
 
-    // Poll analytics/subscriptions only — menu is saved explicitly by the owner
-    const interval = setInterval(refreshDashboardData, 30000);
+  // Poll analytics/subscriptions only on tabs that use them
+  useEffect(() => {
+    if (currentView !== "DASHBOARD" && currentView !== "SUBSCRIPTIONS") return;
+    const interval = setInterval(() => refreshViewData(currentView), 30000);
     return () => clearInterval(interval);
-  }, [timeWindow]);
-
-  const refreshDashboardData = () => {
-    supabaseService.getTier().then(setUserTier).catch(console.error);
-    supabaseService
-      .getAggregatedMetrics(timeWindow)
-      .then(setMetrics)
-      .catch(console.error);
-    // Always refresh restaurant details to avoid stale currency/name data
-    supabaseService.getRestaurantDetails().then(setRestaurantDetails).catch(console.error);
-    // Subscription data
-    supabaseService.getMealPlans().then(setMealPlans).catch(console.error);
-    supabaseService.getCustomerSubscriptions().then(setCustomerSubs).catch(console.error);
-    supabaseService.getCustomerDirectory().then(setCustomerDirectory).catch(console.error);
-    supabaseService.getTomorrowsOrders().then(setTomorrowOrders).catch(console.error);
-    supabaseService.getDeliveryTickets().then(setDeliveryTickets).catch(console.error);
-    supabaseService.getRefundRequests().then(setRefundRequests).catch(console.error);
-  };
+  }, [currentView, timeWindow]);
 
   const handleUpgrade = () => {
     // TODO: Integrate Razorpay (India) / Clover (US/CA) payment here

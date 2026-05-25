@@ -72,26 +72,52 @@ export const createRestaurantContext = (client: SupabaseClient<Database>) => {
     const boundGenerateUniqueSlug = (baseName: string) =>
         generateUniqueSlug(client, baseName);
 
+    let cachedRestaurantId: string | null = null;
+    let cachedForUserId: string | null = null;
+    let inflightLookup: Promise<string> | null = null;
+
+    const clearRestaurantCache = (): void => {
+        cachedRestaurantId = null;
+        cachedForUserId = null;
+        inflightLookup = null;
+    };
+
     const getRestaurantId = async (): Promise<string> => {
         const { data: { user } } = await client.auth.getUser();
         if (!user) throw new Error("Not authenticated");
 
-        const { data, error } = await client
-            .from("restaurants")
-            .select("id")
-            .eq("owner_id", user.id)
-            .single();
-
-        if (error && error.code !== "PGRST116") {
-            throw new Error(`DB error: ${error.message}`);
+        if (cachedForUserId === user.id && cachedRestaurantId) {
+            return cachedRestaurantId;
         }
 
-        if (!data) {
-            return bootstrapRestaurant(client, user.id, boundGenerateUniqueSlug);
-        }
+        if (inflightLookup) return inflightLookup;
 
-        return data.id;
+        inflightLookup = (async () => {
+            const { data, error } = await client
+                .from("restaurants")
+                .select("id")
+                .eq("owner_id", user.id)
+                .single();
+
+            if (error && error.code !== "PGRST116") {
+                throw new Error(`DB error: ${error.message}`);
+            }
+
+            const restaurantId = data
+                ? data.id
+                : await bootstrapRestaurant(client, user.id, boundGenerateUniqueSlug);
+
+            cachedRestaurantId = restaurantId;
+            cachedForUserId = user.id;
+            return restaurantId;
+        })();
+
+        try {
+            return await inflightLookup;
+        } finally {
+            inflightLookup = null;
+        }
     };
 
-    return { getRestaurantId, generateUniqueSlug: boundGenerateUniqueSlug };
+    return { getRestaurantId, generateUniqueSlug: boundGenerateUniqueSlug, clearRestaurantCache };
 };
