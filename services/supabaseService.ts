@@ -10,21 +10,39 @@
  *   const menu = await supabaseService.getMenu();
  */
 
-import type { Json } from "../lib/database.types";
-import { supabase } from "../lib/supabase";
-import { persistMenu } from "./menuPersistence";
-import { syncMealPlanDishLinks, upsertMealPlanRow } from "./mealPlanPersistence";
-import { buildAggregatedMetrics } from "./metrics/aggregatedMetrics";
-import { buildAnalyticsReport } from "./metrics/analyticsReport";
-import { sinceIso } from "./metrics/timeWindow";
+import { createLogger } from "@minute-menus/logger";
+import { persistMenu } from "@minute-menus/menu-persistence";
+import { buildAggregatedMetrics, buildAnalyticsReport, sinceIso } from "@minute-menus/metrics";
 import type {
     AggregatedMetrics,
+    AnalyticsReport,
     Category,
+    CustomerAddress,
+    CustomerDirectoryEntry,
+    CustomerProfile,
+    CustomerSubscription,
+    DailyOrder,
+    DailyOrderStatus,
+    DeliveryFeeMode,
+    DeliveryTicket,
     Dish,
+    MealPlan,
     OrderItem,
-    UserTier,
+    RefundRequest,
+    RefundStatus,
+    SubDeliveryType,
+    SubStatus,
+    TicketReason,
+    TicketStatus,
+    TimeSlot,
     WatchSession,
-} from "../types";
+} from "@minute-menus/types";
+import { UserTier } from "@minute-menus/types";
+import type { Json } from "@minute-menus/types/db";
+import { supabase } from "../lib/supabase";
+import { syncMealPlanDishLinks, upsertMealPlanRow } from "./mealPlanPersistence";
+
+const log = createLogger("supabaseService");
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -169,7 +187,7 @@ const mapDailyOrders = (
         status: string; cancelled_by: string | null;
         cancellation_reason: string | null; created_at: string; updated_at: string;
     }>,
-): import("../types").DailyOrder[] =>
+): DailyOrder[] =>
     rows.map((r) => ({
         id: r.id,
         subscriptionId: r.subscription_id,
@@ -177,7 +195,7 @@ const mapDailyOrders = (
         deliveryDate: r.delivery_date,
         dishId: r.dish_id ?? undefined,
         dishName: r.dish_name,
-        status: r.status as import("../types").DailyOrderStatus,
+        status: r.status as DailyOrderStatus,
         cancelledBy: r.cancelled_by ?? undefined,
         cancellationReason: r.cancellation_reason ?? undefined,
         createdAt: r.created_at,
@@ -255,7 +273,7 @@ class SupabaseService {
                 }),
             });
         } catch (err) {
-            console.error("sendSoldOutEmail failed:", err);
+            log.error("sendSoldOutEmail failed", { message: String(err) });
         }
     }
 
@@ -296,7 +314,7 @@ class SupabaseService {
             duration: session.duration,
             completed: session.completed,
         });
-        if (error) console.error("Failed to record watch session:", error.message);
+        if (error) log.error("Failed to record watch session", { message: error.message });
     }
 
     async recordOrder(
@@ -316,7 +334,7 @@ class SupabaseService {
             time_to_order: timeToOrder,
             status: "pending",
         });
-        if (error) console.error("Failed to record order:", error.message);
+        if (error) log.error("Failed to record order", { message: error.message });
 
         // Update daily sold counts for each ordered dish (upsert per dish+date)
         const today = new Date().toISOString().slice(0, 10);
@@ -349,14 +367,11 @@ class SupabaseService {
             .eq("restaurant_id", rid)
             .single();
 
-        // Dynamic import to avoid circular dependency with types
-        const { UserTier } = await import("../types");
         return data?.tier === "plus" ? UserTier.PLUS : UserTier.FREE;
     }
 
     async setTier(tier: UserTier, restaurantId?: string): Promise<void> {
         const rid = restaurantId ?? (await getRestaurantId());
-        const { UserTier } = await import("../types");
         await supabase
             .from("subscriptions")
             .upsert(
@@ -408,7 +423,7 @@ class SupabaseService {
 
     async buildAnalyticsReport(
         timeWindow: "24h" | "7d" | "30d" = "24h",
-    ): Promise<import("../types").AnalyticsReport> {
+    ): Promise<AnalyticsReport> {
         const rid = await getRestaurantId();
         const now = new Date();
         const since = sinceIso(timeWindow, now);
@@ -680,7 +695,7 @@ class SupabaseService {
 
     // ── Meal Plan Management (owner) ────────────────────────────────────────────
 
-    async getMealPlans(restaurantId?: string): Promise<import("../types").MealPlan[]> {
+    async getMealPlans(restaurantId?: string): Promise<MealPlan[]> {
         const rid = restaurantId ?? (await getRestaurantId());
 
         const { data: plans, error: planErr } = await supabase
@@ -715,7 +730,7 @@ class SupabaseService {
     }
 
     async saveMealPlan(
-        plan: Omit<import("../types").MealPlan, "id" | "restaurantId" | "createdAt">,
+        plan: Omit<MealPlan, "id" | "restaurantId" | "createdAt">,
         planId?: string,
     ): Promise<string> {
         const rid = await getRestaurantId();
@@ -742,7 +757,7 @@ class SupabaseService {
 
     // ── Owner: Subscription Operations ─────────────────────────────────────────
 
-    async getCustomerSubscriptions(restaurantId?: string): Promise<import("../types").CustomerSubscription[]> {
+    async getCustomerSubscriptions(restaurantId?: string): Promise<CustomerSubscription[]> {
         const rid = restaurantId ?? (await getRestaurantId());
         const { data, error } = await supabase
             .from("customer_subscriptions")
@@ -760,10 +775,10 @@ class SupabaseService {
             customerName: s.customer_name,
             phone: s.phone,
             email: s.email ?? undefined,
-            deliveryType: s.delivery_type as import("../types").SubDeliveryType,
-            deliveryFeeMode: ((s as unknown as Record<string, unknown>).delivery_fee_mode ?? "cash_on_delivery") as import("../types").DeliveryFeeMode,
-            timeSlot: s.time_slot as import("../types").TimeSlot,
-            status: s.status as import("../types").SubStatus,
+            deliveryType: s.delivery_type as SubDeliveryType,
+            deliveryFeeMode: ((s as unknown as Record<string, unknown>).delivery_fee_mode ?? "cash_on_delivery") as DeliveryFeeMode,
+            timeSlot: s.time_slot as TimeSlot,
+            status: s.status as SubStatus,
             pauseUntil: s.pause_until ?? undefined,
             pausedDaysUsed: s.paused_days_used,
             startDate: s.start_date,
@@ -773,7 +788,7 @@ class SupabaseService {
         }));
     }
 
-    async getCustomerDirectory(restaurantId?: string): Promise<import("../types").CustomerDirectoryEntry[]> {
+    async getCustomerDirectory(restaurantId?: string): Promise<CustomerDirectoryEntry[]> {
         const rid = restaurantId ?? (await getRestaurantId());
 
         const [{ data: subs, error: subErr }, { data: orders }] = await Promise.all([
@@ -807,7 +822,7 @@ class SupabaseService {
             phone: s.phone,
             email: s.email ?? null,
             planName: (s as unknown as { meal_plans?: { name?: string } }).meal_plans?.name ?? "—",
-            subStatus: s.status as import("../types").SubStatus,
+            subStatus: s.status as SubStatus,
             totalOrders: statsMap.get(s.id)?.total ?? 0,
             deliveredOrders: statsMap.get(s.id)?.delivered ?? 0,
             lastActiveDate: statsMap.get(s.id)?.lastDate ?? null,
@@ -815,7 +830,7 @@ class SupabaseService {
         }));
     }
 
-    async getTomorrowsOrders(restaurantId?: string): Promise<import("../types").DailyOrder[]> {
+    async getTomorrowsOrders(restaurantId?: string): Promise<DailyOrder[]> {
         const rid = restaurantId ?? (await getRestaurantId());
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
@@ -872,11 +887,11 @@ class SupabaseService {
                     customerEmail: sub.data?.email ?? null,
                     customerName: sub.data?.customer_name ?? null,
                 }),
-            }).catch(console.error);
+            }).catch((err) => log.error("cancel notification email failed", { message: String(err) }));
         }
     }
 
-    async getDeliveryTickets(restaurantId?: string): Promise<import("../types").DeliveryTicket[]> {
+    async getDeliveryTickets(restaurantId?: string): Promise<DeliveryTicket[]> {
         const rid = restaurantId ?? (await getRestaurantId());
         const { data, error } = await supabase
             .from("delivery_tickets")
@@ -891,9 +906,9 @@ class SupabaseService {
             subscriptionId: t.subscription_id,
             dailyOrderId: t.daily_order_id,
             restaurantId: t.restaurant_id,
-            reason: t.reason as import("../types").TicketReason,
+            reason: t.reason as TicketReason,
             notes: t.notes ?? undefined,
-            status: t.status as import("../types").TicketStatus,
+            status: t.status as TicketStatus,
             createdAt: t.created_at,
             adjustments: ((t as unknown as { delivery_adjustments?: Array<{ id: string; ticket_id: string; notes: string; created_at: string }> }).delivery_adjustments ?? []).map((a) => ({
                 id: a.id,
@@ -917,7 +932,7 @@ class SupabaseService {
         if (adjErr) throw adjErr;
     }
 
-    async getRefundRequests(restaurantId?: string): Promise<import("../types").RefundRequest[]> {
+    async getRefundRequests(restaurantId?: string): Promise<RefundRequest[]> {
         const rid = restaurantId ?? (await getRestaurantId());
         const { data, error } = await supabase
             .from("subscription_refund_requests")
@@ -933,7 +948,7 @@ class SupabaseService {
             restaurantId: r.restaurant_id,
             reason: r.reason,
             amount: r.amount,
-            status: r.status as import("../types").RefundStatus,
+            status: r.status as RefundStatus,
             restaurantNotes: r.restaurant_notes ?? undefined,
             createdAt: r.created_at,
             processedAt: r.processed_at ?? undefined,
@@ -942,7 +957,7 @@ class SupabaseService {
 
     async updateRefundStatus(
         refundId: string,
-        status: import("../types").RefundStatus,
+        status: RefundStatus,
         notes?: string,
     ): Promise<void> {
         const update: Record<string, unknown> = { status };
@@ -961,7 +976,7 @@ class SupabaseService {
     async getCustomerSubscription(
         phone: string,
         restaurantId: string,
-    ): Promise<import("../types").CustomerSubscription | null> {
+    ): Promise<CustomerSubscription | null> {
         const { data } = await supabase
             .from("customer_subscriptions")
             .select("*, meal_plans(name)")
@@ -979,10 +994,10 @@ class SupabaseService {
             customerName: data.customer_name,
             phone: data.phone,
             email: data.email ?? undefined,
-            deliveryType: data.delivery_type as import("../types").SubDeliveryType,
-            deliveryFeeMode: ((data as unknown as Record<string, unknown>).delivery_fee_mode ?? "cash_on_delivery") as import("../types").DeliveryFeeMode,
-            timeSlot: data.time_slot as import("../types").TimeSlot,
-            status: data.status as import("../types").SubStatus,
+            deliveryType: data.delivery_type as SubDeliveryType,
+            deliveryFeeMode: ((data as unknown as Record<string, unknown>).delivery_fee_mode ?? "cash_on_delivery") as DeliveryFeeMode,
+            timeSlot: data.time_slot as TimeSlot,
+            status: data.status as SubStatus,
             pauseUntil: data.pause_until ?? undefined,
             pausedDaysUsed: data.paused_days_used,
             startDate: data.start_date,
@@ -998,9 +1013,9 @@ class SupabaseService {
         customerName: string;
         phone: string;
         email?: string;
-        deliveryType: import("../types").SubDeliveryType;
-        deliveryFeeMode: import("../types").DeliveryFeeMode;
-        timeSlot: import("../types").TimeSlot;
+        deliveryType: SubDeliveryType;
+        deliveryFeeMode: DeliveryFeeMode;
+        timeSlot: TimeSlot;
         rotationDishIds?: string[];
     }): Promise<string> {
         const startDate = new Date().toISOString().slice(0, 10);
@@ -1078,7 +1093,7 @@ class SupabaseService {
         if (error) throw new Error(error.message);
     }
 
-    async getCustomerDailyOrders(subscriptionId: string, fromDate: string): Promise<import("../types").DailyOrder[]> {
+    async getCustomerDailyOrders(subscriptionId: string, fromDate: string): Promise<DailyOrder[]> {
         const { data, error } = await supabase
             .from("subscription_daily_orders")
             .select("*")
@@ -1094,7 +1109,7 @@ class SupabaseService {
         subscriptionId: string;
         dailyOrderId: string;
         restaurantId: string;
-        reason: import("../types").TicketReason;
+        reason: TicketReason;
         notes?: string;
     }): Promise<void> {
         const { error } = await supabase.from("delivery_tickets").insert({
@@ -1137,7 +1152,7 @@ class SupabaseService {
     /**
      * Sign in existing customer with email and password.
      */
-    async customerSignIn(email: string, password: string): Promise<{ userId: string; profile: import("../types").CustomerProfile | null }> {
+    async customerSignIn(email: string, password: string): Promise<{ userId: string; profile: CustomerProfile | null }> {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         if (!data.user) throw new Error("Login failed");
@@ -1209,7 +1224,7 @@ class SupabaseService {
     /**
      * Get customer profile by user ID.
      */
-    async getCustomerProfile(userId: string): Promise<import("../types").CustomerProfile | null> {
+    async getCustomerProfile(userId: string): Promise<CustomerProfile | null> {
         const { data, error } = await supabase
             .from("customer_profiles")
             .select("*")
@@ -1245,7 +1260,7 @@ class SupabaseService {
     /**
      * Update customer profile (phone, name, address).
      */
-    async updateCustomerProfile(userId: string, updates: Partial<import("../types").CustomerAddress> & { phone?: string; name?: string }): Promise<void> {
+    async updateCustomerProfile(userId: string, updates: Partial<CustomerAddress> & { phone?: string; name?: string }): Promise<void> {
         const { error } = await supabase.from("customer_profiles")
             .update({
                 phone: updates.phone,
@@ -1272,7 +1287,7 @@ class SupabaseService {
      * Ensure customer profile exists after Google OAuth callback.
      * Creates profile if not exists, otherwise returns existing.
      */
-    async ensureCustomerProfile(): Promise<import("../types").CustomerProfile | null> {
+    async ensureCustomerProfile(): Promise<CustomerProfile | null> {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return null;
 
@@ -1294,7 +1309,7 @@ class SupabaseService {
     /**
      * Check if customer profile has required fields for checkout.
      */
-    isProfileComplete(profile: import("../types").CustomerProfile | null): boolean {
+    isProfileComplete(profile: CustomerProfile | null): boolean {
         if (!profile) return false;
         return !!(
             profile.emailVerified &&

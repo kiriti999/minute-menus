@@ -10,6 +10,7 @@
  *   FROM_EMAIL      — verified sender address
  */
 
+import { createLogger } from "@minute-menus/logger";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sendMail } from "../lib/mailer";
 import {
@@ -17,6 +18,8 @@ import {
     rejectUnlessPost,
     soldOutEmailSubject,
 } from "./emailRequestHelpers";
+
+const log = createLogger("sold-out-email");
 
 // ─── Retry helper ──────────────────────────────────────────────────────────────
 
@@ -97,7 +100,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (rejectUnlessPost(req, res)) return;
 
     if (!process.env.BREVO_SMTP_KEY) {
-        console.error("sold-out-email: BREVO_SMTP_KEY not configured");
+        log.error("BREVO_SMTP_KEY not configured");
         return res.status(500).json({ error: "Email not configured" });
     }
 
@@ -124,7 +127,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ ok: true });
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        console.error("sold-out-email: all retries exhausted —", message);
+        log.error("all retries exhausted", { message });
         return res.status(502).json({ error: "Failed to send email after retries", detail: message });
     }
 }

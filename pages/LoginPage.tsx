@@ -1,6 +1,7 @@
-import { Building2, Eye, EyeOff, Loader2, Lock, Mail } from "lucide-react";
+import { Building2, Eye, EyeOff, Lock, Mail } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
+import { ButtonSpinner } from "@minute-menus/ui";
 import { supabase } from "../lib/supabase";
 
 interface LoginPageProps {
@@ -171,13 +172,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             disabled={isLoading}
             className="w-full bg-white hover:bg-zinc-200 text-black font-bold py-3 px-4 rounded-lg transition-all duration-200 shadow-lg active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed mt-2"
           >
-            {isLoading ? (
-              <Loader2 className="animate-spin mx-auto" size={20} />
-            ) : isSignUp ? (
-              "Sign Up"
-            ) : (
-              "Log In"
-            )}
+            <ButtonSpinner loading={isLoading} spinnerSize="md">
+              {isSignUp ? "Sign Up" : "Log In"}
+            </ButtonSpinner>
           </button>
         </form>
 

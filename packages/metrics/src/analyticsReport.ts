@@ -1,4 +1,4 @@
-import type { AnalyticsReport } from "../../types";
+import type { AnalyticsReport } from "@minute-menus/types";
 import type { MetricsTimeWindow } from "./timeWindow";
 
 export type ReportOrderRow = {

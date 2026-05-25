@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "../lib/database.types";
-import { toError } from "../lib/errorMessage";
-import type { Category } from "../types";
+import type { Category } from "@minute-menus/types";
+import type { Database } from "@minute-menus/types/db";
+import { throwStepError } from "./errors";
 
 const UUID_RE =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -42,10 +42,6 @@ const toDishRows = (categories: Category[], restaurantId: string) =>
             manual_sold_out: dish.manualSoldOut ?? false,
         })),
     );
-
-const throwStepError = (step: string, err: unknown): never => {
-    throw toError(err, `${step} failed`);
-};
 
 const deleteMissingIds = async (
     client: SupabaseClient<Database>,

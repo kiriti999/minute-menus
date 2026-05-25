@@ -13,8 +13,11 @@
  *   VITE_SUPABASE_URL / SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  */
 
+import { createLogger } from "@minute-menus/logger";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { supabaseAdmin } from "../../lib/supabase-admin";
+
+const log = createLogger("auto-deliver");
 
 const VALID_SLOTS = ["08-09", "12-14", "19-21"] as const;
 type Slot = (typeof VALID_SLOTS)[number];
@@ -51,7 +54,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .select("id");
 
     if (error) {
-        console.error("auto-deliver: DB error", error.message);
+        log.error("DB error", { message: error.message });
         return res.status(500).json({ error: error.message });
     }
 

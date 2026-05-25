@@ -80,7 +80,13 @@ import {
   TICKET_REASON_LABELS,
   TIME_SLOT_LABELS,
   UserTier,
-} from "../types";
+} from "@minute-menus/types";
+import {
+  ButtonSpinner,
+  InlineLoader,
+  PanelLoader,
+  SaveChangesButton,
+} from "@minute-menus/ui";
 
 type ViewMode = "DASHBOARD" | "MENU" | "CUSTOMERS" | "SUBSCRIPTIONS";
 type SubTab = "plans" | "subscribers" | "tomorrow" | "tickets" | "refunds";
@@ -1741,25 +1747,13 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
               <div className="flex items-center gap-3 self-end md:self-auto">
                 {/* Unsaved changes pill */}
-                {(unsavedChanges || isSavingMenu) && (
-                  <button
-                    onClick={handleSaveAll}
-                    disabled={isSavingMenu}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold tracking-widest transition-all animate-in fade-in duration-300 disabled:opacity-80 ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200 shadow-[0_0_20px_rgba(255,255,255,0.25)]' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-lg'}`}
-                  >
-                    {isSavingMenu ? (
-                      <>
-                        <Loader2 size={13} className="animate-spin" />
-                        SAVING…
-                      </>
-                    ) : (
-                      <>
-                        <Save size={13} />
-                        SAVE CHANGES
-                      </>
-                    )}
-                  </button>
-                )}
+                <SaveChangesButton
+                  visible={unsavedChanges || isSavingMenu}
+                  isSaving={isSavingMenu}
+                  onClick={handleSaveAll}
+                  saveIcon={<Save size={13} />}
+                  className={isDarkTheme ? 'bg-white text-black hover:bg-zinc-200 shadow-[0_0_20px_rgba(255,255,255,0.25)]' : 'bg-zinc-900 text-white hover:bg-zinc-800 shadow-lg'}
+                />
 
                 <button
                   onClick={() => setIsQrModalOpen(true)}
@@ -1789,10 +1783,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             <div className={`px-4 md:px-8 pt-6 pb-0 border-b ${isDarkTheme ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-100 border-zinc-300'}`}>
               <div className="flex items-center gap-1 overflow-x-auto">
                 {menuLoading ? (
-                  <span className={`text-sm flex items-center gap-2 mr-4 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>
-                    <Loader2 size={14} className="animate-spin" />
-                    Loading menu…
-                  </span>
+                  <InlineLoader
+                    label="Loading menu…"
+                    className={`mr-4 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}
+                  />
                 ) : menuItems.length === 0 ? (
                   <span className={`text-sm italic mr-4 ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-500'}`}>No categories yet — click + to add one</span>
                 ) : null}
@@ -1891,10 +1885,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
             {/* Items Grid or Empty State */}
             {menuLoading ? (
-              <div className="flex flex-col items-center justify-center py-32 px-8 text-center">
-                <Loader2 size={36} className={`animate-spin mb-4 ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-500'}`} />
-                <p className={`text-sm font-medium ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>Loading your menu…</p>
-              </div>
+              <PanelLoader
+                label="Loading your menu…"
+                labelClassName={`text-sm font-medium ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}
+                spinnerClassName={`mb-4 ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-500'}`}
+              />
             ) : menuItems.length === 0 ? (
               /* ── Full empty state: no categories at all ── */
               <div className="flex flex-col items-center justify-center py-24 px-8 text-center">

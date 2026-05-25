@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { AnalyticsReport } from "../types";
+import type { AnalyticsReport } from "@minute-menus/types";
 
 const getClient = (): Anthropic =>
   new Anthropic({

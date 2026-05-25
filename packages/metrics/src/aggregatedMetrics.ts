@@ -1,4 +1,4 @@
-import type { AggregatedMetrics, DishPerformance } from "../../types";
+import type { AggregatedMetrics, DishPerformance } from "@minute-menus/types";
 import {
     type MetricsTimeWindow,
     TIME_WINDOW_MS,

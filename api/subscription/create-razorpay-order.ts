@@ -9,9 +9,12 @@
  *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  */
 
+import { createLogger } from "@minute-menus/logger";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Razorpay from "razorpay";
 import { supabaseAdmin } from "../../lib/supabase-admin";
+
+const log = createLogger("subscription/create-razorpay-order");
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== "POST") {
@@ -60,7 +63,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json({ orderId: order.id, amount: amountPaise, currency: "INR", keyId: RAZORPAY_KEY_ID });
     } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        console.error("create-razorpay-order:", msg);
+        log.error("create payment order failed", { message: msg });
         return res.status(502).json({ error: "Failed to create payment order", detail: msg });
     }
 }

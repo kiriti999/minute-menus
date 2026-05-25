@@ -31,8 +31,9 @@ import { ReelCard } from "../components/ReelCard";
 import { formatPriceInCurrency } from "../lib/currency";
 import { supabaseService } from "../services/supabaseService";
 import { supabase } from "../lib/supabase";
-import type { Category, CustomerProfile, CustomerSubscription, DailyOrder, Dish, MealPlan, OrderItem, SubDeliveryType, DeliveryFeeMode, TicketReason, TimeSlot } from "../types";
-import { TICKET_REASON_LABELS, TIME_SLOT_LABELS } from "../types";
+import { ButtonSpinner } from "@minute-menus/ui";
+import type { Category, CustomerProfile, CustomerSubscription, DailyOrder, Dish, MealPlan, OrderItem, SubDeliveryType, DeliveryFeeMode, TicketReason, TimeSlot } from "@minute-menus/types";
+import { TICKET_REASON_LABELS, TIME_SLOT_LABELS } from "@minute-menus/types";
 
 interface CustomerAppProps {
   onNavigateToDashboard: () => void;
@@ -1081,7 +1082,9 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                     disabled={authLoading}
                     className="w-full py-3.5 bg-white text-black rounded font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {authLoading ? <Loader2 className="animate-spin" size={18} /> : (isSignUp ? "SIGN UP" : "LOG IN")}
+                    <ButtonSpinner loading={authLoading} spinnerSize="sm">
+                      {isSignUp ? "SIGN UP" : "LOG IN"}
+                    </ButtonSpinner>
                   </button>
 
                   <div className="relative my-4">
@@ -1128,7 +1131,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                     disabled={authLoading || otpCode.length < 6}
                     className="w-full py-3.5 bg-white text-black rounded font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {authLoading ? <Loader2 className="animate-spin" size={18} /> : "VERIFY"}
+                    <ButtonSpinner loading={authLoading} spinnerSize="sm">VERIFY</ButtonSpinner>
                   </button>
                   <p className="text-center text-zinc-500 text-sm">
                     Didn't receive the code?{" "}
@@ -1247,7 +1250,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                     disabled={authLoading}
                     className="w-full py-3.5 bg-white text-black rounded font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mt-4"
                   >
-                    {authLoading ? <Loader2 className="animate-spin" size={18} /> : "PROCEED TO PAY"}
+                    <ButtonSpinner loading={authLoading} spinnerSize="sm">PROCEED TO PAY</ButtonSpinner>
                   </button>
                 </div>
               )}

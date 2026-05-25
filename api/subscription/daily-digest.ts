@@ -9,9 +9,12 @@
  *   SMTP_USER, SMTP_PASS
  */
 
+import { createLogger } from "@minute-menus/logger";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sendMail } from "../../lib/mailer";
 import { supabaseAdmin } from "../../lib/supabase-admin";
+
+const log = createLogger("daily-digest");
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
     const tomorrow = new Date();
@@ -38,7 +41,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
         .eq("status", "pending");
 
     if (error) {
-        console.error("daily-digest: DB error", error.message);
+        log.error("DB error", { message: error.message });
         return res.status(500).json({ error: error.message });
     }
 
@@ -136,7 +139,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
             });
             sent++;
         } catch (e) {
-            console.error("daily-digest: email send failed for", restaurantId, e);
+            log.error("email send failed", { restaurantId, message: String(e) });
         }
     }
 

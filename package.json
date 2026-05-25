@@ -14,6 +14,8 @@
   },
   "dependencies": {
     "@minute-menus/logger": "workspace:*",
+    "@minute-menus/menu-persistence": "workspace:*",
+    "@minute-menus/metrics": "workspace:*",
     "@minute-menus/types": "workspace:*",
     "@minute-menus/ui": "workspace:*",
     "@anthropic-ai/sdk": "^0.78.0",

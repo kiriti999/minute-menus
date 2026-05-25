@@ -1,5 +1,5 @@
 
-import { Category, Dish, UserTier, WatchSession, AggregatedMetrics, Order, OrderItem, DishPerformance } from './types';
+import { Category, Dish, UserTier, WatchSession, AggregatedMetrics, Order, OrderItem, DishPerformance } from '@minute-menus/types';
 
 // --- Seed Data ---
 export const INITIAL_CATEGORIES: Category[] = [
