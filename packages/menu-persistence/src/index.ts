@@ -1,10 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { throwStepError } from "@minute-menus/errors";
 import type { Category } from "@minute-menus/types";
 import type { Database } from "@minute-menus/types/db";
-import { throwStepError } from "@minute-menus/errors";
+import { chunkArray } from "./chunk";
+import { uploadCategoryMedia } from "./mediaUpload";
 
 const UUID_RE =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const DISH_UPSERT_CHUNK = 20;
+const DELETE_CHUNK = 100;
+
+export { compressDataUrl, compressImageBlob, MAX_IMAGE_BYTES } from "./imageCompress";
 
 export const normalizeMenuIds = (categories: Category[]): Category[] =>
     categories.map((category) => ({
@@ -43,6 +50,16 @@ const toDishRows = (categories: Category[], restaurantId: string) =>
         })),
     );
 
+const upsertDishRows = async (
+    client: SupabaseClient<Database>,
+    rows: ReturnType<typeof toDishRows>,
+): Promise<void> => {
+    for (const batch of chunkArray(rows, DISH_UPSERT_CHUNK)) {
+        const { error } = await client.from("dishes").upsert(batch, { onConflict: "id" });
+        if (error) throwStepError("Save dishes", error);
+    }
+};
+
 const deleteMissingIds = async (
     client: SupabaseClient<Database>,
     table: "dishes" | "categories",
@@ -60,32 +77,34 @@ const deleteMissingIds = async (
         .filter((id) => !keptIds.has(id));
     if (idsToDelete.length === 0) return;
 
-    const { error: deleteErr } = await client.from(table).delete().in("id", idsToDelete);
-    if (deleteErr) throwStepError(`Delete removed ${table}`, deleteErr);
+    for (const batch of chunkArray(idsToDelete, DELETE_CHUNK)) {
+        const { error: deleteErr } = await client.from(table).delete().in("id", batch);
+        if (deleteErr) throwStepError(`Delete removed ${table}`, deleteErr);
+    }
 };
 
 export const persistMenu = async (
     client: SupabaseClient<Database>,
     restaurantId: string,
     categories: Category[],
-): Promise<void> => {
+): Promise<Category[]> => {
     const safeCategories = normalizeMenuIds(categories);
+    const withMedia = await uploadCategoryMedia(client, restaurantId, safeCategories);
 
     const { error: categoryErr } = await client
         .from("categories")
-        .upsert(toCategoryRows(safeCategories, restaurantId), { onConflict: "id" });
+        .upsert(toCategoryRows(withMedia, restaurantId), { onConflict: "id" });
     if (categoryErr) throwStepError("Save categories", categoryErr);
 
-    const { error: dishErr } = await client
-        .from("dishes")
-        .upsert(toDishRows(safeCategories, restaurantId), { onConflict: "id" });
-    if (dishErr) throwStepError("Save dishes", dishErr);
+    await upsertDishRows(client, toDishRows(withMedia, restaurantId));
 
     const keptDishIds = new Set(
-        safeCategories.flatMap((category) => category.items.map((dish) => dish.id)),
+        withMedia.flatMap((category) => category.items.map((dish) => dish.id)),
     );
     await deleteMissingIds(client, "dishes", restaurantId, keptDishIds);
 
-    const keptCategoryIds = new Set(safeCategories.map((category) => category.id));
+    const keptCategoryIds = new Set(withMedia.map((category) => category.id));
     await deleteMissingIds(client, "categories", restaurantId, keptCategoryIds);
+
+    return withMedia;
 };

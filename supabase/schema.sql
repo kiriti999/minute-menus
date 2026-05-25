@@ -783,3 +783,48 @@ create index if not exists idx_customer_profiles_user on customer_profiles(user_
 -- MIGRATION: run these on existing databases:
 -- CREATE TABLE IF NOT EXISTS customer_profiles (...);  -- full definition above
 -- ─────────────────────────────────────────────
+
+-- ─────────────────────────────────────────────
+-- 18. STORAGE — dish-media (reel videos / photos)
+-- Large uploads go to Storage; dishes table stores public URLs only.
+-- ─────────────────────────────────────────────
+insert into storage.buckets (id, name, public)
+values ('dish-media', 'dish-media', true)
+on conflict (id) do nothing;
+
+create policy "Public read dish media"
+  on storage.objects for select
+  using (bucket_id = 'dish-media');
+
+create policy "Owner upload dish media"
+  on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'dish-media'
+    and exists (
+      select 1 from restaurants r
+      where r.owner_id = auth.uid()
+        and split_part(name, '/', 1) = r.id::text
+    )
+  );
+
+create policy "Owner update dish media"
+  on storage.objects for update to authenticated
+  using (
+    bucket_id = 'dish-media'
+    and exists (
+      select 1 from restaurants r
+      where r.owner_id = auth.uid()
+        and split_part(name, '/', 1) = r.id::text
+    )
+  );
+
+create policy "Owner delete dish media"
+  on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'dish-media'
+    and exists (
+      select 1 from restaurants r
+      where r.owner_id = auth.uid()
+        and split_part(name, '/', 1) = r.id::text
+    )
+  );

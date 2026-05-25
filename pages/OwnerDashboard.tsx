@@ -62,6 +62,7 @@ import {
 } from "recharts";
 import { SUPPORTED_CURRENCIES, formatPriceInCurrency, getSymbolForCurrency } from "@minute-menus/currency";
 import { getErrorMessage } from "@minute-menus/errors";
+import { compressDataUrl } from "@minute-menus/menu-persistence";
 import { generateAnalyticsReport } from "@minute-menus/ai";
 import { supabaseService } from "../services/supabaseService";
 import { supabase } from "../lib/supabase";
@@ -507,6 +508,7 @@ const MediaEditor: React.FC<MediaEditorProps> = ({
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [isCompressing, setIsCompressing] = useState(false);
   const isVideo = file.type.startsWith("video/");
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -550,13 +552,26 @@ const MediaEditor: React.FC<MediaEditorProps> = ({
     setScale(newScale);
   };
 
-  const handleConfirm = () => {
-    if (!containerRef.current) return;
+  const handleConfirm = async () => {
+    if (!containerRef.current || isCompressing) return;
     const width = containerRef.current.clientWidth;
     const height = containerRef.current.clientHeight;
     const xPercent = (position.x / width) * 100;
     const yPercent = (position.y / height) * 100;
-    onSave(initialPreviewUrl, { x: xPercent, y: yPercent, scale: scale });
+    let processedUrl = initialPreviewUrl;
+
+    if (!isVideo) {
+      setIsCompressing(true);
+      try {
+        processedUrl = await compressDataUrl(initialPreviewUrl);
+      } catch (error) {
+        console.error("Image compression failed:", error);
+      } finally {
+        setIsCompressing(false);
+      }
+    }
+
+    onSave(processedUrl, { x: xPercent, y: yPercent, scale: scale });
   };
 
   return (
@@ -638,9 +653,17 @@ const MediaEditor: React.FC<MediaEditorProps> = ({
           <div className="mt-auto w-full flex flex-col items-center gap-4">
             <button
               onClick={handleConfirm}
-              className={`w-full md:w-[80%] lg:w-full h-12 font-bold text-sm rounded flex items-center justify-center transition-colors ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
+              disabled={isCompressing}
+              className={`w-full md:w-[80%] lg:w-full h-12 font-bold text-sm rounded flex items-center justify-center gap-2 transition-colors disabled:opacity-60 ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
             >
-              SAVE CHANGES
+              {isCompressing ? (
+                <>
+                  <ButtonSpinner />
+                  COMPRESSING…
+                </>
+              ) : (
+                "SAVE CHANGES"
+              )}
             </button>
             <button
               onClick={onCancel}
@@ -891,7 +914,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       // Auto-save deletion to database
       supabaseService
         .saveMenu(newMenu)
-        .then(() => setUnsavedChanges(false))
+        .then((saved) => {
+          setMenuItems(saved);
+          setUnsavedChanges(false);
+        })
         .catch((err: unknown) => {
           console.error("Delete save failed:", err);
           alert(`Failed to delete item: ${getErrorMessage(err)}`);
@@ -987,7 +1013,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const handleSaveAll = async () => {
     setIsSavingMenu(true);
     try {
-      await supabaseService.saveMenu(menuItems);
+      const saved = await supabaseService.saveMenu(menuItems);
+      setMenuItems(saved);
       setUnsavedChanges(false);
     } catch (err) {
       console.error("Save failed:", err);

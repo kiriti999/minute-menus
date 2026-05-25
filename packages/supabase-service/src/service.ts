@@ -62,9 +62,9 @@ export class SupabaseService {
         return rowsToCategoryTree(cats ?? [], dishes ?? []);
     }
 
-    async saveMenu(categories: Category[]): Promise<void> {
+    async saveMenu(categories: Category[]): Promise<Category[]> {
         const rid = await this.getRestaurantId();
-        await persistMenu(this.client, rid, categories);
+        return persistMenu(this.client, rid, categories);
     }
 
     /**
