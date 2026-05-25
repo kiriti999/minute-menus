@@ -1,0 +1,14 @@
+{
+  "name": "@minute-menus/ai",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@minute-menus/logger": "workspace:*",
+    "@minute-menus/types": "workspace:*"
+  }
+}

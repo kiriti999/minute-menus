@@ -1,6 +1,6 @@
 import React from 'react';
 import { Category, Dish } from "@minute-menus/types";
-import { ReelCard } from './ReelCard';
+import { ReelCard } from "./ReelCard";
 
 interface ReelStripProps {
   category: Category;

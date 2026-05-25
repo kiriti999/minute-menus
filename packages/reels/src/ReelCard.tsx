@@ -1,7 +1,7 @@
 import { Check, Plus, RefreshCw, Volume2, VolumeX } from "lucide-react";
 import type React from "react";
 import { useRef, useState } from "react";
-import { formatPriceCompactInCurrency } from "../lib/currency";
+import { formatPriceCompactInCurrency } from "@minute-menus/currency";
 import type { Dish } from "@minute-menus/types";
 
 interface ReelCardProps {

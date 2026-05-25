@@ -27,8 +27,8 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ReelCard } from "../components/ReelCard";
-import { formatPriceInCurrency } from "../lib/currency";
+import { formatPriceInCurrency } from "@minute-menus/currency";
+import { ReelCard } from "@minute-menus/reels";
 import { supabaseService } from "../services/supabaseService";
 import { supabase } from "../lib/supabase";
 import { ButtonSpinner } from "@minute-menus/ui";

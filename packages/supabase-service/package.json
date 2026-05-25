@@ -1,0 +1,17 @@
+{
+  "name": "@minute-menus/supabase-service",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@minute-menus/logger": "workspace:*",
+    "@minute-menus/meal-plan-persistence": "workspace:*",
+    "@minute-menus/menu-persistence": "workspace:*",
+    "@minute-menus/metrics": "workspace:*",
+    "@minute-menus/types": "workspace:*",
+    "@supabase/supabase-js": "^2.97.0"
+  }
+}

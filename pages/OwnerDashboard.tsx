@@ -60,11 +60,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { generateAnalyticsReport } from "../services/geminiService";
+import { SUPPORTED_CURRENCIES, formatPriceInCurrency, getSymbolForCurrency } from "@minute-menus/currency";
+import { getErrorMessage } from "@minute-menus/errors";
+import { generateAnalyticsReport } from "@minute-menus/ai";
 import { supabaseService } from "../services/supabaseService";
 import { supabase } from "../lib/supabase";
-import { getErrorMessage } from "../lib/errorMessage";
-import { SUPPORTED_CURRENCIES, getSymbolForCurrency } from "../lib/currency";
 import {
   type AggregatedMetrics,
   type AnalyticsReport,

@@ -11,15 +11,45 @@ importers:
       '@anthropic-ai/sdk':
         specifier: ^0.78.0
         version: 0.78.0
+      '@minute-menus/ai':
+        specifier: workspace:*
+        version: link:packages/ai
+      '@minute-menus/api-helpers':
+        specifier: workspace:*
+        version: link:packages/api-helpers
+      '@minute-menus/currency':
+        specifier: workspace:*
+        version: link:packages/currency
+      '@minute-menus/email-templates':
+        specifier: workspace:*
+        version: link:packages/email-templates
+      '@minute-menus/errors':
+        specifier: workspace:*
+        version: link:packages/errors
       '@minute-menus/logger':
         specifier: workspace:*
         version: link:packages/logger
+      '@minute-menus/mailer':
+        specifier: workspace:*
+        version: link:packages/mailer
+      '@minute-menus/meal-plan-persistence':
+        specifier: workspace:*
+        version: link:packages/meal-plan-persistence
       '@minute-menus/menu-persistence':
         specifier: workspace:*
         version: link:packages/menu-persistence
       '@minute-menus/metrics':
         specifier: workspace:*
         version: link:packages/metrics
+      '@minute-menus/payments':
+        specifier: workspace:*
+        version: link:packages/payments
+      '@minute-menus/reels':
+        specifier: workspace:*
+        version: link:packages/reels
+      '@minute-menus/supabase-service':
+        specifier: workspace:*
+        version: link:packages/supabase-service
       '@minute-menus/types':
         specifier: workspace:*
         version: link:packages/types
@@ -88,10 +118,58 @@ importers:
         specifier: ^6.2.0
         version: 6.4.1(@types/node@22.19.3)(tsx@4.21.0)
 
+  packages/ai:
+    dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.78.0
+        version: 0.78.0
+      '@minute-menus/logger':
+        specifier: workspace:*
+        version: link:../logger
+      '@minute-menus/types':
+        specifier: workspace:*
+        version: link:../types
+
+  packages/api-helpers:
+    dependencies:
+      '@vercel/node':
+        specifier: ^5.7.4
+        version: 5.7.4(rollup@4.55.1)
+
+  packages/currency: {}
+
+  packages/email-templates: {}
+
+  packages/errors: {}
+
   packages/logger: {}
+
+  packages/mailer:
+    dependencies:
+      '@minute-menus/logger':
+        specifier: workspace:*
+        version: link:../logger
+      nodemailer:
+        specifier: ^8.0.5
+        version: 8.0.5
+
+  packages/meal-plan-persistence:
+    dependencies:
+      '@minute-menus/errors':
+        specifier: workspace:*
+        version: link:../errors
+      '@minute-menus/types':
+        specifier: workspace:*
+        version: link:../types
+      '@supabase/supabase-js':
+        specifier: ^2.97.0
+        version: 2.97.0
 
   packages/menu-persistence:
     dependencies:
+      '@minute-menus/errors':
+        specifier: workspace:*
+        version: link:../errors
       '@minute-menus/types':
         specifier: workspace:*
         version: link:../types
@@ -104,6 +182,54 @@ importers:
       '@minute-menus/types':
         specifier: workspace:*
         version: link:../types
+
+  packages/payments:
+    dependencies:
+      '@minute-menus/logger':
+        specifier: workspace:*
+        version: link:../logger
+      razorpay:
+        specifier: ^2.9.6
+        version: 2.9.6
+
+  packages/reels:
+    dependencies:
+      '@minute-menus/currency':
+        specifier: workspace:*
+        version: link:../currency
+      '@minute-menus/types':
+        specifier: workspace:*
+        version: link:../types
+      lucide-react:
+        specifier: ^0.554.0
+        version: 0.554.0(react@19.2.3)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.3
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.3(react@19.2.3)
+
+  packages/supabase-service:
+    dependencies:
+      '@minute-menus/logger':
+        specifier: workspace:*
+        version: link:../logger
+      '@minute-menus/meal-plan-persistence':
+        specifier: workspace:*
+        version: link:../meal-plan-persistence
+      '@minute-menus/menu-persistence':
+        specifier: workspace:*
+        version: link:../menu-persistence
+      '@minute-menus/metrics':
+        specifier: workspace:*
+        version: link:../metrics
+      '@minute-menus/types':
+        specifier: workspace:*
+        version: link:../types
+      '@supabase/supabase-js':
+        specifier: ^2.97.0
+        version: 2.97.0
 
   packages/types: {}
 

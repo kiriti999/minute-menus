@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { throwStepError } from "@minute-menus/errors";
 import type { Database } from "@minute-menus/types/db";
 
 export const upsertMealPlanRow = async (
@@ -24,7 +25,7 @@ export const upsertMealPlanRow = async (
 
     if (planId) {
         const { error } = await client.from("meal_plans").update(row).eq("id", planId);
-        if (error) throw error;
+        if (error) throwStepError("Update meal plan", error);
         return planId;
     }
 
@@ -33,7 +34,7 @@ export const upsertMealPlanRow = async (
         .insert(row)
         .select("id")
         .single();
-    if (error || !data) throw error ?? new Error("Failed to create plan");
+    if (error || !data) throwStepError("Create meal plan", error ?? "Failed to create plan");
     return data.id;
 };
 
@@ -47,12 +48,12 @@ export const syncMealPlanDishLinks = async (
         const { error: upsertErr } = await client
             .from("meal_plan_dishes")
             .upsert(newLinks, { onConflict: "plan_id,dish_id" });
-        if (upsertErr) throw upsertErr;
+        if (upsertErr) throwStepError("Sync meal plan dishes", upsertErr);
     }
 
     if (dishIds.length === 0) {
         const { error } = await client.from("meal_plan_dishes").delete().eq("plan_id", planId);
-        if (error) throw error;
+        if (error) throwStepError("Clear meal plan dishes", error);
         return;
     }
 
@@ -60,7 +61,7 @@ export const syncMealPlanDishLinks = async (
         .from("meal_plan_dishes")
         .select("dish_id")
         .eq("plan_id", planId);
-    if (existingErr) throw existingErr;
+    if (existingErr) throwStepError("Load meal plan dishes", existingErr);
 
     const kept = new Set(dishIds);
     const toDelete = (existing ?? [])
@@ -73,5 +74,5 @@ export const syncMealPlanDishLinks = async (
         .delete()
         .eq("plan_id", planId)
         .in("dish_id", toDelete);
-    if (deleteErr) throw deleteErr;
+    if (deleteErr) throwStepError("Delete meal plan dishes", deleteErr);
 };

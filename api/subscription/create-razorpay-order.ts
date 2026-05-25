@@ -1,25 +1,17 @@
 /**
  * Vercel Serverless Function: POST /api/subscription/create-razorpay-order
- *
- * Creates a Razorpay order for a subscription payment.
- * Amount = plan.price_monthly + (plan.delivery_fee × 30)
- *
- * Required env vars:
- *   RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET
- *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  */
 
+import { getErrorDetail, rejectUnlessPost } from "@minute-menus/api-helpers";
 import { createLogger } from "@minute-menus/logger";
+import { calculateSubscriptionTotal, createRazorpayOrder } from "@minute-menus/payments";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import Razorpay from "razorpay";
 import { supabaseAdmin } from "../../lib/supabase-admin";
 
 const log = createLogger("subscription/create-razorpay-order");
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-    if (req.method !== "POST") {
-        return res.status(405).json({ error: "Method not allowed" });
-    }
+    if (rejectUnlessPost(req, res)) return;
 
     const { planId, restaurantId, deliveryFeeMode, deliveryType } = req.body as {
         planId?: string; restaurantId?: string;
@@ -28,11 +20,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     };
     if (!planId || !restaurantId) {
         return res.status(400).json({ error: "planId and restaurantId are required" });
-    }
-
-    const { RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET } = process.env;
-    if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
-        return res.status(500).json({ error: "Razorpay not configured" });
     }
 
     const { data: plan, error } = await supabaseAdmin
@@ -47,23 +34,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const includeDelivery = deliveryType === "delivery" && deliveryFeeMode === "upfront";
-    const monthlyTotal = Number(plan.price_monthly) + (includeDelivery ? Number(plan.delivery_fee) * 30 : 0);
-    // Razorpay expects amount in smallest currency unit (paise for INR)
-    const amountPaise = Math.round(monthlyTotal * 100);
-
-    const razorpay = new Razorpay({ key_id: RAZORPAY_KEY_ID, key_secret: RAZORPAY_KEY_SECRET });
+    const monthlyTotal = calculateSubscriptionTotal(
+        Number(plan.price_monthly),
+        Number(plan.delivery_fee),
+        includeDelivery,
+    );
 
     try {
-        const order = await razorpay.orders.create({
-            amount: amountPaise,
+        const result = await createRazorpayOrder({
+            amount: monthlyTotal,
             currency: "INR",
             receipt: `sub_${planId.slice(0, 8)}_${Date.now()}`,
             notes: { planId, restaurantId, planName: plan.name },
         });
-        return res.status(200).json({ orderId: order.id, amount: amountPaise, currency: "INR", keyId: RAZORPAY_KEY_ID });
+        return res.status(200).json(result);
     } catch (e) {
-        const msg = e instanceof Error ? e.message : String(e);
+        const msg = getErrorDetail(e);
         log.error("create payment order failed", { message: msg });
-        return res.status(502).json({ error: "Failed to create payment order", detail: msg });
+        const status = msg === "Razorpay not configured" ? 500 : 502;
+        return res.status(status).json({ error: "Failed to create payment order", detail: msg });
     }
 }

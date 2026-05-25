@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Category } from "@minute-menus/types";
 import type { Database } from "@minute-menus/types/db";
-import { throwStepError } from "./errors";
+import { throwStepError } from "@minute-menus/errors";
 
 const UUID_RE =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
