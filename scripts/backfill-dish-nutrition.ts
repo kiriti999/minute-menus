@@ -159,6 +159,36 @@ const NUTRITION_BY_NAME: Record<string, NutritionRow> = {
         benefits: "Plant-based, fiber, sustained energy",
         calories: 320,
     },
+    "Mixed Berry Overnight Oats": {
+        ingredients: "Rolled oats, milk, blueberries, strawberries, chia, honey",
+        benefits: "Antioxidants, fiber-rich, ready-to-eat breakfast",
+        calories: 310,
+    },
+    "Peanut Butter Banana Overnight Oats": {
+        ingredients: "Rolled oats, milk, peanut butter, banana, cinnamon, honey",
+        benefits: "High energy, protein, post-workout friendly",
+        calories: 380,
+    },
+    "Chocolate Almond Overnight Oats": {
+        ingredients: "Rolled oats, milk, cocoa, almonds, maple syrup, vanilla",
+        benefits: "Indulgent yet balanced, magnesium, sustained fullness",
+        calories: 340,
+    },
+    "Mango Coconut Overnight Oats": {
+        ingredients: "Rolled oats, coconut milk, mango, shredded coconut, lime zest",
+        benefits: "Tropical refresh, vitamin C, dairy-free option",
+        calories: 330,
+    },
+    "Apple Cinnamon Overnight Oats": {
+        ingredients: "Rolled oats, milk, apple, cinnamon, raisins, honey",
+        benefits: "Comfort breakfast, fiber, naturally sweet",
+        calories: 290,
+    },
+    "Chia Protein Overnight Oats": {
+        ingredients: "Rolled oats, Greek yogurt, chia seeds, whey protein, granola",
+        benefits: "High protein, muscle recovery, keeps you full longer",
+        calories: 360,
+    },
 };
 
 const { createClient } = await import("@supabase/supabase-js");

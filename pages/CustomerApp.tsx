@@ -227,6 +227,89 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   }, [modalPlan, menuCategories]);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const categoryNavRef = useRef<HTMLDivElement>(null);
+  const scrollLockRef = useRef(false);
+  const [activeCategoryId, setActiveCategoryId] = useState("");
+  const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
+
+  const activeCategory = useMemo(
+    () => displayCategories.find((cat) => cat.id === activeCategoryId) ?? displayCategories[0] ?? null,
+    [displayCategories, activeCategoryId],
+  );
+
+  useEffect(() => {
+    if (displayCategories.length === 0) return;
+    setActiveCategoryId((prev) =>
+      prev && displayCategories.some((cat) => cat.id === prev) ? prev : displayCategories[0].id,
+    );
+  }, [displayCategories]);
+
+  const getCategoryAnchorY = (): number =>
+    (categoryNavRef.current?.getBoundingClientRect().bottom ?? 140) + 4;
+
+  const scrollToCategory = (catId: string) => {
+    const container = containerRef.current;
+    const section = document.getElementById(`menu-cat-${catId}`);
+    if (!container || !section) return;
+
+    scrollLockRef.current = true;
+    setActiveCategoryId(catId);
+    setCategoryMenuOpen(false);
+    const delta = section.getBoundingClientRect().top - getCategoryAnchorY();
+    container.scrollBy({ top: delta, behavior: "smooth" });
+    window.setTimeout(() => {
+      scrollLockRef.current = false;
+    }, 500);
+  };
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || displayCategories.length === 0 || menuLoading) return;
+
+    const updateActiveCategory = () => {
+      if (scrollLockRef.current) return;
+
+      const anchorY = getCategoryAnchorY();
+      let nextId = displayCategories[0].id;
+      let closestTop = Number.NEGATIVE_INFINITY;
+
+      for (const cat of displayCategories) {
+        const section = document.getElementById(`menu-cat-${cat.id}`);
+        if (!section) continue;
+        const top = section.getBoundingClientRect().top;
+        if (top <= anchorY && top > closestTop) {
+          closestTop = top;
+          nextId = cat.id;
+        }
+      }
+
+      const atBottom =
+        container.scrollTop + container.clientHeight >= container.scrollHeight - 8;
+      if (atBottom) {
+        nextId = displayCategories[displayCategories.length - 1].id;
+      }
+
+      setActiveCategoryId(nextId);
+    };
+
+    updateActiveCategory();
+    container.addEventListener("scroll", updateActiveCategory, { passive: true });
+    window.addEventListener("resize", updateActiveCategory);
+    return () => {
+      container.removeEventListener("scroll", updateActiveCategory);
+      window.removeEventListener("resize", updateActiveCategory);
+    };
+  }, [displayCategories, menuLoading]);
+
+  useEffect(() => {
+    if (!categoryMenuOpen) return;
+    const closeMenu = (event: MouseEvent) => {
+      if (categoryNavRef.current?.contains(event.target as Node)) return;
+      setCategoryMenuOpen(false);
+    };
+    document.addEventListener("click", closeMenu);
+    return () => document.removeEventListener("click", closeMenu);
+  }, [categoryMenuOpen]);
 
   // Scroll to first item on load to ensure proper initial position
   useEffect(() => {
@@ -880,9 +963,6 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                   <span className={`font-light ${isDarkTheme ? "text-zinc-500" : "text-zinc-400"}`}>MENUS</span>
                 </p>
               )}
-              <p className={`text-[10px] uppercase tracking-[0.22em] mt-0.5 ${isDarkTheme ? "text-zinc-500" : "text-zinc-400"}`}>
-                Menu
-              </p>
             </div>
           </button>
 
@@ -947,10 +1027,101 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         </div>
       </div>
 
+      {!menuLoading && displayCategories.length > 0 && (
+        <div
+          ref={categoryNavRef}
+          className={`fixed top-[4.5rem] sm:top-20 left-0 right-0 z-40 pointer-events-none ${
+            isDarkTheme
+              ? "bg-zinc-950/95 border-b border-zinc-800"
+              : "bg-white/95 border-b border-zinc-200"
+          } backdrop-blur-md`}
+        >
+          <div className="max-w-lg md:max-w-[1600px] mx-auto pointer-events-auto">
+            <div className="md:hidden relative px-4">
+              <button
+                type="button"
+                onClick={() => setCategoryMenuOpen((open) => !open)}
+                className={`flex w-full items-center justify-between gap-3 py-3 text-left ${
+                  isDarkTheme ? "text-white" : "text-zinc-900"
+                }`}
+                aria-expanded={categoryMenuOpen}
+                aria-haspopup="listbox"
+              >
+                <span className="text-xs font-bold uppercase tracking-[0.18em] truncate">
+                  {activeCategory?.title ?? "Categories"}
+                </span>
+                <ChevronDown
+                  size={16}
+                  className={`shrink-0 transition-transform ${categoryMenuOpen ? "rotate-180" : ""} ${
+                    isDarkTheme ? "text-zinc-400" : "text-zinc-500"
+                  }`}
+                />
+              </button>
+              {categoryMenuOpen && (
+                <div
+                  className={`absolute left-4 right-4 top-full z-50 mt-1 overflow-hidden rounded-xl border shadow-xl ${
+                    isDarkTheme ? "border-zinc-800 bg-zinc-900" : "border-zinc-200 bg-white"
+                  }`}
+                  role="listbox"
+                >
+                  {displayCategories.map((cat) => {
+                    const isActive = cat.id === activeCategoryId;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        role="option"
+                        aria-selected={isActive}
+                        onClick={() => scrollToCategory(cat.id)}
+                        className={`flex w-full px-4 py-3 text-left text-xs font-bold uppercase tracking-[0.16em] transition-colors ${
+                          isActive
+                            ? isDarkTheme
+                              ? "bg-white text-black"
+                              : "bg-zinc-900 text-white"
+                            : isDarkTheme
+                              ? "text-zinc-300 hover:bg-zinc-800"
+                              : "text-zinc-700 hover:bg-zinc-100"
+                        }`}
+                      >
+                        {cat.title}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="hidden md:flex items-stretch px-4 md:px-8 lg:px-10">
+              {displayCategories.map((cat) => {
+                const isActive = cat.id === activeCategoryId;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => scrollToCategory(cat.id)}
+                    className={`flex-1 px-2 py-3.5 text-center text-[11px] lg:text-xs font-bold uppercase tracking-[0.14em] lg:tracking-[0.18em] border-b-2 transition-colors ${
+                      isActive
+                        ? isDarkTheme
+                          ? "border-white text-white"
+                          : "border-zinc-900 text-zinc-900"
+                        : isDarkTheme
+                          ? "border-transparent text-zinc-500 hover:text-zinc-300"
+                          : "border-transparent text-zinc-400 hover:text-zinc-700"
+                    }`}
+                  >
+                    {cat.title}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* === Menu browse === */}
       <div
         ref={containerRef}
-        className={`h-full w-full overflow-y-auto overscroll-contain scroll-smooth pt-[4.5rem] sm:pt-20 pb-24 ${isDarkTheme ? "bg-zinc-950" : "bg-white"}`}
+        className={`h-full w-full overflow-y-auto overscroll-contain scroll-smooth pt-[7.5rem] sm:pt-[8.5rem] pb-24 ${isDarkTheme ? "bg-zinc-950" : "bg-white"}`}
       >
         {menuLoading ? (
           <div className={`flex items-center justify-center py-20 text-sm ${isDarkTheme ? "text-zinc-500" : "text-zinc-400"}`}>
@@ -964,23 +1135,14 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           <>
             <div className="max-w-lg md:max-w-[1600px] mx-auto px-4 md:px-8 lg:px-10 md:py-4">
               {displayCategories.map((cat) => (
-                <section key={cat.id} id={`menu-cat-${cat.id}`} className="mb-4 md:mb-12 last:mb-0">
-                  <div
-                    className={`-mx-4 md:-mx-8 lg:-mx-10 px-4 md:px-8 lg:px-10 py-3 md:py-3.5 mb-2 md:mb-5 rounded-lg md:rounded-xl ${
-                      isDarkTheme
-                        ? "bg-zinc-900 border border-zinc-800"
-                        : "bg-zinc-100 border border-zinc-200"
-                    }`}
-                  >
-                    <h2
-                      className={`text-xs md:text-sm font-bold uppercase tracking-[0.22em] ${
-                        isDarkTheme ? "text-white" : "text-zinc-900"
-                      }`}
-                    >
-                      {cat.title}
-                    </h2>
-                  </div>
-
+                <section
+                  key={cat.id}
+                  id={`menu-cat-${cat.id}`}
+                  data-category-id={cat.id}
+                  className={`scroll-mt-[7.5rem] sm:scroll-mt-[8.5rem] ${
+                    isDarkTheme ? "border-t border-zinc-800/80 pt-28 md:pt-44 first:border-t-0 first:pt-0" : "border-t border-zinc-200 pt-28 md:pt-44 first:border-t-0 first:pt-0"
+                  }`}
+                >
                   <div className="md:hidden">
                     {cat.items.map((dish) => (
                       <MenuListCard

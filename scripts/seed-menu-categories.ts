@@ -1,5 +1,5 @@
 /**
- * Add Salads + Shakes categories and dishes for fresh-and-fusion.
+ * Add Salads, Shakes, and Overnight Oats categories for fresh-and-fusion.
  *
  * Usage: pnpm seed:menu-categories fresh-and-fusion
  */
@@ -149,6 +149,75 @@ const SHAKES: DishSeed[] = [
     },
 ];
 
+const OVERNIGHT_OATS: DishSeed[] = [
+    {
+        name: "Mixed Berry Overnight Oats",
+        price: 180,
+        description: "Rolled oats soaked overnight with mixed berries and honey",
+        ingredients: "Rolled oats, milk, blueberries, strawberries, chia, honey",
+        benefits: "Antioxidants, fiber-rich, ready-to-eat breakfast",
+        calories: 310,
+        imageUrl: imageFor("Mixed Berry Overnight Oats"),
+        prepTime: 5,
+        popularityScore: 88,
+    },
+    {
+        name: "Peanut Butter Banana Overnight Oats",
+        price: 190,
+        description: "Creamy oats with peanut butter, banana, and a touch of cinnamon",
+        ingredients: "Rolled oats, milk, peanut butter, banana, cinnamon, honey",
+        benefits: "High energy, protein, post-workout friendly",
+        calories: 380,
+        imageUrl: imageFor("Peanut Butter Banana Overnight Oats"),
+        prepTime: 5,
+        popularityScore: 92,
+    },
+    {
+        name: "Chocolate Almond Overnight Oats",
+        price: 200,
+        description: "Cocoa-infused oats topped with sliced almonds",
+        ingredients: "Rolled oats, milk, cocoa, almonds, maple syrup, vanilla",
+        benefits: "Indulgent yet balanced, magnesium, sustained fullness",
+        calories: 340,
+        imageUrl: imageFor("Chocolate Almond Overnight Oats"),
+        prepTime: 5,
+        popularityScore: 90,
+    },
+    {
+        name: "Mango Coconut Overnight Oats",
+        price: 200,
+        description: "Tropical overnight oats with fresh mango and coconut",
+        ingredients: "Rolled oats, coconut milk, mango, shredded coconut, lime zest",
+        benefits: "Tropical refresh, vitamin C, dairy-free option",
+        calories: 330,
+        imageUrl: imageFor("Mango Coconut Overnight Oats"),
+        prepTime: 5,
+        popularityScore: 86,
+    },
+    {
+        name: "Apple Cinnamon Overnight Oats",
+        price: 170,
+        description: "Classic apple and cinnamon oats, lightly sweetened",
+        ingredients: "Rolled oats, milk, apple, cinnamon, raisins, honey",
+        benefits: "Comfort breakfast, fiber, naturally sweet",
+        calories: 290,
+        imageUrl: imageFor("Apple Cinnamon Overnight Oats"),
+        prepTime: 5,
+        popularityScore: 84,
+    },
+    {
+        name: "Chia Protein Overnight Oats",
+        price: 210,
+        description: "Protein-boosted oats with chia, yogurt, and granola crunch",
+        ingredients: "Rolled oats, Greek yogurt, chia seeds, whey protein, granola",
+        benefits: "High protein, muscle recovery, keeps you full longer",
+        calories: 360,
+        imageUrl: imageFor("Chia Protein Overnight Oats"),
+        prepTime: 5,
+        popularityScore: 87,
+    },
+];
+
 const { createClient } = await import("@supabase/supabase-js");
 
 const slug = process.argv[2]?.trim() ?? "fresh-and-fusion";
@@ -205,6 +274,7 @@ async function ensureCategory(title: string, sortOrder: number): Promise<string>
 
 const saladsCatId = await ensureCategory("Salads", Math.max(maxSort + 1, 2));
 const shakesCatId = await ensureCategory("Shakes", Math.max(maxSort + 2, 3));
+const overnightOatsCatId = await ensureCategory("Overnight Oats", Math.max(maxSort + 3, 4));
 
 const { data: existingDishes } = await supabase
     .from("dishes")
@@ -250,5 +320,8 @@ await seedDishes(saladsCatId, SALADS);
 
 console.log("\n── Shakes");
 await seedDishes(shakesCatId, SHAKES);
+
+console.log("\n── Overnight Oats");
+await seedDishes(overnightOatsCatId, OVERNIGHT_OATS);
 
 console.log("\nDone. Refresh the customer menu to see new sections.\n");

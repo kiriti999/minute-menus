@@ -6,7 +6,7 @@ export const pexelsImage = (id: number, file = `pexels-photo-${id}.jpeg`): strin
 export const unsplashImage = (id: string): string =>
     `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=800&q=80`;
 
-/** Visually verified dish → image mapping for fresh-and-fusion salads & shakes. */
+/** Visually verified dish → image mapping for fresh-and-fusion menu items. */
 export const DISH_IMAGE_BY_NAME: Record<string, string> = {
     "Caesar Salad (Veg)": pexelsImage(2097090),
     "Caesar Salad (Chicken)": unsplashImage("1716034353309-c6066ae24c67"),
@@ -20,4 +20,10 @@ export const DISH_IMAGE_BY_NAME: Record<string, string> = {
     "Chocolate Thick Shake": unsplashImage("1726039468346-2f3e0f1f5b52"),
     "Banana Milk Shake": unsplashImage("1707219811295-0f283760668b"),
     "Oat Milk Shake with Dry Fruits": unsplashImage("1685967836529-b0e8d6938227"),
+    "Mixed Berry Overnight Oats": unsplashImage("1532884968933-5173fdde39f9"),
+    "Peanut Butter Banana Overnight Oats": unsplashImage("1541809570-cce873416d94"),
+    "Chocolate Almond Overnight Oats": unsplashImage("1619854232008-0a9f0fd3cab0"),
+    "Mango Coconut Overnight Oats": unsplashImage("1538013928906-afba81f4830d"),
+    "Apple Cinnamon Overnight Oats": unsplashImage("1475855664010-a869729f42c3"),
+    "Chia Protein Overnight Oats": unsplashImage("1490371475955-4cb3bfc72f71"),
 };

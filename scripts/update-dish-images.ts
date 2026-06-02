@@ -1,5 +1,5 @@
 /**
- * Update dish image_url values for salads & shakes (fresh-and-fusion).
+ * Update dish image_url values from dish-image-urls mapping (fresh-and-fusion).
  *
  * Usage: pnpm update:dish-images fresh-and-fusion
  */
