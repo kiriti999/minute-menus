@@ -16,6 +16,9 @@ export const rowsToCategoryTree = (
         media_transform: unknown;
         stock_quantity?: number | null;
         manual_sold_out?: boolean | null;
+        ingredients?: string | null;
+        benefits?: string | null;
+        calories?: number | null;
     }>,
 ): Category[] =>
     categoryRows
@@ -34,6 +37,10 @@ export const rowsToCategoryTree = (
                         imageUrl: d.image_url,
                         videoUrl: d.video_url,
                         category: cat.id,
+                        categoryTitle: cat.title,
+                        ingredients: d.ingredients ?? "",
+                        benefits: d.benefits ?? "",
+                        calories: d.calories ?? undefined,
                         popularityScore: d.popularity_score,
                         prepTime: d.prep_time,
                         mediaTransform: d.media_transform as Dish["mediaTransform"],

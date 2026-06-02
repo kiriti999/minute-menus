@@ -12,6 +12,7 @@ import type React from "react";
 import { useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
 import { LoadingScreen } from "@minute-menus/ui";
+import { devMenuSlug, devSkipOwnerLogin } from "./lib/devFlags";
 import { useRestaurantSlugRoute } from "./hooks/useRestaurantSlugRoute";
 import { CustomerApp } from "./pages/CustomerApp";
 import { LoginPage } from "./pages/LoginPage";
@@ -35,9 +36,24 @@ const App: React.FC = () => {
 
     const toggleTheme = () => setIsDarkTheme((prev) => !prev);
 
+    const skipOwnerLogin = devSkipOwnerLogin();
+
+    useEffect(() => {
+        const useThemedShell = mode === AppMode.CUSTOMER || mode === AppMode.OWNER;
+        document.body.className = useThemedShell && !isDarkTheme
+            ? "bg-white text-black overflow-hidden"
+            : "bg-gray-900 text-white overflow-hidden";
+    }, [isDarkTheme, mode]);
+
     useEffect(() => {
         if (slugRoute.slug) setMode(AppMode.CUSTOMER);
     }, [slugRoute.slug]);
+
+    useEffect(() => {
+        if (skipOwnerLogin && !slugRoute.slug && mode === AppMode.LANDING) {
+            setMode(AppMode.OWNER);
+        }
+    }, [skipOwnerLogin, slugRoute.slug, mode]);
 
     // Restore session on mount and listen for auth state changes
     useEffect(() => {
@@ -61,7 +77,7 @@ const App: React.FC = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const isAuthenticated = session !== null;
+    const isAuthenticated = session !== null || skipOwnerLogin;
 
     const handleModeSelect = (selectedMode: AppMode) => {
         if (selectedMode === AppMode.CUSTOMER) {
@@ -120,7 +136,7 @@ const App: React.FC = () => {
         );
     }
 
-    if (mode === AppMode.LOGIN && targetMode) {
+    if (mode === AppMode.LOGIN && targetMode && !skipOwnerLogin) {
         return (
             <LoginPage onLoginSuccess={handleLoginSuccess} targetMode={targetMode} />
         );

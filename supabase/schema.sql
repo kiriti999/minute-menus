@@ -97,12 +97,18 @@ create table if not exists dishes (
   media_transform  jsonb,
   stock_quantity   int,           -- null = unlimited; set to track daily SKU
   manual_sold_out  boolean not null default false,  -- owner override
+  ingredients      text not null default '',
+  benefits         text not null default '',
+  calories         int,
   created_at       timestamptz not null default now()
 );
 
 -- Migration: run this on existing databases
 ALTER TABLE dishes ADD COLUMN IF NOT EXISTS stock_quantity int;
 ALTER TABLE dishes ADD COLUMN IF NOT EXISTS manual_sold_out boolean NOT NULL DEFAULT false;
+ALTER TABLE dishes ADD COLUMN IF NOT EXISTS ingredients text NOT NULL DEFAULT '';
+ALTER TABLE dishes ADD COLUMN IF NOT EXISTS benefits text NOT NULL DEFAULT '';
+ALTER TABLE dishes ADD COLUMN IF NOT EXISTS calories int;
 
 alter table dishes enable row level security;
 

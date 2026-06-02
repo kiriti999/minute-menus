@@ -979,6 +979,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       id: crypto.randomUUID(),
       name: "",
       description: "",
+      ingredients: "",
+      benefits: "",
       price: 0,
       imageUrl: "",
       videoUrl: "",
@@ -2139,6 +2141,48 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                           <div className={`text-right text-[10px] mt-0.5 font-mono ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-400'}`}>
                             {dish.description.length} / 500
                           </div>
+                        </div>
+                        <div>
+                          <label className={`text-[10px] font-bold uppercase tracking-widest mb-1 block ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-500'}`}>Ingredients</label>
+                          <textarea
+                            value={dish.ingredients ?? ""}
+                            onChange={(e) => handleDishUpdate(selectedCategoryIdx, idx, "ingredients", e.target.value)}
+                            rows={2}
+                            maxLength={300}
+                            className={`w-full border rounded-lg px-3 py-2 text-sm outline-none transition-all resize-none leading-relaxed ${isDarkTheme ? 'bg-zinc-950 border-zinc-800 text-zinc-300 focus:border-zinc-600 focus:text-white placeholder-zinc-700' : 'bg-zinc-50 border-zinc-300 text-zinc-600 focus:border-zinc-500 focus:text-zinc-900 placeholder-zinc-400'}`}
+                            placeholder="e.g. Apple, beetroot, carrot, mint"
+                          />
+                        </div>
+                        <div>
+                          <label className={`text-[10px] font-bold uppercase tracking-widest mb-1 block ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-500'}`}>Benefits</label>
+                          <textarea
+                            value={dish.benefits ?? ""}
+                            onChange={(e) => handleDishUpdate(selectedCategoryIdx, idx, "benefits", e.target.value)}
+                            rows={2}
+                            maxLength={300}
+                            className={`w-full border rounded-lg px-3 py-2 text-sm outline-none transition-all resize-none leading-relaxed ${isDarkTheme ? 'bg-zinc-950 border-zinc-800 text-zinc-300 focus:border-zinc-600 focus:text-white placeholder-zinc-700' : 'bg-zinc-50 border-zinc-300 text-zinc-600 focus:border-zinc-500 focus:text-zinc-900 placeholder-zinc-400'}`}
+                            placeholder="e.g. Detox, boosts immunity, aids digestion"
+                          />
+                        </div>
+                        <div className={`flex items-center justify-between border rounded-lg px-3 py-2 ${isDarkTheme ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-300'}`}>
+                          <label className={`text-xs font-bold uppercase tracking-widest ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>Calories (kcal)</label>
+                          <input
+                            type="number"
+                            value={dish.calories ?? ""}
+                            placeholder="—"
+                            min={0}
+                            step={1}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              handleDishUpdate(
+                                selectedCategoryIdx,
+                                idx,
+                                "calories",
+                                e.target.value === "" ? undefined : Math.max(0, isNaN(val) ? 0 : val),
+                              );
+                            }}
+                            className={`w-20 bg-transparent text-right font-mono focus:outline-none py-0.5 text-sm ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}
+                          />
                         </div>
                         <div className={`flex items-center justify-between border rounded-lg px-3 py-2 ${isDarkTheme ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-300'}`}>
                           <label className={`text-xs font-bold uppercase tracking-widest ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>Price</label>

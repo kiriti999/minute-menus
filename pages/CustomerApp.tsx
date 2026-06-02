@@ -28,9 +28,10 @@ import {
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatPriceInCurrency } from "@minute-menus/currency";
-import { ReelCard } from "@minute-menus/reels";
+import { isDishSoldOut, MenuGridCard, MenuListCard } from "@minute-menus/reels";
 import { supabaseService } from "../services/supabaseService";
 import { supabase } from "../lib/supabase";
+import { formatDisplayName } from "../lib/formatDisplayName";
 import { ButtonSpinner } from "@minute-menus/ui";
 import type { Category, CustomerProfile, CustomerSubscription, DailyOrder, Dish, MealPlan, OrderItem, SubDeliveryType, DeliveryFeeMode, TicketReason, TimeSlot } from "@minute-menus/types";
 import { TICKET_REASON_LABELS, TIME_SLOT_LABELS } from "@minute-menus/types";
@@ -72,7 +73,6 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   }, [cart, CART_KEY]);
 
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [activeCategoryIndex, setActiveCategoryIndex] = useState(0);
   const [activeDishIndex, setActiveDishIndex] = useState(0);
   const [isOrdering, setIsOrdering] = useState(false);
   const [soldCounts, setSoldCounts] = useState<Record<string, number>>({});
@@ -203,11 +203,12 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     return () => subscription.unsubscribe();
   }, [isAuthModalOpen]);
 
-  // Flatten the menu structure for continuous vertical scrolling
-  // STRICT LIMIT: Limit to first 10 items only as per requirements.
+  // Product limit removed for multi-category restaurant menus — show all categories.
+  const displayCategories = menuCategories;
+
   const flatDishes = useMemo(
-    () => menuCategories.flatMap((cat) => cat.items).slice(0, 10),
-    [menuCategories],
+    () => displayCategories.flatMap((cat) => cat.items),
+    [displayCategories],
   );
 
   // Map dishId → plan for subscription bands on reel cards
@@ -239,13 +240,31 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const startTimeRef = useRef<number>(Date.now());
 
   useEffect(() => {
-    // Reset timer when active dish changes
-    startTimeRef.current = Date.now();
+    if (!containerRef.current || flatDishes.length === 0) return;
 
-    return () => {
-      // On unmount or change, record the session
-      recordSession(activeDishIndex);
-    };
+    const seen = new Set<number>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting || entry.intersectionRatio < 0.55) return;
+          const dishId = entry.target.getAttribute("data-dish-id");
+          const index = flatDishes.findIndex((d) => d.id === dishId);
+          if (index >= 0 && !seen.has(index)) {
+            seen.add(index);
+            setActiveDishIndex(index);
+          }
+        });
+      },
+      { root: containerRef.current, threshold: [0.55, 0.75] },
+    );
+
+    containerRef.current.querySelectorAll("[data-dish-id]").forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, [flatDishes]);
+
+  useEffect(() => {
+    startTimeRef.current = Date.now();
+    return () => recordSession(activeDishIndex);
   }, [activeDishIndex]);
 
   const recordSession = (index: number) => {
@@ -505,7 +524,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           order_id: orderId,
           amount: rzpAmount,
           currency: rzpCurrency,
-          name: restaurantName ?? "Minute Menus",
+          name: displayRestaurantName ?? "Minute Menus",
           description: `Order — ${cart.length} item${cart.length !== 1 ? "s" : ""}`,
           prefill: { name: profile.name, contact: profile.phone, email: profile.email },
           theme: { color: "#000000" },
@@ -562,46 +581,17 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     () => cart.reduce((acc, item) => acc + item.quantity, 0),
     [cart],
   );
+  const displayRestaurantName = useMemo(
+    () => (restaurantName ? formatDisplayName(restaurantName) : null),
+    [restaurantName],
+  );
+  const brandNameParts = useMemo(() => {
+    if (!displayRestaurantName) return null;
+    const words = displayRestaurantName.split(" ");
+    return { lead: words[0] ?? displayRestaurantName, rest: words.slice(1).join(" ") };
+  }, [displayRestaurantName]);
 
-  // Scroll Handling for Active Category Detection & Haptics
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const height = e.currentTarget.clientHeight;
-    const scrollTop = e.currentTarget.scrollTop;
-    const index = Math.round(scrollTop / height);
-
-    // Update Active Dish Index for tracking
-    // recordSession is called by the useEffect cleanup when activeDishIndex changes
-    if (index !== activeDishIndex) {
-      setActiveDishIndex(index);
-    }
-
-    if (flatDishes[index]) {
-      const currentDish = flatDishes[index];
-      const newCatIndex = menuCategories.findIndex(
-        (c) => c.id === currentDish.category,
-      );
-
-      if (newCatIndex !== -1 && newCatIndex !== activeCategoryIndex) {
-        setActiveCategoryIndex(newCatIndex);
-        // Trigger Haptic Feedback on Category Change
-        if (typeof navigator !== "undefined" && navigator.vibrate) {
-          navigator.vibrate(50);
-        }
-      }
-    }
-  };
-
-  const scrollToCategory = (index: number) => {
-    const catId = menuCategories[index].id;
-    const dishIndex = flatDishes.findIndex((d) => d.category === catId);
-
-    if (containerRef.current && dishIndex !== -1) {
-      containerRef.current.scrollTo({
-        top: dishIndex * containerRef.current.clientHeight,
-        behavior: "smooth",
-      });
-    }
-  };
+  const renderDishSoldOut = (dish: Dish) => isDishSoldOut(dish, soldCounts);
 
   // ── Subscription helpers ──────────────────────────────────────────
   const isPastCutoff = () => {
@@ -735,7 +725,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           order_id: orderId,
           amount,
           currency: rzpCurrency,
-          name: restaurantName ?? "Minute Menus",
+          name: displayRestaurantName ?? "Minute Menus",
           description: plan.name,
           prefill: { name: subName, contact: subPhone, email: subEmail || undefined },
           theme: { color: "#000000" },
@@ -851,34 +841,52 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   };
   // ────────────────────────────────────────────────────────────────────
 
-  const scrollNext = () => {
-    if (containerRef.current) {
-      const h = containerRef.current.clientHeight;
-      containerRef.current.scrollBy({ top: h, behavior: "smooth" });
-    }
-  };
-
   return (
     <div className={`h-screen w-full ${isDarkTheme ? 'bg-black text-white' : 'bg-white text-black'} overflow-hidden font-sans relative transition-colors duration-300`}>
-      {/* === Header & Tabs === */}
-      <div className="fixed top-0 left-0 right-0 z-50 flex flex-col pointer-events-none">
-        {/* Top Bar: Logo & Cart */}
-        <div className={`flex justify-between items-start p-3 sm:p-5 w-full bg-gradient-to-b ${isDarkTheme ? 'from-black/80' : 'from-white/80'} to-transparent`}>
+      {/* === Header === */}
+      <div className={`fixed top-0 left-0 right-0 z-50 pointer-events-none ${isDarkTheme ? "bg-zinc-950/95" : "bg-white/95"} backdrop-blur-md border-b ${isDarkTheme ? "border-zinc-800" : "border-zinc-200"}`}>
+        <div className="flex justify-between items-center min-h-[4.5rem] sm:min-h-20 px-4 py-3 sm:px-8 lg:px-10 pointer-events-auto">
           <button
             onClick={onNavigateToDashboard}
-            className="flex items-center gap-2 group cursor-pointer pointer-events-auto hover:opacity-80 transition-opacity"
+            className="flex items-center gap-3 group cursor-pointer hover:opacity-90 transition-opacity min-w-0 max-w-[min(100%,18rem)] sm:max-w-xs"
           >
-            <div className="w-8 h-8 bg-white rounded flex items-center justify-center group-hover:bg-zinc-200 transition-colors shadow-lg">
-              <span className="font-bold text-black text-sm">
-                {restaurantName ? restaurantName.charAt(0).toUpperCase() : "M"}
+            <div
+              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm ring-1 ${
+                isDarkTheme
+                  ? "bg-white text-black ring-white/20"
+                  : "bg-zinc-900 text-white ring-zinc-900/10"
+              }`}
+            >
+              <span className="font-bold text-sm sm:text-base">
+                {displayRestaurantName ? displayRestaurantName.charAt(0) : "M"}
               </span>
             </div>
-            <span className="font-bold tracking-widest text-xs drop-shadow-md text-white mix-blend-difference">
-              {restaurantName ?? "MINUTE MENUS"}
-            </span>
+            <div className="min-w-0 text-left">
+              {brandNameParts ? (
+                <p className="truncate text-base sm:text-lg leading-tight tracking-tight">
+                  <span className={`font-bold ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
+                    {brandNameParts.lead}
+                  </span>
+                  {brandNameParts.rest ? (
+                    <span className={`font-light ${isDarkTheme ? "text-zinc-400" : "text-zinc-500"}`}>
+                      {" "}
+                      {brandNameParts.rest}
+                    </span>
+                  ) : null}
+                </p>
+              ) : (
+                <p className="truncate text-base sm:text-lg font-bold tracking-tighter leading-tight">
+                  MINUTE
+                  <span className={`font-light ${isDarkTheme ? "text-zinc-500" : "text-zinc-400"}`}>MENUS</span>
+                </p>
+              )}
+              <p className={`text-[10px] uppercase tracking-[0.22em] mt-0.5 ${isDarkTheme ? "text-zinc-500" : "text-zinc-400"}`}>
+                Menu
+              </p>
+            </div>
           </button>
 
-          <div className="flex items-center gap-2 pointer-events-auto">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* User Account Button */}
             {customerProfile ? (
               <button
@@ -914,92 +922,95 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
               onClick={() => setIsCartOpen(true)}
               className="relative group transition-transform active:scale-95"
             >
-              <div className="bg-black/40 backdrop-blur-md p-2.5 rounded-full border border-white/20 hover:bg-black/60 transition-colors shadow-lg">
-                <ShoppingBag size={20} className="text-white" />
+              <div
+                className={`backdrop-blur-md p-2.5 rounded-full border transition-colors shadow-lg ${
+                  isDarkTheme
+                    ? "bg-black/40 border-white/20 hover:bg-black/60"
+                    : "bg-white/80 border-zinc-300 hover:bg-zinc-100"
+                }`}
+              >
+                <ShoppingBag size={20} className={isDarkTheme ? "text-white" : "text-zinc-900"} />
               </div>
               {itemCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-white text-black text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-black">
+                <span
+                  className={`absolute -top-1 -right-1 text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 ${
+                    isDarkTheme
+                      ? "bg-white text-black border-black"
+                      : "bg-zinc-900 text-white border-white"
+                  }`}
+                >
                   {itemCount}
                 </span>
               )}
             </button>
           </div>
         </div>
-
-        {/* Category Tabs (Centered) */}
-        <div className="absolute top-5 left-1/2 -translate-x-1/2 flex gap-2 md:gap-4 pointer-events-auto max-w-[calc(100vw-10rem)] overflow-x-auto no-scrollbar px-2">
-          {menuCategories.map((cat, idx) => (
-            <button
-              key={cat.id}
-              onClick={() => scrollToCategory(idx)}
-              className={`px-4 py-1.5 rounded-full text-[10px] font-bold tracking-widest uppercase transition-all duration-300 backdrop-blur-md border shadow-lg ${activeCategoryIndex === idx
-                ? "bg-white text-black border-white scale-105"
-                : "bg-black/40 text-white/60 border-white/10 hover:bg-black/60"
-                }`}
-            >
-              {cat.title}
-            </button>
-          ))}
-        </div>
       </div>
 
-      {/* === Main Continuous Vertical Scroll Container === */}
+      {/* === Menu browse === */}
       <div
         ref={containerRef}
-        onScroll={handleScroll}
-        className="h-full w-full overflow-y-auto snap-y snap-mandatory no-scrollbar overscroll-contain scroll-smooth touch-pan-y bg-zinc-900"
+        className={`h-full w-full overflow-y-auto overscroll-contain scroll-smooth pt-[4.5rem] sm:pt-20 pb-24 ${isDarkTheme ? "bg-zinc-950" : "bg-white"}`}
       >
-        {flatDishes.map((dish, idx) => (
-          <div
-            key={dish.id}
-            className="h-full w-full snap-start relative"
-            style={{ scrollSnapStop: "always" }}
-          >
-            <ReelCard
-              dish={dish}
-              onAddToOrder={handleAddToOrder}
-              currency={currency}
-              isSoldOut={
-                dish.manualSoldOut === true ||
-                (
-                  dish.stockQuantity != null &&
-                  dish.stockQuantity > 0 &&
-                  (soldCounts[dish.id] ?? 0) >= dish.stockQuantity
-                )
-              }
-              subscriptionBand={dishPlanMap[dish.id] ? {
-                planName: dishPlanMap[dish.id].name,
-                onSubscribe: () => openMealPlanModal(dish),
-              } : undefined}
-            />
-
-            {/* Hint Arrow (except on last item) */}
-            {idx < flatDishes.length - 1 && (
-              <button
-                onClick={scrollNext}
-                className="absolute bottom-8 left-1/2 -translate-x-1/2 z-30 p-3 rounded-full bg-black/20 backdrop-blur-sm text-white/70 border border-white/10 animate-bounce hover:bg-black/40 transition-all cursor-pointer pointer-events-auto"
-              >
-                <ChevronDown size={24} />
-              </button>
-            )}
+        {menuLoading ? (
+          <div className={`flex items-center justify-center py-20 text-sm ${isDarkTheme ? "text-zinc-500" : "text-zinc-400"}`}>
+            Loading menu…
           </div>
-        ))}
+        ) : displayCategories.length === 0 ? (
+          <div className={`flex items-center justify-center py-20 text-sm ${isDarkTheme ? "text-zinc-500" : "text-zinc-400"}`}>
+            No menu items yet.
+          </div>
+        ) : (
+          <>
+            <div className="max-w-lg md:max-w-[1600px] mx-auto px-4 md:px-8 lg:px-10 md:py-4">
+              {displayCategories.map((cat) => (
+                <section key={cat.id} id={`menu-cat-${cat.id}`} className="mb-4 md:mb-12 last:mb-0">
+                  <div
+                    className={`-mx-4 md:-mx-8 lg:-mx-10 px-4 md:px-8 lg:px-10 py-3 md:py-3.5 mb-2 md:mb-5 rounded-lg md:rounded-xl ${
+                      isDarkTheme
+                        ? "bg-zinc-900 border border-zinc-800"
+                        : "bg-zinc-100 border border-zinc-200"
+                    }`}
+                  >
+                    <h2
+                      className={`text-xs md:text-sm font-bold uppercase tracking-[0.22em] ${
+                        isDarkTheme ? "text-white" : "text-zinc-900"
+                      }`}
+                    >
+                      {cat.title}
+                    </h2>
+                  </div>
 
-        {/* End of Menu Message */}
-        <div className="h-1/3 w-full snap-start flex items-center justify-center bg-zinc-950 text-zinc-500 pb-20">
-          <div className="text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="w-12 h-12 rounded-full bg-zinc-900 flex items-center justify-center mx-auto mb-4 border border-zinc-800">
-              <span className="text-xl">🎉</span>
+                  <div className="md:hidden">
+                    {cat.items.map((dish) => (
+                      <MenuListCard
+                        key={dish.id}
+                        dish={dish}
+                        currency={currency}
+                        isSoldOut={renderDishSoldOut(dish)}
+                        onAdd={handleAddToOrder}
+                        isDarkTheme={isDarkTheme}
+                      />
+                    ))}
+                  </div>
+
+                  <div className="hidden md:grid md:grid-cols-3 xl:grid-cols-4 md:gap-4 lg:gap-5 items-stretch">
+                    {cat.items.map((dish) => (
+                      <MenuGridCard
+                        key={dish.id}
+                        dish={dish}
+                        currency={currency}
+                        isSoldOut={renderDishSoldOut(dish)}
+                        onAdd={handleAddToOrder}
+                        isDarkTheme={isDarkTheme}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
             </div>
-            <p className="text-xs uppercase tracking-widest mb-2 font-bold text-zinc-400">
-              End of Menu
-            </p>
-            <p className="text-[10px] text-zinc-600 mb-4">
-              You have seen all our signature items
-            </p>
-            <div className="w-8 h-[1px] bg-zinc-800 mx-auto"></div>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       {/* === Customer Auth Modal (Multi-step) === */}
@@ -1293,7 +1304,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
               {/* ── Lookup view ── */}
               {subView === "lookup" && (
                 <div className="space-y-6 mt-2">
-                  <p className="text-zinc-400 text-sm">Enter your phone number to access or create a subscription for {restaurantName ?? "this restaurant"}.</p>
+                  <p className="text-zinc-400 text-sm">Enter your phone number to access or create a subscription for {displayRestaurantName ?? "this restaurant"}.</p>
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-widest mb-2 text-zinc-500">Phone Number</label>
                     <input

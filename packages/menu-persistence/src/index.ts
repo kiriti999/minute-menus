@@ -48,6 +48,9 @@ const toDishRows = (categories: Category[], restaurantId: string) =>
             media_transform: dish.mediaTransform ?? null,
             stock_quantity: dish.stockQuantity ?? null,
             manual_sold_out: dish.manualSoldOut ?? false,
+            ingredients: dish.ingredients ?? "",
+            benefits: dish.benefits ?? "",
+            calories: dish.calories ?? null,
         })),
     );
 

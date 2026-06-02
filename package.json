@@ -11,6 +11,9 @@
     "seed:reset": "tsx scripts/seed.ts --reset",
     "test:emails": "tsx scripts/test-emails.ts",
     "db:push": "tsx scripts/db-push.ts",
+    "seed:menu-categories": "tsx scripts/seed-menu-categories.ts",
+    "update:dish-images": "tsx scripts/update-dish-images.ts",
+    "backfill:nutrition": "tsx scripts/backfill-dish-nutrition.ts",
     "storage:ensure": "tsx scripts/ensure-storage.ts"
   },
   "dependencies": {

@@ -26,6 +26,10 @@ export interface Dish {
   imageUrl: string;
   videoUrl: string;
   category: string;
+  categoryTitle?: string;
+  ingredients?: string;
+  benefits?: string;
+  calories?: number;
   popularityScore: number; // 0-100
   prepTime: number; // minutes
   stockQuantity?: number; // max orderable units per day (undefined = unlimited)

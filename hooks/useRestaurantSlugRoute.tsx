@@ -1,5 +1,6 @@
 import type React from "react";
 import { useEffect, useState } from "react";
+import { devMenuSlug } from "../lib/devFlags";
 import { supabaseService } from "../services/supabaseService";
 
 const RESERVED_PATHS = ["dashboard", "login", "owner", "admin", "api"];
@@ -27,7 +28,12 @@ export const useRestaurantSlugRoute = (): SlugRouteState => {
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        const path = window.location.pathname;
+        let path = window.location.pathname;
+        const localMenuSlug = devMenuSlug();
+        if (localMenuSlug && (path === "/" || path === "")) {
+            path = `/${localMenuSlug}`;
+        }
+
         const slugMatch = path.match(/^\/([a-z0-9-]+)$/i);
         if (!slugMatch) return;
 
