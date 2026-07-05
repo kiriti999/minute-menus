@@ -1,10 +1,11 @@
 import { getErrorMessage } from "@minute-menus/errors";
 import type { Category } from "@minute-menus/types";
-import { ButtonSpinner, InlineLoader } from "@minute-menus/ui";
+import { InlineLoader } from "@minute-menus/ui";
 import {
   Check,
   Crop,
   Download,
+  Loader2,
   Move,
   RotateCcw,
   Sparkles,
@@ -204,24 +205,42 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
     );
   }, [outputDimensions.height, outputDimensions.width, transform]);
 
+  const enhanceSectionRef = useRef<HTMLElement>(null);
+
+  const showError = (message: string) => {
+    setError(message);
+    requestAnimationFrame(() => {
+      enhanceSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+  };
+
   const handleEnhance = async () => {
-    if (!restaurantId || !originalSourceUrl) {
-      setError("Load an image before enhancing.");
+    if (!originalSourceUrl) {
+      showError("Upload or pick a menu photo before enhancing.");
+      return;
+    }
+    if (!restaurantId) {
+      showError("Restaurant profile is still loading. Wait a moment and try again, or sign in again.");
       return;
     }
 
     setIsEnhancing(true);
     setError(null);
     setEnhanceSummary(null);
+    setStatusMessage("Enhancing with AI — this can take 15–60 seconds…");
     try {
       const {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session?.access_token) {
-        throw new Error("Not signed in. Sign in again and retry.");
+        throw new Error("Not signed in. Sign in again from the dashboard, then retry.");
       }
 
-      const payloadImage = await resizeDataUrlMaxEdge(originalSourceUrl, 1536);
+      const payloadImage =
+        originalSourceUrl.length > 2_800_000
+          ? await resizeDataUrlMaxEdge(originalSourceUrl, 1536)
+          : originalSourceUrl;
+
       const response = await fetch("/api/image/enhance", {
         method: "POST",
         headers: {
@@ -237,11 +256,17 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
         }),
       });
 
-      const body = (await response.json()) as {
-        imageDataUrl?: string;
-        summary?: string;
-        error?: string;
-      };
+      const raw = await response.text();
+      let body: { imageDataUrl?: string; summary?: string; provider?: string; error?: string } = {};
+      try {
+        body = raw ? (JSON.parse(raw) as typeof body) : {};
+      } catch {
+        throw new Error(
+          response.status === 404
+            ? "Enhance API not reachable. Restart dev with pnpm dev (latest) or use vercel dev."
+            : `Enhancement failed (${response.status}). Server returned a non-JSON response.`,
+        );
+      }
 
       if (!response.ok) {
         throw new Error(body.error ?? `Enhancement failed (${response.status})`);
@@ -252,10 +277,17 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
 
       setEnhancedSourceUrl(body.imageDataUrl);
       setShowEnhanced(true);
-      setEnhanceSummary(body.summary ?? null);
+      setEnhanceSummary(
+        body.summary ??
+          (body.provider === "replicate"
+            ? "Enhanced with Replicate"
+            : body.provider === "gemini"
+              ? "Enhanced with Gemini (fallback)"
+              : null),
+      );
       setStatusMessage("AI enhancement complete. Compare before/after, then crop and export.");
     } catch (err) {
-      setError(getErrorMessage(err, "Enhancement failed"));
+      showError(getErrorMessage(err, "Enhancement failed"));
     } finally {
       setIsEnhancing(false);
     }
@@ -475,14 +507,15 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
               </div>
             </section>
 
-            <section className={`rounded-xl border p-5 ${card}`}>
+            <section ref={enhanceSectionRef} className={`rounded-xl border p-5 ${card}`}>
               <h2 className="font-semibold mb-4 flex items-center gap-2">
                 <Wand2 size={16} />
                 2. AI enhance (optional)
               </h2>
               <p className={`text-xs mb-4 ${muted}`}>
-                Pick a photography style. Enhancement keeps your real dish — lighting and background only.
-                Requires <code className="text-[10px]">GEMINI_API_KEY</code> on the server.
+                Uses Replicate FLUX Kontext first (~$0.03/photo), Gemini as fallback. Keeps your real
+                dish — lighting and background only. Set <code className="text-[10px]">REPLICATE_API_TOKEN</code> in
+                .env.
               </p>
               <div className="grid sm:grid-cols-2 gap-2 mb-4">
                 {PHOTOGRAPHY_STYLES.map((style) => (
@@ -512,11 +545,20 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
                 <button
                   type="button"
                   onClick={() => void handleEnhance()}
-                  disabled={!originalSourceUrl || busy}
+                  disabled={!originalSourceUrl || !restaurantId || busy}
                   className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold tracking-widest disabled:opacity-40 ${isDarkTheme ? "bg-white text-black hover:bg-zinc-200" : "bg-zinc-900 text-white hover:bg-zinc-800"}`}
                 >
-                  {isEnhancing ? <ButtonSpinner /> : <Wand2 size={14} />}
-                  ENHANCE WITH AI
+                  {isEnhancing ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      ENHANCING…
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 size={14} />
+                      ENHANCE WITH AI
+                    </>
+                  )}
                 </button>
                 {hasEnhanced && (
                   <>
@@ -731,7 +773,7 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
                   disabled={!hasSource || busy}
                   className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold tracking-widest border disabled:opacity-40 ${isDarkTheme ? "border-zinc-600 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
                 >
-                  {isExporting ? <ButtonSpinner /> : <Download size={14} />}
+                  {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
                   DOWNLOAD PNG
                 </button>
                 <button
@@ -740,7 +782,7 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
                   disabled={!hasSource || !applyDishId || busy}
                   className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold tracking-widest disabled:opacity-40 ${isDarkTheme ? "bg-white text-black hover:bg-zinc-200" : "bg-zinc-900 text-white hover:bg-zinc-800"}`}
                 >
-                  {isApplying ? <ButtonSpinner /> : <Check size={14} />}
+                  {isApplying ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                   APPLY TO MENU ITEM
                 </button>
               </div>

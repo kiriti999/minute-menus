@@ -90,7 +90,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       aspectRatio,
     });
 
-    return res.status(200).json(result);
+    return res.status(200).json({
+      imageDataUrl: result.imageDataUrl,
+      summary: result.summary,
+      provider: result.provider,
+    });
   } catch (error) {
     const msg = getErrorDetail(error);
     log.error("enhance failed", { message: msg });

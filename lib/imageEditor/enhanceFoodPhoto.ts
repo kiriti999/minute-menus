@@ -1,108 +1,61 @@
 import { createLogger } from "@minute-menus/logger";
-import { getPhotographyStyle, type PhotographyStyleId } from "./styles";
+import { enhanceWithReplicate } from "./enhanceReplicate";
+import { enhanceWithGemini, type EnhanceFoodPhotoInput } from "./enhanceGemini";
 
 const log = createLogger("image-enhance");
 
-export type EnhanceFoodPhotoInput = {
-  imageBase64: string;
-  mimeType: string;
-  styleId: PhotographyStyleId;
-  aspectRatio?: string;
-};
+export type { EnhanceFoodPhotoInput } from "./enhanceGemini";
+export { parseDataUrl } from "./enhanceGemini";
 
 export type EnhanceFoodPhotoResult = {
   imageDataUrl: string;
   summary?: string;
-};
-
-type GeminiPart = {
-  text?: string;
-  inlineData?: { mimeType?: string; data?: string };
-  inline_data?: { mime_type?: string; data?: string };
-};
-
-type GeminiResponse = {
-  candidates?: {
-    content?: { parts?: GeminiPart[] };
-  }[];
-  error?: { message?: string };
-};
-
-const DEFAULT_MODEL = "gemini-2.5-flash-image";
-
-const parseInlineImage = (part: GeminiPart): { mimeType: string; base64: string } | null => {
-  const inline = part.inlineData ?? part.inline_data;
-  if (!inline) return null;
-  const mimeType = ("mimeType" in inline ? inline.mimeType : inline.mime_type) ?? "image/png";
-  const base64 = inline.data;
-  if (!base64) return null;
-  return { mimeType, base64 };
-};
-
-export const parseDataUrl = (dataUrl: string): { mimeType: string; base64: string } => {
-  const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-  if (!match) throw new Error("Invalid image data URL");
-  return { mimeType: match[1], base64: match[2] };
+  provider: "replicate" | "gemini";
 };
 
 export const enhanceFoodPhoto = async (
   input: EnhanceFoodPhotoInput,
 ): Promise<EnhanceFoodPhotoResult> => {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "GEMINI_API_KEY is not configured. Add it to .env to use AI photo enhancement.",
-    );
-  }
+  const preferReplicate = process.env.IMAGE_ENHANCE_PRIMARY !== "gemini";
+  const hasReplicate = Boolean(process.env.REPLICATE_API_TOKEN);
+  const hasGemini = Boolean(process.env.GEMINI_API_KEY);
 
-  const model = process.env.GEMINI_IMAGE_MODEL ?? DEFAULT_MODEL;
-  const style = getPhotographyStyle(input.styleId);
-  const prompt = `${style.prompt} Return one enhanced menu-ready photograph. Do not add text, logos, or watermarks. Do not change the food itself.`;
-
-  const body: Record<string, unknown> = {
-    contents: [
-      {
-        parts: [
-          { inline_data: { mime_type: input.mimeType, data: input.imageBase64 } },
-          { text: prompt },
-        ],
-      },
-    ],
-    generationConfig: {
-      responseModalities: ["TEXT", "IMAGE"],
-      ...(input.aspectRatio ? { imageConfig: { aspectRatio: input.aspectRatio } } : {}),
-    },
+  const tryReplicate = async (): Promise<EnhanceFoodPhotoResult> => {
+    const result = await enhanceWithReplicate({
+      imageDataUrl: `data:${input.mimeType};base64,${input.imageBase64}`,
+      styleId: input.styleId,
+    });
+    return { ...result, provider: "replicate" };
   };
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const tryGemini = async (): Promise<EnhanceFoodPhotoResult> => {
+    const result = await enhanceWithGemini(input);
+    return { ...result, provider: "gemini" };
+  };
 
-  const payload = (await response.json()) as GeminiResponse;
-  if (!response.ok) {
-    const detail = payload.error?.message ?? JSON.stringify(payload).slice(0, 240);
-    log.error("Gemini enhance failed", { status: response.status, detail });
-    throw new Error(`AI enhancement failed: ${detail}`);
-  }
-
-  const parts = payload.candidates?.[0]?.content?.parts ?? [];
-  let summary: string | undefined;
-  let imageDataUrl: string | undefined;
-
-  for (const part of parts) {
-    if (part.text?.trim()) summary = part.text.trim();
-    const image = parseInlineImage(part);
-    if (image) {
-      imageDataUrl = `data:${image.mimeType};base64,${image.base64}`;
+  if (preferReplicate && hasReplicate) {
+    try {
+      return await tryReplicate();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.warn("Replicate failed, trying Gemini fallback", { message });
+      if (hasGemini) return tryGemini();
+      throw error;
     }
   }
 
-  if (!imageDataUrl) {
-    throw new Error("AI did not return an enhanced image. Try a different style or photo.");
+  if (hasGemini) {
+    try {
+      return await tryGemini();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log.warn("Gemini failed, trying Replicate fallback", { message });
+      if (hasReplicate) return tryReplicate();
+      throw error;
+    }
   }
 
-  return { imageDataUrl, summary };
+  throw new Error(
+    "No image AI configured. Set REPLICATE_API_TOKEN (primary) and/or GEMINI_API_KEY (fallback) in .env.",
+  );
 };
