@@ -82,6 +82,8 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [resolvedRestaurantId, setResolvedRestaurantId] = useState<string | null>(restaurantId);
+  const [restaurantLoading, setRestaurantLoading] = useState(!restaurantId);
 
   const card = isDarkTheme
     ? "bg-zinc-900 border-zinc-800 text-white"
@@ -111,6 +113,37 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
     showEnhanced && enhancedSourceUrl ? enhancedSourceUrl : originalSourceUrl;
   const hasSource = Boolean(activePreviewUrl);
   const hasEnhanced = Boolean(enhancedSourceUrl);
+  const busy = isEnhancing || isExporting || isApplying;
+
+  useEffect(() => {
+    if (restaurantId) {
+      setResolvedRestaurantId(restaurantId);
+      setRestaurantLoading(false);
+      return;
+    }
+    setRestaurantLoading(true);
+    supabaseService
+      .getRestaurantDetails()
+      .then((details) => {
+        setResolvedRestaurantId(details.id);
+      })
+      .catch(() => {
+        setResolvedRestaurantId(null);
+      })
+      .finally(() => {
+        setRestaurantLoading(false);
+      });
+  }, [restaurantId]);
+
+  const enhanceBlockedReason = !originalSourceUrl
+    ? "Upload or pick a menu photo first."
+    : restaurantLoading
+      ? "Loading restaurant profile…"
+      : !resolvedRestaurantId
+        ? "Sign in to your owner account to use AI enhance."
+        : null;
+
+  const canEnhance = Boolean(originalSourceUrl) && !busy && Boolean(resolvedRestaurantId);
 
   const resetTransform = useCallback(() => {
     setTransform(DEFAULT_CROP_TRANSFORM);
@@ -219,8 +252,12 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
       showError("Upload or pick a menu photo before enhancing.");
       return;
     }
-    if (!restaurantId) {
-      showError("Restaurant profile is still loading. Wait a moment and try again, or sign in again.");
+    if (!resolvedRestaurantId) {
+      showError(
+        restaurantLoading
+          ? "Restaurant profile is still loading. Wait a moment and try again."
+          : "Sign in to your owner account, then open Image Editor again.",
+      );
       return;
     }
 
@@ -248,7 +285,7 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
-          restaurantId,
+          restaurantId: resolvedRestaurantId,
           imageDataUrl: payloadImage,
           styleId: selectedStyleId,
           outputWidth: outputDimensions.width,
@@ -318,8 +355,8 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
   };
 
   const handleApplyToMenu = async () => {
-    if (!restaurantId) {
-      setError("Restaurant not loaded. Refresh and try again.");
+    if (!resolvedRestaurantId) {
+      setError("Sign in to your owner account to apply images to the menu.");
       return;
     }
     if (!applyDishId) {
@@ -378,7 +415,6 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
   const onPanEnd = () => setIsDragging(false);
 
   const previewAspect = `${outputDimensions.width}/${outputDimensions.height}`;
-  const busy = isEnhancing || isExporting || isApplying;
 
   return (
     <div
@@ -545,7 +581,8 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
                 <button
                   type="button"
                   onClick={() => void handleEnhance()}
-                  disabled={!originalSourceUrl || !restaurantId || busy}
+                  disabled={!canEnhance}
+                  title={enhanceBlockedReason ?? undefined}
                   className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold tracking-widest disabled:opacity-40 ${isDarkTheme ? "bg-white text-black hover:bg-zinc-200" : "bg-zinc-900 text-white hover:bg-zinc-800"}`}
                 >
                   {isEnhancing ? (
@@ -560,6 +597,11 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
                     </>
                   )}
                 </button>
+                {enhanceBlockedReason && (
+                  <p className={`w-full text-xs ${isDarkTheme ? "text-amber-400" : "text-amber-700"}`}>
+                    {enhanceBlockedReason}
+                  </p>
+                )}
                 {hasEnhanced && (
                   <>
                     <button
