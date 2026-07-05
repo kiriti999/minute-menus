@@ -2274,8 +2274,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             menuItems={menuItems}
             restaurantId={restaurantDetails?.id ?? null}
             isDarkTheme={isDarkTheme}
-            userTier={userTier}
-            onUpgrade={handleUpgrade}
             onMenuUpdated={(saved) => {
               setMenuItems(saved);
               setUnsavedChanges(false);

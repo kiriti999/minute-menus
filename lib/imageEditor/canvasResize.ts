@@ -108,3 +108,29 @@ export const fileToDataUrl = (file: File): Promise<string> =>
     reader.onerror = () => reject(new Error("Failed to read file"));
     reader.readAsDataURL(file);
   });
+
+export const resizeDataUrlMaxEdge = async (dataUrl: string, maxEdge: number): Promise<string> => {
+  if (!dataUrl.startsWith("data:image/")) return dataUrl;
+
+  const img = await loadImageSource(dataUrl);
+  const longest = Math.max(img.naturalWidth, img.naturalHeight);
+  if (longest <= maxEdge) return dataUrl;
+
+  const scale = maxEdge / longest;
+  const width = Math.max(1, Math.round(img.naturalWidth * scale));
+  const height = Math.max(1, Math.round(img.naturalHeight * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas is not supported in this browser");
+
+  ctx.drawImage(img, 0, 0, width, height);
+  const blob = await new Promise<Blob | null>((resolve) => {
+    canvas.toBlob(resolve, "image/jpeg", 0.9);
+  });
+  if (!blob) throw new Error("Failed to resize image");
+
+  return blobToDataUrl(blob);
+};
