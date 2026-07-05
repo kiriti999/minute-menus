@@ -12,6 +12,9 @@ import { isPhotographyStyleId, toGeminiAspectRatio } from "../../lib/imageEditor
 
 const log = createLogger("image/enhance");
 
+/** Vercel Pro+ — allows Replicate polling (15–60s typical). */
+export const maxDuration = 120;
+
 type EnhancePayload = {
   restaurantId?: string;
   imageDataUrl?: string;

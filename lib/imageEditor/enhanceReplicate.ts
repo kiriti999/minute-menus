@@ -25,13 +25,37 @@ type PredictionResponse = {
 const urlToDataUrl = async (url: string): Promise<string> => {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Failed to download enhanced image (${response.status})`);
-  const blob = await response.blob();
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error("Failed to encode enhanced image"));
-    reader.readAsDataURL(blob);
+  const contentType =
+    response.headers.get("content-type")?.split(";")[0]?.trim() ?? "image/webp";
+  const base64 = Buffer.from(await response.arrayBuffer()).toString("base64");
+  return `data:${contentType};base64,${base64}`;
+};
+
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
   });
+
+const pollPrediction = async (
+  getUrl: string,
+  token: string,
+  deadlineMs: number,
+): Promise<PredictionResponse> => {
+  while (Date.now() < deadlineMs) {
+    const poll = await fetch(getUrl, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const payload = (await poll.json()) as PredictionResponse;
+    if (!poll.ok) {
+      const detail = payload.detail ?? payload.error ?? JSON.stringify(payload).slice(0, 240);
+      throw new Error(`Replicate poll failed: ${detail}`);
+    }
+    if (payload.status === "succeeded" || payload.status === "failed" || payload.status === "canceled") {
+      return payload;
+    }
+    await sleep(2000);
+  }
+  throw new Error("Replicate enhancement timed out. Try again in a moment.");
 };
 
 export const enhanceWithReplicate = async (
@@ -63,19 +87,34 @@ export const enhanceWithReplicate = async (
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
-      Prefer: "wait=120",
     },
     body: JSON.stringify(body),
   });
 
-  const payload = (await response.json()) as PredictionResponse;
+  const created = (await response.json()) as PredictionResponse & {
+    id?: string;
+    urls?: { get?: string };
+  };
   if (!response.ok) {
-    const detail = payload.detail ?? payload.error ?? JSON.stringify(payload).slice(0, 240);
+    const detail = created.detail ?? created.error ?? JSON.stringify(created).slice(0, 240);
     log.error("Replicate enhance failed", { status: response.status, detail, model });
     throw new Error(`Replicate enhancement failed: ${detail}`);
   }
 
-  if (payload.status === "failed") {
+  const getUrl =
+    created.urls?.get ??
+    (created.id ? `https://api.replicate.com/v1/predictions/${created.id}` : null);
+  if (!getUrl) {
+    throw new Error("Replicate did not return a prediction URL");
+  }
+
+  const deadlineMs = Date.now() + 110_000;
+  const payload =
+    created.status === "succeeded" || created.status === "failed"
+      ? created
+      : await pollPrediction(getUrl, token, deadlineMs);
+
+  if (payload.status === "failed" || payload.status === "canceled") {
     throw new Error(payload.error ?? "Replicate enhancement failed");
   }
 

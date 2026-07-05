@@ -298,10 +298,14 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
       try {
         body = raw ? (JSON.parse(raw) as typeof body) : {};
       } catch {
+        const isVercelCrash =
+          raw.includes("FUNCTION_INVOCATION_FAILED") || raw.includes("A server error has occurred");
         throw new Error(
           response.status === 404
             ? "Enhance API not reachable. Restart dev with pnpm dev (latest) or use vercel dev."
-            : `Enhancement failed (${response.status}). Server returned a non-JSON response.`,
+            : isVercelCrash
+              ? "Enhancement timed out or crashed on the server. Redeploy with latest code; ensure REPLICATE_API_TOKEN is set in Vercel env (Pro plan needed for 60s+ runs)."
+              : `Enhancement failed (${response.status}). Server returned a non-JSON response.`,
         );
       }
 
