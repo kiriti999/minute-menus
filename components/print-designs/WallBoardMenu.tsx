@@ -100,7 +100,11 @@ function WallFooter({ style, customization, branding, siteUrl, widthPx, heightPx
 
   if (visual.footer === 'strip') {
     return (
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: colors.primary, padding: `10px ${pad}px`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{
+        flexShrink: 0, margin: `0 -${pad}px -${pad}px`,
+        background: colors.primary, padding: `10px ${pad}px`,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      }}>
         {showQR && <QRCodeSVG value={siteUrl} size={qrSize} fgColor="#FFF" bgColor="transparent" level="H" />}
         {social && <div style={{ fontSize: dfs, color: 'rgba(255,255,255,0.9)', fontFamily: fonts.body }}>{social}</div>}
       </div>
@@ -108,7 +112,10 @@ function WallFooter({ style, customization, branding, siteUrl, widthPx, heightPx
   }
 
   return (
-    <div style={{ position: 'absolute', bottom: pad, left: pad, right: pad, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: `2px solid ${colors.border}`, paddingTop: 10 }}>
+    <div style={{
+      flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      borderTop: `2px solid ${colors.border}`, paddingTop: 10, marginTop: Math.round(heightPx * 0.01),
+    }}>
       {showQR && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <QRCodeSVG value={siteUrl} size={qrSize} fgColor={colors.primary} bgColor="transparent" level="H" />
@@ -129,7 +136,7 @@ function WallCategory({ cat, style, customization, widthPx, heightPx }: { cat: C
   const cfs = scaledCatFsWall(widthPx, heightPx, customization);
 
   return (
-    <div>
+    <div style={{ breakInside: 'avoid' }}>
       <div style={categoryHeadingStyle(visual.category, customization, cfs, fonts)}>{cat.title}</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: Math.round(bfs * 0.4) }}>
         {cat.items.map((dish) => (
@@ -162,13 +169,19 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
       width: widthPx, height: heightPx, position: 'relative', boxSizing: 'border-box', overflow: 'hidden',
       padding: pad, fontFamily: effectiveFonts(customization).body, border,
       borderRadius: containerRadius(customization), boxShadow: containerShadow(customization),
-      background: baseBackground(customization),
+      background: baseBackground(customization), display: 'flex', flexDirection: 'column',
     }}>
       {customization.backgroundType === 'pattern' && customization.backgroundPattern && (
         <div style={{ position: 'absolute', inset: 0, ...patternOverlay(customization.backgroundPattern, customization.colors.border), pointerEvents: 'none' }} />
       )}
-      <WallHeader style={style} customization={customization} branding={branding} widthPx={widthPx} heightPx={heightPx} isLandscape={isLandscape} />
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: Math.round(widthPx * 0.02), position: 'relative', paddingBottom: Math.round(heightPx * 0.12) }}>
+      <div style={{ flexShrink: 0 }}>
+        <WallHeader style={style} customization={customization} branding={branding} widthPx={widthPx} heightPx={heightPx} isLandscape={isLandscape} />
+      </div>
+      <div style={{
+        flex: 1, minHeight: 0, overflow: 'hidden',
+        display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`,
+        gap: Math.round(widthPx * 0.02), alignContent: 'start',
+      }}>
         {menuItems.map((cat) => (
           <WallCategory key={cat.id} cat={cat} style={style} customization={customization} widthPx={widthPx} heightPx={heightPx} />
         ))}

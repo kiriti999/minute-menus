@@ -21,7 +21,6 @@ import {
   effectiveFonts,
   headingWeight,
   logoAlign,
-  menuFooterReserveHeight,
   outerBorderCss,
   patternOverlay,
   scaledBodyFs,
@@ -197,7 +196,11 @@ function MenuFooter({ style, customization, branding, siteUrl, widthPx, pad }: {
 
   if (visual.footer === 'strip') {
     return (
-      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: colors.primary, padding: `8px ${pad}px`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{
+        flexShrink: 0, margin: `0 -${pad}px -${pad}px`,
+        background: colors.primary, padding: `8px ${pad}px`,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      }}>
         {showQR && <QRCodeSVG value={siteUrl} size={qrSize} fgColor="#FFF" bgColor="transparent" />}
         {social && <div style={{ fontSize: dfs, color: 'rgba(255,255,255,0.9)', fontFamily: fonts.body }}>{social}</div>}
       </div>
@@ -206,7 +209,7 @@ function MenuFooter({ style, customization, branding, siteUrl, widthPx, pad }: {
 
   if (visual.footer === 'center') {
     return (
-      <div style={{ position: 'absolute', bottom: pad, left: pad, right: pad, textAlign: 'center' }}>
+      <div style={{ flexShrink: 0, textAlign: 'center', marginTop: Math.round(widthPx * 0.015) }}>
         <div style={{ height: 1, background: `linear-gradient(to right, transparent, ${colors.accent}, transparent)`, marginBottom: 8 }} />
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12 }}>
           {showQR && <QRCodeSVG value={siteUrl} size={qrSize} fgColor={colors.primary} bgColor="transparent" />}
@@ -217,7 +220,10 @@ function MenuFooter({ style, customization, branding, siteUrl, widthPx, pad }: {
   }
 
   return (
-    <div style={{ position: 'absolute', bottom: pad, left: pad, right: pad, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: `1px solid ${colors.border}`, paddingTop: 8 }}>
+    <div style={{
+      flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
+      borderTop: `1px solid ${colors.border}`, paddingTop: 8, marginTop: Math.round(widthPx * 0.015),
+    }}>
       {showQR && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <QRCodeSVG value={siteUrl} size={qrSize} fgColor={colors.primary} bgColor="transparent" />
@@ -253,7 +259,6 @@ function StandardMenu({ style, customization, branding, menuItems, widthPx, heig
   const pad = Math.round(widthPx * 0.06);
   const border = outerBorderCss(visual, customization);
   const cols = customization.layout.columns === 2 && widthPx > 500 ? 2 : 1;
-  const footerPad = menuFooterReserveHeight(widthPx, heightPx, visual.footer, customization.showQR);
 
   return (
     <div
@@ -261,14 +266,17 @@ function StandardMenu({ style, customization, branding, menuItems, widthPx, heig
         width: widthPx, height: heightPx, position: 'relative', boxSizing: 'border-box', overflow: 'hidden',
         padding: pad, fontFamily: fonts.body, border, borderRadius: containerRadius(customization),
         boxShadow: containerShadow(customization), background: baseBackground(customization),
+        display: 'flex', flexDirection: 'column',
       }}
     >
       <BackgroundLayers customization={customization} widthPx={widthPx} heightPx={heightPx} />
-      <MenuHeader style={style} customization={customization} branding={branding} widthPx={widthPx} heightPx={heightPx} />
+      <div style={{ flexShrink: 0 }}>
+        <MenuHeader style={style} customization={customization} branding={branding} widthPx={widthPx} heightPx={heightPx} />
+      </div>
       <div style={{
+        flex: 1, minHeight: 0, overflow: 'hidden',
         display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`,
-        gap: Math.round(widthPx * 0.025), position: 'relative',
-        paddingBottom: footerPad, alignContent: 'start',
+        gap: Math.round(widthPx * 0.025), alignContent: 'start',
       }}>
         {menuItems.map((cat) => (
           <DishList key={cat.id} cat={cat} style={style} customization={customization} widthPx={widthPx} pageColumns={cols} />
