@@ -1,17 +1,20 @@
 /**
  * POST /api/parse-invoice
  * Owner-authenticated. Accepts a purchase invoice (PDF or image data URL),
- * extracts ingredient line items via Claude vision, and returns a normalized
- * table the UI can review and save. Self-contained (npm imports only) so Vercel
- * bundles it reliably.
+ * extracts ingredient line items via Anthropic Claude vision, and returns a
+ * normalized table the UI can review and save. Self-contained (npm imports
+ * only) so Vercel bundles it reliably.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-/** Claude vision can take a while on multi-page PDFs. */
+/** Vision on multi-page PDFs can take a while. */
 export const maxDuration = 60;
+
+/** Overridable; defaults to the Claude Haiku model used elsewhere in the org. */
+const CLAUDE_MODEL = process.env.INVOICE_AI_MODEL ?? "claude-haiku-4-5";
 
 type PurchaseUnit = "kg" | "g" | "l" | "ml" | "piece";
 type LineItem = { name: string; quantity: number; unit: PurchaseUnit; amount: number };
@@ -69,6 +72,27 @@ const coerceLineItems = (raw: unknown): LineItem[] => {
         .filter((i) => i.name.length > 0);
 };
 
+const PROMPT = `You are reading a restaurant purchase/supplier invoice. Extract every purchased ingredient/item line.
+Return ONLY a JSON array (no prose, no markdown fences). Each element:
+{"name": string, "quantity": number, "unit": "kg"|"g"|"l"|"ml"|"piece", "amount": number}
+- "amount" is the total money paid for that line (not unit price).
+- "quantity" is the purchased quantity in the given unit.
+- Use "piece" for countable items with no weight/volume.
+- Omit taxes, totals, discounts, and non-ingredient rows.
+If nothing is found, return [].`;
+
+const parseJsonArray = (text: string): LineItem[] => {
+    const cleaned = text.trim().replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
+    try {
+        return coerceLineItems(JSON.parse(cleaned));
+    } catch {
+        const start = cleaned.indexOf("[");
+        const end = cleaned.lastIndexOf("]");
+        if (start === -1 || end === -1) return [];
+        return coerceLineItems(JSON.parse(cleaned.slice(start, end + 1)));
+    }
+};
+
 const buildContentBlock = (mimeType: string, base64: string): Anthropic.ContentBlockParam => {
     if (mimeType === "application/pdf") {
         return {
@@ -86,22 +110,13 @@ const buildContentBlock = (mimeType: string, base64: string): Anthropic.ContentB
     };
 };
 
-const PROMPT = `You are reading a restaurant purchase/supplier invoice. Extract every purchased ingredient/item line.
-Return ONLY a JSON array (no prose, no markdown fences). Each element:
-{"name": string, "quantity": number, "unit": "kg"|"g"|"l"|"ml"|"piece", "amount": number}
-- "amount" is the total money paid for that line (not unit price).
-- "quantity" is the purchased quantity in the given unit.
-- Use "piece" for countable items with no weight/volume.
-- Omit taxes, totals, discounts, and non-ingredient rows.
-If nothing is found, return [].`;
-
 const extractLineItems = async (mimeType: string, base64: string): Promise<LineItem[]> => {
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY not configured");
 
     const client = new Anthropic({ apiKey });
     const response = await client.messages.create({
-        model: "claude-sonnet-4-5",
+        model: CLAUDE_MODEL,
         max_tokens: 2048,
         messages: [
             {
@@ -112,16 +127,7 @@ const extractLineItems = async (mimeType: string, base64: string): Promise<LineI
     });
 
     const block = response.content[0];
-    if (!block || block.type !== "text") return [];
-    const text = block.text.trim().replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
-    try {
-        return coerceLineItems(JSON.parse(text));
-    } catch {
-        const start = text.indexOf("[");
-        const end = text.lastIndexOf("]");
-        if (start === -1 || end === -1) return [];
-        return coerceLineItems(JSON.parse(text.slice(start, end + 1)));
-    }
+    return block && block.type === "text" ? parseJsonArray(block.text) : [];
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

@@ -17,6 +17,7 @@
     "storage:ensure": "tsx scripts/ensure-storage.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
     "@minute-menus/ai": "workspace:*",
     "@minute-menus/api-helpers": "workspace:*",
     "@minute-menus/costing": "workspace:*",
@@ -33,7 +34,6 @@
     "@minute-menus/supabase-service": "workspace:*",
     "@minute-menus/types": "workspace:*",
     "@minute-menus/ui": "workspace:*",
-    "@anthropic-ai/sdk": "^0.78.0",
     "@supabase/supabase-js": "^2.97.0",
     "lucide-react": "^0.554.0",
     "nodemailer": "^8.0.5",
