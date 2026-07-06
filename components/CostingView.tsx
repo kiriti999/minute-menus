@@ -97,11 +97,16 @@ export const CostingView: React.FC<CostingViewProps> = ({
   const [ingredientSearch, setIngredientSearch] = useState("");
   const [ingredientPage, setIngredientPage] = useState(0);
 
-  const allDishes = useMemo<Array<{ dish: Dish }>>(
-    () => menuItems.flatMap((c) => c.items.map((dish) => ({ dish }))),
+  const allDishes = useMemo(
+    () =>
+      menuItems.flatMap((cat) =>
+        cat.items.map((dish) => ({ dish, category: cat.title })),
+      ),
     [menuItems],
   );
   const [selectedDishId, setSelectedDishId] = useState<string>("");
+  const [dishSearch, setDishSearch] = useState("");
+  const [dishPage, setDishPage] = useState(0);
   const [recipe, setRecipe] = useState<Array<{ ingredientId: string; quantity: number }>>([]);
   const [dishPriceInput, setDishPriceInput] = useState<string>("");
   const [savingRecipe, setSavingRecipe] = useState(false);
@@ -238,6 +243,28 @@ export const CostingView: React.FC<CostingViewProps> = ({
         ingredientPageSafe * PAGE_SIZE + PAGE_SIZE,
       ),
     [filteredIngredients, ingredientPageSafe],
+  );
+
+  const filteredDishes = useMemo(() => {
+    const q = dishSearch.trim().toLowerCase();
+    if (!q) return allDishes;
+    return allDishes.filter(
+      ({ dish, category }) =>
+        dish.name.toLowerCase().includes(q) || category.toLowerCase().includes(q),
+    );
+  }, [allDishes, dishSearch]);
+
+  const dishTotalPages = Math.max(1, Math.ceil(filteredDishes.length / PAGE_SIZE));
+  const dishPageSafe = Math.min(dishPage, dishTotalPages - 1);
+  const pagedDishes = useMemo(
+    () =>
+      filteredDishes.slice(dishPageSafe * PAGE_SIZE, dishPageSafe * PAGE_SIZE + PAGE_SIZE),
+    [filteredDishes, dishPageSafe],
+  );
+
+  const selectedDish = useMemo(
+    () => allDishes.find((d) => d.dish.id === selectedDishId),
+    [allDishes, selectedDishId],
   );
 
   const updateParsedRow = (idx: number, patch: Partial<InvoiceLineItem>) =>
@@ -678,28 +705,95 @@ export const CostingView: React.FC<CostingViewProps> = ({
               Dish Costing
             </h2>
             <div className="mb-4">
-              <label className={`text-[10px] font-bold uppercase tracking-widest block mb-1 ${label}`}>
+              <label className={`text-[10px] font-bold uppercase tracking-widest block mb-2 ${label}`}>
                 Select dish
               </label>
-              <select
-                value={selectedDishId}
-                onChange={(e) => setSelectedDishId(e.target.value)}
-                disabled={allDishes.length === 0}
-                className={`w-full sm:w-80 px-3 py-2 rounded-md text-sm outline-none border ${input} disabled:opacity-50`}
-              >
-                <option value="">
-                  {allDishes.length === 0 ? "No menu dishes yet" : "— choose a dish —"}
-                </option>
-                {allDishes.map(({ dish }) => (
-                  <option key={dish.id} value={dish.id}>
-                    {dish.name}
-                  </option>
-                ))}
-              </select>
-              {allDishes.length === 0 && (
-                <p className={`text-xs mt-1.5 ${label}`}>
+              {allDishes.length === 0 ? (
+                <p className={`text-sm ${label}`}>
                   Add dishes in Menu Editor first — they will appear here for per-plate costing.
                 </p>
+              ) : (
+                <>
+                  {selectedDish ? (
+                    <div
+                      className={`flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-lg border ${
+                        isDarkTheme ? "bg-zinc-900 border-zinc-700" : "bg-zinc-50 border-zinc-200"
+                      }`}
+                    >
+                      <div>
+                        <p className={`text-sm font-medium ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
+                          {selectedDish.dish.name}
+                        </p>
+                        <p className={`text-xs ${label}`}>{selectedDish.category}</p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`text-sm font-mono ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
+                          {formatPriceInCurrency(selectedDish.dish.price, currency)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDishId("")}
+                          className={`text-xs underline ${label} ${isDarkTheme ? "hover:text-white" : "hover:text-zinc-900"}`}
+                        >
+                          Change
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="relative mb-2">
+                        <Search size={14} className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${label}`} />
+                        <input
+                          value={dishSearch}
+                          onChange={(e) => {
+                            setDishSearch(e.target.value);
+                            setDishPage(0);
+                          }}
+                          placeholder="Search dishes by name or category…"
+                          className={`w-full pl-8 pr-3 py-2 rounded-md text-sm outline-none border ${input}`}
+                        />
+                      </div>
+                      {filteredDishes.length === 0 ? (
+                        <p className={`text-sm ${label}`}>No dishes match “{dishSearch}”.</p>
+                      ) : (
+                        <>
+                          <div
+                            className={`rounded-lg border divide-y max-h-64 overflow-y-auto ${
+                              isDarkTheme ? "border-zinc-800 divide-zinc-800" : "border-zinc-200 divide-zinc-200"
+                            }`}
+                          >
+                            {pagedDishes.map(({ dish, category }) => (
+                              <button
+                                key={dish.id}
+                                type="button"
+                                onClick={() => setSelectedDishId(dish.id)}
+                                className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left text-sm transition-colors ${
+                                  isDarkTheme
+                                    ? "text-white hover:bg-zinc-900"
+                                    : "text-zinc-900 hover:bg-zinc-100"
+                                }`}
+                              >
+                                <div className="min-w-0">
+                                  <p className="font-medium truncate">{dish.name}</p>
+                                  <p className={`text-xs truncate ${label}`}>{category}</p>
+                                </div>
+                                <span className="font-mono text-xs shrink-0">
+                                  {formatPriceInCurrency(dish.price, currency)}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                          <Paginator
+                            page={dishPageSafe}
+                            totalPages={dishTotalPages}
+                            onPage={setDishPage}
+                            isDark={isDarkTheme}
+                          />
+                        </>
+                      )}
+                    </>
+                  )}
+                </>
               )}
             </div>
 
