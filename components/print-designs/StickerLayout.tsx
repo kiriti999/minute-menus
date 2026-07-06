@@ -1,20 +1,20 @@
 /**
- * StickerLayout — QR-focused layouts for circle, square, and rectangle stickers.
+ * StickerLayout — circle stickers are QR-focused; square/rectangle show categories + QR.
  */
-import type { DesignCustomization, RestaurantBranding } from "@minute-menus/types";
+import type { Category, DesignCustomization, RestaurantBranding } from "@minute-menus/types";
 import { QRCodeSVG } from "qrcode.react";
 import type React from "react";
 import type { FormatInfo } from "../../lib/printDesigns";
+import CompactMenuLayout from "./CompactMenuLayout";
 import {
   baseBackground,
   effectiveFonts,
-  scaledDescFs,
-  scaledHeadingFs,
 } from "./menuStyleHelpers";
 
 export interface StickerLayoutProps {
   customization: DesignCustomization;
   branding: RestaurantBranding;
+  menuItems: Category[];
   fmt: FormatInfo;
   widthPx: number;
   heightPx: number;
@@ -26,7 +26,7 @@ function Logo({ url, height }: { url?: string; height: number }) {
   return <img src={url} alt="Logo" style={{ height, width: 'auto', objectFit: 'contain' }} />;
 }
 
-function CircleSticker({ customization, branding, widthPx, siteUrl }: Omit<StickerLayoutProps, 'fmt' | 'heightPx'>) {
+function CircleSticker({ customization, branding, widthPx, siteUrl }: Omit<StickerLayoutProps, 'fmt' | 'heightPx' | 'menuItems'>) {
   const fonts = effectiveFonts(customization);
   const { colors, showQR, showTagline, logoUrl } = customization;
   const size = widthPx;
@@ -58,72 +58,30 @@ function CircleSticker({ customization, branding, widthPx, siteUrl }: Omit<Stick
   );
 }
 
-function SquareSticker({ customization, branding, widthPx, heightPx, siteUrl }: Omit<StickerLayoutProps, 'fmt'>) {
-  const fonts = effectiveFonts(customization);
-  const { colors, showQR, showTagline, logoUrl } = customization;
-  const qrSize = Math.round(Math.min(widthPx, heightPx) * 0.5);
-  const pad = Math.round(widthPx * 0.08);
-  const hfs = Math.max(8, scaledHeadingFs(widthPx, customization) * 0.55);
-
-  return (
-    <div
-      style={{
-        width: widthPx, height: heightPx, position: 'relative', boxSizing: 'border-box',
-        background: baseBackground(customization), border: `2px solid ${colors.primary}`,
-        borderRadius: Math.round(widthPx * 0.06), display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', gap: Math.round(widthPx * 0.04),
-        padding: pad, fontFamily: fonts.body,
-      }}
-    >
-      {logoUrl && <Logo url={logoUrl} height={Math.round(heightPx * 0.14)} />}
-      {showQR && <QRCodeSVG value={siteUrl} size={qrSize} fgColor={colors.primary} bgColor={colors.background} level="H" />}
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ fontFamily: fonts.heading, fontSize: hfs, fontWeight: 700, color: colors.primary }}>{branding.name || 'Restaurant'}</div>
-        {showTagline && branding.tagline && (
-          <div style={{ fontSize: scaledDescFs(widthPx, customization), color: colors.textMuted }}>{branding.tagline}</div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RectSticker({ customization, branding, widthPx, heightPx, siteUrl }: Omit<StickerLayoutProps, 'fmt'>) {
-  const fonts = effectiveFonts(customization);
-  const { colors, showQR, showTagline, logoUrl } = customization;
-  const isLandscape = widthPx > heightPx;
-  const qrSize = Math.round(Math.min(widthPx, heightPx) * 0.65);
-  const pad = Math.round(widthPx * 0.06);
-  const hfs = Math.max(8, scaledHeadingFs(widthPx, customization) * 0.5);
-
-  return (
-    <div
-      style={{
-        width: widthPx, height: heightPx, position: 'relative', boxSizing: 'border-box',
-        background: baseBackground(customization), border: `2px solid ${colors.primary}`,
-        borderRadius: Math.round(widthPx * 0.04), display: 'flex',
-        flexDirection: isLandscape ? 'row' : 'column',
-        alignItems: 'center', justifyContent: 'center', gap: Math.round(widthPx * 0.04),
-        padding: pad, fontFamily: fonts.body,
-      }}
-    >
-      {showQR && <QRCodeSVG value={siteUrl} size={qrSize} fgColor={colors.primary} bgColor={colors.background} level="H" />}
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: isLandscape ? 'flex-start' : 'center', gap: 2 }}>
-        {logoUrl && <Logo url={logoUrl} height={Math.round(heightPx * 0.22)} />}
-        <div style={{ fontFamily: fonts.heading, fontSize: hfs, fontWeight: 700, color: colors.primary }}>{branding.name || 'Restaurant'}</div>
-        {showTagline && branding.tagline && (
-          <div style={{ fontSize: scaledDescFs(widthPx, customization), color: colors.textMuted }}>{branding.tagline}</div>
-        )}
-        {branding.phone && <div style={{ fontSize: scaledDescFs(widthPx, customization), color: colors.textMuted }}>{branding.phone}</div>}
-      </div>
-    </div>
-  );
-}
-
 const StickerLayout: React.FC<StickerLayoutProps> = (props) => {
   const shape = props.fmt.shape;
+  const { colors } = props.customization;
+
   if (shape === 'circle') return <CircleSticker {...props} />;
-  if (shape === 'square') return <SquareSticker {...props} />;
-  return <RectSticker {...props} />;
+
+  const layout = shape === 'square' ? 'square' : (props.widthPx > props.heightPx ? 'landscape' : 'portrait');
+  const borderRadius = shape === 'square'
+    ? Math.round(props.widthPx * 0.06)
+    : Math.round(props.widthPx * 0.04);
+
+  return (
+    <CompactMenuLayout
+      customization={props.customization}
+      branding={props.branding}
+      menuItems={props.menuItems}
+      widthPx={props.widthPx}
+      heightPx={props.heightPx}
+      siteUrl={props.siteUrl}
+      border={`2px solid ${colors.primary}`}
+      borderRadius={borderRadius}
+      layout={layout}
+    />
+  );
 };
 
 export default StickerLayout;

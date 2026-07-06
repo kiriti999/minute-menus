@@ -130,6 +130,34 @@ export function logoAlign(position: DesignCustomization['logoPosition']): 'flex-
   return 'flex-start';
 }
 
+/** Space to reserve above absolute footers so menu content does not overlap. */
+export function menuFooterReserveHeight(
+  widthPx: number,
+  heightPx: number,
+  footerVariant: TemplateVisualConfig['footer'],
+  showQR: boolean,
+): number {
+  const qrSize = Math.round(widthPx * 0.06);
+  if (footerVariant === 'strip') return qrSize + 24;
+  if (showQR) return qrSize + Math.round(heightPx * 0.04) + 20;
+  return Math.round(heightPx * 0.06);
+}
+
+/** Font scale for pocket cards and small stickers. */
+export function compactMenuScale(widthPx: number, heightPx: number): number {
+  const minDim = Math.min(widthPx, heightPx);
+  if (minDim < 200) return 0.55;
+  if (minDim < 280) return 0.72;
+  return 0.88;
+}
+
+export function compactMaxItemsPerCategory(widthPx: number, heightPx: number): number {
+  const area = widthPx * heightPx;
+  if (area < 45_000) return 3;
+  if (area < 80_000) return 5;
+  return 8;
+}
+
 
 export function categoryHeadingStyle(
   variant: TemplateVisualConfig['category'],

@@ -21,6 +21,7 @@ import {
   effectiveFonts,
   headingWeight,
   logoAlign,
+  menuFooterReserveHeight,
   outerBorderCss,
   patternOverlay,
   scaledBodyFs,
@@ -29,6 +30,7 @@ import {
   scaledHeadingFs,
   textTransformCss,
 } from "./menuStyleHelpers";
+import CompactMenuLayout from "./CompactMenuLayout";
 import StickerLayout from "./StickerLayout";
 import { WallBoardMenu } from "./WallBoardMenu";
 
@@ -71,7 +73,7 @@ function BackgroundLayers({ customization, widthPx, heightPx }: { customization:
   );
 }
 
-function DishList({ cat, style, customization, widthPx }: { cat: Category; style: TemplateStyle; customization: DesignCustomization; widthPx: number }) {
+function DishList({ cat, style, customization, widthPx, pageColumns }: { cat: Category; style: TemplateStyle; customization: DesignCustomization; widthPx: number; pageColumns: number }) {
   const fonts = effectiveFonts(customization);
   const visual = TEMPLATE_VISUALS[style];
   const { colors, layout, showPrices, showDescriptions } = customization;
@@ -79,11 +81,12 @@ function DishList({ cat, style, customization, widthPx }: { cat: Category; style
   const dfs = scaledDescFs(widthPx, customization);
   const cfs = scaledCatFs(widthPx, customization);
   const gap = layout.spacing === 'compact' ? Math.round(widthPx * 0.004) : Math.round(widthPx * 0.008);
+  const dishCols = pageColumns > 1 ? 1 : (layout.columns === 2 ? 2 : 1);
 
   return (
-    <div style={{ marginBottom: Math.round(widthPx * 0.02) }}>
+    <div style={{ marginBottom: Math.round(widthPx * 0.02), breakInside: 'avoid' }}>
       <div style={categoryHeadingStyle(visual.category, customization, cfs, fonts)}>{cat.title}</div>
-      <div style={{ display: 'grid', gridTemplateColumns: layout.columns === 2 ? '1fr 1fr' : '1fr', gap }}>
+      <div style={{ display: 'grid', gridTemplateColumns: dishCols > 1 ? '1fr 1fr' : '1fr', gap }}>
         {cat.items.map((dish) => (
           <div key={dish.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -226,29 +229,21 @@ function MenuFooter({ style, customization, branding, siteUrl, widthPx, pad }: {
   );
 }
 
-function PocketCard({ customization, branding, widthPx, heightPx, siteUrl }: Omit<MenuTemplateProps, 'style' | 'designType' | 'menuItems'>) {
-  const fonts = effectiveFonts(customization);
-  const { colors, showQR, showTagline, logoUrl } = customization;
-  const qrSize = Math.round(Math.min(widthPx, heightPx) * 0.38);
-  const pad = Math.round(widthPx * 0.06);
-  const hfs = scaledHeadingFs(widthPx, customization);
+function PocketCard({ customization, branding, menuItems, widthPx, heightPx, siteUrl }: Omit<MenuTemplateProps, 'style' | 'designType'>) {
+  const { colors } = customization;
+  const isLandscape = widthPx > heightPx;
 
   return (
-    <div style={{ width: widthPx, height: heightPx, position: 'relative', background: baseBackground(customization), boxSizing: 'border-box', overflow: 'hidden', display: 'flex', flexDirection: widthPx > heightPx ? 'row' : 'column', alignItems: 'center', justifyContent: 'center', gap: Math.round(widthPx * 0.04), padding: pad, fontFamily: fonts.body, borderRadius: containerRadius(customization), boxShadow: containerShadow(customization) }}>
-      <BackgroundLayers customization={customization} widthPx={widthPx} heightPx={heightPx} />
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative' }}>
-        {logoUrl && <Logo url={logoUrl} height={Math.round(heightPx * 0.2)} />}
-        <div style={{ fontFamily: fonts.heading, fontSize: hfs, fontWeight: 700, color: colors.primary }}>{branding.name || 'Restaurant'}</div>
-        {showTagline && branding.tagline && <div style={{ fontSize: scaledDescFs(widthPx, customization), color: colors.textMuted }}>{branding.tagline}</div>}
-        {branding.phone && <div style={{ fontSize: scaledDescFs(widthPx, customization), color: colors.textMuted }}>{branding.phone}</div>}
-      </div>
-      {showQR && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, position: 'relative' }}>
-          <QRCodeSVG value={siteUrl} size={qrSize} fgColor={colors.primary} bgColor="transparent" />
-          <div style={{ fontSize: Math.max(6, Math.round(widthPx * 0.022)), color: colors.textMuted }}>Scan to view menu</div>
-        </div>
-      )}
-    </div>
+    <CompactMenuLayout
+      customization={customization}
+      branding={branding}
+      menuItems={menuItems}
+      widthPx={widthPx}
+      heightPx={heightPx}
+      siteUrl={siteUrl}
+      border={`2px solid ${colors.primary}`}
+      layout={isLandscape ? 'landscape' : 'portrait'}
+    />
   );
 }
 
@@ -258,6 +253,7 @@ function StandardMenu({ style, customization, branding, menuItems, widthPx, heig
   const pad = Math.round(widthPx * 0.06);
   const border = outerBorderCss(visual, customization);
   const cols = customization.layout.columns === 2 && widthPx > 500 ? 2 : 1;
+  const footerPad = menuFooterReserveHeight(widthPx, heightPx, visual.footer, customization.showQR);
 
   return (
     <div
@@ -269,9 +265,13 @@ function StandardMenu({ style, customization, branding, menuItems, widthPx, heig
     >
       <BackgroundLayers customization={customization} widthPx={widthPx} heightPx={heightPx} />
       <MenuHeader style={style} customization={customization} branding={branding} widthPx={widthPx} heightPx={heightPx} />
-      <div style={{ columnCount: cols, columnGap: Math.round(widthPx * 0.025), position: 'relative' }}>
+      <div style={{
+        display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`,
+        gap: Math.round(widthPx * 0.025), position: 'relative',
+        paddingBottom: footerPad, alignContent: 'start',
+      }}>
         {menuItems.map((cat) => (
-          <DishList key={cat.id} cat={cat} style={style} customization={customization} widthPx={widthPx} />
+          <DishList key={cat.id} cat={cat} style={style} customization={customization} widthPx={widthPx} pageColumns={cols} />
         ))}
       </div>
       <MenuFooter style={style} customization={customization} branding={branding} siteUrl={siteUrl} widthPx={widthPx} pad={pad} />
@@ -285,6 +285,7 @@ const MenuTemplate: React.FC<MenuTemplateProps> = (props) => {
       <StickerLayout
         customization={props.customization}
         branding={props.branding}
+        menuItems={props.menuItems}
         fmt={FORMATS[props.format]}
         widthPx={props.widthPx}
         heightPx={props.heightPx}

@@ -15,7 +15,6 @@ import type {
   TemplateStyle,
 } from "@minute-menus/types";
 import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 import {
   Check,
   ChevronDown,
@@ -47,6 +46,7 @@ import {
   WALL_BOARD_FORMAT_GROUPS,
 } from "../lib/printDesigns";
 import { colorModeLabel, colorsToCmykSummary, cmykSimulationFilter } from "../lib/printColorUtils";
+import { exportPrintDesignToPdf } from "../lib/exportPrintPdf";
 import { getMaterialRecommendation } from "../lib/printMaterials";
 import { supabaseService } from "../services/supabaseService";
 import MenuTemplate from "./print-designs/MenuTemplate";
@@ -213,29 +213,28 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   const filteredTemplates = TEMPLATES.filter((t) => templateCategory === 'all' || t.category === templateCategory);
   const material = getMaterialRecommendation(designType, format);
   const cmykSummary = colorsToCmykSummary(custom.colors);
-  const needsMenu = designType !== 'sticker' && designType !== 'pocket-card';
+  const circleSticker = designType === 'sticker' && fmt.shape === 'circle';
+  const needsMenu = !circleSticker;
   const canExport = !needsMenu || menuItems.length > 0;
   const exportFilter = custom.colorMode === 'cmyk' ? cmykSimulationFilter() : undefined;
 
   const exportPdf = useCallback(async () => {
-    const el = exportRef.current;
-    if (!el) return;
     setExporting(true);
     setExportMsg('');
     try {
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: custom.colors.background, logging: false });
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({ orientation: fmt.widthMm > fmt.heightMm ? 'landscape' : 'portrait', unit: 'mm', format: [fmt.widthMm, fmt.heightMm] });
-      pdf.addImage(imgData, 'PNG', 0, 0, fmt.widthMm, fmt.heightMm);
-      const suffix = custom.colorMode === 'cmyk' ? '-cmyk' : '';
-      pdf.save(`${branding.name || 'menu'}-${format}${suffix}.pdf`);
-      setExportMsg('PDF downloaded!');
+      await exportPrintDesignToPdf({
+        previewSelector: '[data-print-preview]',
+        widthMm: fmt.widthMm,
+        heightMm: fmt.heightMm,
+        title: `${branding.name || 'menu'}-${format}`,
+      });
+      setExportMsg('Print dialog opened — choose Save as PDF.');
     } catch {
       setExportMsg('Export failed. Try again.');
     } finally {
       setExporting(false);
     }
-  }, [branding.name, custom.colorMode, custom.colors.background, fmt, format]);
+  }, [branding.name, fmt.heightMm, fmt.widthMm, format]);
 
   const exportPng = useCallback(async () => {
     const el = exportRef.current;
@@ -816,7 +815,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
 
       {/* Off-screen full-resolution render target for html2canvas */}
       <div style={{ position: 'fixed', top: -99999, left: -99999, width: fmt.widthPx, height: fmt.heightPx, pointerEvents: 'none', zIndex: -1 }}>
-        <div ref={exportRef} style={{ position: 'relative', width: fmt.widthPx, height: fmt.heightPx, filter: exportFilter }}>
+        <div ref={exportRef} data-print-preview style={{ position: 'relative', width: fmt.widthPx, height: fmt.heightPx, filter: exportFilter }}>
           <MenuTemplate
             style={templateStyle}
             designType={designType}
