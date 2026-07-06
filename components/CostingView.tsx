@@ -38,6 +38,14 @@ import { supabaseService } from "../services/supabaseService";
 
 const UNITS: PurchaseUnit[] = ["kg", "g", "l", "ml", "piece"];
 const PAGE_SIZE = 8;
+const PICKER_PAGE_SIZE = 5;
+
+type PickerOption = {
+  id: string;
+  primary: string;
+  secondary?: string;
+  trailing?: string;
+};
 
 const firstOfMonth = (d = new Date()): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
@@ -105,8 +113,6 @@ export const CostingView: React.FC<CostingViewProps> = ({
     [menuItems],
   );
   const [selectedDishId, setSelectedDishId] = useState<string>("");
-  const [dishSearch, setDishSearch] = useState("");
-  const [dishPage, setDishPage] = useState(0);
   const [recipe, setRecipe] = useState<Array<{ ingredientId: string; quantity: number }>>([]);
   const [dishPriceInput, setDishPriceInput] = useState<string>("");
   const [savingRecipe, setSavingRecipe] = useState(false);
@@ -245,26 +251,25 @@ export const CostingView: React.FC<CostingViewProps> = ({
     [filteredIngredients, ingredientPageSafe],
   );
 
-  const filteredDishes = useMemo(() => {
-    const q = dishSearch.trim().toLowerCase();
-    if (!q) return allDishes;
-    return allDishes.filter(
-      ({ dish, category }) =>
-        dish.name.toLowerCase().includes(q) || category.toLowerCase().includes(q),
-    );
-  }, [allDishes, dishSearch]);
-
-  const dishTotalPages = Math.max(1, Math.ceil(filteredDishes.length / PAGE_SIZE));
-  const dishPageSafe = Math.min(dishPage, dishTotalPages - 1);
-  const pagedDishes = useMemo(
+  const dishOptions = useMemo<PickerOption[]>(
     () =>
-      filteredDishes.slice(dishPageSafe * PAGE_SIZE, dishPageSafe * PAGE_SIZE + PAGE_SIZE),
-    [filteredDishes, dishPageSafe],
+      allDishes.map(({ dish, category }) => ({
+        id: dish.id,
+        primary: dish.name,
+        secondary: category,
+        trailing: formatPriceInCurrency(dish.price, currency),
+      })),
+    [allDishes, currency],
   );
 
-  const selectedDish = useMemo(
-    () => allDishes.find((d) => d.dish.id === selectedDishId),
-    [allDishes, selectedDishId],
+  const ingredientOptions = useMemo<PickerOption[]>(
+    () =>
+      ingredients.map((ing) => ({
+        id: ing.id,
+        primary: ing.name,
+        trailing: `${formatPriceInCurrency(ing.unitCost, currency)}/${baseUnitLabel(ing.purchaseUnit)}`,
+      })),
+    [ingredients, currency],
   );
 
   const updateParsedRow = (idx: number, patch: Partial<InvoiceLineItem>) =>
@@ -713,87 +718,16 @@ export const CostingView: React.FC<CostingViewProps> = ({
                   Add dishes in Menu Editor first — they will appear here for per-plate costing.
                 </p>
               ) : (
-                <>
-                  {selectedDish ? (
-                    <div
-                      className={`flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-lg border ${
-                        isDarkTheme ? "bg-zinc-900 border-zinc-700" : "bg-zinc-50 border-zinc-200"
-                      }`}
-                    >
-                      <div>
-                        <p className={`text-sm font-medium ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
-                          {selectedDish.dish.name}
-                        </p>
-                        <p className={`text-xs ${label}`}>{selectedDish.category}</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className={`text-sm font-mono ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
-                          {formatPriceInCurrency(selectedDish.dish.price, currency)}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedDishId("")}
-                          className={`text-xs underline ${label} ${isDarkTheme ? "hover:text-white" : "hover:text-zinc-900"}`}
-                        >
-                          Change
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="relative mb-2">
-                        <Search size={14} className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${label}`} />
-                        <input
-                          value={dishSearch}
-                          onChange={(e) => {
-                            setDishSearch(e.target.value);
-                            setDishPage(0);
-                          }}
-                          placeholder="Search dishes by name or category…"
-                          className={`w-full pl-8 pr-3 py-2 rounded-md text-sm outline-none border ${input}`}
-                        />
-                      </div>
-                      {filteredDishes.length === 0 ? (
-                        <p className={`text-sm ${label}`}>No dishes match “{dishSearch}”.</p>
-                      ) : (
-                        <>
-                          <div
-                            className={`rounded-lg border divide-y max-h-64 overflow-y-auto ${
-                              isDarkTheme ? "border-zinc-800 divide-zinc-800" : "border-zinc-200 divide-zinc-200"
-                            }`}
-                          >
-                            {pagedDishes.map(({ dish, category }) => (
-                              <button
-                                key={dish.id}
-                                type="button"
-                                onClick={() => setSelectedDishId(dish.id)}
-                                className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left text-sm transition-colors ${
-                                  isDarkTheme
-                                    ? "text-white hover:bg-zinc-900"
-                                    : "text-zinc-900 hover:bg-zinc-100"
-                                }`}
-                              >
-                                <div className="min-w-0">
-                                  <p className="font-medium truncate">{dish.name}</p>
-                                  <p className={`text-xs truncate ${label}`}>{category}</p>
-                                </div>
-                                <span className="font-mono text-xs shrink-0">
-                                  {formatPriceInCurrency(dish.price, currency)}
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                          <Paginator
-                            page={dishPageSafe}
-                            totalPages={dishTotalPages}
-                            onPage={setDishPage}
-                            isDark={isDarkTheme}
-                          />
-                        </>
-                      )}
-                    </>
-                  )}
-                </>
+                <SearchablePicker
+                  options={dishOptions}
+                  selectedId={selectedDishId}
+                  onSelect={setSelectedDishId}
+                  searchPlaceholder="Search dishes by name or category…"
+                  noResultsText={(q) => `No dishes match “${q}”.`}
+                  isDark={isDarkTheme}
+                  inputClass={input}
+                  labelClass={label}
+                />
               )}
             </div>
 
@@ -808,22 +742,24 @@ export const CostingView: React.FC<CostingViewProps> = ({
                         const ing = ingredientById.get(line.ingredientId);
                         const lineCost = (ing?.unitCost ?? 0) * line.quantity;
                         return (
-                          <div key={idx} className="flex items-center gap-2">
-                            <select
-                              value={line.ingredientId}
-                              onChange={(e) =>
-                                setRecipe((prev) =>
-                                  prev.map((r, i) => (i === idx ? { ...r, ingredientId: e.target.value } : r)),
-                                )
-                              }
-                              className={`flex-1 px-3 py-2 rounded-md text-sm outline-none border ${input}`}
-                            >
-                              {ingredients.map((i) => (
-                                <option key={i.id} value={i.id}>
-                                  {i.name}
-                                </option>
-                              ))}
-                            </select>
+                          <div key={idx} className="flex flex-wrap items-center gap-2">
+                            <div className="flex-1 min-w-[12rem]">
+                              <SearchablePicker
+                                options={ingredientOptions}
+                                selectedId={line.ingredientId}
+                                onSelect={(id) =>
+                                  setRecipe((prev) =>
+                                    prev.map((r, i) => (i === idx ? { ...r, ingredientId: id } : r)),
+                                  )
+                                }
+                                searchPlaceholder="Search ingredient…"
+                                noResultsText={(q) => `No ingredients match “${q}”.`}
+                                isDark={isDarkTheme}
+                                inputClass={input}
+                                labelClass={label}
+                                compact
+                              />
+                            </div>
                             <div className="flex items-center gap-1">
                               <input
                                 type="number"
@@ -941,6 +877,160 @@ export const CostingView: React.FC<CostingViewProps> = ({
             )}
           </section>
         </>
+      )}
+    </div>
+  );
+};
+
+const SearchablePicker: React.FC<{
+  options: PickerOption[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+  searchPlaceholder: string;
+  noResultsText: (query: string) => string;
+  isDark: boolean;
+  inputClass: string;
+  labelClass: string;
+  compact?: boolean;
+}> = ({
+  options,
+  selectedId,
+  onSelect,
+  searchPlaceholder,
+  noResultsText,
+  isDark,
+  inputClass,
+  labelClass,
+  compact,
+}) => {
+  const [editing, setEditing] = useState(!selectedId);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(0);
+
+  useEffect(() => {
+    if (selectedId) setEditing(false);
+  }, [selectedId]);
+
+  const selected = options.find((o) => o.id === selectedId);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter(
+      (o) =>
+        o.primary.toLowerCase().includes(q) ||
+        (o.secondary?.toLowerCase().includes(q) ?? false),
+    );
+  }, [options, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PICKER_PAGE_SIZE));
+  const pageSafe = Math.min(page, totalPages - 1);
+  const paged = filtered.slice(
+    pageSafe * PICKER_PAGE_SIZE,
+    pageSafe * PICKER_PAGE_SIZE + PICKER_PAGE_SIZE,
+  );
+
+  const startEdit = () => {
+    setEditing(true);
+    setSearch("");
+    setPage(0);
+  };
+
+  const pick = (id: string) => {
+    onSelect(id);
+    setEditing(false);
+    setSearch("");
+    setPage(0);
+  };
+
+  if (selected && !editing) {
+    return (
+      <div
+        className={`flex flex-wrap items-center justify-between gap-2 px-3 py-2 rounded-lg border ${
+          isDark ? "bg-zinc-900 border-zinc-700" : "bg-zinc-50 border-zinc-200"
+        }`}
+      >
+        <div className="min-w-0">
+          <p className={`font-medium truncate ${compact ? "text-sm" : "text-sm"} ${isDark ? "text-white" : "text-zinc-900"}`}>
+            {selected.primary}
+          </p>
+          {selected.secondary && (
+            <p className={`text-xs truncate ${labelClass}`}>{selected.secondary}</p>
+          )}
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          {selected.trailing && (
+            <span className={`font-mono text-xs ${isDark ? "text-white" : "text-zinc-900"}`}>
+              {selected.trailing}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={startEdit}
+            className={`text-xs underline ${labelClass} ${isDark ? "hover:text-white" : "hover:text-zinc-900"}`}
+          >
+            Change
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="relative">
+        <Search size={14} className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${labelClass}`} />
+        <input
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(0);
+          }}
+          placeholder={searchPlaceholder}
+          className={`w-full pl-8 pr-3 py-2 rounded-md text-sm outline-none border ${inputClass}`}
+        />
+      </div>
+      {filtered.length === 0 ? (
+        <p className={`text-sm ${labelClass}`}>{noResultsText(search)}</p>
+      ) : (
+        <>
+          <div
+            className={`rounded-lg border divide-y ${
+              isDark ? "border-zinc-800 divide-zinc-800" : "border-zinc-200 divide-zinc-200"
+            }`}
+          >
+            {paged.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => pick(opt.id)}
+                className={`w-full flex items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors ${
+                  isDark ? "text-white hover:bg-zinc-900" : "text-zinc-900 hover:bg-zinc-100"
+                }`}
+              >
+                <div className="min-w-0">
+                  <p className="font-medium truncate">{opt.primary}</p>
+                  {opt.secondary && (
+                    <p className={`text-xs truncate ${labelClass}`}>{opt.secondary}</p>
+                  )}
+                </div>
+                {opt.trailing && (
+                  <span className="font-mono text-xs shrink-0">{opt.trailing}</span>
+                )}
+              </button>
+            ))}
+          </div>
+          <Paginator page={pageSafe} totalPages={totalPages} onPage={setPage} isDark={isDark} />
+        </>
+      )}
+      {selected && editing && (
+        <button
+          type="button"
+          onClick={() => setEditing(false)}
+          className={`text-xs ${labelClass} ${isDark ? "hover:text-white" : "hover:text-zinc-900"}`}
+        >
+          Cancel
+        </button>
       )}
     </div>
   );
