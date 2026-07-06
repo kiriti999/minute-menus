@@ -830,7 +830,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   const refreshViewData = (view: ViewMode) => {
     if (view === "DASHBOARD") loadDashboardMetrics();
-    if (view === "MENU") loadMenuFromServer();
+    if (view === "MENU" || view === "COSTING" || view === "IMAGE_EDITOR") loadMenuFromServer();
     if (view === "CUSTOMERS") loadCustomersData();
     if (view === "SUBSCRIPTIONS") loadSubscriptionData();
   };

@@ -684,15 +684,23 @@ export const CostingView: React.FC<CostingViewProps> = ({
               <select
                 value={selectedDishId}
                 onChange={(e) => setSelectedDishId(e.target.value)}
-                className={`w-full sm:w-80 px-3 py-2 rounded-md text-sm outline-none border ${input}`}
+                disabled={allDishes.length === 0}
+                className={`w-full sm:w-80 px-3 py-2 rounded-md text-sm outline-none border ${input} disabled:opacity-50`}
               >
-                <option value="">— choose a dish —</option>
+                <option value="">
+                  {allDishes.length === 0 ? "No menu dishes yet" : "— choose a dish —"}
+                </option>
                 {allDishes.map(({ dish }) => (
                   <option key={dish.id} value={dish.id}>
                     {dish.name}
                   </option>
                 ))}
               </select>
+              {allDishes.length === 0 && (
+                <p className={`text-xs mt-1.5 ${label}`}>
+                  Add dishes in Menu Editor first — they will appear here for per-plate costing.
+                </p>
+              )}
             </div>
 
             {selectedDishId && (
