@@ -34,11 +34,11 @@ const descFs = (w: number) => Math.max(8, Math.round(w * 0.011));
 /** Category heading is 130% of body size. */
 const catFs = (w: number) => Math.max(10, Math.round(w * 0.018));
 
-function bgStyle(custom: DesignCustomization): string {
-  if (custom.backgroundType === 'gradient' && custom.backgroundGradient) {
-    return custom.backgroundGradient;
+function bgStyle(customization: DesignCustomization): string {
+  if (customization.backgroundType === 'gradient' && customization.backgroundGradient) {
+    return customization.backgroundGradient;
   }
-  return custom.colors.background;
+  return customization.colors.background;
 }
 
 // ─── Logo row ─────────────────────────────────────────────────────────────────
@@ -56,8 +56,8 @@ function Logo({ url, height }: { url?: string; height: number }) {
 
 // ─── Pocket / Sticker layout (QR-focused) ────────────────────────────────────
 
-function PocketCard({ custom, branding, widthPx, heightPx, siteUrl }: Omit<MenuTemplateProps, 'style' | 'designType' | 'menuItems'>) {
-  const { colors, fonts, showQR, showTagline, logoUrl } = custom;
+function PocketCard({ customization, branding, widthPx, heightPx, siteUrl }: Omit<MenuTemplateProps, 'style' | 'designType' | 'menuItems'>) {
+  const { colors, fonts, showQR, showTagline, logoUrl } = customization;
   const isLandscape = widthPx > heightPx;
   const qrSize = Math.round(Math.min(widthPx, heightPx) * 0.38);
   const pad = Math.round(widthPx * 0.06);
@@ -67,7 +67,7 @@ function PocketCard({ custom, branding, widthPx, heightPx, siteUrl }: Omit<MenuT
     <div
       style={{
         width: widthPx, height: heightPx,
-        background: bgStyle(custom),
+        background: bgStyle(customization),
         boxSizing: 'border-box',
         overflow: 'hidden',
         display: 'flex',
@@ -105,8 +105,8 @@ function PocketCard({ custom, branding, widthPx, heightPx, siteUrl }: Omit<MenuT
 
 // ─── Shared dish list ─────────────────────────────────────────────────────────
 
-function DishList({ cat, custom, style, widthPx }: { cat: Category; custom: DesignCustomization; style: TemplateStyle; widthPx: number }) {
-  const { colors, fonts, layout, showPrices, showDescriptions } = custom;
+function DishList({ cat, customization, style, widthPx }: { cat: Category; customization: DesignCustomization; style: TemplateStyle; widthPx: number }) {
+  const { colors, fonts, layout, showPrices, showDescriptions } = customization;
   const isCompact = layout.spacing === 'compact';
   const gap = isCompact ? Math.round(widthPx * 0.004) : Math.round(widthPx * 0.008);
   const bfs = bodyFs(widthPx);
@@ -160,13 +160,13 @@ function DishList({ cat, custom, style, widthPx }: { cat: Category; custom: Desi
 
 // ─── Modern Minimal ───────────────────────────────────────────────────────────
 
-function ModernMinimal({ custom, branding, menuItems, widthPx, heightPx, siteUrl }: Omit<MenuTemplateProps, 'style' | 'designType'>) {
-  const { colors, fonts, showQR, showTagline, logoUrl } = custom;
+function ModernMinimal({ customization, branding, menuItems, widthPx, heightPx, siteUrl }: Omit<MenuTemplateProps, 'style' | 'designType'>) {
+  const { colors, fonts, showQR, showTagline, logoUrl } = customization;
   const pad = Math.round(widthPx * 0.06);
   const qrSize = Math.round(widthPx * 0.065);
 
   return (
-    <div style={{ width: widthPx, height: heightPx, background: bgStyle(custom), padding: pad, fontFamily: fonts.body, boxSizing: 'border-box', overflow: 'hidden', position: 'relative' }}>
+    <div style={{ width: widthPx, height: heightPx, background: bgStyle(customization), padding: pad, fontFamily: fonts.body, boxSizing: 'border-box', overflow: 'hidden', position: 'relative' }}>
       <div style={{ borderBottom: `2px solid ${colors.primary}`, paddingBottom: Math.round(widthPx * 0.015), marginBottom: Math.round(widthPx * 0.025), display: 'flex', alignItems: 'center', gap: Math.round(widthPx * 0.015) }}>
         {logoUrl && <Logo url={logoUrl} height={Math.round(widthPx * 0.07)} />}
         <div>
@@ -181,9 +181,9 @@ function ModernMinimal({ custom, branding, menuItems, widthPx, heightPx, siteUrl
         </div>
       </div>
 
-      <div style={{ columnCount: custom.layout.columns === 2 && widthPx > 500 ? 2 : 1, columnGap: Math.round(widthPx * 0.03) }}>
+      <div style={{ columnCount: customization.layout.columns === 2 && widthPx > 500 ? 2 : 1, columnGap: Math.round(widthPx * 0.03) }}>
         {menuItems.map((cat) => (
-          <DishList key={cat.id} cat={cat} custom={custom} style="modern-minimal" widthPx={widthPx} />
+          <DishList key={cat.id} cat={cat} customization={customization} style="modern-minimal" widthPx={widthPx} />
         ))}
       </div>
 
@@ -204,14 +204,14 @@ function ModernMinimal({ custom, branding, menuItems, widthPx, heightPx, siteUrl
 
 // ─── Classic Elegant ──────────────────────────────────────────────────────────
 
-function ClassicElegant({ custom, branding, menuItems, widthPx, heightPx, siteUrl }: Omit<MenuTemplateProps, 'style' | 'designType'>) {
-  const { colors, fonts, showQR, showTagline, logoUrl } = custom;
+function ClassicElegant({ customization, branding, menuItems, widthPx, heightPx, siteUrl }: Omit<MenuTemplateProps, 'style' | 'designType'>) {
+  const { colors, fonts, showQR, showTagline, logoUrl } = customization;
   const pad = Math.round(widthPx * 0.07);
   const qrSize = Math.round(widthPx * 0.055);
   const ornamentFs = Math.round(widthPx * 0.015);
 
   return (
-    <div style={{ width: widthPx, height: heightPx, background: bgStyle(custom), padding: pad, boxSizing: 'border-box', overflow: 'hidden', position: 'relative', border: `6px double ${colors.accent}` }}>
+    <div style={{ width: widthPx, height: heightPx, background: bgStyle(customization), padding: pad, boxSizing: 'border-box', overflow: 'hidden', position: 'relative', border: `6px double ${colors.accent}` }}>
       <div style={{ textAlign: 'center', marginBottom: Math.round(widthPx * 0.02) }}>
         {logoUrl && <Logo url={logoUrl} height={Math.round(widthPx * 0.07)} />}
         <div style={{ fontSize: ornamentFs, color: colors.accent, letterSpacing: '0.3em', marginBottom: Math.round(widthPx * 0.008) }}>✦ ✦ ✦</div>
@@ -226,9 +226,9 @@ function ClassicElegant({ custom, branding, menuItems, widthPx, heightPx, siteUr
         <div style={{ height: 1, background: `linear-gradient(to right, transparent, ${colors.accent}, transparent)`, marginTop: Math.round(widthPx * 0.012) }} />
       </div>
 
-      <div style={{ columnCount: custom.layout.columns === 2 && widthPx > 500 ? 2 : 1, columnGap: Math.round(widthPx * 0.025) }}>
+      <div style={{ columnCount: customization.layout.columns === 2 && widthPx > 500 ? 2 : 1, columnGap: Math.round(widthPx * 0.025) }}>
         {menuItems.map((cat) => (
-          <DishList key={cat.id} cat={cat} custom={custom} style="classic-elegant" widthPx={widthPx} />
+          <DishList key={cat.id} cat={cat} customization={customization} style="classic-elegant" widthPx={widthPx} />
         ))}
       </div>
 
@@ -247,14 +247,14 @@ function ClassicElegant({ custom, branding, menuItems, widthPx, heightPx, siteUr
 
 // ─── Bold Colorful ────────────────────────────────────────────────────────────
 
-function BoldColorful({ custom, branding, menuItems, widthPx, heightPx, siteUrl }: Omit<MenuTemplateProps, 'style' | 'designType'>) {
-  const { colors, fonts, showQR, showTagline, logoUrl } = custom;
+function BoldColorful({ customization, branding, menuItems, widthPx, heightPx, siteUrl }: Omit<MenuTemplateProps, 'style' | 'designType'>) {
+  const { colors, fonts, showQR, showTagline, logoUrl } = customization;
   const pad = Math.round(widthPx * 0.05);
   const headerH = Math.round(heightPx * 0.18);
   const qrSize = Math.round(widthPx * 0.05);
 
   return (
-    <div style={{ width: widthPx, height: heightPx, background: bgStyle(custom), boxSizing: 'border-box', overflow: 'hidden', position: 'relative', fontFamily: fonts.body }}>
+    <div style={{ width: widthPx, height: heightPx, background: bgStyle(customization), boxSizing: 'border-box', overflow: 'hidden', position: 'relative', fontFamily: fonts.body }}>
       <div
         style={{
           background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`,
@@ -272,9 +272,9 @@ function BoldColorful({ custom, branding, menuItems, widthPx, heightPx, siteUrl 
         )}
       </div>
 
-      <div style={{ padding: pad, columnCount: custom.layout.columns === 2 && widthPx > 500 ? 2 : 1, columnGap: Math.round(widthPx * 0.02) }}>
+      <div style={{ padding: pad, columnCount: customization.layout.columns === 2 && widthPx > 500 ? 2 : 1, columnGap: Math.round(widthPx * 0.02) }}>
         {menuItems.map((cat) => (
-          <DishList key={cat.id} cat={cat} custom={custom} style="bold-colorful" widthPx={widthPx} />
+          <DishList key={cat.id} cat={cat} customization={customization} style="bold-colorful" widthPx={widthPx} />
         ))}
       </div>
 
