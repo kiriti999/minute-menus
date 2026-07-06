@@ -78,7 +78,7 @@ type OrderItemInput = {
     price: number;
 };
 
-const computeCartTotals = (items: OrderItemInput[], currency: string) => {
+const computeCartTotals = (items: Array<{ price: number; quantity: number }>, currency: string) => {
     const subtotal = round2(items.reduce((sum, item) => sum + item.price * item.quantity, 0));
     if (currency.toUpperCase() !== "INR") {
         return { subtotal, gstAmount: 0, total: subtotal };

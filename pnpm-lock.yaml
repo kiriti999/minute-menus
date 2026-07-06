@@ -17,6 +17,9 @@ importers:
       '@minute-menus/api-helpers':
         specifier: workspace:*
         version: link:packages/api-helpers
+      '@minute-menus/costing':
+        specifier: workspace:*
+        version: link:packages/costing
       '@minute-menus/currency':
         specifier: workspace:*
         version: link:packages/currency
@@ -135,6 +138,8 @@ importers:
       '@vercel/node':
         specifier: ^5.7.4
         version: 5.7.4(rollup@4.55.1)
+
+  packages/costing: {}
 
   packages/currency: {}
 

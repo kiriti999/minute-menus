@@ -75,6 +75,7 @@ export type Database = {
                     ingredients?: string;
                     benefits?: string;
                     calories?: number | null;
+                    cost_per_plate?: number | null;
                     created_at: string;
                 };
                 Insert: {
@@ -94,6 +95,7 @@ export type Database = {
                     ingredients?: string;
                     benefits?: string;
                     calories?: number | null;
+                    cost_per_plate?: number | null;
                     created_at?: string;
                 };
                 Update: {
@@ -113,6 +115,7 @@ export type Database = {
                     ingredients?: string;
                     benefits?: string;
                     calories?: number | null;
+                    cost_per_plate?: number | null;
                     created_at?: string;
                 };
                 Relationships: [];
@@ -539,6 +542,150 @@ export type Database = {
                     formatted_address?: string | null;
                     created_at?: string;
                     updated_at?: string;
+                };
+                Relationships: [];
+            };
+            restaurant_overhead: {
+                Row: {
+                    id: string;
+                    restaurant_id: string;
+                    month: string;
+                    rent: number;
+                    wages: number;
+                    electricity: number;
+                    gas: number;
+                    internet: number;
+                    packing: number;
+                    other: number;
+                    expected_orders: number | null;
+                    created_at: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    restaurant_id: string;
+                    month: string;
+                    rent?: number;
+                    wages?: number;
+                    electricity?: number;
+                    gas?: number;
+                    internet?: number;
+                    packing?: number;
+                    other?: number;
+                    expected_orders?: number | null;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    restaurant_id?: string;
+                    month?: string;
+                    rent?: number;
+                    wages?: number;
+                    electricity?: number;
+                    gas?: number;
+                    internet?: number;
+                    packing?: number;
+                    other?: number;
+                    expected_orders?: number | null;
+                    created_at?: string;
+                    updated_at?: string;
+                };
+                Relationships: [];
+            };
+            ingredient_invoices: {
+                Row: {
+                    id: string;
+                    restaurant_id: string;
+                    month: string;
+                    file_url: string | null;
+                    file_name: string | null;
+                    total_amount: number;
+                    line_items: Json;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    restaurant_id: string;
+                    month: string;
+                    file_url?: string | null;
+                    file_name?: string | null;
+                    total_amount?: number;
+                    line_items?: Json;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    restaurant_id?: string;
+                    month?: string;
+                    file_url?: string | null;
+                    file_name?: string | null;
+                    total_amount?: number;
+                    line_items?: Json;
+                    created_at?: string;
+                };
+                Relationships: [];
+            };
+            ingredients: {
+                Row: {
+                    id: string;
+                    restaurant_id: string;
+                    name: string;
+                    purchase_unit: "kg" | "g" | "l" | "ml" | "piece";
+                    purchase_quantity: number;
+                    purchase_amount: number;
+                    unit_cost: number;
+                    source_invoice_id: string | null;
+                    updated_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    restaurant_id: string;
+                    name: string;
+                    purchase_unit?: "kg" | "g" | "l" | "ml" | "piece";
+                    purchase_quantity?: number;
+                    purchase_amount?: number;
+                    unit_cost?: number;
+                    source_invoice_id?: string | null;
+                    updated_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    restaurant_id?: string;
+                    name?: string;
+                    purchase_unit?: "kg" | "g" | "l" | "ml" | "piece";
+                    purchase_quantity?: number;
+                    purchase_amount?: number;
+                    unit_cost?: number;
+                    source_invoice_id?: string | null;
+                    updated_at?: string;
+                };
+                Relationships: [];
+            };
+            dish_recipe_lines: {
+                Row: {
+                    id: string;
+                    restaurant_id: string;
+                    dish_id: string;
+                    ingredient_id: string;
+                    quantity: number;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    restaurant_id: string;
+                    dish_id: string;
+                    ingredient_id: string;
+                    quantity?: number;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    restaurant_id?: string;
+                    dish_id?: string;
+                    ingredient_id?: string;
+                    quantity?: number;
+                    created_at?: string;
                 };
                 Relationships: [];
             };

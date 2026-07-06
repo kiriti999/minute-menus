@@ -19,6 +19,7 @@
   "dependencies": {
     "@minute-menus/ai": "workspace:*",
     "@minute-menus/api-helpers": "workspace:*",
+    "@minute-menus/costing": "workspace:*",
     "@minute-menus/currency": "workspace:*",
     "@minute-menus/email-templates": "workspace:*",
     "@minute-menus/errors": "workspace:*",

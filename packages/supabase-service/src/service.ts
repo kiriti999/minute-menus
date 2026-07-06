@@ -12,8 +12,14 @@ import type {
     CustomerSubscription,
     DailyOrder,
     DeliveryTicket,
+    DishRecipeLine,
+    Ingredient,
+    IngredientInvoice,
+    InvoiceLineItem,
     MealPlan,
     OrderItem,
+    PurchaseUnit,
+    RestaurantOverhead,
     RefundRequest,
     RefundStatus,
     SubDeliveryType,
@@ -1159,5 +1165,219 @@ export class SupabaseService {
             profile.city &&
             profile.pincode
         );
+    }
+
+    // ── Menu costing ──────────────────────────────────────────────────────────
+
+    private toUnitCost(amount: number, quantity: number, unit: PurchaseUnit): number {
+        const base = unit === "kg" || unit === "l" ? quantity * 1000 : quantity;
+        if (base <= 0) return 0;
+        return amount / base;
+    }
+
+    /** Overhead for a given month (first-of-month YYYY-MM-DD), or null. */
+    async getOverhead(month: string, restaurantId?: string): Promise<RestaurantOverhead | null> {
+        const rid = restaurantId ?? (await this.getRestaurantId());
+        const { data, error } = await this.client
+            .from("restaurant_overhead")
+            .select("*")
+            .eq("restaurant_id", rid)
+            .eq("month", month)
+            .maybeSingle();
+        if (error) throw error;
+        if (!data) return null;
+        return {
+            id: data.id,
+            restaurantId: data.restaurant_id,
+            month: data.month,
+            rent: Number(data.rent),
+            wages: Number(data.wages),
+            electricity: Number(data.electricity),
+            gas: Number(data.gas),
+            internet: Number(data.internet),
+            packing: Number(data.packing),
+            other: Number(data.other),
+            expectedOrders: data.expected_orders,
+        };
+    }
+
+    async saveOverhead(overhead: RestaurantOverhead): Promise<void> {
+        const rid = overhead.restaurantId ?? (await this.getRestaurantId());
+        const { error } = await this.client.from("restaurant_overhead").upsert(
+            {
+                restaurant_id: rid,
+                month: overhead.month,
+                rent: overhead.rent,
+                wages: overhead.wages,
+                electricity: overhead.electricity,
+                gas: overhead.gas,
+                internet: overhead.internet,
+                packing: overhead.packing,
+                other: overhead.other,
+                expected_orders: overhead.expectedOrders ?? null,
+                updated_at: new Date().toISOString(),
+            },
+            { onConflict: "restaurant_id,month" },
+        );
+        if (error) throw error;
+    }
+
+    /** Invoices for a given month, most recent first. */
+    async getInvoices(month: string, restaurantId?: string): Promise<IngredientInvoice[]> {
+        const rid = restaurantId ?? (await this.getRestaurantId());
+        const { data, error } = await this.client
+            .from("ingredient_invoices")
+            .select("*")
+            .eq("restaurant_id", rid)
+            .eq("month", month)
+            .order("created_at", { ascending: false });
+        if (error) throw error;
+        return (data ?? []).map((row) => ({
+            id: row.id,
+            restaurantId: row.restaurant_id,
+            month: row.month,
+            fileUrl: row.file_url,
+            fileName: row.file_name,
+            totalAmount: Number(row.total_amount),
+            lineItems: (row.line_items as unknown as InvoiceLineItem[]) ?? [],
+            createdAt: row.created_at,
+        }));
+    }
+
+    async saveInvoice(
+        month: string,
+        lineItems: InvoiceLineItem[],
+        fileName?: string,
+        restaurantId?: string,
+    ): Promise<string> {
+        const rid = restaurantId ?? (await this.getRestaurantId());
+        const total = Math.round(lineItems.reduce((s, i) => s + i.amount, 0) * 100) / 100;
+        const { data, error } = await this.client
+            .from("ingredient_invoices")
+            .insert({
+                restaurant_id: rid,
+                month,
+                file_name: fileName ?? null,
+                total_amount: total,
+                line_items: lineItems as unknown as Json,
+            })
+            .select("id")
+            .single();
+        if (error) throw error;
+        return data.id;
+    }
+
+    /** Ingredient library for the restaurant. */
+    async getIngredients(restaurantId?: string): Promise<Ingredient[]> {
+        const rid = restaurantId ?? (await this.getRestaurantId());
+        const { data, error } = await this.client
+            .from("ingredients")
+            .select("*")
+            .eq("restaurant_id", rid)
+            .order("name");
+        if (error) throw error;
+        return (data ?? []).map((row) => ({
+            id: row.id,
+            restaurantId: row.restaurant_id,
+            name: row.name,
+            purchaseUnit: row.purchase_unit,
+            purchaseQuantity: Number(row.purchase_quantity),
+            purchaseAmount: Number(row.purchase_amount),
+            unitCost: Number(row.unit_cost),
+            sourceInvoiceId: row.source_invoice_id,
+        }));
+    }
+
+    /** Upsert an ingredient by name; unit cost is derived from purchase amount/quantity. */
+    async upsertIngredient(
+        input: {
+            name: string;
+            purchaseUnit: PurchaseUnit;
+            purchaseQuantity: number;
+            purchaseAmount: number;
+            sourceInvoiceId?: string | null;
+        },
+        restaurantId?: string,
+    ): Promise<void> {
+        const rid = restaurantId ?? (await this.getRestaurantId());
+        const unitCost = this.toUnitCost(input.purchaseAmount, input.purchaseQuantity, input.purchaseUnit);
+        const { error } = await this.client.from("ingredients").upsert(
+            {
+                restaurant_id: rid,
+                name: input.name.trim(),
+                purchase_unit: input.purchaseUnit,
+                purchase_quantity: input.purchaseQuantity,
+                purchase_amount: input.purchaseAmount,
+                unit_cost: unitCost,
+                source_invoice_id: input.sourceInvoiceId ?? null,
+                updated_at: new Date().toISOString(),
+            },
+            { onConflict: "restaurant_id,name" },
+        );
+        if (error) throw error;
+    }
+
+    async deleteIngredient(ingredientId: string): Promise<void> {
+        const { error } = await this.client.from("ingredients").delete().eq("id", ingredientId);
+        if (error) throw error;
+    }
+
+    /** Recipe lines for a dish, joined with ingredient name + unit cost. */
+    async getRecipeLines(dishId: string): Promise<DishRecipeLine[]> {
+        const { data, error } = await this.client
+            .from("dish_recipe_lines")
+            .select("id, dish_id, ingredient_id, quantity, ingredients(name, unit_cost)")
+            .eq("dish_id", dishId);
+        if (error) throw error;
+        return (data ?? []).map((row) => {
+            const ing = row.ingredients as unknown as { name: string; unit_cost: number } | null;
+            return {
+                id: row.id,
+                dishId: row.dish_id,
+                ingredientId: row.ingredient_id,
+                ingredientName: ing?.name,
+                unitCost: ing ? Number(ing.unit_cost) : undefined,
+                quantity: Number(row.quantity),
+            };
+        });
+    }
+
+    /** Replace a dish's recipe with the given lines, then cache cost per plate. */
+    async saveRecipeLines(
+        dishId: string,
+        lines: Array<{ ingredientId: string; quantity: number }>,
+        costPerPlate: number,
+        restaurantId?: string,
+    ): Promise<void> {
+        const rid = restaurantId ?? (await this.getRestaurantId());
+        const { error: delErr } = await this.client
+            .from("dish_recipe_lines")
+            .delete()
+            .eq("dish_id", dishId);
+        if (delErr) throw delErr;
+
+        if (lines.length > 0) {
+            const { error: insErr } = await this.client.from("dish_recipe_lines").insert(
+                lines.map((l) => ({
+                    restaurant_id: rid,
+                    dish_id: dishId,
+                    ingredient_id: l.ingredientId,
+                    quantity: l.quantity,
+                })),
+            );
+            if (insErr) throw insErr;
+        }
+
+        const { error: costErr } = await this.client
+            .from("dishes")
+            .update({ cost_per_plate: costPerPlate })
+            .eq("id", dishId);
+        if (costErr) throw costErr;
+    }
+
+    /** Set a dish's selling price directly (used by costing "apply suggested price"). */
+    async updateDishPrice(dishId: string, price: number): Promise<void> {
+        const { error } = await this.client.from("dishes").update({ price }).eq("id", dishId);
+        if (error) throw error;
     }
 }

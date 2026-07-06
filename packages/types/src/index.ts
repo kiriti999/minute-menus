@@ -152,6 +152,62 @@ export interface MealPlan {
   createdAt: string;
 }
 
+// ─── Menu Costing Types ───────────────────────────────────────────────────────
+
+export type PurchaseUnit = 'kg' | 'g' | 'l' | 'ml' | 'piece';
+
+export interface RestaurantOverhead {
+  id?: string;
+  restaurantId: string;
+  month: string; // YYYY-MM-DD (first of month)
+  rent: number;
+  wages: number;
+  electricity: number;
+  gas: number;
+  internet: number;
+  packing: number;
+  other: number;
+  expectedOrders?: number | null;
+}
+
+export interface InvoiceLineItem {
+  name: string;
+  quantity: number;
+  unit: PurchaseUnit;
+  amount: number;
+}
+
+export interface IngredientInvoice {
+  id: string;
+  restaurantId: string;
+  month: string;
+  fileUrl?: string | null;
+  fileName?: string | null;
+  totalAmount: number;
+  lineItems: InvoiceLineItem[];
+  createdAt: string;
+}
+
+export interface Ingredient {
+  id: string;
+  restaurantId: string;
+  name: string;
+  purchaseUnit: PurchaseUnit;
+  purchaseQuantity: number;
+  purchaseAmount: number;
+  unitCost: number; // per base unit (gram/ml/piece)
+  sourceInvoiceId?: string | null;
+}
+
+export interface DishRecipeLine {
+  id: string;
+  dishId: string;
+  ingredientId: string;
+  ingredientName?: string;
+  unitCost?: number;
+  quantity: number; // per plate, in ingredient base unit
+}
+
 export interface CustomerSubscription {
   id: string;
   restaurantId: string;

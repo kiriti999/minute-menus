@@ -879,3 +879,104 @@ alter table customer_subscriptions
 drop policy if exists "Anyone can place an order" on orders;
 drop policy if exists "Public can insert subscriptions" on customer_subscriptions;
 drop policy if exists "Owner can manage their subscription" on subscriptions;
+
+-- ─────────────────────────────────────────────
+-- 18. MENU COSTING & PRICING (owner-only)
+-- Ingredient invoices → ingredient library → per-dish recipes → cost per plate.
+-- All amounts are in the restaurant's own currency. GST is not part of costing.
+-- ─────────────────────────────────────────────
+
+do $$ begin
+  create type purchase_unit as enum ('kg', 'g', 'l', 'ml', 'piece');
+exception when duplicate_object then null; end $$;
+
+-- Monthly fixed costs (one row per restaurant per month).
+create table if not exists restaurant_overhead (
+  id             uuid primary key default gen_random_uuid(),
+  restaurant_id  uuid not null references restaurants(id) on delete cascade,
+  month          date not null,            -- first day of the month
+  rent           numeric(12, 2) not null default 0,
+  wages          numeric(12, 2) not null default 0,
+  electricity    numeric(12, 2) not null default 0,
+  gas            numeric(12, 2) not null default 0,
+  internet       numeric(12, 2) not null default 0,
+  packing        numeric(12, 2) not null default 0,
+  other          numeric(12, 2) not null default 0,
+  expected_orders int,                      -- optional: for overhead-per-plate
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now(),
+  unique (restaurant_id, month)
+);
+
+alter table restaurant_overhead enable row level security;
+
+create policy "Owner can manage overhead"
+  on restaurant_overhead for all
+  using (exists (select 1 from restaurants r where r.id = restaurant_overhead.restaurant_id and r.owner_id = auth.uid()))
+  with check (exists (select 1 from restaurants r where r.id = restaurant_overhead.restaurant_id and r.owner_id = auth.uid()));
+
+-- Uploaded purchase invoices (PDF/image in Storage), parsed by AI into line items.
+create table if not exists ingredient_invoices (
+  id             uuid primary key default gen_random_uuid(),
+  restaurant_id  uuid not null references restaurants(id) on delete cascade,
+  month          date not null,            -- first day of the invoice's month
+  file_url       text,
+  file_name      text,
+  total_amount   numeric(12, 2) not null default 0,
+  line_items     jsonb not null default '[]',  -- [{name, quantity, unit, amount}]
+  created_at     timestamptz not null default now()
+);
+
+alter table ingredient_invoices enable row level security;
+
+create policy "Owner can manage invoices"
+  on ingredient_invoices for all
+  using (exists (select 1 from restaurants r where r.id = ingredient_invoices.restaurant_id and r.owner_id = auth.uid()))
+  with check (exists (select 1 from restaurants r where r.id = ingredient_invoices.restaurant_id and r.owner_id = auth.uid()));
+
+-- Ingredient library with derived unit cost (per base unit: gram/ml/piece).
+create table if not exists ingredients (
+  id                uuid primary key default gen_random_uuid(),
+  restaurant_id     uuid not null references restaurants(id) on delete cascade,
+  name              text not null,
+  purchase_unit     purchase_unit not null default 'g',
+  purchase_quantity numeric(12, 3) not null default 0,  -- in purchase_unit
+  purchase_amount   numeric(12, 2) not null default 0,  -- currency paid for that quantity
+  unit_cost         numeric(12, 6) not null default 0,  -- per base unit (gram/ml/piece)
+  source_invoice_id uuid references ingredient_invoices(id) on delete set null,
+  updated_at        timestamptz not null default now(),
+  unique (restaurant_id, name)
+);
+
+alter table ingredients enable row level security;
+
+create policy "Owner can manage ingredients"
+  on ingredients for all
+  using (exists (select 1 from restaurants r where r.id = ingredients.restaurant_id and r.owner_id = auth.uid()))
+  with check (exists (select 1 from restaurants r where r.id = ingredients.restaurant_id and r.owner_id = auth.uid()));
+
+-- Per-dish recipe: how much of each ingredient goes into one plate.
+create table if not exists dish_recipe_lines (
+  id             uuid primary key default gen_random_uuid(),
+  restaurant_id  uuid not null references restaurants(id) on delete cascade,
+  dish_id        uuid not null references dishes(id) on delete cascade,
+  ingredient_id  uuid not null references ingredients(id) on delete cascade,
+  quantity       numeric(12, 3) not null default 0,  -- per plate, in ingredient base unit
+  created_at     timestamptz not null default now(),
+  unique (dish_id, ingredient_id)
+);
+
+alter table dish_recipe_lines enable row level security;
+
+create policy "Owner can manage recipe lines"
+  on dish_recipe_lines for all
+  using (exists (select 1 from restaurants r where r.id = dish_recipe_lines.restaurant_id and r.owner_id = auth.uid()))
+  with check (exists (select 1 from restaurants r where r.id = dish_recipe_lines.restaurant_id and r.owner_id = auth.uid()));
+
+-- Cached cost per plate on the dish (optional; recomputed on demand).
+alter table dishes add column if not exists cost_per_plate numeric(12, 2);
+
+create index if not exists idx_overhead_restaurant   on restaurant_overhead(restaurant_id);
+create index if not exists idx_invoices_restaurant   on ingredient_invoices(restaurant_id);
+create index if not exists idx_ingredients_restaurant on ingredients(restaurant_id);
+create index if not exists idx_recipe_dish           on dish_recipe_lines(dish_id);

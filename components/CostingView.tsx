@@ -1,0 +1,806 @@
+import { getErrorMessage } from "@minute-menus/errors";
+import { formatPriceInCurrency } from "@minute-menus/currency";
+import {
+  dishIngredientCost,
+  evaluatePrice,
+  suggestPrice,
+  totalMonthlyOverhead,
+  type MonthlyOverhead,
+} from "@minute-menus/costing";
+import type {
+  Category,
+  Dish,
+  Ingredient,
+  IngredientInvoice,
+  InvoiceLineItem,
+  PurchaseUnit,
+  RestaurantOverhead,
+} from "@minute-menus/types";
+import { InlineLoader } from "@minute-menus/ui";
+import {
+  AlertTriangle,
+  Calculator,
+  CheckCircle2,
+  FileText,
+  Loader2,
+  Plus,
+  Receipt,
+  Trash2,
+  Upload,
+} from "lucide-react";
+import type React from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { supabase } from "../lib/supabase";
+import { supabaseService } from "../services/supabaseService";
+
+const UNITS: PurchaseUnit[] = ["kg", "g", "l", "ml", "piece"];
+
+const firstOfMonth = (d = new Date()): string =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+
+const readFileAsDataUrl = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+
+const baseUnitLabel = (unit: PurchaseUnit): string =>
+  unit === "piece" ? "pcs" : unit === "l" || unit === "ml" ? "ml" : "g";
+
+const EMPTY_OVERHEAD: MonthlyOverhead = {
+  rent: 0,
+  wages: 0,
+  electricity: 0,
+  gas: 0,
+  internet: 0,
+  packing: 0,
+  other: 0,
+};
+
+export interface CostingViewProps {
+  menuItems: Category[];
+  restaurantId: string | null;
+  currency: string;
+  isDarkTheme: boolean;
+  onDishPriceUpdated: (dishId: string, price: number) => void;
+}
+
+export const CostingView: React.FC<CostingViewProps> = ({
+  menuItems,
+  restaurantId,
+  currency,
+  isDarkTheme,
+  onDishPriceUpdated,
+}) => {
+  const [month, setMonth] = useState<string>(firstOfMonth());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [overhead, setOverhead] = useState<MonthlyOverhead>(EMPTY_OVERHEAD);
+  const [expectedOrders, setExpectedOrders] = useState<string>("");
+  const [savingOverhead, setSavingOverhead] = useState(false);
+
+  const [invoices, setInvoices] = useState<IngredientInvoice[]>([]);
+  const [parsing, setParsing] = useState(false);
+  const [parsedRows, setParsedRows] = useState<InvoiceLineItem[]>([]);
+  const [parsedFileName, setParsedFileName] = useState("");
+  const [savingInvoice, setSavingInvoice] = useState(false);
+
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+
+  const allDishes = useMemo<Array<{ dish: Dish }>>(
+    () => menuItems.flatMap((c) => c.items.map((dish) => ({ dish }))),
+    [menuItems],
+  );
+  const [selectedDishId, setSelectedDishId] = useState<string>("");
+  const [recipe, setRecipe] = useState<Array<{ ingredientId: string; quantity: number }>>([]);
+  const [dishPriceInput, setDishPriceInput] = useState<string>("");
+  const [savingRecipe, setSavingRecipe] = useState(false);
+
+  const card = isDarkTheme ? "bg-zinc-950 border-zinc-800" : "bg-white border-zinc-200";
+  const input = isDarkTheme
+    ? "bg-zinc-900 border-zinc-800 text-white focus:border-zinc-600"
+    : "bg-white border-zinc-300 text-zinc-900 focus:border-zinc-500";
+  const label = isDarkTheme ? "text-zinc-500" : "text-zinc-600";
+
+  const loadMonth = useCallback(async () => {
+    if (!restaurantId) return;
+    setLoading(true);
+    setError("");
+    try {
+      const [oh, invs, ings] = await Promise.all([
+        supabaseService.getOverhead(month, restaurantId),
+        supabaseService.getInvoices(month, restaurantId),
+        supabaseService.getIngredients(restaurantId),
+      ]);
+      setOverhead(oh ? overheadToForm(oh) : EMPTY_OVERHEAD);
+      setExpectedOrders(oh?.expectedOrders ? String(oh.expectedOrders) : "");
+      setInvoices(invs);
+      setIngredients(ings);
+    } catch (e) {
+      setError(getErrorMessage(e));
+    } finally {
+      setLoading(false);
+    }
+  }, [restaurantId, month]);
+
+  useEffect(() => {
+    loadMonth();
+  }, [loadMonth]);
+
+  useEffect(() => {
+    if (!selectedDishId) {
+      setRecipe([]);
+      setDishPriceInput("");
+      return;
+    }
+    supabaseService
+      .getRecipeLines(selectedDishId)
+      .then((lines) => setRecipe(lines.map((l) => ({ ingredientId: l.ingredientId, quantity: l.quantity }))))
+      .catch((e) => setError(getErrorMessage(e)));
+    const dish = allDishes.find((d) => d.dish.id === selectedDishId)?.dish;
+    setDishPriceInput(dish?.price ? String(dish.price) : "");
+  }, [selectedDishId, allDishes]);
+
+  // ── Overhead ───────────────────────────────────────────────────────────────
+  const handleSaveOverhead = async () => {
+    if (!restaurantId) return;
+    setSavingOverhead(true);
+    setError("");
+    try {
+      const payload: RestaurantOverhead = {
+        restaurantId,
+        month,
+        rent: overhead.rent ?? 0,
+        wages: overhead.wages ?? 0,
+        electricity: overhead.electricity ?? 0,
+        gas: overhead.gas ?? 0,
+        internet: overhead.internet ?? 0,
+        packing: overhead.packing ?? 0,
+        other: overhead.other ?? 0,
+        expectedOrders: expectedOrders ? Number(expectedOrders) : null,
+      };
+      await supabaseService.saveOverhead(payload);
+    } catch (e) {
+      setError(getErrorMessage(e));
+    } finally {
+      setSavingOverhead(false);
+    }
+  };
+
+  // ── Invoice upload + parse ───────────────────────────────────────────────────
+  const handleInvoiceFile = async (file: File) => {
+    if (!restaurantId) return;
+    setParsing(true);
+    setError("");
+    setParsedRows([]);
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Please sign in again.");
+      const res = await fetch("/api/parse-invoice", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ restaurantId, fileDataUrl: dataUrl }),
+      });
+      if (!res.ok) {
+        const err = (await res.json()) as { error?: string };
+        throw new Error(err.error ?? "Failed to parse invoice");
+      }
+      const { lineItems } = (await res.json()) as { lineItems: InvoiceLineItem[] };
+      setParsedRows(lineItems);
+      setParsedFileName(file.name);
+    } catch (e) {
+      setError(getErrorMessage(e));
+    } finally {
+      setParsing(false);
+    }
+  };
+
+  const parsedTotal = useMemo(
+    () => parsedRows.reduce((s, r) => s + r.amount, 0),
+    [parsedRows],
+  );
+
+  const updateParsedRow = (idx: number, patch: Partial<InvoiceLineItem>) =>
+    setParsedRows((rows) => rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
+
+  const handleSaveInvoice = async () => {
+    if (!restaurantId || parsedRows.length === 0) return;
+    setSavingInvoice(true);
+    setError("");
+    try {
+      await supabaseService.saveInvoice(month, parsedRows, parsedFileName, restaurantId);
+      await Promise.all(
+        parsedRows.map((r) =>
+          supabaseService.upsertIngredient(
+            {
+              name: r.name,
+              purchaseUnit: r.unit,
+              purchaseQuantity: r.quantity,
+              purchaseAmount: r.amount,
+            },
+            restaurantId,
+          ),
+        ),
+      );
+      setParsedRows([]);
+      setParsedFileName("");
+      await loadMonth();
+    } catch (e) {
+      setError(getErrorMessage(e));
+    } finally {
+      setSavingInvoice(false);
+    }
+  };
+
+  const monthInvoiceTotal = useMemo(
+    () => invoices.reduce((s, i) => s + i.totalAmount, 0),
+    [invoices],
+  );
+
+  const handleDeleteIngredient = async (id: string) => {
+    try {
+      await supabaseService.deleteIngredient(id);
+      setIngredients((prev) => prev.filter((i) => i.id !== id));
+    } catch (e) {
+      setError(getErrorMessage(e));
+    }
+  };
+
+  // ── Dish costing ─────────────────────────────────────────────────────────────
+  const ingredientById = useMemo(() => {
+    const map = new Map<string, Ingredient>();
+    ingredients.forEach((i) => map.set(i.id, i));
+    return map;
+  }, [ingredients]);
+
+  const recipeCostLines = useMemo(
+    () =>
+      recipe.map((r) => ({
+        unitCost: ingredientById.get(r.ingredientId)?.unitCost ?? 0,
+        quantity: r.quantity,
+      })),
+    [recipe, ingredientById],
+  );
+
+  const ingredientCost = useMemo(() => dishIngredientCost(recipeCostLines), [recipeCostLines]);
+
+  const suggestion = useMemo(
+    () =>
+      suggestPrice(ingredientCost, {
+        overhead,
+        expectedOrders: expectedOrders ? Number(expectedOrders) : null,
+      }),
+    [ingredientCost, overhead, expectedOrders],
+  );
+
+  const priceHealth = useMemo(() => {
+    const price = Number(dishPriceInput);
+    if (!dishPriceInput || Number.isNaN(price)) return null;
+    return evaluatePrice(price, suggestion);
+  }, [dishPriceInput, suggestion]);
+
+  const addRecipeLine = () => {
+    const firstUnused = ingredients.find((i) => !recipe.some((r) => r.ingredientId === i.id));
+    if (!firstUnused) return;
+    setRecipe((prev) => [...prev, { ingredientId: firstUnused.id, quantity: 0 }]);
+  };
+
+  const handleSaveRecipe = async () => {
+    if (!selectedDishId || !restaurantId) return;
+    setSavingRecipe(true);
+    setError("");
+    try {
+      await supabaseService.saveRecipeLines(
+        selectedDishId,
+        recipe.filter((r) => r.quantity > 0),
+        ingredientCost,
+        restaurantId,
+      );
+    } catch (e) {
+      setError(getErrorMessage(e));
+    } finally {
+      setSavingRecipe(false);
+    }
+  };
+
+  const handleApplyPrice = async (price: number) => {
+    if (!selectedDishId) return;
+    setError("");
+    try {
+      await supabaseService.updateDishPrice(selectedDishId, price);
+      setDishPriceInput(String(price));
+      onDishPriceUpdated(selectedDishId, price);
+    } catch (e) {
+      setError(getErrorMessage(e));
+    }
+  };
+
+  if (!restaurantId) {
+    return <div className={`p-6 ${label}`}>Create your restaurant first to use costing.</div>;
+  }
+
+  return (
+    <div className="p-4 sm:p-6 space-y-6 max-w-5xl mx-auto">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className={`text-2xl font-light ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
+            Menu Costing & Pricing
+          </h1>
+          <p className={`text-sm ${label}`}>
+            Cost each plate from your ingredient purchases and price it with a healthy margin.
+          </p>
+        </div>
+        <div>
+          <label className={`text-[10px] font-bold uppercase tracking-widest block mb-1 ${label}`}>
+            Month
+          </label>
+          <input
+            type="month"
+            value={month.slice(0, 7)}
+            onChange={(e) => setMonth(`${e.target.value}-01`)}
+            className={`px-3 py-2 rounded-md text-sm outline-none border ${input}`}
+          />
+        </div>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 text-red-400 text-sm bg-red-950/30 border border-red-900/40 rounded-lg px-4 py-2">
+          <AlertTriangle size={16} /> {error}
+        </div>
+      )}
+
+      {loading ? (
+        <InlineLoader label="Loading costing data…" />
+      ) : (
+        <>
+          {/* Overhead */}
+          <section className={`border rounded-xl p-5 ${card}`}>
+            <h2 className={`text-sm font-bold uppercase tracking-widest mb-4 ${label}`}>
+              Monthly Fixed Costs
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {(
+                [
+                  ["rent", "Rent"],
+                  ["wages", "Wages"],
+                  ["electricity", "Electricity"],
+                  ["gas", "Gas / LPG"],
+                  ["internet", "Internet / Phone"],
+                  ["packing", "Packing"],
+                  ["other", "Other"],
+                ] as Array<[keyof MonthlyOverhead, string]>
+              ).map(([key, lbl]) => (
+                <div key={key}>
+                  <label className={`text-[10px] font-bold uppercase tracking-widest block mb-1 ${label}`}>
+                    {lbl}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={overhead[key] ?? 0}
+                    onChange={(e) =>
+                      setOverhead((prev) => ({ ...prev, [key]: Math.max(0, Number(e.target.value) || 0) }))
+                    }
+                    className={`w-full px-3 py-2 rounded-md text-sm outline-none border ${input}`}
+                  />
+                </div>
+              ))}
+              <div>
+                <label className={`text-[10px] font-bold uppercase tracking-widest block mb-1 ${label}`}>
+                  Expected orders/mo
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="optional"
+                  value={expectedOrders}
+                  onChange={(e) => setExpectedOrders(e.target.value)}
+                  className={`w-full px-3 py-2 rounded-md text-sm outline-none border ${input}`}
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-between mt-4">
+              <p className={`text-sm ${label}`}>
+                Total overhead:{" "}
+                <span className={isDarkTheme ? "text-white" : "text-zinc-900"}>
+                  {formatPriceInCurrency(totalMonthlyOverhead(overhead), currency)}
+                </span>
+                {expectedOrders && Number(expectedOrders) > 0 && (
+                  <>
+                    {" · "}per plate:{" "}
+                    <span className={isDarkTheme ? "text-white" : "text-zinc-900"}>
+                      {formatPriceInCurrency(totalMonthlyOverhead(overhead) / Number(expectedOrders), currency)}
+                    </span>
+                  </>
+                )}
+              </p>
+              <button
+                onClick={handleSaveOverhead}
+                disabled={savingOverhead}
+                className="bg-white text-black px-4 py-2 rounded-md font-bold text-xs tracking-widest hover:bg-zinc-200 disabled:opacity-50 flex items-center gap-2"
+              >
+                {savingOverhead ? <Loader2 className="animate-spin" size={14} /> : null} SAVE
+              </button>
+            </div>
+          </section>
+
+          {/* Invoices */}
+          <section className={`border rounded-xl p-5 ${card}`}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className={`text-sm font-bold uppercase tracking-widest ${label}`}>
+                Purchase Invoices
+              </h2>
+              <span className={`text-sm ${label}`}>
+                This month:{" "}
+                <span className={isDarkTheme ? "text-white" : "text-zinc-900"}>
+                  {formatPriceInCurrency(monthInvoiceTotal, currency)}
+                </span>{" "}
+                · {invoices.length} uploaded
+              </span>
+            </div>
+
+            <label
+              className={`flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-lg py-8 cursor-pointer transition-colors ${
+                isDarkTheme ? "border-zinc-800 hover:border-zinc-600" : "border-zinc-300 hover:border-zinc-500"
+              }`}
+            >
+              {parsing ? (
+                <>
+                  <Loader2 className="animate-spin" size={22} />
+                  <span className={`text-sm ${label}`}>Reading invoice with AI…</span>
+                </>
+              ) : (
+                <>
+                  <Upload size={22} className={label} />
+                  <span className={`text-sm ${label}`}>Upload invoice (PDF or image)</span>
+                </>
+              )}
+              <input
+                type="file"
+                accept="application/pdf,image/*"
+                className="hidden"
+                disabled={parsing}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleInvoiceFile(f);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+
+            {parsedRows.length > 0 && (
+              <div className="mt-4">
+                <p className={`text-xs mb-2 flex items-center gap-1 ${label}`}>
+                  <FileText size={12} /> {parsedFileName} — review & edit before saving
+                </p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className={label}>
+                        <th className="text-left font-medium py-1">Item</th>
+                        <th className="text-right font-medium py-1">Qty</th>
+                        <th className="text-left font-medium py-1 pl-2">Unit</th>
+                        <th className="text-right font-medium py-1">Amount</th>
+                        <th />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parsedRows.map((row, idx) => (
+                        <tr key={idx} className={isDarkTheme ? "text-white" : "text-zinc-900"}>
+                          <td className="py-1 pr-2">
+                            <input
+                              value={row.name}
+                              onChange={(e) => updateParsedRow(idx, { name: e.target.value })}
+                              className={`w-full px-2 py-1 rounded border text-sm ${input}`}
+                            />
+                          </td>
+                          <td className="py-1">
+                            <input
+                              type="number"
+                              value={row.quantity}
+                              onChange={(e) => updateParsedRow(idx, { quantity: Number(e.target.value) || 0 })}
+                              className={`w-20 px-2 py-1 rounded border text-sm text-right ${input}`}
+                            />
+                          </td>
+                          <td className="py-1 pl-2">
+                            <select
+                              value={row.unit}
+                              onChange={(e) => updateParsedRow(idx, { unit: e.target.value as PurchaseUnit })}
+                              className={`px-2 py-1 rounded border text-sm ${input}`}
+                            >
+                              {UNITS.map((u) => (
+                                <option key={u} value={u}>
+                                  {u}
+                                </option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="py-1">
+                            <input
+                              type="number"
+                              value={row.amount}
+                              onChange={(e) => updateParsedRow(idx, { amount: Number(e.target.value) || 0 })}
+                              className={`w-24 px-2 py-1 rounded border text-sm text-right ${input}`}
+                            />
+                          </td>
+                          <td className="py-1 pl-2">
+                            <button
+                              onClick={() => setParsedRows((rows) => rows.filter((_, i) => i !== idx))}
+                              className="text-zinc-500 hover:text-red-400"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex items-center justify-between mt-3">
+                  <span className={`text-sm ${label}`}>
+                    Parsed total:{" "}
+                    <span className={isDarkTheme ? "text-white" : "text-zinc-900"}>
+                      {formatPriceInCurrency(parsedTotal, currency)}
+                    </span>
+                  </span>
+                  <button
+                    onClick={handleSaveInvoice}
+                    disabled={savingInvoice}
+                    className="bg-white text-black px-4 py-2 rounded-md font-bold text-xs tracking-widest hover:bg-zinc-200 disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {savingInvoice ? <Loader2 className="animate-spin" size={14} /> : <Receipt size={14} />}
+                    SAVE TO LIBRARY
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* Ingredient library */}
+          <section className={`border rounded-xl p-5 ${card}`}>
+            <h2 className={`text-sm font-bold uppercase tracking-widest mb-4 ${label}`}>
+              Ingredient Library ({ingredients.length})
+            </h2>
+            {ingredients.length === 0 ? (
+              <p className={`text-sm ${label}`}>Upload an invoice to build your ingredient list.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className={label}>
+                      <th className="text-left font-medium py-1">Ingredient</th>
+                      <th className="text-right font-medium py-1">Purchased</th>
+                      <th className="text-right font-medium py-1">Cost / {baseUnitLabel("g")}</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {ingredients.map((ing) => (
+                      <tr key={ing.id} className={isDarkTheme ? "text-white" : "text-zinc-900"}>
+                        <td className="py-1.5">{ing.name}</td>
+                        <td className="py-1.5 text-right">
+                          {ing.purchaseQuantity} {ing.purchaseUnit} · {formatPriceInCurrency(ing.purchaseAmount, currency)}
+                        </td>
+                        <td className="py-1.5 text-right font-mono">
+                          {formatPriceInCurrency(ing.unitCost, currency)}/{baseUnitLabel(ing.purchaseUnit)}
+                        </td>
+                        <td className="py-1.5 pl-2 text-right">
+                          <button
+                            onClick={() => handleDeleteIngredient(ing.id)}
+                            className="text-zinc-500 hover:text-red-400"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          {/* Dish costing */}
+          <section className={`border rounded-xl p-5 ${card}`}>
+            <h2 className={`text-sm font-bold uppercase tracking-widest mb-4 ${label}`}>
+              Dish Costing
+            </h2>
+            <div className="mb-4">
+              <label className={`text-[10px] font-bold uppercase tracking-widest block mb-1 ${label}`}>
+                Select dish
+              </label>
+              <select
+                value={selectedDishId}
+                onChange={(e) => setSelectedDishId(e.target.value)}
+                className={`w-full sm:w-80 px-3 py-2 rounded-md text-sm outline-none border ${input}`}
+              >
+                <option value="">— choose a dish —</option>
+                {allDishes.map(({ dish }) => (
+                  <option key={dish.id} value={dish.id}>
+                    {dish.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {selectedDishId && (
+              <>
+                {ingredients.length === 0 ? (
+                  <p className={`text-sm ${label}`}>Add ingredients to your library first.</p>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      {recipe.map((line, idx) => {
+                        const ing = ingredientById.get(line.ingredientId);
+                        const lineCost = (ing?.unitCost ?? 0) * line.quantity;
+                        return (
+                          <div key={idx} className="flex items-center gap-2">
+                            <select
+                              value={line.ingredientId}
+                              onChange={(e) =>
+                                setRecipe((prev) =>
+                                  prev.map((r, i) => (i === idx ? { ...r, ingredientId: e.target.value } : r)),
+                                )
+                              }
+                              className={`flex-1 px-3 py-2 rounded-md text-sm outline-none border ${input}`}
+                            >
+                              {ingredients.map((i) => (
+                                <option key={i.id} value={i.id}>
+                                  {i.name}
+                                </option>
+                              ))}
+                            </select>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                min="0"
+                                value={line.quantity || ""}
+                                onChange={(e) =>
+                                  setRecipe((prev) =>
+                                    prev.map((r, i) =>
+                                      i === idx ? { ...r, quantity: Number(e.target.value) || 0 } : r,
+                                    ),
+                                  )
+                                }
+                                className={`w-24 px-2 py-2 rounded-md text-sm text-right outline-none border ${input}`}
+                              />
+                              <span className={`text-xs w-8 ${label}`}>
+                                {baseUnitLabel(ing?.purchaseUnit ?? "g")}
+                              </span>
+                            </div>
+                            <span className={`text-sm w-24 text-right font-mono ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
+                              {formatPriceInCurrency(lineCost, currency)}
+                            </span>
+                            <button
+                              onClick={() => setRecipe((prev) => prev.filter((_, i) => i !== idx))}
+                              className="text-zinc-500 hover:text-red-400"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      onClick={addRecipeLine}
+                      className={`mt-3 flex items-center gap-1 text-sm ${label} hover:${isDarkTheme ? "text-white" : "text-zinc-900"}`}
+                    >
+                      <Plus size={14} /> Add ingredient
+                    </button>
+
+                    {/* Cost + suggested price */}
+                    <div className={`mt-5 pt-4 border-t ${isDarkTheme ? "border-zinc-800" : "border-zinc-200"}`}>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                        <Stat label="Ingredient cost / plate" value={formatPriceInCurrency(suggestion.ingredientCost, currency)} isDark={isDarkTheme} />
+                        <Stat
+                          label="Overhead / plate"
+                          value={suggestion.overheadPerPlate != null ? formatPriceInCurrency(suggestion.overheadPerPlate, currency) : "—"}
+                          isDark={isDarkTheme}
+                        />
+                        <Stat label="True cost / plate" value={formatPriceInCurrency(suggestion.trueCostPerPlate, currency)} isDark={isDarkTheme} />
+                        <Stat
+                          label={`Suggested (${suggestion.minMarkupPercent}–${suggestion.maxMarkupPercent}%)`}
+                          value={`${formatPriceInCurrency(suggestion.minPrice, currency)} – ${formatPriceInCurrency(suggestion.maxPrice, currency)}`}
+                          isDark={isDarkTheme}
+                          highlight
+                        />
+                      </div>
+
+                      <div className="flex flex-wrap items-end gap-3 mt-4">
+                        <div>
+                          <label className={`text-[10px] font-bold uppercase tracking-widest block mb-1 ${label}`}>
+                            Menu price (ex-GST)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={dishPriceInput}
+                            onChange={(e) => setDishPriceInput(e.target.value)}
+                            className={`w-36 px-3 py-2 rounded-md text-sm outline-none border ${input}`}
+                          />
+                        </div>
+                        <button
+                          onClick={() => handleApplyPrice(suggestion.minPrice)}
+                          className="bg-white text-black px-3 py-2 rounded-md font-bold text-xs tracking-widest hover:bg-zinc-200"
+                        >
+                          USE {formatPriceInCurrency(suggestion.minPrice, currency)}
+                        </button>
+                        <button
+                          onClick={() => {
+                            const p = Number(dishPriceInput);
+                            if (!Number.isNaN(p) && p > 0) handleApplyPrice(p);
+                          }}
+                          className={`px-3 py-2 rounded-md font-bold text-xs tracking-widest border ${
+                            isDarkTheme ? "border-zinc-700 text-white hover:bg-zinc-900" : "border-zinc-300 text-zinc-900 hover:bg-zinc-100"
+                          }`}
+                        >
+                          SET ENTERED PRICE
+                        </button>
+                        <button
+                          onClick={handleSaveRecipe}
+                          disabled={savingRecipe}
+                          className={`px-3 py-2 rounded-md font-bold text-xs tracking-widest border disabled:opacity-50 flex items-center gap-2 ${
+                            isDarkTheme ? "border-zinc-700 text-white hover:bg-zinc-900" : "border-zinc-300 text-zinc-900 hover:bg-zinc-100"
+                          }`}
+                        >
+                          {savingRecipe ? <Loader2 className="animate-spin" size={14} /> : <Calculator size={14} />}
+                          SAVE RECIPE
+                        </button>
+                      </div>
+
+                      {priceHealth && (
+                        <div
+                          className={`mt-3 flex items-center gap-2 text-sm ${
+                            priceHealth.level === "ok" ? "text-green-500" : "text-amber-500"
+                          }`}
+                        >
+                          {priceHealth.level === "ok" ? <CheckCircle2 size={16} /> : <AlertTriangle size={16} />}
+                          {priceHealth.message}
+                          {priceHealth.markupPercent != null && ` (${priceHealth.markupPercent}% markup)`}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </section>
+        </>
+      )}
+    </div>
+  );
+};
+
+const Stat: React.FC<{ label: string; value: string; isDark: boolean; highlight?: boolean }> = ({
+  label,
+  value,
+  isDark,
+  highlight,
+}) => (
+  <div>
+    <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${isDark ? "text-zinc-500" : "text-zinc-600"}`}>
+      {label}
+    </p>
+    <p className={`font-mono ${highlight ? "text-base font-bold" : "text-sm"} ${isDark ? "text-white" : "text-zinc-900"}`}>
+      {value}
+    </p>
+  </div>
+);
+
+const overheadToForm = (o: RestaurantOverhead): MonthlyOverhead => ({
+  rent: o.rent,
+  wages: o.wages,
+  electricity: o.electricity,
+  gas: o.gas,
+  internet: o.internet,
+  packing: o.packing,
+  other: o.other,
+});
