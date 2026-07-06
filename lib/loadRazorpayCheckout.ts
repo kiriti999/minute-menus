@@ -28,13 +28,77 @@ export const loadRazorpayCheckout = (): Promise<void> => {
   return loadPromise;
 };
 
+type RazorpayInstance = {
+  open: () => void;
+  on: (event: string, cb: (resp: { error?: { description?: string } }) => void) => void;
+};
+
 export const getRazorpayConstructor = async (): Promise<
-  new (opts: Record<string, unknown>) => { open: () => void }
+  new (opts: Record<string, unknown>) => RazorpayInstance
 > => {
   await loadRazorpayCheckout();
   const RzpClass = (window as Window & typeof globalThis & {
-    Razorpay: new (opts: Record<string, unknown>) => { open: () => void };
+    Razorpay: new (opts: Record<string, unknown>) => RazorpayInstance;
   }).Razorpay;
   if (!RzpClass) throw new Error("Razorpay checkout is unavailable");
   return RzpClass;
+};
+
+export type RazorpaySuccess = {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+};
+
+export type RazorpayCheckoutOptions = {
+  keyId: string;
+  orderId: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  prefill: { name?: string; contact?: string; email?: string };
+};
+
+/**
+ * Opens the Razorpay modal and resolves with the payment response on success.
+ * Rejects with "Payment cancelled" on modal dismiss, or the failure reason on
+ * a payment.failed event.
+ */
+export const openRazorpayCheckout = (
+  opts: RazorpayCheckoutOptions,
+): Promise<RazorpaySuccess> =>
+  getRazorpayConstructor().then(
+    (RzpClass) =>
+      new Promise<RazorpaySuccess>((resolve, reject) => {
+        const rzp = new RzpClass({
+          key: opts.keyId,
+          order_id: opts.orderId,
+          amount: opts.amount,
+          currency: opts.currency,
+          name: opts.name,
+          description: opts.description,
+          prefill: opts.prefill,
+          theme: { color: "#000000" },
+          handler: (response: RazorpaySuccess) => resolve(response),
+          modal: { ondismiss: () => reject(new Error("Payment cancelled")) },
+        });
+        rzp.on("payment.failed", (resp) =>
+          reject(new Error(resp?.error?.description ?? "Payment failed")),
+        );
+        rzp.open();
+      }),
+  );
+
+/** Verifies a Razorpay payment signature server-side. Throws if verification fails. */
+export const verifyRazorpayPayment = async (success: RazorpaySuccess): Promise<void> => {
+  const res = await fetch("/api/payment/verify-razorpay-payment", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(success),
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(err.error ?? "Payment verification failed");
+  }
 };

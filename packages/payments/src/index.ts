@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import Razorpay from "razorpay";
 
 export type RazorpayOrderInput = {
@@ -51,6 +52,31 @@ export const createRazorpayOrder = async (
         currency,
         keyId: creds.keyId,
     };
+};
+
+export type RazorpayVerificationInput = {
+    orderId: string;
+    paymentId: string;
+    signature: string;
+};
+
+/**
+ * Verifies a Razorpay checkout signature: HMAC-SHA256(orderId|paymentId, keySecret).
+ * Throws if Razorpay is not configured; returns false on any mismatch.
+ */
+export const verifyRazorpaySignature = (input: RazorpayVerificationInput): boolean => {
+    const creds = getRazorpayCredentials();
+    if (!creds) throw new Error("Razorpay not configured");
+
+    const expected = crypto
+        .createHmac("sha256", creds.keySecret)
+        .update(`${input.orderId}|${input.paymentId}`)
+        .digest("hex");
+
+    const expectedBuf = Buffer.from(expected, "utf8");
+    const actualBuf = Buffer.from(input.signature, "utf8");
+    if (expectedBuf.length !== actualBuf.length) return false;
+    return crypto.timingSafeEqual(expectedBuf, actualBuf);
 };
 
 export const calculateSubscriptionTotal = (

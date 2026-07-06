@@ -32,7 +32,7 @@ import { isDishSoldOut, MenuGridCard, MenuListCard } from "@minute-menus/reels";
 import { supabaseService } from "../services/supabaseService";
 import { supabase } from "../lib/supabase";
 import { formatDisplayName } from "../lib/formatDisplayName";
-import { getRazorpayConstructor } from "../lib/loadRazorpayCheckout";
+import { openRazorpayCheckout, verifyRazorpayPayment } from "../lib/loadRazorpayCheckout";
 import { ButtonSpinner } from "@minute-menus/ui";
 import type { Category, CustomerProfile, CustomerSubscription, DailyOrder, Dish, MealPlan, OrderItem, SubDeliveryType, DeliveryFeeMode, TicketReason, TimeSlot } from "@minute-menus/types";
 import { TICKET_REASON_LABELS, TIME_SLOT_LABELS } from "@minute-menus/types";
@@ -600,25 +600,20 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       };
 
       // 2. Open Razorpay checkout
-      await new Promise<void>((resolve, reject) => {
-        void getRazorpayConstructor().then((RzpClass) => {
-          const rzp = new RzpClass({
-            key: keyId,
-            order_id: orderId,
-            amount: rzpAmount,
-            currency: rzpCurrency,
-            name: displayRestaurantName ?? "Minute Menus",
-            description: `Order — ${cart.length} item${cart.length !== 1 ? "s" : ""}`,
-            prefill: { name: profile.name, contact: profile.phone, email: profile.email },
-            theme: { color: "#000000" },
-            handler: () => resolve(),
-            modal: { ondismiss: () => reject(new Error("Payment cancelled")) },
-          });
-          rzp.open();
-        }).catch(reject);
+      const payment = await openRazorpayCheckout({
+        keyId,
+        orderId,
+        amount: rzpAmount,
+        currency: rzpCurrency,
+        name: displayRestaurantName ?? "Minute Menus",
+        description: `Order — ${cart.length} item${cart.length !== 1 ? "s" : ""}`,
+        prefill: { name: profile.name, contact: profile.phone, email: profile.email },
       });
 
-      // 3. Payment succeeded — record order
+      // 3. Verify the payment signature server-side before recording
+      await verifyRazorpayPayment(payment);
+
+      // 4. Payment verified — record order
       const newlySoldOut = cart
         .map((item) => {
           const dish = flatDishes.find((d) => d.id === item.dishId);
@@ -801,25 +796,20 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       };
 
       // 2. Open Razorpay checkout
-      await new Promise<void>((resolve, reject) => {
-        void getRazorpayConstructor().then((RzpClass) => {
-          const rzp = new RzpClass({
-            key: keyId,
-            order_id: orderId,
-            amount,
-            currency: rzpCurrency,
-            name: displayRestaurantName ?? "Minute Menus",
-            description: plan.name,
-            prefill: { name: subName, contact: subPhone, email: subEmail || undefined },
-            theme: { color: "#000000" },
-            handler: () => resolve(),
-            modal: { ondismiss: () => reject(new Error("Payment cancelled")) },
-          });
-          rzp.open();
-        }).catch(reject);
+      const payment = await openRazorpayCheckout({
+        keyId,
+        orderId,
+        amount,
+        currency: rzpCurrency,
+        name: displayRestaurantName ?? "Minute Menus",
+        description: plan.name,
+        prefill: { name: subName, contact: subPhone, email: subEmail || undefined },
       });
 
-      // 3. Payment succeeded — create subscription
+      // 3. Verify the payment signature server-side before creating the subscription
+      await verifyRazorpayPayment(payment);
+
+      // 4. Payment verified — create subscription
       await supabaseService.createCustomerSubscription({
         restaurantId,
         planId: plan.id,
