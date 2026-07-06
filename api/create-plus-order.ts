@@ -4,11 +4,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getErrorDetail, runPostHandler } from "./_lib/api-helpers";
-import { createLogger } from "./_lib/logger";
-import { createRazorpayOrder } from "./_lib/payments";
-
-const log = createLogger("create-plus-order");
+import Razorpay from "razorpay";
 
 type PlusPlanId = "annual" | "monthly";
 
@@ -17,7 +13,42 @@ const PLUS_PLAN_PRICING: Record<PlusPlanId, { amount: number; label: string }> =
     monthly: { amount: 12, label: "Plus — Monthly Plan" },
 };
 
-const handleCreatePlusOrder = async (req: VercelRequest, res: VercelResponse) => {
+const getRazorpayCredentials = (): { keyId: string; keySecret: string } | null => {
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    if (!keyId || !keySecret) return null;
+    return { keyId, keySecret };
+};
+
+const createRazorpayOrder = async (input: {
+    amount: number;
+    currency: string;
+    receipt: string;
+    notes: Record<string, string>;
+}) => {
+    const creds = getRazorpayCredentials();
+    if (!creds) throw new Error("Razorpay not configured");
+
+    const amountSmallest = Math.round(input.amount * 100);
+    const currency = input.currency.toUpperCase();
+    const razorpay = new Razorpay({ key_id: creds.keyId, key_secret: creds.keySecret });
+    const order = await razorpay.orders.create({
+        amount: amountSmallest,
+        currency,
+        receipt: input.receipt,
+        notes: input.notes,
+    });
+
+    return { orderId: order.id, amount: amountSmallest, currency, keyId: creds.keyId };
+};
+
+const getErrorDetail = (err: unknown): string =>
+    err instanceof Error ? err.message : String(err);
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+    if (req.method === "OPTIONS") return res.status(200).end();
+    if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
     const { plan, restaurantId, currency = "USD" } = req.body as {
         plan?: PlusPlanId;
         restaurantId?: string;
@@ -39,12 +70,8 @@ const handleCreatePlusOrder = async (req: VercelRequest, res: VercelResponse) =>
         return res.status(200).json(result);
     } catch (e) {
         const msg = getErrorDetail(e);
-        log.error("create plus order failed", { message: msg });
+        console.error("[create-plus-order] failed", msg);
         const status = msg === "Razorpay not configured" ? 500 : 502;
         return res.status(status).json({ error: "Failed to create payment order", detail: msg });
     }
-};
-
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-    await runPostHandler(req, res, handleCreatePlusOrder, "create-plus-order");
 }

@@ -3,38 +3,85 @@
  * Confirms a Razorpay payment and records the order/subscription server-side.
  */
 
+import crypto from "node:crypto";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { runPostHandler } from "./_lib/api-helpers";
-import { createLogger } from "./_lib/logger";
-import { safeVerifyRazorpaySignature } from "./_lib/payments";
-import { requireSupabaseAdmin } from "./_lib/supabase-admin";
 
 type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
+
+// ── Supabase admin (inline) ───────────────────────────────────────────────────
+let adminClient: SupabaseClient | null = null;
+
+const requireSupabaseAdmin = (): SupabaseClient => {
+    if (adminClient) return adminClient;
+    const url = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "";
+    const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+    if (!url || !key) throw new Error("Server is not configured (missing Supabase env vars)");
+    adminClient = createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+    return adminClient;
+};
+
+// ── Razorpay signature verification (inline) ──────────────────────────────────
+const getRazorpayCredentials = (): { keyId: string; keySecret: string } | null => {
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    if (!keyId || !keySecret) return null;
+    return { keyId, keySecret };
+};
+
+const safeVerifyRazorpaySignature = (input: {
+    orderId: string;
+    paymentId: string;
+    signature: string;
+}): { verified: boolean; status: 200 | 400 | 500 | 502; error: string } => {
+    try {
+        const creds = getRazorpayCredentials();
+        if (!creds) throw new Error("Razorpay not configured");
+
+        const expected = crypto
+            .createHmac("sha256", creds.keySecret)
+            .update(`${input.orderId}|${input.paymentId}`)
+            .digest("hex");
+
+        const expectedBuf = Buffer.from(expected, "utf8");
+        const actualBuf = Buffer.from(input.signature, "utf8");
+        const match =
+            expectedBuf.length === actualBuf.length && crypto.timingSafeEqual(expectedBuf, actualBuf);
+
+        if (!match) return { verified: false, status: 400, error: "Payment signature mismatch" };
+        return { verified: true, status: 200, error: "" };
+    } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        return {
+            verified: false,
+            status: message === "Razorpay not configured" ? 500 : 502,
+            error: "Failed to verify payment",
+        };
+    }
+};
 
 const normalizeAction = (action: string | string[] | undefined): string => {
     if (!action) return "";
     return Array.isArray(action) ? action[0] ?? "" : action;
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// confirm-order: Record cart order after payment verification
-// ─────────────────────────────────────────────────────────────────────────────
-type OrderItemInput = { dishId: string; quantity: number; name: string; price: number };
-type ConfirmOrderBody = {
-    razorpay_order_id?: string;
-    razorpay_payment_id?: string;
-    razorpay_signature?: string;
-    restaurantId?: string;
-    items?: OrderItemInput[];
-    timeToOrder?: number;
-};
+const getErrorDetail = (err: unknown): string =>
+    err instanceof Error ? err.message : String(err);
 
-const logOrder = createLogger("confirm-order");
+// ── confirm-order ─────────────────────────────────────────────────────────────
+type OrderItemInput = { dishId: string; quantity: number; name: string; price: number };
 
 const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse) => {
     const {
         razorpay_order_id, razorpay_payment_id, razorpay_signature, restaurantId, items, timeToOrder,
-    } = req.body as ConfirmOrderBody;
+    } = req.body as {
+        razorpay_order_id?: string;
+        razorpay_payment_id?: string;
+        razorpay_signature?: string;
+        restaurantId?: string;
+        items?: OrderItemInput[];
+        timeToOrder?: number;
+    };
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !restaurantId || !items?.length) {
         return res.status(400).json({ error: "Missing required fields" });
@@ -46,8 +93,6 @@ const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse) => {
         signature: razorpay_signature,
     });
     if (!outcome.verified) {
-        if (outcome.status === 400) logOrder.warn("signature mismatch", { orderId: razorpay_order_id });
-        else logOrder.error("verify failed", { message: outcome.error });
         return res.status(outcome.status).json({ error: outcome.error });
     }
 
@@ -68,7 +113,7 @@ const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse) => {
         .single();
 
     if (insertError || !order) {
-        logOrder.error("record failed after verified payment", { message: insertError?.message });
+        console.error("[confirm-order] insert failed", insertError?.message);
         return res.status(500).json({ error: "Payment verified but failed to record order" });
     }
 
@@ -87,32 +132,26 @@ const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse) => {
     return res.status(200).json({ success: true, orderId: order.id });
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// confirm-subscription: Record meal-plan subscription after payment verification
-// ─────────────────────────────────────────────────────────────────────────────
-type ConfirmSubBody = {
-    razorpay_order_id?: string;
-    razorpay_payment_id?: string;
-    razorpay_signature?: string;
-    restaurantId?: string;
-    planId?: string;
-    customerName?: string;
-    phone?: string;
-    email?: string;
-    deliveryType?: "delivery" | "pickup";
-    deliveryFeeMode?: "upfront" | "cash_on_delivery";
-    timeSlot?: "08-09" | "12-14" | "19-21";
-    rotationDishIds?: string[];
-};
-
-const logSub = createLogger("confirm-subscription");
-
+// ── confirm-subscription ──────────────────────────────────────────────────────
 const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse) => {
     const {
         razorpay_order_id, razorpay_payment_id, razorpay_signature,
         restaurantId, planId, customerName, phone, email,
         deliveryType, deliveryFeeMode, timeSlot, rotationDishIds,
-    } = req.body as ConfirmSubBody;
+    } = req.body as {
+        razorpay_order_id?: string;
+        razorpay_payment_id?: string;
+        razorpay_signature?: string;
+        restaurantId?: string;
+        planId?: string;
+        customerName?: string;
+        phone?: string;
+        email?: string;
+        deliveryType?: "delivery" | "pickup";
+        deliveryFeeMode?: "upfront" | "cash_on_delivery";
+        timeSlot?: "08-09" | "12-14" | "19-21";
+        rotationDishIds?: string[];
+    };
 
     if (
         !razorpay_order_id || !razorpay_payment_id || !razorpay_signature ||
@@ -127,8 +166,6 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
         signature: razorpay_signature,
     });
     if (!outcome.verified) {
-        if (outcome.status === 400) logSub.warn("signature mismatch", { orderId: razorpay_order_id });
-        else logSub.error("verify failed", { message: outcome.error });
         return res.status(outcome.status).json({ error: outcome.error });
     }
 
@@ -158,20 +195,16 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
         .single();
 
     if (error || !data) {
-        logSub.error("create subscription failed after verified payment", { message: error?.message });
+        console.error("[confirm-subscription] insert failed", error?.message);
         return res.status(500).json({ error: "Payment verified but failed to create subscription" });
     }
 
     return res.status(200).json({ success: true, subscriptionId: data.id });
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// confirm-plus: Upgrade owner to Plus tier after payment verification
-// ─────────────────────────────────────────────────────────────────────────────
+// ── confirm-plus ──────────────────────────────────────────────────────────────
 type PlusPlanId = "annual" | "monthly";
 const PLAN_PERIOD_DAYS: Record<PlusPlanId, number> = { annual: 365, monthly: 30 };
-
-const logPlus = createLogger("confirm-plus");
 
 const handleConfirmPlus = async (req: VercelRequest, res: VercelResponse) => {
     const {
@@ -195,8 +228,6 @@ const handleConfirmPlus = async (req: VercelRequest, res: VercelResponse) => {
         signature: razorpay_signature,
     });
     if (!outcome.verified) {
-        if (outcome.status === 400) logPlus.warn("signature mismatch", { orderId: razorpay_order_id, restaurantId });
-        else logPlus.error("verify failed", { message: outcome.error });
         return res.status(outcome.status).json({ error: outcome.error });
     }
 
@@ -217,18 +248,14 @@ const handleConfirmPlus = async (req: VercelRequest, res: VercelResponse) => {
         );
 
     if (error) {
-        logPlus.error("upgrade failed after verified payment", { message: error.message });
+        console.error("[confirm-plus] upsert failed", error.message);
         return res.status(500).json({ error: "Payment verified but failed to upgrade tier" });
     }
 
     return res.status(200).json({ success: true });
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// verify: Simple signature verification (no DB write)
-// ─────────────────────────────────────────────────────────────────────────────
-const logVerify = createLogger("verify-payment");
-
+// ── verify ────────────────────────────────────────────────────────────────────
 const handleVerify = async (req: VercelRequest, res: VercelResponse) => {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body as {
         razorpay_order_id?: string;
@@ -249,16 +276,12 @@ const handleVerify = async (req: VercelRequest, res: VercelResponse) => {
         signature: razorpay_signature,
     });
     if (!outcome.verified) {
-        if (outcome.status === 400) logVerify.warn("signature mismatch", { orderId: razorpay_order_id });
-        else logVerify.error("verify failed", { message: outcome.error });
         return res.status(outcome.status).json({ verified: false, error: outcome.error });
     }
     return res.status(200).json({ verified: true });
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Router
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Router ────────────────────────────────────────────────────────────────────
 const ROUTES: Record<string, (req: VercelRequest, res: VercelResponse) => Promise<unknown>> = {
     "confirm-order": handleConfirmOrder,
     "confirm-subscription": handleConfirmSubscription,
@@ -267,11 +290,22 @@ const ROUTES: Record<string, (req: VercelRequest, res: VercelResponse) => Promis
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+    if (req.method === "OPTIONS") return res.status(200).end();
+    if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+
     const action = normalizeAction(req.query.action as string | string[] | undefined);
     const routeHandler = ROUTES[action];
     if (!routeHandler) {
-        if (req.method === "OPTIONS") return;
         return res.status(404).json({ error: `Unknown action: ${action || "(none)"}` });
     }
-    await runPostHandler(req, res, routeHandler, `confirm-payment/${action}`);
+
+    try {
+        await routeHandler(req, res);
+    } catch (error) {
+        const message = getErrorDetail(error);
+        console.error(`[confirm-payment/${action}] unhandled`, message);
+        if (!res.writableEnded) {
+            res.status(500).json({ error: `confirm-payment/${action} failed`, detail: message });
+        }
+    }
 }
