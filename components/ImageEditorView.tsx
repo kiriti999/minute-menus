@@ -7,10 +7,8 @@ import {
   Download,
   Loader2,
   Move,
-  RotateCcw,
   Sparkles,
   Upload,
-  Wand2,
   ZoomIn,
 } from "lucide-react";
 import type React from "react";
@@ -32,7 +30,6 @@ import {
   getOutputDimensions,
   type PresetId,
 } from "../lib/imageEditor/presets";
-import { PHOTOGRAPHY_STYLES, type PhotographyStyleId } from "../lib/imageEditor/styles";
 import { supabase } from "../lib/supabase";
 import { supabaseService } from "../services/supabaseService";
 
@@ -62,23 +59,18 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
   const imageRef = useRef<HTMLImageElement | null>(null);
 
   const [originalSourceUrl, setOriginalSourceUrl] = useState<string | null>(null);
-  const [enhancedSourceUrl, setEnhancedSourceUrl] = useState<string | null>(null);
-  const [showEnhanced, setShowEnhanced] = useState(false);
   const [sourceLabel, setSourceLabel] = useState<string>("");
   const [sourceDishId, setSourceDishId] = useState<string | null>(null);
   const [applyDishId, setApplyDishId] = useState<string>("");
   const [presetId, setPresetId] = useState<PresetId>("reel");
   const [customWidth, setCustomWidth] = useState(1080);
   const [customHeight, setCustomHeight] = useState(1080);
-  const [selectedStyleId, setSelectedStyleId] = useState<PhotographyStyleId>("bright-airy");
   const [transform, setTransform] = useState<CropTransform>(DEFAULT_CROP_TRANSFORM);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [isLoadingSource, setIsLoadingSource] = useState(false);
-  const [isEnhancing, setIsEnhancing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
-  const [enhanceSummary, setEnhanceSummary] = useState<string | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -109,11 +101,8 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
   );
 
   const outputDimensions = getOutputDimensions(presetId, customWidth, customHeight);
-  const activePreviewUrl =
-    showEnhanced && enhancedSourceUrl ? enhancedSourceUrl : originalSourceUrl;
-  const hasSource = Boolean(activePreviewUrl);
-  const hasEnhanced = Boolean(enhancedSourceUrl);
-  const busy = isEnhancing || isExporting || isApplying;
+  const hasSource = Boolean(originalSourceUrl);
+  const busy = isExporting || isApplying;
 
   useEffect(() => {
     if (restaurantId) {
@@ -135,16 +124,6 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
       });
   }, [restaurantId]);
 
-  const enhanceBlockedReason = !originalSourceUrl
-    ? "Upload or pick a menu photo first."
-    : restaurantLoading
-      ? "Loading restaurant profile…"
-      : !resolvedRestaurantId
-        ? "Sign in to your owner account to use AI enhance."
-        : null;
-
-  const canEnhance = Boolean(originalSourceUrl) && !busy && Boolean(resolvedRestaurantId);
-
   const resetTransform = useCallback(() => {
     setTransform(DEFAULT_CROP_TRANSFORM);
   }, []);
@@ -154,13 +133,10 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
       setIsLoadingSource(true);
       setError(null);
       setStatusMessage(null);
-      setEnhanceSummary(null);
       try {
         const img = await loadImageSource(url);
         imageRef.current = img;
         setOriginalSourceUrl(url);
-        setEnhancedSourceUrl(null);
-        setShowEnhanced(false);
         setSourceLabel(label);
         setSourceDishId(dishId);
         if (dishId) setApplyDishId(dishId);
@@ -168,7 +144,6 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
       } catch (err) {
         imageRef.current = null;
         setOriginalSourceUrl(null);
-        setEnhancedSourceUrl(null);
         setError(getErrorMessage(err, "Failed to load image"));
       } finally {
         setIsLoadingSource(false);
@@ -178,9 +153,9 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
   );
 
   useEffect(() => {
-    if (!activePreviewUrl) return;
+    if (!originalSourceUrl) return;
     let cancelled = false;
-    void loadImageSource(activePreviewUrl)
+    void loadImageSource(originalSourceUrl)
       .then((img) => {
         if (!cancelled) imageRef.current = img;
       })
@@ -190,7 +165,7 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [activePreviewUrl]);
+  }, [originalSourceUrl]);
 
   const handleFile = useCallback(
     async (file: File) => {
@@ -238,109 +213,8 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
     );
   }, [outputDimensions.height, outputDimensions.width, transform]);
 
-  const enhanceSectionRef = useRef<HTMLElement>(null);
-
   const showError = (message: string) => {
     setError(message);
-    requestAnimationFrame(() => {
-      enhanceSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    });
-  };
-
-  const handleEnhance = async () => {
-    if (!originalSourceUrl) {
-      showError("Upload or pick a menu photo before enhancing.");
-      return;
-    }
-    if (!resolvedRestaurantId) {
-      showError(
-        restaurantLoading
-          ? "Restaurant profile is still loading. Wait a moment and try again."
-          : "Sign in to your owner account, then open Image Editor again.",
-      );
-      return;
-    }
-
-    setIsEnhancing(true);
-    setError(null);
-    setEnhanceSummary(null);
-    setStatusMessage("Enhancing with AI — this can take 15–60 seconds…");
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error("Not signed in. Sign in again from the dashboard, then retry.");
-      }
-
-      const payloadImage =
-        originalSourceUrl.length > 2_800_000
-          ? await resizeDataUrlMaxEdge(originalSourceUrl, 1536)
-          : originalSourceUrl;
-
-      const response = await fetch("/api/image/enhance", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          restaurantId: resolvedRestaurantId,
-          imageDataUrl: payloadImage,
-          styleId: selectedStyleId,
-          outputWidth: outputDimensions.width,
-          outputHeight: outputDimensions.height,
-        }),
-      });
-
-      const raw = await response.text();
-      let body: { imageDataUrl?: string; summary?: string; provider?: string; error?: string } = {};
-      try {
-        body = raw ? (JSON.parse(raw) as typeof body) : {};
-      } catch {
-        const isVercelCrash =
-          raw.includes("FUNCTION_INVOCATION_FAILED") || raw.includes("A server error has occurred");
-        throw new Error(
-          response.status === 404
-            ? "Enhance API not reachable. Restart dev with pnpm dev (latest) or use vercel dev."
-            : isVercelCrash
-              ? "Enhancement timed out or crashed on the server. Redeploy with latest code; ensure REPLICATE_API_TOKEN is set in Vercel env (Pro plan needed for 60s+ runs)."
-              : `Enhancement failed (${response.status}). Server returned a non-JSON response.`,
-        );
-      }
-
-      if (!response.ok) {
-        throw new Error(body.error ?? `Enhancement failed (${response.status})`);
-      }
-      if (!body.imageDataUrl) {
-        throw new Error("AI did not return an image.");
-      }
-
-      setEnhancedSourceUrl(body.imageDataUrl);
-      setShowEnhanced(true);
-      setEnhanceSummary(
-        body.summary ??
-          (body.provider === "replicate"
-            ? "Enhanced with Replicate"
-            : body.provider === "gemini"
-              ? "Enhanced with Gemini (fallback)"
-              : null),
-      );
-      setStatusMessage("AI enhancement complete. Compare before/after, then crop and export.");
-    } catch (err) {
-      showError(getErrorMessage(err, "Enhancement failed"));
-    } finally {
-      setIsEnhancing(false);
-    }
-  };
-
-  const handleRevertEnhance = () => {
-    if (!originalSourceUrl) return;
-    setEnhancedSourceUrl(null);
-    setShowEnhanced(false);
-    setEnhanceSummary(null);
-    resetTransform();
-    setStatusMessage("Reverted to original photo.");
   };
 
   const handleDownload = async () => {
@@ -547,103 +421,9 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
               </div>
             </section>
 
-            <section ref={enhanceSectionRef} className={`rounded-xl border p-5 ${card}`}>
-              <h2 className="font-semibold mb-4 flex items-center gap-2">
-                <Wand2 size={16} />
-                2. AI enhance (optional)
-              </h2>
-              <p className={`text-xs mb-4 ${muted}`}>
-                Uses Replicate FLUX Kontext first (~$0.03/photo), Gemini as fallback. Keeps your real
-                dish — lighting and background only. Set <code className="text-[10px]">REPLICATE_API_TOKEN</code> in
-                .env.
-              </p>
-              <div className="grid sm:grid-cols-2 gap-2 mb-4">
-                {PHOTOGRAPHY_STYLES.map((style) => (
-                  <button
-                    key={style.id}
-                    type="button"
-                    disabled={!originalSourceUrl || busy}
-                    onClick={() => setSelectedStyleId(style.id)}
-                    className={`rounded-lg border p-3 text-left transition-all disabled:opacity-40 ${
-                      selectedStyleId === style.id
-                        ? isDarkTheme
-                          ? "border-white bg-zinc-800"
-                          : "border-zinc-900 bg-zinc-100"
-                        : isDarkTheme
-                          ? "border-zinc-800 hover:border-zinc-600"
-                          : "border-zinc-200 hover:border-zinc-400"
-                    }`}
-                  >
-                    <span className={`text-[9px] font-bold tracking-widest uppercase ${muted}`}>
-                      {style.tag}
-                    </span>
-                    <p className="text-sm font-medium mt-1 leading-snug">{style.label}</p>
-                  </button>
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => void handleEnhance()}
-                  disabled={!canEnhance}
-                  title={enhanceBlockedReason ?? undefined}
-                  className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold tracking-widest disabled:opacity-40 ${isDarkTheme ? "bg-white text-black hover:bg-zinc-200" : "bg-zinc-900 text-white hover:bg-zinc-800"}`}
-                >
-                  {isEnhancing ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      ENHANCING…
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 size={14} />
-                      ENHANCE WITH AI
-                    </>
-                  )}
-                </button>
-                {enhanceBlockedReason && (
-                  <p className={`w-full text-xs ${isDarkTheme ? "text-amber-400" : "text-amber-700"}`}>
-                    {enhanceBlockedReason}
-                  </p>
-                )}
-                {hasEnhanced && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => setShowEnhanced(false)}
-                      disabled={busy || !showEnhanced}
-                      className={`px-4 py-2 rounded-full text-xs font-bold tracking-widest border disabled:opacity-40 ${isDarkTheme ? "border-zinc-600" : "border-zinc-300"}`}
-                    >
-                      BEFORE
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowEnhanced(true)}
-                      disabled={busy || showEnhanced}
-                      className={`px-4 py-2 rounded-full text-xs font-bold tracking-widest border disabled:opacity-40 ${isDarkTheme ? "border-zinc-600" : "border-zinc-300"}`}
-                    >
-                      AFTER
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleRevertEnhance}
-                      disabled={busy}
-                      className={`flex items-center gap-1 px-4 py-2 rounded-full text-xs font-bold tracking-widest border ${isDarkTheme ? "border-zinc-700 text-zinc-400" : "border-zinc-300 text-zinc-600"}`}
-                    >
-                      <RotateCcw size={12} />
-                      REVERT
-                    </button>
-                  </>
-                )}
-              </div>
-              {enhanceSummary && (
-                <p className={`text-xs mt-3 ${muted}`}>{enhanceSummary}</p>
-              )}
-            </section>
-
             <section className={`rounded-xl border p-5 ${card}`}>
               <div className="flex items-center justify-between gap-4 mb-4">
-                <h2 className="font-semibold">3. Crop &amp; position</h2>
+                <h2 className="font-semibold">2. Crop &amp; position</h2>
                 <button
                   type="button"
                   onClick={resetTransform}
@@ -791,7 +571,7 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
             </section>
 
             <section className={`rounded-xl border p-5 ${card}`}>
-              <h2 className="font-semibold mb-4">4. Export</h2>
+              <h2 className="font-semibold mb-4">3. Export</h2>
               <label className={`text-[10px] font-bold tracking-widest uppercase block mb-2 ${muted}`}>
                 Apply to menu item
               </label>
