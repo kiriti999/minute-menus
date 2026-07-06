@@ -21,10 +21,13 @@ import {
   AlertTriangle,
   Calculator,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   FileText,
   Loader2,
   Plus,
   Receipt,
+  Search,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -34,6 +37,7 @@ import { supabase } from "../lib/supabase";
 import { supabaseService } from "../services/supabaseService";
 
 const UNITS: PurchaseUnit[] = ["kg", "g", "l", "ml", "piece"];
+const PAGE_SIZE = 8;
 
 const firstOfMonth = (d = new Date()): string =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
@@ -87,8 +91,11 @@ export const CostingView: React.FC<CostingViewProps> = ({
   const [parsedRows, setParsedRows] = useState<InvoiceLineItem[]>([]);
   const [parsedFileName, setParsedFileName] = useState("");
   const [savingInvoice, setSavingInvoice] = useState(false);
+  const [parsedPage, setParsedPage] = useState(0);
 
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [ingredientSearch, setIngredientSearch] = useState("");
+  const [ingredientPage, setIngredientPage] = useState(0);
 
   const allDishes = useMemo<Array<{ dish: Dish }>>(
     () => menuItems.flatMap((c) => c.items.map((dish) => ({ dish }))),
@@ -194,6 +201,7 @@ export const CostingView: React.FC<CostingViewProps> = ({
       }
       const { lineItems } = (await res.json()) as { lineItems: InvoiceLineItem[] };
       setParsedRows(lineItems);
+      setParsedPage(0);
       setParsedFileName(file.name);
     } catch (e) {
       setError(getErrorMessage(e));
@@ -205,6 +213,31 @@ export const CostingView: React.FC<CostingViewProps> = ({
   const parsedTotal = useMemo(
     () => parsedRows.reduce((s, r) => s + r.amount, 0),
     [parsedRows],
+  );
+
+  const parsedTotalPages = Math.max(1, Math.ceil(parsedRows.length / PAGE_SIZE));
+  const parsedPageRows = useMemo(
+    () =>
+      parsedRows
+        .map((row, idx) => ({ row, idx }))
+        .slice(parsedPage * PAGE_SIZE, parsedPage * PAGE_SIZE + PAGE_SIZE),
+    [parsedRows, parsedPage],
+  );
+
+  const filteredIngredients = useMemo(() => {
+    const q = ingredientSearch.trim().toLowerCase();
+    return q ? ingredients.filter((i) => i.name.toLowerCase().includes(q)) : ingredients;
+  }, [ingredients, ingredientSearch]);
+
+  const ingredientTotalPages = Math.max(1, Math.ceil(filteredIngredients.length / PAGE_SIZE));
+  const ingredientPageSafe = Math.min(ingredientPage, ingredientTotalPages - 1);
+  const pagedIngredients = useMemo(
+    () =>
+      filteredIngredients.slice(
+        ingredientPageSafe * PAGE_SIZE,
+        ingredientPageSafe * PAGE_SIZE + PAGE_SIZE,
+      ),
+    [filteredIngredients, ingredientPageSafe],
   );
 
   const updateParsedRow = (idx: number, patch: Partial<InvoiceLineItem>) =>
@@ -492,7 +525,7 @@ export const CostingView: React.FC<CostingViewProps> = ({
                       </tr>
                     </thead>
                     <tbody>
-                      {parsedRows.map((row, idx) => (
+                      {parsedPageRows.map(({ row, idx }) => (
                         <tr key={idx} className={isDarkTheme ? "text-white" : "text-zinc-900"}>
                           <td className="py-1 pr-2">
                             <input
@@ -543,6 +576,12 @@ export const CostingView: React.FC<CostingViewProps> = ({
                     </tbody>
                   </table>
                 </div>
+                <Paginator
+                  page={parsedPage}
+                  totalPages={parsedTotalPages}
+                  onPage={setParsedPage}
+                  isDark={isDarkTheme}
+                />
                 <div className="flex items-center justify-between mt-3">
                   <span className={`text-sm ${label}`}>
                     Parsed total:{" "}
@@ -565,45 +604,71 @@ export const CostingView: React.FC<CostingViewProps> = ({
 
           {/* Ingredient library */}
           <section className={`border rounded-xl p-5 ${card}`}>
-            <h2 className={`text-sm font-bold uppercase tracking-widest mb-4 ${label}`}>
-              Ingredient Library ({ingredients.length})
-            </h2>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <h2 className={`text-sm font-bold uppercase tracking-widest ${label}`}>
+                Ingredient Library ({ingredients.length})
+              </h2>
+              {ingredients.length > 0 && (
+                <div className="relative">
+                  <Search size={14} className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${label}`} />
+                  <input
+                    value={ingredientSearch}
+                    onChange={(e) => {
+                      setIngredientSearch(e.target.value);
+                      setIngredientPage(0);
+                    }}
+                    placeholder="Search ingredients…"
+                    className={`w-56 pl-8 pr-3 py-1.5 rounded-md text-sm outline-none border ${input}`}
+                  />
+                </div>
+              )}
+            </div>
             {ingredients.length === 0 ? (
               <p className={`text-sm ${label}`}>Upload an invoice to build your ingredient list.</p>
+            ) : filteredIngredients.length === 0 ? (
+              <p className={`text-sm ${label}`}>No ingredients match “{ingredientSearch}”.</p>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className={label}>
-                      <th className="text-left font-medium py-1">Ingredient</th>
-                      <th className="text-right font-medium py-1">Purchased</th>
-                      <th className="text-right font-medium py-1">Cost / {baseUnitLabel("g")}</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {ingredients.map((ing) => (
-                      <tr key={ing.id} className={isDarkTheme ? "text-white" : "text-zinc-900"}>
-                        <td className="py-1.5">{ing.name}</td>
-                        <td className="py-1.5 text-right">
-                          {ing.purchaseQuantity} {ing.purchaseUnit} · {formatPriceInCurrency(ing.purchaseAmount, currency)}
-                        </td>
-                        <td className="py-1.5 text-right font-mono">
-                          {formatPriceInCurrency(ing.unitCost, currency)}/{baseUnitLabel(ing.purchaseUnit)}
-                        </td>
-                        <td className="py-1.5 pl-2 text-right">
-                          <button
-                            onClick={() => handleDeleteIngredient(ing.id)}
-                            className="text-zinc-500 hover:text-red-400"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </td>
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className={label}>
+                        <th className="text-left font-medium py-1">Ingredient</th>
+                        <th className="text-right font-medium py-1">Purchased</th>
+                        <th className="text-right font-medium py-1">Unit cost</th>
+                        <th />
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {pagedIngredients.map((ing) => (
+                        <tr key={ing.id} className={isDarkTheme ? "text-white" : "text-zinc-900"}>
+                          <td className="py-1.5">{ing.name}</td>
+                          <td className="py-1.5 text-right">
+                            {ing.purchaseQuantity} {ing.purchaseUnit} · {formatPriceInCurrency(ing.purchaseAmount, currency)}
+                          </td>
+                          <td className="py-1.5 text-right font-mono">
+                            {formatPriceInCurrency(ing.unitCost, currency)}/{baseUnitLabel(ing.purchaseUnit)}
+                          </td>
+                          <td className="py-1.5 pl-2 text-right">
+                            <button
+                              onClick={() => handleDeleteIngredient(ing.id)}
+                              className="text-zinc-500 hover:text-red-400"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <Paginator
+                  page={ingredientPageSafe}
+                  totalPages={ingredientTotalPages}
+                  onPage={setIngredientPage}
+                  isDark={isDarkTheme}
+                />
+              </>
             )}
           </section>
 
@@ -775,6 +840,37 @@ export const CostingView: React.FC<CostingViewProps> = ({
           </section>
         </>
       )}
+    </div>
+  );
+};
+
+const Paginator: React.FC<{
+  page: number;
+  totalPages: number;
+  onPage: (p: number) => void;
+  isDark: boolean;
+}> = ({ page, totalPages, onPage, isDark }) => {
+  if (totalPages <= 1) return null;
+  const muted = isDark ? "text-zinc-500" : "text-zinc-600";
+  const btn = `p-1.5 rounded-md border disabled:opacity-40 disabled:cursor-not-allowed ${
+    isDark ? "border-zinc-700 text-white hover:bg-zinc-900" : "border-zinc-300 text-zinc-900 hover:bg-zinc-100"
+  }`;
+  return (
+    <div className="flex items-center justify-end gap-3 mt-3">
+      <span className={`text-xs ${muted}`}>
+        Page {page + 1} of {totalPages}
+      </span>
+      <button className={btn} disabled={page === 0} onClick={() => onPage(page - 1)} aria-label="Previous page">
+        <ChevronLeft size={16} />
+      </button>
+      <button
+        className={btn}
+        disabled={page >= totalPages - 1}
+        onClick={() => onPage(page + 1)}
+        aria-label="Next page"
+      >
+        <ChevronRight size={16} />
+      </button>
     </div>
   );
 };
