@@ -121,6 +121,14 @@ export const CostingView: React.FC<CostingViewProps> = ({
   const [recipe, setRecipe] = useState<Array<{ ingredientId: string; quantity: number }>>([]);
   const [dishPriceInput, setDishPriceInput] = useState<string>("");
   const [savingRecipe, setSavingRecipe] = useState(false);
+  const [showManualIngredientForm, setShowManualIngredientForm] = useState(false);
+  const [manualIngredient, setManualIngredient] = useState({
+    name: "",
+    quantity: "",
+    unit: "g" as PurchaseUnit,
+    amount: "",
+  });
+  const [savingManualIngredient, setSavingManualIngredient] = useState(false);
 
   const card = isDarkTheme ? "bg-zinc-950 border-zinc-800" : "bg-white border-zinc-200";
   const input = isDarkTheme
@@ -302,6 +310,7 @@ export const CostingView: React.FC<CostingViewProps> = ({
               purchaseUnit: r.unit,
               purchaseQuantity: r.quantity,
               purchaseAmount: r.amount,
+              source: "invoice",
             },
             restaurantId,
           ),
@@ -322,12 +331,54 @@ export const CostingView: React.FC<CostingViewProps> = ({
     [invoices],
   );
 
+  const manualIngredientsTotal = useMemo(
+    () => ingredients.filter((i) => i.source === "manual").reduce((s, i) => s + i.purchaseAmount, 0),
+    [ingredients],
+  );
+
+  const totalSpend = monthInvoiceTotal + manualIngredientsTotal;
+
   const handleDeleteIngredient = async (id: string) => {
     try {
       await supabaseService.deleteIngredient(id);
       setIngredients((prev) => prev.filter((i) => i.id !== id));
     } catch (e) {
       setError(getErrorMessage(e));
+    }
+  };
+
+  const handleSaveManualIngredient = async () => {
+    if (!restaurantId) return;
+    if (!manualIngredient.name.trim()) {
+      setError("Ingredient name is required");
+      return;
+    }
+    const qty = Number(manualIngredient.quantity);
+    const amt = Number(manualIngredient.amount);
+    if (!qty || qty <= 0 || !amt || amt <= 0) {
+      setError("Valid quantity and amount are required");
+      return;
+    }
+    setSavingManualIngredient(true);
+    setError("");
+    try {
+      await supabaseService.upsertIngredient(
+        {
+          name: manualIngredient.name.trim(),
+          purchaseUnit: manualIngredient.unit,
+          purchaseQuantity: qty,
+          purchaseAmount: amt,
+          source: "manual",
+        },
+        restaurantId,
+      );
+      setShowManualIngredientForm(false);
+      setManualIngredient({ name: "", quantity: "", unit: "g", amount: "" });
+      await loadMonth();
+    } catch (e) {
+      setError(getErrorMessage(e));
+    } finally {
+      setSavingManualIngredient(false);
     }
   };
 
@@ -513,15 +564,32 @@ export const CostingView: React.FC<CostingViewProps> = ({
           <section className={`border rounded-xl p-5 ${card}`}>
             <div className="flex items-center justify-between mb-4">
               <h2 className={`text-sm font-bold uppercase tracking-widest ${label}`}>
-                Purchase Invoices
+                Purchase Invoices & Manual Entries
               </h2>
-              <span className={`text-sm ${label}`}>
-                This month:{" "}
-                <span className={isDarkTheme ? "text-white" : "text-zinc-900"}>
-                  {formatPriceInCurrency(monthInvoiceTotal, currency)}
-                </span>{" "}
-                · {invoices.length} uploaded
-              </span>
+              <div className={`text-sm ${label} text-right`}>
+                <div className="flex items-center gap-3">
+                  <span>
+                    Invoice purchases:{" "}
+                    <span className={isDarkTheme ? "text-white" : "text-zinc-900"}>
+                      {formatPriceInCurrency(monthInvoiceTotal, currency)}
+                    </span>{" "}
+                    ({invoices.length})
+                  </span>
+                  <span>
+                    Manual entries:{" "}
+                    <span className={isDarkTheme ? "text-white" : "text-zinc-900"}>
+                      {formatPriceInCurrency(manualIngredientsTotal, currency)}
+                    </span>{" "}
+                    ({ingredients.filter((i) => i.source === "manual").length})
+                  </span>
+                </div>
+                <div className={`mt-1 pt-1 border-t ${isDarkTheme ? "border-zinc-700" : "border-zinc-300"}`}>
+                  Total spend:{" "}
+                  <span className={`font-bold ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
+                    {formatPriceInCurrency(totalSpend, currency)}
+                  </span>
+                </div>
+              </div>
             </div>
 
             <label
@@ -669,7 +737,7 @@ export const CostingView: React.FC<CostingViewProps> = ({
               )}
             </div>
             {ingredients.length === 0 ? (
-              <p className={`text-sm ${label}`}>Upload an invoice to build your ingredient list.</p>
+              <p className={`text-sm ${label}`}>Upload an invoice or create manual entries to build your ingredient list.</p>
             ) : filteredIngredients.length === 0 ? (
               <p className={`text-sm ${label}`}>No ingredients match “{ingredientSearch}”.</p>
             ) : (
@@ -687,7 +755,24 @@ export const CostingView: React.FC<CostingViewProps> = ({
                     <tbody>
                       {pagedIngredients.map((ing) => (
                         <tr key={ing.id} className={isDarkTheme ? "text-white" : "text-zinc-900"}>
-                          <td className="py-1.5">{ing.name}</td>
+                          <td className="py-1.5">
+                            <div className="flex items-center gap-2">
+                              <span>{ing.name}</span>
+                              <span
+                                className={`px-1.5 py-0.5 rounded text-[10px] font-medium uppercase tracking-wide ${
+                                  ing.source === "invoice"
+                                    ? isDarkTheme
+                                      ? "bg-blue-950 text-blue-300"
+                                      : "bg-blue-100 text-blue-700"
+                                    : isDarkTheme
+                                      ? "bg-amber-950 text-amber-300"
+                                      : "bg-amber-100 text-amber-700"
+                                }`}
+                              >
+                                {ing.source === "invoice" ? "Invoice" : "Manual"}
+                              </span>
+                            </div>
+                          </td>
                           <td className="py-1.5 text-right">
                             {ing.purchaseQuantity} {ing.purchaseUnit} · {formatPriceInCurrency(ing.purchaseAmount, currency)}
                           </td>
@@ -847,12 +932,111 @@ export const CostingView: React.FC<CostingViewProps> = ({
                       })}
                     </div>
 
-                    <button
-                      onClick={addRecipeLine}
-                      className={`mt-3 flex items-center gap-1 text-sm ${label} hover:${isDarkTheme ? "text-white" : "text-zinc-900"}`}
-                    >
-                      <Plus size={14} /> Add ingredient
-                    </button>
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <button
+                        onClick={addRecipeLine}
+                        disabled={ingredients.length === 0}
+                        className={`flex items-center gap-1 text-sm ${label} hover:${isDarkTheme ? "text-white" : "text-zinc-900"} disabled:opacity-50`}
+                      >
+                        <Plus size={14} /> Add ingredient
+                      </button>
+                      <button
+                        onClick={() => setShowManualIngredientForm(true)}
+                        className={`flex items-center gap-1 text-sm ${isDarkTheme ? "text-white" : "text-zinc-900"} underline hover:no-underline`}
+                      >
+                        <Plus size={14} /> Create New Ingredient
+                      </button>
+                    </div>
+
+                    {/* Manual ingredient form */}
+                    {showManualIngredientForm && (
+                      <div className={`mt-4 p-4 border rounded-lg ${card}`}>
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className={`text-xs font-bold uppercase tracking-widest ${label}`}>
+                            New Ingredient (Manual Entry)
+                          </h3>
+                          <button
+                            onClick={() => {
+                              setShowManualIngredientForm(false);
+                              setManualIngredient({ name: "", quantity: "", unit: "g", amount: "" });
+                            }}
+                            className={`text-xs ${label} hover:${isDarkTheme ? "text-white" : "text-zinc-900"}`}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className={`text-[10px] font-bold uppercase tracking-widest block mb-1 ${label}`}>
+                              Ingredient Name
+                            </label>
+                            <input
+                              type="text"
+                              value={manualIngredient.name}
+                              onChange={(e) => setManualIngredient((prev) => ({ ...prev, name: e.target.value }))}
+                              placeholder="e.g., Paneer (cash purchase)"
+                              className={`w-full px-3 py-2 rounded-md text-sm outline-none border ${input}`}
+                            />
+                          </div>
+                          <div>
+                            <label className={`text-[10px] font-bold uppercase tracking-widest block mb-1 ${label}`}>
+                              Purchase Quantity
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.001"
+                                value={manualIngredient.quantity}
+                                onChange={(e) => setManualIngredient((prev) => ({ ...prev, quantity: e.target.value }))}
+                                placeholder="1"
+                                className={`flex-1 px-3 py-2 rounded-md text-sm outline-none border ${input}`}
+                              />
+                              <select
+                                value={manualIngredient.unit}
+                                onChange={(e) =>
+                                  setManualIngredient((prev) => ({ ...prev, unit: e.target.value as PurchaseUnit }))
+                                }
+                                className={`px-3 py-2 rounded-md text-sm outline-none border ${input}`}
+                              >
+                                {UNITS.map((u) => (
+                                  <option key={u} value={u}>
+                                    {u}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                          <div>
+                            <label className={`text-[10px] font-bold uppercase tracking-widest block mb-1 ${label}`}>
+                              Purchase Amount
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={manualIngredient.amount}
+                              onChange={(e) => setManualIngredient((prev) => ({ ...prev, amount: e.target.value }))}
+                              placeholder="250"
+                              className={`w-full px-3 py-2 rounded-md text-sm outline-none border ${input}`}
+                            />
+                          </div>
+                          <div className="flex items-end">
+                            <button
+                              onClick={handleSaveManualIngredient}
+                              disabled={savingManualIngredient}
+                              className="w-full bg-white text-black px-4 py-2 rounded-md font-bold text-xs tracking-widest hover:bg-zinc-200 disabled:opacity-50 flex items-center justify-center gap-2"
+                            >
+                              {savingManualIngredient ? <Loader2 className="animate-spin" size={14} /> : <Plus size={14} />}
+                              SAVE & ADD TO RECIPE
+                            </button>
+                          </div>
+                        </div>
+                        <p className={`text-xs mt-2 ${label}`}>
+                          For cash purchases or when you don't have an invoice yet. This will be added to your ingredient library.
+                        </p>
+                      </div>
+                    )}
 
                     {/* Cost + suggested price */}
                     <div className={`mt-5 pt-4 border-t ${isDarkTheme ? "border-zinc-800" : "border-zinc-200"}`}>

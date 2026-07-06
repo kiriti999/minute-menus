@@ -188,6 +188,8 @@ export interface IngredientInvoice {
   createdAt: string;
 }
 
+export type IngredientSource = 'invoice' | 'manual';
+
 export interface Ingredient {
   id: string;
   restaurantId: string;
@@ -196,6 +198,7 @@ export interface Ingredient {
   purchaseQuantity: number;
   purchaseAmount: number;
   unitCost: number; // per base unit (gram/ml/piece)
+  source: IngredientSource; // 'invoice' from uploaded bills, 'manual' for cash purchases
   sourceInvoiceId?: string | null;
 }
 

@@ -890,6 +890,10 @@ do $$ begin
   create type purchase_unit as enum ('kg', 'g', 'l', 'ml', 'piece');
 exception when duplicate_object then null; end $$;
 
+do $$ begin
+  create type ingredient_source as enum ('invoice', 'manual');
+exception when duplicate_object then null; end $$;
+
 -- Monthly fixed costs (one row per restaurant per month).
 create table if not exists restaurant_overhead (
   id             uuid primary key default gen_random_uuid(),
@@ -943,6 +947,7 @@ create table if not exists ingredients (
   purchase_quantity numeric(12, 3) not null default 0,  -- in purchase_unit
   purchase_amount   numeric(12, 2) not null default 0,  -- currency paid for that quantity
   unit_cost         numeric(12, 6) not null default 0,  -- per base unit (gram/ml/piece)
+  source            ingredient_source not null default 'manual',  -- 'invoice' or 'manual'
   source_invoice_id uuid references ingredient_invoices(id) on delete set null,
   updated_at        timestamptz not null default now(),
   unique (restaurant_id, name)

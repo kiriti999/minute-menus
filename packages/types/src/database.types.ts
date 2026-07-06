@@ -635,6 +635,7 @@ export type Database = {
                     purchase_quantity: number;
                     purchase_amount: number;
                     unit_cost: number;
+                    source: "invoice" | "manual";
                     source_invoice_id: string | null;
                     updated_at: string;
                 };
@@ -646,6 +647,7 @@ export type Database = {
                     purchase_quantity?: number;
                     purchase_amount?: number;
                     unit_cost?: number;
+                    source?: "invoice" | "manual";
                     source_invoice_id?: string | null;
                     updated_at?: string;
                 };
@@ -657,6 +659,7 @@ export type Database = {
                     purchase_quantity?: number;
                     purchase_amount?: number;
                     unit_cost?: number;
+                    source?: "invoice" | "manual";
                     source_invoice_id?: string | null;
                     updated_at?: string;
                 };

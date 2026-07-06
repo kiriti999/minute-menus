@@ -1284,6 +1284,7 @@ export class SupabaseService {
             purchaseQuantity: Number(row.purchase_quantity),
             purchaseAmount: Number(row.purchase_amount),
             unitCost: Number(row.unit_cost),
+            source: row.source ?? "manual",
             sourceInvoiceId: row.source_invoice_id,
         }));
     }
@@ -1295,6 +1296,7 @@ export class SupabaseService {
             purchaseUnit: PurchaseUnit;
             purchaseQuantity: number;
             purchaseAmount: number;
+            source?: "invoice" | "manual";
             sourceInvoiceId?: string | null;
         },
         restaurantId?: string,
@@ -1309,6 +1311,7 @@ export class SupabaseService {
                 purchase_quantity: input.purchaseQuantity,
                 purchase_amount: input.purchaseAmount,
                 unit_cost: unitCost,
+                source: input.source ?? (input.sourceInvoiceId ? "invoice" : "manual"),
                 source_invoice_id: input.sourceInvoiceId ?? null,
                 updated_at: new Date().toISOString(),
             },
