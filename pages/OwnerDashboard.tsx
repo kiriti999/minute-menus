@@ -67,6 +67,7 @@ import { compressDataUrl } from "@minute-menus/menu-persistence";
 import { generateAnalyticsReport } from "@minute-menus/ai";
 import { supabaseService } from "../services/supabaseService";
 import { supabase } from "../lib/supabase";
+import { openRazorpayCheckout } from "../lib/loadRazorpayCheckout";
 import {
   type AggregatedMetrics,
   type AnalyticsReport,
@@ -84,10 +85,10 @@ import {
   UserTier,
 } from "@minute-menus/types";
 import {
-  ButtonSpinner,
   InlineLoader,
   PanelLoader,
   SaveChangesButton,
+  Spinner,
 } from "@minute-menus/ui";
 
 type ViewMode = "DASHBOARD" | "MENU" | "IMAGE_EDITOR" | "CUSTOMERS" | "SUBSCRIPTIONS";
@@ -95,11 +96,15 @@ type SubTab = "plans" | "subscribers" | "tomorrow" | "tickets" | "refunds";
 type TimeWindow = "24h" | "7d" | "30d";
 
 // --- Paywall Modal Component ---
+type PlusPlanId = "annual" | "monthly";
+
 interface PaywallModalProps {
   onClose: () => void;
-  onUpgrade: () => void;
+  onUpgrade: (plan: PlusPlanId) => void;
   trigger: string;
   isDarkTheme: boolean;
+  isProcessing: boolean;
+  error: string | null;
 }
 
 const PaywallModal: React.FC<PaywallModalProps> = ({
@@ -107,6 +112,8 @@ const PaywallModal: React.FC<PaywallModalProps> = ({
   onUpgrade,
   trigger,
   isDarkTheme,
+  isProcessing,
+  error,
 }) => {
   return (
     <div className={`fixed inset-0 z-[100] backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300 ${isDarkTheme ? 'bg-black/80' : 'bg-white/80'}`}>
@@ -155,8 +162,9 @@ const PaywallModal: React.FC<PaywallModalProps> = ({
 
           <div className="space-y-4">
             <button
-              onClick={onUpgrade}
-              className={`w-full border p-4 rounded-lg flex justify-between items-center group transition-all ${isDarkTheme ? 'border-white/20 bg-zinc-900 hover:bg-zinc-800' : 'border-zinc-300 bg-white hover:bg-zinc-100'}`}
+              onClick={() => onUpgrade("annual")}
+              disabled={isProcessing}
+              className={`w-full border p-4 rounded-lg flex justify-between items-center group transition-all disabled:opacity-60 disabled:cursor-not-allowed ${isDarkTheme ? 'border-white/20 bg-zinc-900 hover:bg-zinc-800' : 'border-zinc-300 bg-white hover:bg-zinc-100'}`}
             >
               <div className="text-left">
                 <div className={`font-bold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>Annual Plan</div>
@@ -174,8 +182,9 @@ const PaywallModal: React.FC<PaywallModalProps> = ({
             </button>
 
             <button
-              onClick={onUpgrade}
-              className={`w-full border p-4 rounded-lg flex justify-between items-center transition-all ${isDarkTheme ? 'border-white bg-white hover:bg-zinc-200' : 'border-zinc-900 bg-zinc-900 hover:bg-zinc-800'}`}
+              onClick={() => onUpgrade("monthly")}
+              disabled={isProcessing}
+              className={`w-full border p-4 rounded-lg flex justify-between items-center transition-all disabled:opacity-60 disabled:cursor-not-allowed ${isDarkTheme ? 'border-white bg-white hover:bg-zinc-200' : 'border-zinc-900 bg-zinc-900 hover:bg-zinc-800'}`}
             >
               <div className="text-left">
                 <div className={`font-bold ${isDarkTheme ? 'text-black' : 'text-white'}`}>Monthly Plan</div>
@@ -186,6 +195,16 @@ const PaywallModal: React.FC<PaywallModalProps> = ({
                 <span className={`text-xs font-normal ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-400'}`}>/mo</span>
               </span>
             </button>
+
+            {isProcessing && (
+              <div className={`flex items-center justify-center gap-2 text-xs ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                <Spinner size="sm" />
+                Processing payment…
+              </div>
+            )}
+            {error && (
+              <p className="text-xs text-red-500 text-center">{error}</p>
+            )}
           </div>
 
           <div className="text-center mt-6">
@@ -659,7 +678,7 @@ const MediaEditor: React.FC<MediaEditorProps> = ({
             >
               {isCompressing ? (
                 <>
-                  <ButtonSpinner />
+                  <Spinner size="sm" />
                   COMPRESSING…
                 </>
               ) : (
@@ -738,6 +757,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   // Tier & Paywall State
   const [userTier, setUserTier] = useState<UserTier>(UserTier.FREE);
   const [paywallTrigger, setPaywallTrigger] = useState<string | null>(null);
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
 
   // Customer Directory State
   const [customerDirectory, setCustomerDirectory] = useState<CustomerDirectoryEntry[]>([]);
@@ -839,16 +860,53 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     return () => clearInterval(interval);
   }, [currentView, timeWindow]);
 
-  const handleUpgrade = () => {
-    // TODO: Integrate Razorpay (India) / Clover (US/CA) payment here
-    supabaseService
-      .setTier(UserTier.PLUS)
-      .then(() => {
-        setUserTier(UserTier.PLUS);
-        setPaywallTrigger(null);
-        alert("Welcome to Plus! Features unlocked.");
-      })
-      .catch(console.error);
+  const handleUpgrade = async (plan: PlusPlanId) => {
+    if (!restaurantDetails) return;
+    setIsUpgrading(true);
+    setUpgradeError(null);
+    try {
+      const orderRes = await fetch("/api/subscription/create-plus-order", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ plan, restaurantId: restaurantDetails.id, currency: restaurantDetails.currency }),
+      });
+      if (!orderRes.ok) {
+        const err = await orderRes.json() as { error?: string };
+        throw new Error(err.error ?? "Failed to start checkout");
+      }
+      const { orderId, amount, currency, keyId } = await orderRes.json() as {
+        orderId: string; amount: number; currency: string; keyId: string;
+      };
+
+      const payment = await openRazorpayCheckout({
+        keyId,
+        orderId,
+        amount,
+        currency,
+        name: "Minute Menus",
+        description: plan === "annual" ? "Plus — Annual Plan" : "Plus — Monthly Plan",
+        prefill: {},
+      });
+
+      const confirmRes = await fetch("/api/subscription/confirm-plus-payment", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...payment, restaurantId: restaurantDetails.id, plan }),
+      });
+      if (!confirmRes.ok) {
+        const err = await confirmRes.json() as { error?: string };
+        throw new Error(err.error ?? "Payment verification failed");
+      }
+
+      setUserTier(UserTier.PLUS);
+      setPaywallTrigger(null);
+      alert("Welcome to Plus! Features unlocked.");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Upgrade failed. Please try again.";
+      if (msg !== "Payment cancelled") setUpgradeError(msg);
+    } finally {
+      setIsUpgrading(false);
+    }
   };
 
   const triggerPaywall = (reason: string) => {
@@ -1190,9 +1248,14 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       {paywallTrigger && (
         <PaywallModal
           trigger={paywallTrigger}
-          onClose={() => setPaywallTrigger(null)}
+          onClose={() => {
+            setPaywallTrigger(null);
+            setUpgradeError(null);
+          }}
           onUpgrade={handleUpgrade}
           isDarkTheme={isDarkTheme}
+          isProcessing={isUpgrading}
+          error={upgradeError}
         />
       )}
 

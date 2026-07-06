@@ -1,6 +1,6 @@
 let loadPromise: Promise<void> | null = null;
 
-/** Load Razorpay checkout.js only when customer checkout runs (not on owner dashboard). */
+/** Lazily loads Razorpay checkout.js the first time a checkout is opened (customer order/subscription or owner Plus upgrade). */
 export const loadRazorpayCheckout = (): Promise<void> => {
   if (typeof window === "undefined") return Promise.resolve();
   if ((window as Window & { Razorpay?: unknown }).Razorpay) return Promise.resolve();

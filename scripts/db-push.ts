@@ -90,13 +90,18 @@ function splitStatements(src: string): string[] {
         if (src[i] === ";") {
             current += ";";
             const t = current.trim();
-            if (t.length > 1 && !t.startsWith("--")) result.push(t);
+            // A statement may be preceded by one or more full-line comments —
+            // strip those before checking for real SQL, so a leading comment
+            // doesn't cause the whole (comment + statement) block to be dropped.
+            const withoutLeadingComments = t.replace(/^(?:--[^\n]*\n)+/, "").trim();
+            if (withoutLeadingComments.length > 1) result.push(t);
             current = ""; i++; continue;
         }
         current += src[i]; i++;
     }
     const tail = current.trim();
-    if (tail && tail !== ";") result.push(tail);
+    const tailWithoutComments = tail.replace(/^(?:--[^\n]*\n)+/, "").trim();
+    if (tailWithoutComments.length > 1 && tail !== ";") result.push(tail);
     return result;
 }
 

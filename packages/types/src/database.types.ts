@@ -287,6 +287,8 @@ export type Database = {
                     end_date: string;
                     created_at: string;
                     rotation_dish_ids: string[] | null;
+                    payment_provider: string | null;
+                    payment_id: string | null;
                 };
                 Insert: {
                     id?: string;
@@ -305,6 +307,8 @@ export type Database = {
                     end_date: string;
                     created_at?: string;
                     rotation_dish_ids?: string[] | null;
+                    payment_provider?: string | null;
+                    payment_id?: string | null;
                 };
                 Update: {
                     id?: string;
@@ -323,6 +327,8 @@ export type Database = {
                     end_date?: string;
                     created_at?: string;
                     rotation_dish_ids?: string[] | null;
+                    payment_provider?: string | null;
+                    payment_id?: string | null;
                 };
                 Relationships: [];
             };

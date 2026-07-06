@@ -79,6 +79,34 @@ export const verifyRazorpaySignature = (input: RazorpayVerificationInput): boole
     return crypto.timingSafeEqual(expectedBuf, actualBuf);
 };
 
+export type RazorpayVerificationOutcome = {
+    verified: boolean;
+    status: 200 | 400 | 500 | 502;
+    error: string;
+};
+
+/**
+ * Verifies a Razorpay signature and maps failures to HTTP-friendly outcomes,
+ * so API routes can stay a single `if` check. Never throws.
+ */
+export const safeVerifyRazorpaySignature = (
+    input: RazorpayVerificationInput,
+): RazorpayVerificationOutcome => {
+    try {
+        if (!verifyRazorpaySignature(input)) {
+            return { verified: false, status: 400, error: "Payment signature mismatch" };
+        }
+        return { verified: true, status: 200, error: "" };
+    } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        return {
+            verified: false,
+            status: message === "Razorpay not configured" ? 500 : 502,
+            error: "Failed to verify payment",
+        };
+    }
+};
+
 export const calculateSubscriptionTotal = (
     priceMonthly: number,
     deliveryFee: number,

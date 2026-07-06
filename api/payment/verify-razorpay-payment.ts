@@ -5,9 +5,9 @@
  * cart order and meal-plan subscription flows before persisting anything.
  */
 
-import { getErrorDetail, rejectUnlessPost } from "@minute-menus/api-helpers";
+import { rejectUnlessPost } from "@minute-menus/api-helpers";
 import { createLogger } from "@minute-menus/logger";
-import { verifyRazorpaySignature } from "@minute-menus/payments";
+import { safeVerifyRazorpaySignature } from "@minute-menus/payments";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const log = createLogger("payment/verify-razorpay-payment");
@@ -28,21 +28,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
     }
 
-    try {
-        const verified = verifyRazorpaySignature({
-            orderId: razorpay_order_id,
-            paymentId: razorpay_payment_id,
-            signature: razorpay_signature,
-        });
-        if (!verified) {
-            log.warn("payment signature mismatch", { orderId: razorpay_order_id });
-            return res.status(400).json({ verified: false, error: "Payment signature mismatch" });
-        }
-        return res.status(200).json({ verified: true });
-    } catch (e) {
-        const msg = getErrorDetail(e);
-        log.error("verify payment failed", { message: msg });
-        const status = msg === "Razorpay not configured" ? 500 : 502;
-        return res.status(status).json({ verified: false, error: "Failed to verify payment", detail: msg });
+    const outcome = safeVerifyRazorpaySignature({
+        orderId: razorpay_order_id,
+        paymentId: razorpay_payment_id,
+        signature: razorpay_signature,
+    });
+    if (!outcome.verified) {
+        if (outcome.status === 400) log.warn("payment signature mismatch", { orderId: razorpay_order_id });
+        else log.error("verify payment failed", { message: outcome.error });
+        return res.status(outcome.status).json({ verified: false, error: outcome.error });
     }
+    return res.status(200).json({ verified: true });
 }

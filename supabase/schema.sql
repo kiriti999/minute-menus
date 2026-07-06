@@ -162,10 +162,8 @@ create policy "Owner can read their orders"
     )
   );
 
--- Anon users can insert orders (checkout)
-create policy "Anyone can place an order"
-  on orders for insert
-  with check (true);
+-- Orders are recorded server-side only (after Razorpay signature verification),
+-- via the admin client in api/order/confirm-order.ts — no anon insert policy.
 
 -- ─────────────────────────────────────────────
 -- 5. WATCH SESSIONS
@@ -216,10 +214,25 @@ create table if not exists subscriptions (
 
 alter table subscriptions enable row level security;
 
-create policy "Owner can manage their subscription"
-  on subscriptions for all
+-- Owners can read their own tier, but cannot write it directly — tier upgrades
+-- happen server-side (api/subscription/confirm-plus-payment.ts) only after a
+-- verified Razorpay payment. The one exception is the initial free-tier row
+-- created alongside a new restaurant (see restaurantContext.ts ensureRestaurant).
+create policy "Owner can read their subscription"
+  on subscriptions for select
   using (
     exists (
+      select 1 from restaurants r
+      where r.id = subscriptions.restaurant_id
+        and r.owner_id = auth.uid()
+    )
+  );
+
+create policy "Owner can insert their initial free subscription"
+  on subscriptions for insert
+  with check (
+    tier = 'free'
+    and exists (
       select 1 from restaurants r
       where r.id = subscriptions.restaurant_id
         and r.owner_id = auth.uid()
@@ -420,6 +433,8 @@ create table if not exists customer_subscriptions (
   start_date       date not null default current_date,
   end_date         date not null,           -- set to start_date + 30 on insert
   rotation_dish_ids uuid[] not null default '{}',  -- ordered dish IDs for round-robin delivery
+  payment_provider payment_provider,
+  payment_id       text,
   created_at       timestamptz not null default now(),
   unique (restaurant_id, phone)
 );
@@ -430,9 +445,8 @@ create policy "Owner can manage customer subscriptions"
   on customer_subscriptions for all
   using (exists (select 1 from restaurants r where r.id = customer_subscriptions.restaurant_id and r.owner_id = auth.uid()));
 
-create policy "Public can insert subscriptions"
-  on customer_subscriptions for insert
-  with check (true);
+-- Subscriptions are created server-side only (after Razorpay signature verification),
+-- via the admin client in api/subscription/confirm-subscription.ts — no anon insert policy.
 
 create policy "Public can read subscriptions"
   on customer_subscriptions for select
@@ -832,3 +846,25 @@ create policy "Owner manage dish media"
     bucket_id = 'dish-media'
     and public.is_dish_media_owner(name)
   );
+
+-- ─────────────────────────────────────────────
+-- MIGRATION: harden payment-related tables (existing databases)
+-- Orders, customer subscriptions, and Plus tier upgrades now write via the
+-- admin client only, after server-side Razorpay signature verification —
+-- run this once to remove the old anon/owner self-service write policies:
+--
+-- ALTER TABLE customer_subscriptions
+--   ADD COLUMN IF NOT EXISTS payment_provider payment_provider,
+--   ADD COLUMN IF NOT EXISTS payment_id text;
+--
+-- DROP POLICY IF EXISTS "Anyone can place an order" ON orders;
+-- DROP POLICY IF EXISTS "Public can insert subscriptions" ON customer_subscriptions;
+-- DROP POLICY IF EXISTS "Owner can manage their subscription" ON subscriptions;
+-- ─────────────────────────────────────────────
+alter table customer_subscriptions
+  add column if not exists payment_provider payment_provider,
+  add column if not exists payment_id text;
+
+drop policy if exists "Anyone can place an order" on orders;
+drop policy if exists "Public can insert subscriptions" on customer_subscriptions;
+drop policy if exists "Owner can manage their subscription" on subscriptions;

@@ -32,7 +32,7 @@ import { isDishSoldOut, MenuGridCard, MenuListCard } from "@minute-menus/reels";
 import { supabaseService } from "../services/supabaseService";
 import { supabase } from "../lib/supabase";
 import { formatDisplayName } from "../lib/formatDisplayName";
-import { openRazorpayCheckout, verifyRazorpayPayment } from "../lib/loadRazorpayCheckout";
+import { openRazorpayCheckout } from "../lib/loadRazorpayCheckout";
 import { ButtonSpinner } from "@minute-menus/ui";
 import type { Category, CustomerProfile, CustomerSubscription, DailyOrder, Dish, MealPlan, OrderItem, SubDeliveryType, DeliveryFeeMode, TicketReason, TimeSlot } from "@minute-menus/types";
 import { TICKET_REASON_LABELS, TIME_SLOT_LABELS } from "@minute-menus/types";
@@ -610,10 +610,8 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         prefill: { name: profile.name, contact: profile.phone, email: profile.email },
       });
 
-      // 3. Verify the payment signature server-side before recording
-      await verifyRazorpayPayment(payment);
-
-      // 4. Payment verified — record order
+      // 3. Verify the payment and record the order server-side (atomic —
+      // the order is only ever written after a signature check passes)
       const newlySoldOut = cart
         .map((item) => {
           const dish = flatDishes.find((d) => d.id === item.dishId);
@@ -627,12 +625,22 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         })
         .filter((d): d is { id: string; name: string } => d !== null);
 
-      await supabaseService.recordOrder(
-        cart,
-        timeToOrder,
-        restaurantId,
-        newlySoldOut.length > 0 ? newlySoldOut : undefined,
-      );
+      const confirmRes = await fetch("/api/order/confirm-order", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...payment, restaurantId, items: cart, timeToOrder }),
+      });
+      if (!confirmRes.ok) {
+        const err = await confirmRes.json() as { error?: string };
+        throw new Error(err.error ?? "Payment verified but order failed to record");
+      }
+
+      // 4. Order recorded — best-effort sold-out notification emails
+      if (newlySoldOut.length > 0) {
+        await Promise.allSettled(
+          newlySoldOut.map((d) => supabaseService.sendSoldOutEmail(d.id, d.name, "stock")),
+        );
+      }
 
       setSoldCounts((prev) => {
         const updated = { ...prev };
@@ -806,21 +814,28 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         prefill: { name: subName, contact: subPhone, email: subEmail || undefined },
       });
 
-      // 3. Verify the payment signature server-side before creating the subscription
-      await verifyRazorpayPayment(payment);
-
-      // 4. Payment verified — create subscription
-      await supabaseService.createCustomerSubscription({
-        restaurantId,
-        planId: plan.id,
-        customerName: subName.trim(),
-        phone: subPhone.trim(),
-        email: subEmail.trim() || undefined,
-        deliveryType: subDeliveryType,
-        deliveryFeeMode: subDeliveryFeeMode,
-        timeSlot: subTimeSlot,
-        rotationDishIds: rotation.length ? rotation : undefined,
+      // 3. Verify the payment and create the subscription server-side (atomic —
+      // the subscription is only ever written after a signature check passes)
+      const confirmRes = await fetch("/api/subscription/confirm-subscription", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ...payment,
+          restaurantId,
+          planId: plan.id,
+          customerName: subName.trim(),
+          phone: subPhone.trim(),
+          email: subEmail.trim() || undefined,
+          deliveryType: subDeliveryType,
+          deliveryFeeMode: subDeliveryFeeMode,
+          timeSlot: subTimeSlot,
+          rotationDishIds: rotation.length ? rotation : undefined,
+        }),
       });
+      if (!confirmRes.ok) {
+        const err = await confirmRes.json() as { error?: string };
+        throw new Error(err.error ?? "Payment verified but subscription failed to create");
+      }
       const newSub = await supabaseService.getCustomerSubscription(subPhone.trim(), restaurantId);
       setCustomerSub(newSub);
       setDailyOrders([]);
