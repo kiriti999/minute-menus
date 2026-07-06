@@ -1,5 +1,6 @@
 import { ImageEditorView } from "../components/ImageEditorView";
 import { CostingView } from "../components/CostingView";
+import { PrintDesignsView } from "../components/PrintDesignsView";
 import {
   AlertTriangle,
   BrainCircuit,
@@ -94,7 +95,7 @@ import {
   Spinner,
 } from "@minute-menus/ui";
 
-type ViewMode = "DASHBOARD" | "MENU" | "IMAGE_EDITOR" | "COSTING" | "CUSTOMERS" | "SUBSCRIPTIONS";
+type ViewMode = "DASHBOARD" | "MENU" | "IMAGE_EDITOR" | "COSTING" | "PRINT_DESIGNS" | "CUSTOMERS" | "SUBSCRIPTIONS";
 type SubTab = "plans" | "subscribers" | "tomorrow" | "tickets" | "refunds";
 type TimeWindow = "24h" | "7d" | "30d";
 
@@ -830,7 +831,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   const refreshViewData = (view: ViewMode) => {
     if (view === "DASHBOARD") loadDashboardMetrics();
-    if (view === "MENU" || view === "COSTING" || view === "IMAGE_EDITOR") loadMenuFromServer();
+    if (view === "MENU" || view === "COSTING" || view === "IMAGE_EDITOR" || view === "PRINT_DESIGNS") loadMenuFromServer();
     if (view === "CUSTOMERS") loadCustomersData();
     if (view === "SUBSCRIPTIONS") loadSubscriptionData();
   };
@@ -1190,6 +1191,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       >
         <Calculator size={18} />
         <span className="font-medium">Costing</span>
+      </button>
+      <button
+        onClick={() => {
+          setCurrentView("PRINT_DESIGNS");
+          setIsMobileMenuOpen(false);
+        }}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-300 ${currentView === "PRINT_DESIGNS" ? (isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white") + " shadow-[0_0_15px_rgba(255,255,255,0.1)]" : isDarkTheme ? "text-zinc-500 hover:text-white hover:bg-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200"}`}
+      >
+        <Printer size={18} />
+        <span className="font-medium">Print Designs</span>
       </button>
       <button
         onClick={() => {
@@ -2374,6 +2385,14 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
               }}
             />
           </div>
+        )}
+
+        {currentView === "PRINT_DESIGNS" && (
+          <PrintDesignsView
+            menuItems={menuItems}
+            restaurantId={restaurantDetails?.id ?? null}
+            isDarkTheme={isDarkTheme}
+          />
         )}
 
         {currentView === "CUSTOMERS" && (() => {

@@ -35,6 +35,8 @@
     "@minute-menus/types": "workspace:*",
     "@minute-menus/ui": "workspace:*",
     "@supabase/supabase-js": "^2.97.0",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^4.2.1",
     "lucide-react": "^0.554.0",
     "nodemailer": "^8.0.5",
     "qrcode.react": "^4.2.0",

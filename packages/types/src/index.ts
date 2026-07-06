@@ -371,6 +371,73 @@ export interface CustomerProfile {
   updatedAt: string;
 }
 
+// ─── Print Design Types ───────────────────────────────────────────────────────
+
+export type PrintDesignType = 'menu-card' | 'wall-board' | 'pamphlet' | 'pocket-card' | 'sticker';
+
+export type PrintFormat =
+  | 'a4' | 'a3' | 'tabloid'
+  | 'a2' | 'a1' | '24x36'
+  | 'dl' | 'a5' | 'a6'
+  | 'business-card' | 'mini-card'
+  | 'circle-75' | 'circle-100'
+  | 'square-75' | 'rect-100x50';
+
+export type TemplateStyle =
+  | 'modern-minimal'
+  | 'classic-elegant'
+  | 'bold-colorful';
+
+export type ColorSchemeKey =
+  | 'classic-black' | 'warm-sunset' | 'ocean-blue'
+  | 'indian-saffron' | 'luxury-gold';
+
+export type FontPairingKey =
+  | 'modern-clean' | 'classic-serif' | 'bold-impact';
+
+export interface DesignColors {
+  primary: string;
+  secondary: string;
+  background: string;
+  text: string;
+  textMuted: string;
+  accent: string;
+  border: string;
+}
+
+export interface DesignFonts {
+  heading: string;
+  body: string;
+  price: string;
+}
+
+export interface DesignCustomization {
+  colorScheme: ColorSchemeKey;
+  fontPairing: FontPairingKey;
+  colors: DesignColors;
+  fonts: DesignFonts;
+  layout: {
+    columns: 1 | 2;
+    spacing: 'compact' | 'normal' | 'spacious';
+    alignment: 'left' | 'center';
+    categoryStyle: 'heading' | 'banner' | 'badge';
+  };
+  showPrices: boolean;
+  showDescriptions: boolean;
+  showImages: boolean;
+  showQR: boolean;
+  showTagline: boolean;
+  borderStyle: 'none' | 'simple' | 'decorative';
+}
+
+export interface RestaurantBranding {
+  name: string;
+  tagline: string;
+  address: string;
+  phone: string;
+  slug: string;
+}
+
 export interface CustomerAddress {
   addressLine1?: string;
   addressLine2?: string;
