@@ -377,12 +377,18 @@ export type PrintDesignType = 'menu-card' | 'wall-board' | 'pamphlet' | 'pocket-
 
 export type PrintFormat =
   | 'a4' | 'a3' | 'tabloid'
-  | 'a2' | 'a1' | '24x36'
+  | 'a2' | 'a1' | 'a0'
+  | 'a2-landscape' | 'a1-landscape' | 'a0-landscape'
+  | '24x36' | '18x24' | '36x48'
+  | '36x24' | '48x36'
+  | 'square-24'
   | 'dl' | 'a5' | 'a6'
   | 'business-card' | 'mini-card'
   | 'circle-50' | 'circle-75' | 'circle-100'
   | 'square-50' | 'square-75'
   | 'rect-100x50';
+
+export type FormatOrientation = 'portrait' | 'landscape' | 'square';
 
 export type StickerShape = 'circle' | 'square' | 'rectangle';
 

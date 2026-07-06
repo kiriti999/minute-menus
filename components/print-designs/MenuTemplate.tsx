@@ -30,6 +30,7 @@ import {
   textTransformCss,
 } from "./menuStyleHelpers";
 import StickerLayout from "./StickerLayout";
+import { WallBoardMenu } from "./WallBoardMenu";
 
 export interface MenuTemplateProps {
   style: TemplateStyle;
@@ -293,6 +294,20 @@ const MenuTemplate: React.FC<MenuTemplateProps> = (props) => {
   }
   if (props.designType === 'pocket-card') {
     return <PocketCard {...props} />;
+  }
+  if (props.designType === 'wall-board') {
+    return (
+      <WallBoardMenu
+        style={props.style}
+        customization={props.customization}
+        branding={props.branding}
+        menuItems={props.menuItems}
+        fmt={FORMATS[props.format]}
+        widthPx={props.widthPx}
+        heightPx={props.heightPx}
+        siteUrl={props.siteUrl}
+      />
+    );
   }
   return <StandardMenu {...props} />;
 };

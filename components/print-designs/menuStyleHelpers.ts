@@ -33,6 +33,42 @@ export function scaledHeadingFs(widthPx: number, customization: DesignCustomizat
   return Math.round(base * HEADING_SIZE_SCALE[customization.typography.headingSize]);
 }
 
+export function wallBoardFontScale(widthPx: number, heightPx: number): number {
+  const area = widthPx * heightPx;
+  if (area > 4_000_000) return 1.45;
+  if (area > 2_500_000) return 1.3;
+  if (widthPx > heightPx) return 1.2;
+  return 1.15;
+}
+
+/** Category columns for wall boards — landscape boards get more horizontal columns. */
+export function wallBoardColumns(widthPx: number, heightPx: number, userCols: 1 | 2): number {
+  const landscape = widthPx > heightPx;
+  if (landscape) {
+    if (widthPx > 2800) return userCols === 2 ? 4 : 3;
+    if (widthPx > 2000) return 3;
+    return 2;
+  }
+  if (heightPx > widthPx * 1.3) return userCols === 2 ? 2 : 1;
+  return userCols === 2 ? 2 : 1;
+}
+
+export function scaledBodyFsWall(widthPx: number, heightPx: number, customization: DesignCustomization): number {
+  return Math.round(scaledBodyFs(widthPx, customization) * wallBoardFontScale(widthPx, heightPx));
+}
+
+export function scaledDescFsWall(widthPx: number, heightPx: number, customization: DesignCustomization): number {
+  return Math.round(scaledDescFs(widthPx, customization) * wallBoardFontScale(widthPx, heightPx));
+}
+
+export function scaledCatFsWall(widthPx: number, heightPx: number, customization: DesignCustomization): number {
+  return Math.round(scaledCatFs(widthPx, customization) * wallBoardFontScale(widthPx, heightPx));
+}
+
+export function scaledHeadingFsWall(widthPx: number, heightPx: number, customization: DesignCustomization): number {
+  return Math.round(scaledHeadingFs(widthPx, customization) * wallBoardFontScale(widthPx, heightPx));
+}
+
 export function headingWeight(customization: DesignCustomization): number {
   return HEADING_WEIGHT_MAP[customization.typography.headingWeight];
 }

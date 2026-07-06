@@ -9,6 +9,7 @@ import type {
   DesignFonts,
   DesignTypography,
   FontPairingKey,
+  FormatOrientation,
   PrintDesignType,
   PrintFormat,
   StickerShape,
@@ -31,41 +32,80 @@ export interface FormatInfo {
   bleedMm: number;
   designType: PrintDesignType;
   shape: StickerShape | 'rect';
+  orientation: FormatOrientation;
 }
 
 /** Convert mm to screen px at 96 DPI. */
 const mmToPx = (mm: number) => Math.round(mm * 96 / 25.4);
 
+const fmt = (
+  key: PrintFormat,
+  label: string,
+  w: number,
+  h: number,
+  designType: PrintDesignType,
+  bleedMm: number,
+  shape: StickerShape | 'rect' = 'rect',
+): FormatInfo => ({
+  key,
+  label,
+  widthMm: w,
+  heightMm: h,
+  widthPx: mmToPx(w),
+  heightPx: mmToPx(h),
+  bleedMm,
+  designType,
+  shape,
+  orientation: w === h ? 'square' : w > h ? 'landscape' : 'portrait',
+});
+
 export const FORMATS: Record<PrintFormat, FormatInfo> = {
-  a4:             { key: 'a4',            label: 'A4',            widthMm: 210,  heightMm: 297,  widthPx: 794,  heightPx: 1123, bleedMm: 3, designType: 'menu-card',   shape: 'rect' },
-  a3:             { key: 'a3',            label: 'A3',            widthMm: 297,  heightMm: 420,  widthPx: 1123, heightPx: 1587, bleedMm: 3, designType: 'menu-card',   shape: 'rect' },
-  tabloid:        { key: 'tabloid',       label: 'Tabloid 11×17"',widthMm: 279,  heightMm: 432,  widthPx: 1055, heightPx: 1634, bleedMm: 3, designType: 'menu-card',   shape: 'rect' },
-  a2:             { key: 'a2',            label: 'A2 Wall Board', widthMm: 420,  heightMm: 594,  widthPx: 1587, heightPx: 2245, bleedMm: 5, designType: 'wall-board',  shape: 'rect' },
-  a1:             { key: 'a1',            label: 'A1 Wall Board', widthMm: 594,  heightMm: 841,  widthPx: 2245, heightPx: 3179, bleedMm: 5, designType: 'wall-board',  shape: 'rect' },
-  '24x36':        { key: '24x36',         label: '24×36" Poster', widthMm: 610,  heightMm: 914,  widthPx: 2306, heightPx: 3456, bleedMm: 5, designType: 'wall-board',  shape: 'rect' },
-  dl:             { key: 'dl',            label: 'DL (1/3 A4)',   widthMm: 99,   heightMm: 210,  widthPx: 374,  heightPx: 794,  bleedMm: 3, designType: 'pamphlet',    shape: 'rect' },
-  a5:             { key: 'a5',            label: 'A5',            widthMm: 148,  heightMm: 210,  widthPx: 559,  heightPx: 794,  bleedMm: 3, designType: 'pamphlet',    shape: 'rect' },
-  a6:             { key: 'a6',            label: 'A6 Flyer',      widthMm: 105,  heightMm: 148,  widthPx: 397,  heightPx: 559,  bleedMm: 3, designType: 'pamphlet',    shape: 'rect' },
-  'business-card':{ key: 'business-card', label: 'Business Card', widthMm: 90,   heightMm: 50,   widthPx: 340,  heightPx: 189,  bleedMm: 2, designType: 'pocket-card', shape: 'rect' },
-  'mini-card':    { key: 'mini-card',     label: 'Mini Card',     widthMm: 85,   heightMm: 55,   widthPx: 321,  heightPx: 208,  bleedMm: 2, designType: 'pocket-card', shape: 'rect' },
-  'circle-50':    { key: 'circle-50',     label: 'Circle Ø50mm',  widthMm: 50,   heightMm: 50,   widthPx: mmToPx(50),  heightPx: mmToPx(50),  bleedMm: 2, designType: 'sticker', shape: 'circle' },
-  'circle-75':    { key: 'circle-75',     label: 'Circle Ø75mm',  widthMm: 75,   heightMm: 75,   widthPx: mmToPx(75),  heightPx: mmToPx(75),  bleedMm: 2, designType: 'sticker', shape: 'circle' },
-  'circle-100':   { key: 'circle-100',    label: 'Circle Ø100mm', widthMm: 100,  heightMm: 100,  widthPx: mmToPx(100), heightPx: mmToPx(100), bleedMm: 2, designType: 'sticker', shape: 'circle' },
-  'square-50':    { key: 'square-50',     label: 'Square 50×50mm',widthMm: 50,   heightMm: 50,   widthPx: mmToPx(50),  heightPx: mmToPx(50),  bleedMm: 2, designType: 'sticker', shape: 'square' },
-  'square-75':    { key: 'square-75',     label: 'Square 75×75mm',widthMm: 75,   heightMm: 75,   widthPx: mmToPx(75),  heightPx: mmToPx(75),  bleedMm: 2, designType: 'sticker', shape: 'square' },
-  'rect-100x50':  { key: 'rect-100x50',   label: 'Rect 100×50mm', widthMm: 100,  heightMm: 50,   widthPx: mmToPx(100), heightPx: mmToPx(50),  bleedMm: 2, designType: 'sticker', shape: 'rectangle' },
+  a4:              fmt('a4',              'A4',                 210, 297,  'menu-card',   3),
+  a3:              fmt('a3',              'A3',                 297, 420,  'menu-card',   3),
+  tabloid:         fmt('tabloid',         'Tabloid 11×17"',     279, 432,  'menu-card',   3),
+  // Wall boards — portrait
+  a2:              fmt('a2',              'A2 Portrait',        420, 594,  'wall-board',  5),
+  a1:              fmt('a1',              'A1 Portrait',        594, 841,  'wall-board',  5),
+  a0:              fmt('a0',              'A0 Portrait',        841, 1189, 'wall-board',  5),
+  '24x36':         fmt('24x36',           '24×36" Portrait',    610, 914,  'wall-board',  5),
+  '18x24':         fmt('18x24',           '18×24" Portrait',    457, 610,  'wall-board',  5),
+  '36x48':         fmt('36x48',           '36×48" Portrait',    914, 1219, 'wall-board',  5),
+  // Wall boards — landscape (common above-counter / wide wall)
+  'a2-landscape':  fmt('a2-landscape',    'A2 Landscape',       594, 420,  'wall-board',  5),
+  'a1-landscape':  fmt('a1-landscape',    'A1 Landscape',       841, 594,  'wall-board',  5),
+  'a0-landscape':  fmt('a0-landscape',    'A0 Landscape',       1189, 841, 'wall-board',  5),
+  '36x24':         fmt('36x24',           '36×24" Landscape',   914, 610,  'wall-board',  5),
+  '48x36':         fmt('48x36',           '48×36" Landscape',   1219, 914, 'wall-board',  5),
+  'square-24':     fmt('square-24',       '24×24" Square',      610, 610,  'wall-board',  5),
+  dl:              fmt('dl',              'DL (1/3 A4)',        99,  210,  'pamphlet',    3),
+  a5:              fmt('a5',              'A5',                 148, 210,  'pamphlet',    3),
+  a6:              fmt('a6',              'A6 Flyer',           105, 148,  'pamphlet',    3),
+  'business-card': fmt('business-card',   'Business Card',      90,  50,   'pocket-card', 2),
+  'mini-card':     fmt('mini-card',       'Mini Card',          85,  55,   'pocket-card', 2),
+  'circle-50':     fmt('circle-50',       'Circle Ø50mm',       50,  50,   'sticker',     2, 'circle'),
+  'circle-75':     fmt('circle-75',       'Circle Ø75mm',       75,  75,   'sticker',     2, 'circle'),
+  'circle-100':    fmt('circle-100',      'Circle Ø100mm',      100, 100,  'sticker',     2, 'circle'),
+  'square-50':     fmt('square-50',       'Square 50×50mm',     50,  50,   'sticker',     2, 'square'),
+  'square-75':     fmt('square-75',       'Square 75×75mm',     75,  75,   'sticker',     2, 'square'),
+  'rect-100x50':   fmt('rect-100x50',     'Rect 100×50mm',      100, 50,   'sticker',     2, 'rectangle'),
 };
+
+export const WALL_BOARD_FORMAT_GROUPS: { label: string; formats: PrintFormat[] }[] = [
+  { label: 'Landscape (wide wall)', formats: ['a2-landscape', 'a1-landscape', 'a0-landscape', '36x24', '48x36'] },
+  { label: 'Portrait (tall wall)', formats: ['a2', 'a1', 'a0', '24x36', '18x24', '36x48'] },
+  { label: 'Square', formats: ['square-24'] },
+];
 
 export const DESIGN_TYPE_FORMATS: Record<PrintDesignType, PrintFormat[]> = {
   'menu-card':   ['a4', 'a3', 'tabloid'],
-  'wall-board':  ['a2', 'a1', '24x36'],
+  'wall-board':  WALL_BOARD_FORMAT_GROUPS.flatMap((g) => g.formats),
   'pamphlet':    ['a5', 'dl', 'a6'],
   'pocket-card': ['business-card', 'mini-card'],
   'sticker':     ['circle-50', 'circle-75', 'circle-100', 'square-50', 'square-75', 'rect-100x50'],
 };
 
 export const DEFAULT_FORMAT: Record<PrintDesignType, PrintFormat> = {
-  'menu-card': 'a4', 'wall-board': 'a2', 'pamphlet': 'a5',
+  'menu-card': 'a4', 'wall-board': 'a2-landscape', 'pamphlet': 'a5',
   'pocket-card': 'business-card', 'sticker': 'circle-75',
 };
 

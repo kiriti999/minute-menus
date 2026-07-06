@@ -56,9 +56,18 @@ const FORMAT_OVERRIDES: Partial<Record<PrintFormat, Partial<MaterialRecommendati
   'square-50': { notes: 'Compact square label for containers.', costRange: '₹2–5 per sticker' },
   'square-75': { notes: 'Standard counter sticker.', costRange: '₹3–7 per sticker' },
   'rect-100x50': { notes: 'Bumper-style rectangle. Landscape QR layout.', costRange: '₹4–8 per sticker' },
-  a2: { material: '5mm PVC foam board', costRange: '₹250–500' },
-  a1: { material: '5mm PVC or acrylic', costRange: '₹500–900' },
-  '24x36': { material: '5mm PVC or flex banner', costRange: '₹600–1200' },
+  a2: { material: '5mm PVC foam board', costRange: '₹250–500', notes: 'Portrait wall mount — good for narrow spaces.' },
+  a1: { material: '5mm PVC or acrylic', costRange: '₹500–900', notes: 'Large portrait display.' },
+  '24x36': { material: '5mm PVC or flex banner', costRange: '₹600–1200', notes: 'Tall poster format.' },
+  'a2-landscape': { material: '5mm PVC foam board', costRange: '₹280–550', notes: 'Wide above-counter board — most popular wall format.' },
+  'a1-landscape': { material: '5mm PVC or acrylic', costRange: '₹550–950', notes: 'Wide feature wall display.' },
+  'a0-landscape': { material: '5mm PVC or acrylic', costRange: '₹900–1500', notes: 'Extra-wide back-wall menu.' },
+  'a0': { material: '5mm PVC', costRange: '₹800–1400', notes: 'Extra large portrait wall.' },
+  '18x24': { material: '3mm PVC foam board', costRange: '₹400–700', notes: 'Mid-size portrait board.' },
+  '36x24': { material: '5mm PVC', costRange: '₹650–1100', notes: 'Wide landscape — ideal above service counter.' },
+  '36x48': { material: '5mm PVC', costRange: '₹900–1600', notes: 'Extra tall portrait feature wall.' },
+  '48x36': { material: '5mm PVC', costRange: '₹950–1700', notes: 'Extra wide landscape back-wall.' },
+  'square-24': { material: '5mm PVC or acrylic', costRange: '₹500–900', notes: 'Square accent board or pillar wrap.' },
 };
 
 export function getMaterialRecommendation(

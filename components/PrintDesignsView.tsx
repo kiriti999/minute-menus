@@ -44,6 +44,7 @@ import {
   GRADIENT_PRESETS,
   TEMPLATE_CATEGORIES,
   TEMPLATES,
+  WALL_BOARD_FORMAT_GROUPS,
 } from "../lib/printDesigns";
 import { colorModeLabel, colorsToCmykSummary, cmykSimulationFilter } from "../lib/printColorUtils";
 import { getMaterialRecommendation } from "../lib/printMaterials";
@@ -315,32 +316,61 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                 </p>
               )}
               {designType === 'wall-board' && (
-                <p className={`text-[10px] mt-2 ${muted}`}>Wall board fonts scale up automatically for easy reading from a distance.</p>
+                <p className={`text-[10px] mt-2 ${muted}`}>Choose landscape (wide above-counter), portrait (tall wall), or square. Fonts and columns adapt to orientation.</p>
               )}
             </section>
 
             {/* Step 2: Format with visual thumbnails */}
             <section className={`border rounded-xl p-5 ${card}`}>
               <h2 className={`text-xs font-bold uppercase tracking-widest mb-3 ${muted}`}>2. Paper Format</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {DESIGN_TYPE_FORMATS[designType].map((f) => {
-                  const fi = FORMATS[f];
-                  const isActive = format === f;
-                  return (
-                    <button
-                      key={f}
-                      onClick={() => setFormat(f)}
-                      className={`rounded-lg border p-3 text-left flex items-center gap-3 transition-all ${isActive ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100' : isDarkTheme ? 'border-zinc-800 hover:border-zinc-600' : 'border-zinc-200 hover:border-zinc-400'}`}
-                    >
-                      <FormatThumb w={fi.widthMm} h={fi.heightMm} active={isActive} shape={fi.shape} />
-                      <div>
-                        <div className={`text-sm font-semibold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{fi.label}</div>
-                        <div className={`text-[10px] font-mono mt-0.5 ${muted}`}>{fi.widthMm}×{fi.heightMm}mm</div>
+              {designType === 'wall-board' ? (
+                <div className="space-y-4">
+                  {WALL_BOARD_FORMAT_GROUPS.map((group) => (
+                    <div key={group.label}>
+                      <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>{group.label}</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {group.formats.map((f) => {
+                          const fi = FORMATS[f];
+                          const isActive = format === f;
+                          return (
+                            <button
+                              key={f}
+                              onClick={() => setFormat(f)}
+                              className={`rounded-lg border p-3 text-left flex items-center gap-3 transition-all ${isActive ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100' : isDarkTheme ? 'border-zinc-800 hover:border-zinc-600' : 'border-zinc-200 hover:border-zinc-400'}`}
+                            >
+                              <FormatThumb w={fi.widthMm} h={fi.heightMm} active={isActive} shape={fi.shape} />
+                              <div>
+                                <div className={`text-sm font-semibold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{fi.label}</div>
+                                <div className={`text-[10px] font-mono mt-0.5 ${muted}`}>{fi.widthMm}×{fi.heightMm}mm</div>
+                              </div>
+                            </button>
+                          );
+                        })}
                       </div>
-                    </button>
-                  );
-                })}
-              </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {DESIGN_TYPE_FORMATS[designType].map((f) => {
+                    const fi = FORMATS[f];
+                    const isActive = format === f;
+                    return (
+                      <button
+                        key={f}
+                        onClick={() => setFormat(f)}
+                        className={`rounded-lg border p-3 text-left flex items-center gap-3 transition-all ${isActive ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100' : isDarkTheme ? 'border-zinc-800 hover:border-zinc-600' : 'border-zinc-200 hover:border-zinc-400'}`}
+                      >
+                        <FormatThumb w={fi.widthMm} h={fi.heightMm} active={isActive} shape={fi.shape} />
+                        <div>
+                          <div className={`text-sm font-semibold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{fi.label}</div>
+                          <div className={`text-[10px] font-mono mt-0.5 ${muted}`}>{fi.widthMm}×{fi.heightMm}mm</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </section>
 
             {/* Step 3: Template style with filter + thumbnails */}
