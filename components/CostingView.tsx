@@ -112,6 +112,11 @@ export const CostingView: React.FC<CostingViewProps> = ({
       ),
     [menuItems],
   );
+  const categoryList = useMemo(
+    () => menuItems.map((cat) => cat.title),
+    [menuItems],
+  );
+  const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedDishId, setSelectedDishId] = useState<string>("");
   const [recipe, setRecipe] = useState<Array<{ ingredientId: string; quantity: number }>>([]);
   const [dishPriceInput, setDishPriceInput] = useState<string>("");
@@ -251,15 +256,23 @@ export const CostingView: React.FC<CostingViewProps> = ({
     [filteredIngredients, ingredientPageSafe],
   );
 
+  const filteredDishes = useMemo(
+    () =>
+      selectedCategory
+        ? allDishes.filter((d) => d.category === selectedCategory)
+        : allDishes,
+    [allDishes, selectedCategory],
+  );
+
   const dishOptions = useMemo<PickerOption[]>(
     () =>
-      allDishes.map(({ dish, category }) => ({
+      filteredDishes.map(({ dish, category }) => ({
         id: dish.id,
         primary: dish.name,
         secondary: category,
         trailing: formatPriceInCurrency(dish.price, currency),
       })),
-    [allDishes, currency],
+    [filteredDishes, currency],
   );
 
   const ingredientOptions = useMemo<PickerOption[]>(
@@ -709,6 +722,48 @@ export const CostingView: React.FC<CostingViewProps> = ({
             <h2 className={`text-sm font-bold uppercase tracking-widest mb-4 ${label}`}>
               Dish Costing
             </h2>
+
+            {/* Category filter */}
+            {categoryList.length > 0 && (
+              <div className="mb-4">
+                <label className={`text-[10px] font-bold uppercase tracking-widest block mb-2 ${label}`}>
+                  Filter by category
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => setSelectedCategory("")}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                      selectedCategory === ""
+                        ? "bg-white text-black"
+                        : isDarkTheme
+                          ? "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                          : "bg-zinc-200 text-zinc-700 hover:bg-zinc-300"
+                    }`}
+                  >
+                    All ({allDishes.length})
+                  </button>
+                  {categoryList.map((cat) => {
+                    const count = allDishes.filter((d) => d.category === cat).length;
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                          selectedCategory === cat
+                            ? "bg-white text-black"
+                            : isDarkTheme
+                              ? "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                              : "bg-zinc-200 text-zinc-700 hover:bg-zinc-300"
+                        }`}
+                      >
+                        {cat} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="mb-4">
               <label className={`text-[10px] font-bold uppercase tracking-widest block mb-2 ${label}`}>
                 Select dish
