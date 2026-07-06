@@ -11,6 +11,7 @@ import type {
   FontPairingKey,
   PrintDesignType,
   PrintFormat,
+  StickerShape,
   TemplateCategory,
   TemplateStyle,
 } from "@minute-menus/types";
@@ -29,24 +30,30 @@ export interface FormatInfo {
   heightPx: number;
   bleedMm: number;
   designType: PrintDesignType;
+  shape: StickerShape | 'rect';
 }
 
+/** Convert mm to screen px at 96 DPI. */
+const mmToPx = (mm: number) => Math.round(mm * 96 / 25.4);
+
 export const FORMATS: Record<PrintFormat, FormatInfo> = {
-  a4:             { key: 'a4',            label: 'A4',            widthMm: 210,  heightMm: 297,  widthPx: 794,  heightPx: 1123, bleedMm: 3, designType: 'menu-card' },
-  a3:             { key: 'a3',            label: 'A3',            widthMm: 297,  heightMm: 420,  widthPx: 1123, heightPx: 1587, bleedMm: 3, designType: 'menu-card' },
-  tabloid:        { key: 'tabloid',       label: 'Tabloid 11×17"',widthMm: 279,  heightMm: 432,  widthPx: 1055, heightPx: 1634, bleedMm: 3, designType: 'menu-card' },
-  a2:             { key: 'a2',            label: 'A2 Wall Board', widthMm: 420,  heightMm: 594,  widthPx: 1587, heightPx: 2245, bleedMm: 5, designType: 'wall-board' },
-  a1:             { key: 'a1',            label: 'A1 Wall Board', widthMm: 594,  heightMm: 841,  widthPx: 2245, heightPx: 3179, bleedMm: 5, designType: 'wall-board' },
-  '24x36':        { key: '24x36',         label: '24×36" Poster', widthMm: 610,  heightMm: 914,  widthPx: 2306, heightPx: 3456, bleedMm: 5, designType: 'wall-board' },
-  dl:             { key: 'dl',            label: 'DL (1/3 A4)',   widthMm: 99,   heightMm: 210,  widthPx: 374,  heightPx: 794,  bleedMm: 3, designType: 'pamphlet' },
-  a5:             { key: 'a5',            label: 'A5',            widthMm: 148,  heightMm: 210,  widthPx: 559,  heightPx: 794,  bleedMm: 3, designType: 'pamphlet' },
-  a6:             { key: 'a6',            label: 'A6 Flyer',      widthMm: 105,  heightMm: 148,  widthPx: 397,  heightPx: 559,  bleedMm: 3, designType: 'pamphlet' },
-  'business-card':{ key: 'business-card', label: 'Business Card', widthMm: 90,   heightMm: 50,   widthPx: 340,  heightPx: 189,  bleedMm: 2, designType: 'pocket-card' },
-  'mini-card':    { key: 'mini-card',     label: 'Mini Card',     widthMm: 85,   heightMm: 55,   widthPx: 321,  heightPx: 208,  bleedMm: 2, designType: 'pocket-card' },
-  'circle-75':    { key: 'circle-75',     label: 'Circle Ø75mm',  widthMm: 75,   heightMm: 75,   widthPx: 283,  heightPx: 283,  bleedMm: 2, designType: 'sticker' },
-  'circle-100':   { key: 'circle-100',    label: 'Circle Ø100mm', widthMm: 100,  heightMm: 100,  widthPx: 378,  heightPx: 378,  bleedMm: 2, designType: 'sticker' },
-  'square-75':    { key: 'square-75',     label: 'Square 75×75mm',widthMm: 75,   heightMm: 75,   widthPx: 283,  heightPx: 283,  bleedMm: 2, designType: 'sticker' },
-  'rect-100x50':  { key: 'rect-100x50',   label: 'Rect 100×50mm', widthMm: 100,  heightMm: 50,   widthPx: 378,  heightPx: 189,  bleedMm: 2, designType: 'sticker' },
+  a4:             { key: 'a4',            label: 'A4',            widthMm: 210,  heightMm: 297,  widthPx: 794,  heightPx: 1123, bleedMm: 3, designType: 'menu-card',   shape: 'rect' },
+  a3:             { key: 'a3',            label: 'A3',            widthMm: 297,  heightMm: 420,  widthPx: 1123, heightPx: 1587, bleedMm: 3, designType: 'menu-card',   shape: 'rect' },
+  tabloid:        { key: 'tabloid',       label: 'Tabloid 11×17"',widthMm: 279,  heightMm: 432,  widthPx: 1055, heightPx: 1634, bleedMm: 3, designType: 'menu-card',   shape: 'rect' },
+  a2:             { key: 'a2',            label: 'A2 Wall Board', widthMm: 420,  heightMm: 594,  widthPx: 1587, heightPx: 2245, bleedMm: 5, designType: 'wall-board',  shape: 'rect' },
+  a1:             { key: 'a1',            label: 'A1 Wall Board', widthMm: 594,  heightMm: 841,  widthPx: 2245, heightPx: 3179, bleedMm: 5, designType: 'wall-board',  shape: 'rect' },
+  '24x36':        { key: '24x36',         label: '24×36" Poster', widthMm: 610,  heightMm: 914,  widthPx: 2306, heightPx: 3456, bleedMm: 5, designType: 'wall-board',  shape: 'rect' },
+  dl:             { key: 'dl',            label: 'DL (1/3 A4)',   widthMm: 99,   heightMm: 210,  widthPx: 374,  heightPx: 794,  bleedMm: 3, designType: 'pamphlet',    shape: 'rect' },
+  a5:             { key: 'a5',            label: 'A5',            widthMm: 148,  heightMm: 210,  widthPx: 559,  heightPx: 794,  bleedMm: 3, designType: 'pamphlet',    shape: 'rect' },
+  a6:             { key: 'a6',            label: 'A6 Flyer',      widthMm: 105,  heightMm: 148,  widthPx: 397,  heightPx: 559,  bleedMm: 3, designType: 'pamphlet',    shape: 'rect' },
+  'business-card':{ key: 'business-card', label: 'Business Card', widthMm: 90,   heightMm: 50,   widthPx: 340,  heightPx: 189,  bleedMm: 2, designType: 'pocket-card', shape: 'rect' },
+  'mini-card':    { key: 'mini-card',     label: 'Mini Card',     widthMm: 85,   heightMm: 55,   widthPx: 321,  heightPx: 208,  bleedMm: 2, designType: 'pocket-card', shape: 'rect' },
+  'circle-50':    { key: 'circle-50',     label: 'Circle Ø50mm',  widthMm: 50,   heightMm: 50,   widthPx: mmToPx(50),  heightPx: mmToPx(50),  bleedMm: 2, designType: 'sticker', shape: 'circle' },
+  'circle-75':    { key: 'circle-75',     label: 'Circle Ø75mm',  widthMm: 75,   heightMm: 75,   widthPx: mmToPx(75),  heightPx: mmToPx(75),  bleedMm: 2, designType: 'sticker', shape: 'circle' },
+  'circle-100':   { key: 'circle-100',    label: 'Circle Ø100mm', widthMm: 100,  heightMm: 100,  widthPx: mmToPx(100), heightPx: mmToPx(100), bleedMm: 2, designType: 'sticker', shape: 'circle' },
+  'square-50':    { key: 'square-50',     label: 'Square 50×50mm',widthMm: 50,   heightMm: 50,   widthPx: mmToPx(50),  heightPx: mmToPx(50),  bleedMm: 2, designType: 'sticker', shape: 'square' },
+  'square-75':    { key: 'square-75',     label: 'Square 75×75mm',widthMm: 75,   heightMm: 75,   widthPx: mmToPx(75),  heightPx: mmToPx(75),  bleedMm: 2, designType: 'sticker', shape: 'square' },
+  'rect-100x50':  { key: 'rect-100x50',   label: 'Rect 100×50mm', widthMm: 100,  heightMm: 50,   widthPx: mmToPx(100), heightPx: mmToPx(50),  bleedMm: 2, designType: 'sticker', shape: 'rectangle' },
 };
 
 export const DESIGN_TYPE_FORMATS: Record<PrintDesignType, PrintFormat[]> = {
@@ -54,7 +61,7 @@ export const DESIGN_TYPE_FORMATS: Record<PrintDesignType, PrintFormat[]> = {
   'wall-board':  ['a2', 'a1', '24x36'],
   'pamphlet':    ['a5', 'dl', 'a6'],
   'pocket-card': ['business-card', 'mini-card'],
-  'sticker':     ['circle-75', 'circle-100', 'square-75', 'rect-100x50'],
+  'sticker':     ['circle-50', 'circle-75', 'circle-100', 'square-50', 'square-75', 'rect-100x50'],
 };
 
 export const DEFAULT_FORMAT: Record<PrintDesignType, PrintFormat> = {
@@ -195,5 +202,6 @@ export function defaultCustomization(style: TemplateStyle): DesignCustomization 
     backgroundType: 'solid',
     backgroundGradient: GRADIENT_PRESETS[0].value,
     logoUrl: undefined, logoPosition: 'left',
+    colorMode: 'rgb', showBleedGuides: false, includeCropMarks: false,
   };
 }

@@ -45,8 +45,11 @@ import {
   TEMPLATE_CATEGORIES,
   TEMPLATES,
 } from "../lib/printDesigns";
+import { colorModeLabel, colorsToCmykSummary, cmykSimulationFilter } from "../lib/printColorUtils";
+import { getMaterialRecommendation } from "../lib/printMaterials";
 import { supabaseService } from "../services/supabaseService";
 import MenuTemplate from "./print-designs/MenuTemplate";
+import { PrintGuidesOverlay } from "./print-designs/PrintGuidesOverlay";
 
 export interface PrintDesignsViewProps {
   menuItems: Category[];
@@ -66,16 +69,17 @@ const PREVIEW_CSS_WIDTH = 380;
 
 // ─── Format aspect-ratio thumbnail ────────────────────────────────────────────
 
-function FormatThumb({ w, h, active }: { w: number; h: number; active: boolean }) {
+function FormatThumb({ w, h, active, shape }: { w: number; h: number; active: boolean; shape?: string }) {
   const maxW = 32;
   const maxH = 44;
   const ratio = w / h;
   const thumbW = ratio >= 1 ? maxW : Math.round(maxH * ratio);
   const thumbH = ratio >= 1 ? Math.round(maxW / ratio) : maxH;
+  const isCircle = shape === 'circle';
   return (
     <div
-      style={{ width: thumbW, height: thumbH }}
-      className={`rounded-sm border flex-shrink-0 ${active ? 'border-current' : 'border-zinc-400 opacity-40'}`}
+      style={{ width: thumbW, height: thumbH, borderRadius: isCircle ? '50%' : undefined }}
+      className={`border flex-shrink-0 ${active ? 'border-current' : 'border-zinc-400 opacity-40'}`}
     />
   );
 }
@@ -206,6 +210,11 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   }, []);
 
   const filteredTemplates = TEMPLATES.filter((t) => templateCategory === 'all' || t.category === templateCategory);
+  const material = getMaterialRecommendation(designType, format);
+  const cmykSummary = colorsToCmykSummary(custom.colors);
+  const needsMenu = designType !== 'sticker' && designType !== 'pocket-card';
+  const canExport = !needsMenu || menuItems.length > 0;
+  const exportFilter = custom.colorMode === 'cmyk' ? cmykSimulationFilter() : undefined;
 
   const exportPdf = useCallback(async () => {
     const el = exportRef.current;
@@ -217,14 +226,15 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF({ orientation: fmt.widthMm > fmt.heightMm ? 'landscape' : 'portrait', unit: 'mm', format: [fmt.widthMm, fmt.heightMm] });
       pdf.addImage(imgData, 'PNG', 0, 0, fmt.widthMm, fmt.heightMm);
-      pdf.save(`${branding.name || 'menu'}-${format}.pdf`);
+      const suffix = custom.colorMode === 'cmyk' ? '-cmyk' : '';
+      pdf.save(`${branding.name || 'menu'}-${format}${suffix}.pdf`);
       setExportMsg('PDF downloaded!');
     } catch {
       setExportMsg('Export failed. Try again.');
     } finally {
       setExporting(false);
     }
-  }, [branding.name, custom.colors.background, fmt, format]);
+  }, [branding.name, custom.colorMode, custom.colors.background, fmt, format]);
 
   const exportPng = useCallback(async () => {
     const el = exportRef.current;
@@ -234,7 +244,8 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     try {
       const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: custom.colors.background, logging: false });
       const link = document.createElement('a');
-      link.download = `${branding.name || 'menu'}-${format}.png`;
+      const suffix = custom.colorMode === 'cmyk' ? '-cmyk' : '';
+      link.download = `${branding.name || 'menu'}-${format}${suffix}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
       setExportMsg('PNG downloaded!');
@@ -243,7 +254,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     } finally {
       setExporting(false);
     }
-  }, [branding.name, custom.colors.background, format]);
+  }, [branding.name, custom.colorMode, custom.colors.background, format]);
 
   // ─── Style helpers ───────────────────────────────────────────────────────────
   const card = isDarkTheme ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-200';
@@ -297,7 +308,11 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                 ))}
               </div>
               {(designType === 'pocket-card' || designType === 'sticker') && (
-                <p className={`text-[10px] mt-2 ${muted}`}>This format shows QR code + restaurant info only — too compact for a full dish list.</p>
+                <p className={`text-[10px] mt-2 ${muted}`}>
+                  {designType === 'sticker'
+                    ? 'QR-focused sticker layout — circle, square, and rectangle formats with die-cut specs.'
+                    : 'Compact QR card — restaurant info only, no dish list.'}
+                </p>
               )}
               {designType === 'wall-board' && (
                 <p className={`text-[10px] mt-2 ${muted}`}>Wall board fonts scale up automatically for easy reading from a distance.</p>
@@ -317,7 +332,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                       onClick={() => setFormat(f)}
                       className={`rounded-lg border p-3 text-left flex items-center gap-3 transition-all ${isActive ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100' : isDarkTheme ? 'border-zinc-800 hover:border-zinc-600' : 'border-zinc-200 hover:border-zinc-400'}`}
                     >
-                      <FormatThumb w={fi.widthMm} h={fi.heightMm} active={isActive} />
+                      <FormatThumb w={fi.widthMm} h={fi.heightMm} active={isActive} shape={fi.shape} />
                       <div>
                         <div className={`text-sm font-semibold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{fi.label}</div>
                         <div className={`text-[10px] font-mono mt-0.5 ${muted}`}>{fi.widthMm}×{fi.heightMm}mm</div>
@@ -651,10 +666,11 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                 style={{ width: PREVIEW_CSS_WIDTH, height: Math.round(previewCssHeight) }}
                 className={`relative overflow-hidden rounded border ${isDarkTheme ? 'border-zinc-700' : 'border-zinc-300'} mx-auto`}
               >
-                <div style={{ transform: `scale(${previewScale})`, transformOrigin: 'top left', width: fmt.widthPx, height: fmt.heightPx, pointerEvents: 'none' }}>
+                <div style={{ transform: `scale(${previewScale})`, transformOrigin: 'top left', width: fmt.widthPx, height: fmt.heightPx, pointerEvents: 'none', position: 'relative' }}>
                   <MenuTemplate
                     style={templateStyle}
                     designType={designType}
+                    format={format}
                     customization={custom}
                     branding={branding}
                     menuItems={menuItems}
@@ -662,6 +678,9 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                     heightPx={fmt.heightPx}
                     siteUrl={siteUrl}
                   />
+                  {custom.showBleedGuides && (
+                    <PrintGuidesOverlay fmt={fmt} widthPx={fmt.widthPx} heightPx={fmt.heightPx} showBleed showCropMarks={false} />
+                  )}
                 </div>
               </div>
 
@@ -674,6 +693,41 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
             <section className={`border rounded-xl p-5 ${card}`}>
               <h2 className={`text-xs font-bold uppercase tracking-widest mb-3 ${muted}`}>Export & Download</h2>
 
+              {/* Color mode + print guides */}
+              <div className="mb-4 space-y-3">
+                <div>
+                  <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Colour Mode</p>
+                  <div className="flex gap-2">
+                    {(['rgb', 'cmyk'] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        onClick={() => patchCustom('colorMode', mode)}
+                        className={`px-3 py-1.5 rounded-full text-xs border uppercase transition-all ${custom.colorMode === mode ? isDarkTheme ? 'border-white bg-zinc-800 text-white' : 'border-zinc-900 bg-zinc-100 text-zinc-900' : isDarkTheme ? 'border-zinc-700 text-zinc-400' : 'border-zinc-200 text-zinc-500'}`}
+                      >
+                        {mode === 'rgb' ? 'RGB (Digital)' : 'CMYK (Print)'}
+                      </button>
+                    ))}
+                  </div>
+                  {custom.colorMode === 'cmyk' && (
+                    <p className={`text-[10px] mt-1.5 ${muted}`}>Export applies print colour simulation. Share CMYK values below with your printer.</p>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <div onClick={() => patchCustom('showBleedGuides', !custom.showBleedGuides)} className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${custom.showBleedGuides ? 'bg-green-500' : isDarkTheme ? 'bg-zinc-700' : 'bg-zinc-300'}`}>
+                      <div className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-transform ${custom.showBleedGuides ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </div>
+                    <span className={`text-xs ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>Bleed guides</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <div onClick={() => patchCustom('includeCropMarks', !custom.includeCropMarks)} className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${custom.includeCropMarks ? 'bg-green-500' : isDarkTheme ? 'bg-zinc-700' : 'bg-zinc-300'}`}>
+                      <div className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-transform ${custom.includeCropMarks ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </div>
+                    <span className={`text-xs ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>Crop marks</span>
+                  </label>
+                </div>
+              </div>
+
               {exportMsg && (
                 <div className={`flex items-center gap-2 text-xs mb-3 ${exportMsg.includes('failed') ? 'text-red-400' : 'text-green-400'}`}>
                   <Check size={12} />
@@ -684,7 +738,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
               <div className="flex flex-col gap-2">
                 <button
                   onClick={() => void exportPdf()}
-                  disabled={exporting || menuItems.length === 0}
+                  disabled={exporting || !canExport}
                   className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold tracking-widest disabled:opacity-40 transition-colors ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-zinc-700'}`}
                 >
                   {exporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
@@ -692,7 +746,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                 </button>
                 <button
                   onClick={() => void exportPng()}
-                  disabled={exporting || menuItems.length === 0}
+                  disabled={exporting || !canExport}
                   className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold tracking-widest border disabled:opacity-40 transition-colors ${isDarkTheme ? 'border-zinc-600 hover:bg-zinc-800 text-zinc-300' : 'border-zinc-300 hover:bg-zinc-100 text-zinc-700'}`}
                 >
                   {exporting ? <Loader2 size={14} className="animate-spin" /> : <FileImage size={14} />}
@@ -702,20 +756,25 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
 
               <div className={`mt-4 rounded-lg p-3 text-[10px] space-y-1 ${isDarkTheme ? 'bg-zinc-900 text-zinc-500' : 'bg-zinc-50 text-zinc-500'}`}>
                 <div className="font-semibold uppercase tracking-wider">Print Specs</div>
-                <div>Format: {fmt.label} ({fmt.widthMm}×{fmt.heightMm}mm)</div>
+                <div>Format: {fmt.label} ({fmt.widthMm}×{fmt.heightMm}mm{fmt.shape === 'circle' ? ', die-cut circle' : ''})</div>
+                <div>Colour: {colorModeLabel(custom.colorMode)}</div>
                 <div>Bleed: {fmt.bleedMm}mm on each side</div>
-                <div>Recommended: 300 GSM art card, matt lamination</div>
-                <div className="pt-1">
-                  {designType === 'menu-card' && 'Avg cost: ₹5–15 per print (100 qty)'}
-                  {designType === 'wall-board' && 'Avg cost: ₹150–400 (A2 PVC board)'}
-                  {designType === 'pamphlet' && 'Avg cost: ₹2–8 per print (500 qty)'}
-                  {designType === 'pocket-card' && 'Avg cost: ₹1–3 per card (250 qty)'}
-                  {designType === 'sticker' && 'Avg cost: ₹3–8 per sticker (100 qty)'}
-                </div>
+                <div>Material: {material.material}</div>
+                <div>Finish: {material.finish}</div>
+                <div>Qty: {material.quantity} · {material.costRange}</div>
+                <div className="pt-1 italic">{material.notes}</div>
+                {custom.colorMode === 'cmyk' && (
+                  <div className="pt-2 border-t border-zinc-700/30 space-y-0.5">
+                    <div className="font-semibold uppercase tracking-wider not-italic">CMYK Values</div>
+                    {cmykSummary.map((c) => (
+                      <div key={c.label}>{c.label}: {c.cmyk}</div>
+                    ))}
+                  </div>
+                )}
               </div>
             </section>
 
-            {menuItems.length === 0 && (
+            {!canExport && (
               <div className={`rounded-xl border p-4 text-sm text-center ${isDarkTheme ? 'border-zinc-800 text-zinc-500' : 'border-zinc-200 text-zinc-500'}`}>
                 <RefreshCw size={20} className="mx-auto mb-2 opacity-40" />
                 Add dishes in Menu Editor — they'll appear here for your design.
@@ -727,10 +786,11 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
 
       {/* Off-screen full-resolution render target for html2canvas */}
       <div style={{ position: 'fixed', top: -99999, left: -99999, width: fmt.widthPx, height: fmt.heightPx, pointerEvents: 'none', zIndex: -1 }}>
-        <div ref={exportRef}>
+        <div ref={exportRef} style={{ position: 'relative', width: fmt.widthPx, height: fmt.heightPx, filter: exportFilter }}>
           <MenuTemplate
             style={templateStyle}
             designType={designType}
+            format={format}
             customization={custom}
             branding={branding}
             menuItems={menuItems}
@@ -738,6 +798,9 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
             heightPx={fmt.heightPx}
             siteUrl={siteUrl}
           />
+          {custom.includeCropMarks && (
+            <PrintGuidesOverlay fmt={fmt} widthPx={fmt.widthPx} heightPx={fmt.heightPx} showBleed={false} showCropMarks />
+          )}
         </div>
       </div>
     </div>

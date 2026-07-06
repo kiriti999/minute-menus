@@ -380,8 +380,13 @@ export type PrintFormat =
   | 'a2' | 'a1' | '24x36'
   | 'dl' | 'a5' | 'a6'
   | 'business-card' | 'mini-card'
-  | 'circle-75' | 'circle-100'
-  | 'square-75' | 'rect-100x50';
+  | 'circle-50' | 'circle-75' | 'circle-100'
+  | 'square-50' | 'square-75'
+  | 'rect-100x50';
+
+export type StickerShape = 'circle' | 'square' | 'rectangle';
+
+export type ColorMode = 'rgb' | 'cmyk';
 
 export type TemplateStyle =
   | 'modern-minimal'
@@ -470,6 +475,9 @@ export interface DesignCustomization {
   backgroundImageUrl?: string;
   logoUrl?: string;
   logoPosition: 'left' | 'center' | 'right';
+  colorMode: ColorMode;
+  showBleedGuides: boolean;
+  includeCropMarks: boolean;
 }
 
 export interface RestaurantBranding {

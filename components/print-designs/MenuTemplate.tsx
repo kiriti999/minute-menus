@@ -5,11 +5,13 @@ import type {
   Category,
   DesignCustomization,
   PrintDesignType,
+  PrintFormat,
   RestaurantBranding,
   TemplateStyle,
 } from "@minute-menus/types";
 import { QRCodeSVG } from "qrcode.react";
 import type React from "react";
+import { FORMATS } from "../../lib/printDesigns";
 import { TEMPLATE_VISUALS } from "../../lib/templateConfig";
 import {
   baseBackground,
@@ -27,10 +29,12 @@ import {
   scaledHeadingFs,
   textTransformCss,
 } from "./menuStyleHelpers";
+import StickerLayout from "./StickerLayout";
 
 export interface MenuTemplateProps {
   style: TemplateStyle;
   designType: PrintDesignType;
+  format: PrintFormat;
   customization: DesignCustomization;
   branding: RestaurantBranding;
   menuItems: Category[];
@@ -275,7 +279,19 @@ function StandardMenu({ style, customization, branding, menuItems, widthPx, heig
 }
 
 const MenuTemplate: React.FC<MenuTemplateProps> = (props) => {
-  if (props.designType === 'pocket-card' || props.designType === 'sticker') {
+  if (props.designType === 'sticker') {
+    return (
+      <StickerLayout
+        customization={props.customization}
+        branding={props.branding}
+        fmt={FORMATS[props.format]}
+        widthPx={props.widthPx}
+        heightPx={props.heightPx}
+        siteUrl={props.siteUrl}
+      />
+    );
+  }
+  if (props.designType === 'pocket-card') {
     return <PocketCard {...props} />;
   }
   return <StandardMenu {...props} />;
