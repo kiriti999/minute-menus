@@ -404,7 +404,10 @@ export type TemplateStyle =
   | 'cafe-cozy'
   | 'fine-dining-minimal'
   | 'fast-food-pop'
-  | 'ethnic-traditional';
+  | 'ethnic-traditional'
+  | 'juice-bar-fresh'
+  | 'salad-bowl-fresh'
+  | 'south-indian-mess';
 
 export type TemplateCategory = 'all' | 'modern' | 'classic' | 'casual' | 'premium' | 'indian';
 
@@ -415,7 +418,8 @@ export type ColorSchemeKey =
   | 'minimalist-gray' | 'vintage-brown' | 'cafe-latte'
   | 'fresh-mint' | 'berry-blast' | 'sunset-orange'
   | 'deep-navy' | 'earthy-olive' | 'cherry-red'
-  | 'slate-modern' | 'peach-cream' | 'teal-calm';
+  | 'slate-modern' | 'peach-cream' | 'teal-calm'
+  | 'citrus-punch' | 'garden-fresh' | 'banana-leaf';
 
 export type FontPairingKey =
   | 'modern-clean' | 'classic-serif' | 'bold-impact'

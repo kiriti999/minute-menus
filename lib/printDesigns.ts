@@ -132,6 +132,9 @@ export const COLOR_SCHEMES: Record<ColorSchemeKey, DesignColors & { label: strin
   'slate-modern':     { label: 'Slate Modern',     primary: '#37474F', secondary: '#546E7A', background: '#ECEFF1', text: '#263238', textMuted: '#607D8B', accent: '#78909C', border: '#CFD8DC' },
   'peach-cream':      { label: 'Peach Cream',      primary: '#FF6E40', secondary: '#FFAB91', background: '#FFFAF0', text: '#BF360C', textMuted: '#E64A19', accent: '#FFCCBC', border: '#FFCCBC' },
   'teal-calm':        { label: 'Teal Calm',        primary: '#00796B', secondary: '#26A69A', background: '#E0F2F1', text: '#004D40', textMuted: '#00695C', accent: '#4DB6AC', border: '#B2DFDB' },
+  'citrus-punch':     { label: 'Citrus Punch',     primary: '#FF6F00', secondary: '#C0CA33', background: '#FFFDE7', text: '#33260D', textMuted: '#8D6E00', accent: '#E91E63', border: '#FFF176' },
+  'garden-fresh':     { label: 'Garden Fresh',     primary: '#33691E', secondary: '#7CB342', background: '#F1F8E9', text: '#1B5E20', textMuted: '#558B2F', accent: '#FF7043', border: '#C5E1A5' },
+  'banana-leaf':      { label: 'Banana Leaf',      primary: '#6D1B1B', secondary: '#2E7D32', background: '#FFF8E1', text: '#3E1F1F', textMuted: '#795241', accent: '#C9A227', border: '#E6C79C' },
 };
 
 // ─── Font pairings (15) ───────────────────────────────────────────────────────
@@ -196,6 +199,9 @@ export const TEMPLATES: TemplateInfo[] = [
   { key: 'fine-dining-minimal', label: 'Fine Dining Minimal',  description: 'Ultra-minimal, high-end',           category: 'premium', defaultColors: 'minimalist-gray',  defaultFonts: 'fine-dining',     previewColors: ['#424242', '#FAFAFA', '#BDBDBD'] },
   { key: 'fast-food-pop',       label: 'Fast Food Pop',       description: 'Bold, quick-read layout',          category: 'casual',  defaultColors: 'cherry-red',       defaultFonts: 'fast-condensed',  previewColors: ['#D32F2F', '#FFEBEE', '#F44336'] },
   { key: 'ethnic-traditional',  label: 'Ethnic Traditional',  description: 'Cultural patterns, regional',      category: 'indian',  defaultColors: 'indian-saffron',   defaultFonts: 'ethnic-hindi',    previewColors: ['#FF9933', '#FFFFF0', '#138808'] },
+  { key: 'juice-bar-fresh',     label: 'Juice Bar Fresh',     description: 'Vibrant citrus, fruit-forward',    category: 'casual',  defaultColors: 'citrus-punch',     defaultFonts: 'street-playful',  previewColors: ['#FF6F00', '#FFFDE7', '#C0CA33'] },
+  { key: 'salad-bowl-fresh',    label: 'Salad Bowl Fresh',    description: 'Clean greens, healthy & crisp',    category: 'modern',  defaultColors: 'garden-fresh',     defaultFonts: 'minimal-sans',    previewColors: ['#33691E', '#F1F8E9', '#FF7043'] },
+  { key: 'south-indian-mess',   label: 'South Indian Mess',   description: 'Udupi-style, banana-leaf palette', category: 'indian',  defaultColors: 'banana-leaf',      defaultFonts: 'heritage',        previewColors: ['#6D1B1B', '#FFF8E1', '#C9A227'] },
 ];
 
 export const DEFAULT_TYPOGRAPHY: DesignTypography = {

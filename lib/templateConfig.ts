@@ -34,6 +34,9 @@ export const TEMPLATE_VISUALS: Record<TemplateStyle, TemplateVisualConfig> = {
   'fine-dining-minimal': { header: 'fine-sparse',    category: 'underline',      footer: 'split',  outerBorder: 'none',        showOrnaments: false, headerGradient: false },
   'fast-food-pop':       { header: 'fast-bold',      category: 'filled-banner',  footer: 'strip',  outerBorder: 'simple',      showOrnaments: false, headerGradient: true  },
   'ethnic-traditional':  { header: 'ethnic-pattern', category: 'gold-rule',      footer: 'center', outerBorder: 'decorative',  showOrnaments: true,  headerGradient: false },
+  'juice-bar-fresh':     { header: 'gradient-band',  category: 'pill',           footer: 'strip',  outerBorder: 'none',        showOrnaments: false, headerGradient: true  },
+  'salad-bowl-fresh':    { header: 'left-rule',      category: 'left-accent',    footer: 'split',  outerBorder: 'simple',      showOrnaments: false, headerGradient: false },
+  'south-indian-mess':   { header: 'ethnic-pattern', category: 'gold-rule',      footer: 'center', outerBorder: 'decorative',  showOrnaments: true,  headerGradient: false },
 };
 
 export const HEADING_SIZE_SCALE = { small: 0.85, medium: 1, large: 1.2 } as const;
