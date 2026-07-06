@@ -3,6 +3,18 @@
  * Uses the browser's Intl API for automatic currency detection.
  */
 
+export {
+    applyGstToSubtotal,
+    calculateMealPlanSubtotal,
+    calculateMealPlanTax,
+    calculateOrderTax,
+    enrichOrderItemsWithGst,
+    INDIAN_RESTAURANT_GST_PERCENT,
+    INDIAN_RESTAURANT_GST_RATE,
+    isIndianGstApplicable,
+} from "./indianGst";
+export type { GstOrderItem, OrderTaxBreakdown } from "./indianGst";
+
 // Map of country codes to currency codes
 const COUNTRY_TO_CURRENCY: Record<string, string> = {
     US: "USD",

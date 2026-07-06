@@ -52,12 +52,22 @@ export interface OrderItem {
   quantity: number;
   name: string;
   price: number;
+  /** GST rate applied to this line (e.g. 0.05 for 5% Indian restaurant GST). */
+  gstRate?: number;
+  /** Total GST for this line (unit price × qty × gstRate). */
+  gstAmount?: number;
+  /** Line total including GST. */
+  lineTotal?: number;
 }
 
 export interface Order {
   id: string;
   items: OrderItem[];
   totalAmount: number;
+  /** Pre-tax subtotal (ex-GST menu prices). */
+  subtotalAmount?: number;
+  /** Total GST charged on the order. */
+  gstAmount?: number;
   timestamp: number;
   timeToOrder: number; // seconds from app open to checkout
 }

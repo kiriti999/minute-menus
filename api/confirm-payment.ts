@@ -68,12 +68,54 @@ const normalizeAction = (action: string | string[] | undefined): string => {
 const getErrorDetail = (err: unknown): string =>
     err instanceof Error ? err.message : String(err);
 
+const INDIAN_RESTAURANT_GST_RATE = 0.05;
+const round2 = (value: number): number => Math.round(value * 100) / 100;
+
+type OrderItemInput = {
+    dishId: string;
+    quantity: number;
+    name: string;
+    price: number;
+};
+
+const computeCartTotals = (items: OrderItemInput[], currency: string) => {
+    const subtotal = round2(items.reduce((sum, item) => sum + item.price * item.quantity, 0));
+    if (currency.toUpperCase() !== "INR") {
+        return { subtotal, gstAmount: 0, total: subtotal };
+    }
+    const gstAmount = round2(
+        items.reduce(
+            (sum, item) => sum + round2(item.price * item.quantity * INDIAN_RESTAURANT_GST_RATE),
+            0,
+        ),
+    );
+    return { subtotal, gstAmount, total: round2(subtotal + gstAmount) };
+};
+
+const enrichItemsWithGst = (items: OrderItemInput[], currency: string) => {
+    const applyGst = currency.toUpperCase() === "INR";
+    return items.map((item) => {
+        const lineSubtotal = round2(item.price * item.quantity);
+        const gstAmount = applyGst ? round2(lineSubtotal * INDIAN_RESTAURANT_GST_RATE) : 0;
+        return {
+            ...item,
+            ...(applyGst
+                ? {
+                      gstRate: INDIAN_RESTAURANT_GST_RATE,
+                      gstAmount,
+                      lineTotal: round2(lineSubtotal + gstAmount),
+                  }
+                : { lineTotal: lineSubtotal }),
+        };
+    });
+};
+
 // ── confirm-order ─────────────────────────────────────────────────────────────
-type OrderItemInput = { dishId: string; quantity: number; name: string; price: number };
 
 const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse) => {
     const {
-        razorpay_order_id, razorpay_payment_id, razorpay_signature, restaurantId, items, timeToOrder,
+        razorpay_order_id, razorpay_payment_id, razorpay_signature,
+        restaurantId, items, timeToOrder, currency = "INR",
     } = req.body as {
         razorpay_order_id?: string;
         razorpay_payment_id?: string;
@@ -81,6 +123,7 @@ const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse) => {
         restaurantId?: string;
         items?: OrderItemInput[];
         timeToOrder?: number;
+        currency?: string;
     };
 
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !restaurantId || !items?.length) {
@@ -96,14 +139,17 @@ const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse) => {
         return res.status(outcome.status).json({ error: outcome.error });
     }
 
-    const totalAmount = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+    const { subtotal, gstAmount, total } = computeCartTotals(items, currency);
+    const itemsWithGst = enrichItemsWithGst(items, currency);
     const admin = requireSupabaseAdmin();
     const { data: order, error: insertError } = await admin
         .from("orders")
         .insert({
             restaurant_id: restaurantId,
-            items: items as unknown as Json,
-            total_amount: totalAmount,
+            items: itemsWithGst as unknown as Json,
+            subtotal_amount: subtotal,
+            gst_amount: gstAmount,
+            total_amount: total,
             time_to_order: timeToOrder ?? 0,
             status: "pending",
             payment_provider: "razorpay",
@@ -137,7 +183,7 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
     const {
         razorpay_order_id, razorpay_payment_id, razorpay_signature,
         restaurantId, planId, customerName, phone, email,
-        deliveryType, deliveryFeeMode, timeSlot, rotationDishIds,
+        deliveryType, deliveryFeeMode, timeSlot, rotationDishIds, currency = "INR",
     } = req.body as {
         razorpay_order_id?: string;
         razorpay_payment_id?: string;
@@ -151,6 +197,7 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
         deliveryFeeMode?: "upfront" | "cash_on_delivery";
         timeSlot?: "08-09" | "12-14" | "19-21";
         rotationDishIds?: string[];
+        currency?: string;
     };
 
     if (
@@ -168,6 +215,26 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
     if (!outcome.verified) {
         return res.status(outcome.status).json({ error: outcome.error });
     }
+
+    const { data: plan, error: planError } = await requireSupabaseAdmin()
+        .from("meal_plans")
+        .select("price_monthly, delivery_fee")
+        .eq("id", planId)
+        .eq("restaurant_id", restaurantId)
+        .single();
+
+    if (planError || !plan) {
+        return res.status(404).json({ error: "Plan not found" });
+    }
+
+    const includeDelivery = deliveryType === "delivery" && deliveryFeeMode === "upfront";
+    const monthlySubtotal = round2(
+        Number(plan.price_monthly) + (includeDelivery ? Number(plan.delivery_fee) * 30 : 0),
+    );
+    const { subtotal, gstAmount } = computeCartTotals(
+        [{ price: monthlySubtotal, quantity: 1 }],
+        currency,
+    );
 
     const startDate = new Date().toISOString().slice(0, 10);
     const end = new Date();
@@ -190,6 +257,8 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
             rotation_dish_ids: rotationDishIds ?? [],
             payment_provider: "razorpay",
             payment_id: razorpay_payment_id,
+            subtotal_amount: subtotal,
+            gst_amount: gstAmount,
         })
         .select("id")
         .single();

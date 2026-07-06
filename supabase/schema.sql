@@ -142,6 +142,8 @@ create table if not exists orders (
   id                  uuid primary key default gen_random_uuid(),
   restaurant_id       uuid not null references restaurants(id) on delete cascade,
   items               jsonb not null default '[]',
+  subtotal_amount     numeric(10, 2),
+  gst_amount          numeric(10, 2) not null default 0,
   total_amount        numeric(10, 2) not null default 0,
   status              order_status not null default 'pending',
   payment_provider    payment_provider,
@@ -149,6 +151,10 @@ create table if not exists orders (
   time_to_order       numeric(10, 2) not null default 0,
   created_at          timestamptz not null default now()
 );
+
+-- Migration for existing deployments
+alter table orders add column if not exists subtotal_amount numeric(10, 2);
+alter table orders add column if not exists gst_amount numeric(10, 2) not null default 0;
 
 alter table orders enable row level security;
 
@@ -435,9 +441,14 @@ create table if not exists customer_subscriptions (
   rotation_dish_ids uuid[] not null default '{}',  -- ordered dish IDs for round-robin delivery
   payment_provider payment_provider,
   payment_id       text,
+  subtotal_amount  numeric(10, 2),
+  gst_amount       numeric(10, 2) not null default 0,
   created_at       timestamptz not null default now(),
   unique (restaurant_id, phone)
 );
+
+alter table customer_subscriptions add column if not exists subtotal_amount numeric(10, 2);
+alter table customer_subscriptions add column if not exists gst_amount numeric(10, 2) not null default 0;
 
 alter table customer_subscriptions enable row level security;
 

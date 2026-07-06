@@ -49,36 +49,65 @@ const createRazorpayOrder = async (input: {
     return { orderId: order.id, amount: amountSmallest, currency, keyId: creds.keyId };
 };
 
-const calculateSubscriptionTotal = (
+const INDIAN_RESTAURANT_GST_RATE = 0.05;
+const round2 = (value: number): number => Math.round(value * 100) / 100;
+
+const calculateSubscriptionSubtotal = (
     priceMonthly: number,
     deliveryFee: number,
     includeDelivery: boolean,
-): number => Number(priceMonthly) + (includeDelivery ? Number(deliveryFee) * 30 : 0);
+): number => round2(Number(priceMonthly) + (includeDelivery ? Number(deliveryFee) * 30 : 0));
+
+type CartLine = { price: number; quantity: number };
+
+const computeCartTotals = (items: CartLine[], currency: string) => {
+    const subtotal = round2(items.reduce((sum, item) => sum + item.price * item.quantity, 0));
+    if (currency.toUpperCase() !== "INR") {
+        return { subtotal, gstAmount: 0, total: subtotal };
+    }
+    const gstAmount = round2(
+        items.reduce(
+            (sum, item) => sum + round2(item.price * item.quantity * INDIAN_RESTAURANT_GST_RATE),
+            0,
+        ),
+    );
+    return { subtotal, gstAmount, total: round2(subtotal + gstAmount) };
+};
 
 const getErrorDetail = (err: unknown): string =>
     err instanceof Error ? err.message : String(err);
 
 // ── Handlers ────────────────────────────────────────────────────────────────
 const handleCartOrder = async (req: VercelRequest, res: VercelResponse) => {
-    const { amount, currency = "INR", restaurantId, customerName } = req.body as {
-        amount?: number;
+    const { items, currency = "INR", restaurantId, customerName } = req.body as {
+        items?: CartLine[];
         currency?: string;
         restaurantId?: string;
         customerName?: string;
     };
 
-    if (!amount || amount <= 0 || !restaurantId || !customerName) {
-        return res.status(400).json({ error: "amount, restaurantId and customerName are required" });
+    if (!items?.length || !restaurantId || !customerName) {
+        return res.status(400).json({ error: "items, restaurantId and customerName are required" });
+    }
+
+    const { subtotal, gstAmount, total } = computeCartTotals(items, currency);
+    if (total <= 0) {
+        return res.status(400).json({ error: "Order total must be greater than zero" });
     }
 
     try {
         const result = await createRazorpayOrder({
-            amount,
+            amount: total,
             currency,
             receipt: `order_${restaurantId.slice(0, 8)}_${Date.now()}`,
-            notes: { restaurantId, customerName },
+            notes: {
+                restaurantId,
+                customerName,
+                subtotal: String(subtotal),
+                gstAmount: String(gstAmount),
+            },
         });
-        return res.status(200).json(result);
+        return res.status(200).json({ ...result, subtotal, gstAmount, total });
     } catch (e) {
         const msg = getErrorDetail(e);
         console.error("[create-razorpay-order] cart failed", msg);
@@ -88,15 +117,16 @@ const handleCartOrder = async (req: VercelRequest, res: VercelResponse) => {
 };
 
 const handleSubscriptionOrder = async (req: VercelRequest, res: VercelResponse) => {
-    const { planId, restaurantId, deliveryFeeMode, deliveryType } = req.body as {
+    const { planId, restaurantId, deliveryFeeMode, deliveryType, currency = "INR" } = req.body as {
         planId?: string;
         restaurantId?: string;
         deliveryFeeMode?: "upfront" | "cash_on_delivery";
         deliveryType?: "delivery" | "pickup";
+        currency?: string;
     };
 
-    if (!planId || !restaurantId) {
-        return res.status(400).json({ error: "planId and restaurantId are required" });
+    if (!planId || !restaurantId || !deliveryType || !deliveryFeeMode) {
+        return res.status(400).json({ error: "planId, restaurantId, deliveryType and deliveryFeeMode are required" });
     }
 
     const { data: plan, error } = await requireSupabaseAdmin()
@@ -111,20 +141,30 @@ const handleSubscriptionOrder = async (req: VercelRequest, res: VercelResponse) 
     }
 
     const includeDelivery = deliveryType === "delivery" && deliveryFeeMode === "upfront";
-    const monthlyTotal = calculateSubscriptionTotal(
+    const monthlySubtotal = calculateSubscriptionSubtotal(
         Number(plan.price_monthly),
         Number(plan.delivery_fee),
         includeDelivery,
     );
+    const { subtotal, gstAmount, total } = computeCartTotals(
+        [{ price: monthlySubtotal, quantity: 1 }],
+        currency,
+    );
 
     try {
         const result = await createRazorpayOrder({
-            amount: monthlyTotal,
-            currency: "INR",
+            amount: total,
+            currency,
             receipt: `sub_${planId.slice(0, 8)}_${Date.now()}`,
-            notes: { planId, restaurantId, planName: plan.name },
+            notes: {
+                planId,
+                restaurantId,
+                planName: plan.name,
+                subtotal: String(subtotal),
+                gstAmount: String(gstAmount),
+            },
         });
-        return res.status(200).json(result);
+        return res.status(200).json({ ...result, subtotal, gstAmount, total });
     } catch (e) {
         const msg = getErrorDetail(e);
         console.error("[create-razorpay-order] subscription failed", msg);

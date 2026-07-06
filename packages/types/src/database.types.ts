@@ -143,6 +143,8 @@ export type Database = {
                     id: string;
                     restaurant_id: string;
                     items: Json;
+                    subtotal_amount: number | null;
+                    gst_amount: number;
                     total_amount: number;
                     status: string;
                     payment_provider: string | null;
@@ -154,6 +156,8 @@ export type Database = {
                     id?: string;
                     restaurant_id: string;
                     items?: Json;
+                    subtotal_amount?: number | null;
+                    gst_amount?: number;
                     total_amount?: number;
                     status?: string;
                     payment_provider?: string | null;
@@ -165,6 +169,8 @@ export type Database = {
                     id?: string;
                     restaurant_id?: string;
                     items?: Json;
+                    subtotal_amount?: number | null;
+                    gst_amount?: number;
                     total_amount?: number;
                     status?: string;
                     payment_provider?: string | null;
@@ -289,6 +295,8 @@ export type Database = {
                     rotation_dish_ids: string[] | null;
                     payment_provider: string | null;
                     payment_id: string | null;
+                    subtotal_amount: number | null;
+                    gst_amount: number;
                 };
                 Insert: {
                     id?: string;
@@ -309,6 +317,8 @@ export type Database = {
                     rotation_dish_ids?: string[] | null;
                     payment_provider?: string | null;
                     payment_id?: string | null;
+                    subtotal_amount?: number | null;
+                    gst_amount?: number;
                 };
                 Update: {
                     id?: string;
@@ -329,6 +339,8 @@ export type Database = {
                     rotation_dish_ids?: string[] | null;
                     payment_provider?: string | null;
                     payment_id?: string | null;
+                    subtotal_amount?: number | null;
+                    gst_amount?: number;
                 };
                 Relationships: [];
             };

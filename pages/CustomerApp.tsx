@@ -27,7 +27,14 @@ import {
 } from "lucide-react";
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { formatPriceInCurrency } from "@minute-menus/currency";
+import {
+  calculateMealPlanTax,
+  calculateOrderTax,
+  enrichOrderItemsWithGst,
+  formatPriceInCurrency,
+  INDIAN_RESTAURANT_GST_PERCENT,
+  isIndianGstApplicable,
+} from "@minute-menus/currency";
 import { isDishSoldOut, MenuGridCard, MenuListCard } from "@minute-menus/reels";
 import { supabaseService } from "../services/supabaseService";
 import { supabase } from "../lib/supabase";
@@ -590,7 +597,12 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       const orderRes = await fetch(PAYMENT_API_PATHS.createOrder, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ amount: total, currency, restaurantId, customerName: profile.name ?? "Customer" }),
+        body: JSON.stringify({
+          items: cart,
+          currency,
+          restaurantId,
+          customerName: profile.name ?? "Customer",
+        }),
       });
       if (!orderRes.ok) {
         const err = await orderRes.json() as { error?: string };
@@ -629,7 +641,13 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       const confirmRes = await fetch(PAYMENT_API_PATHS.confirmOrder, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...payment, restaurantId, items: cart, timeToOrder }),
+        body: JSON.stringify({
+          ...payment,
+          restaurantId,
+          items: cart,
+          currency,
+          timeToOrder,
+        }),
       });
       if (!confirmRes.ok) {
         const err = await confirmRes.json() as { error?: string };
@@ -661,10 +679,35 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     }
   };
 
-  const total = useMemo(
-    () => cart.reduce((acc, item) => acc + item.price * item.quantity, 0),
-    [cart],
+  const orderTax = useMemo(
+    () => calculateOrderTax(cart, currency),
+    [cart, currency],
   );
+  const cartItemsWithGst = useMemo(
+    () => enrichOrderItemsWithGst(cart, currency),
+    [cart, currency],
+  );
+  const showGst = isIndianGstApplicable(currency);
+  const selectedPlanTax = useMemo(() => {
+    if (!selectedPlan) return null;
+    return calculateMealPlanTax(
+      selectedPlan.priceMonthly,
+      selectedPlan.deliveryFee,
+      subDeliveryType,
+      subDeliveryFeeMode,
+      currency,
+    );
+  }, [selectedPlan, subDeliveryType, subDeliveryFeeMode, currency]);
+  const modalPlanTax = useMemo(() => {
+    if (!modalPlan) return null;
+    return calculateMealPlanTax(
+      modalPlan.priceMonthly,
+      modalPlan.deliveryFee,
+      subDeliveryType,
+      subDeliveryFeeMode,
+      currency,
+    );
+  }, [modalPlan, subDeliveryType, subDeliveryFeeMode, currency]);
   const itemCount = useMemo(
     () => cart.reduce((acc, item) => acc + item.quantity, 0),
     [cart],
@@ -794,7 +837,13 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       const orderRes = await fetch(PAYMENT_API_PATHS.createSubscriptionOrder, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ planId: plan.id, restaurantId, deliveryFeeMode: subDeliveryFeeMode, deliveryType: subDeliveryType }),
+        body: JSON.stringify({
+          planId: plan.id,
+          restaurantId,
+          deliveryFeeMode: subDeliveryFeeMode,
+          deliveryType: subDeliveryType,
+          currency,
+        }),
       });
       if (!orderRes.ok) {
         const err = await orderRes.json() as { error?: string };
@@ -831,6 +880,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           deliveryFeeMode: subDeliveryFeeMode,
           timeSlot: subTimeSlot,
           rotationDishIds: rotation.length ? rotation : undefined,
+          currency,
         }),
       });
       if (!confirmRes.ok) {
@@ -1573,16 +1623,29 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                     </div>
                   </div>
                   {subError && <p className="text-red-400 text-sm">{subError}</p>}
+                  {showGst && selectedPlanTax && (
+                    <div className="space-y-1.5 text-sm border border-zinc-800 rounded-lg p-3">
+                      <div className="flex justify-between text-zinc-400">
+                        <span>Subtotal</span>
+                        <span className="font-mono">{formatPriceInCurrency(selectedPlanTax.subtotal, currency)}/mo</span>
+                      </div>
+                      <div className="flex justify-between text-zinc-400">
+                        <span>GST ({INDIAN_RESTAURANT_GST_PERCENT}%)</span>
+                        <span className="font-mono">{formatPriceInCurrency(selectedPlanTax.gstAmount, currency)}/mo</span>
+                      </div>
+                      <p className="text-[10px] text-zinc-600 leading-snug">
+                        Plan prices exclude GST. {INDIAN_RESTAURANT_GST_PERCENT}% GST applies on meal plans as per Indian tax law.
+                      </p>
+                    </div>
+                  )}
                   <button
                     onClick={() => handleCreateSubscription()}
                     disabled={subLoading || !subName.trim()}
                     className="w-full bg-white text-black py-3.5 rounded font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {subLoading ? <Loader2 className="animate-spin" size={18} /> : (() => {
-                      const deliveryTotal = subDeliveryType === "delivery" && subDeliveryFeeMode === "upfront" ? selectedPlan.deliveryFee * 30 : 0;
-                      const total = selectedPlan.priceMonthly + deliveryTotal;
-                      return `PAY ${currency} ${total}/mo`;
-                    })()}
+                    {subLoading ? <Loader2 className="animate-spin" size={18} /> : (
+                      `PAY ${formatPriceInCurrency(selectedPlanTax?.total ?? selectedPlan.priceMonthly, currency)}/mo`
+                    )}
                   </button>
                 </div>
               )}
@@ -1894,17 +1957,29 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                 NEXT →
               </button>
             ) : (
-              <button
-                onClick={() => handleCreateSubscription(modalPlan, rotationDishIds)}
-                disabled={subLoading || !subName.trim() || !subPhone.trim()}
-                className="w-full bg-white text-black py-3.5 rounded font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
-              >
-                {subLoading ? <Loader2 className="animate-spin" size={18} /> : (() => {
-                  const deliveryTotal = subDeliveryType === "delivery" && subDeliveryFeeMode === "upfront"
-                    ? modalPlan.deliveryFee * 30 : 0;
-                  return `PAY ${currency} ${modalPlan.priceMonthly + deliveryTotal}/mo`;
-                })()}
-              </button>
+              <>
+                {showGst && modalPlanTax && (
+                  <div className="space-y-1.5 text-sm border border-zinc-800 rounded-lg p-3 mb-3">
+                    <div className="flex justify-between text-zinc-400">
+                      <span>Subtotal</span>
+                      <span className="font-mono">{formatPriceInCurrency(modalPlanTax.subtotal, currency)}/mo</span>
+                    </div>
+                    <div className="flex justify-between text-zinc-400">
+                      <span>GST ({INDIAN_RESTAURANT_GST_PERCENT}%)</span>
+                      <span className="font-mono">{formatPriceInCurrency(modalPlanTax.gstAmount, currency)}/mo</span>
+                    </div>
+                  </div>
+                )}
+                <button
+                  onClick={() => handleCreateSubscription(modalPlan, rotationDishIds)}
+                  disabled={subLoading || !subName.trim() || !subPhone.trim()}
+                  className="w-full bg-white text-black py-3.5 rounded font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+                >
+                  {subLoading ? <Loader2 className="animate-spin" size={18} /> : (
+                    `PAY ${formatPriceInCurrency(modalPlanTax?.total ?? modalPlan.priceMonthly, currency)}/mo`
+                  )}
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -1935,10 +2010,10 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                   <p className="font-light">Your cart is empty.</p>
                 </div>
               ) : (
-                cart.map((item) => (
+                cartItemsWithGst.map((item) => (
                   <div
                     key={item.dishId}
-                    className="flex justify-between items-center border-b border-zinc-900 pb-4 last:border-0"
+                    className="flex justify-between items-start border-b border-zinc-900 pb-4 last:border-0 gap-4"
                   >
                     <div className="flex-1">
                       <p className="font-medium text-white text-lg mb-2">
@@ -1964,21 +2039,48 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                         </button>
                       </div>
                     </div>
-                    <p className="font-mono text-white text-lg">
-                      {formatPriceInCurrency(item.price * item.quantity, currency)}
-                    </p>
+                    <div className="text-right shrink-0">
+                      <p className="font-mono text-white text-lg">
+                        {formatPriceInCurrency(item.price * item.quantity, currency)}
+                      </p>
+                      {showGst && item.gstAmount != null && item.gstAmount > 0 && (
+                        <p className="text-xs text-zinc-500 font-mono mt-1">
+                          + GST ({INDIAN_RESTAURANT_GST_PERCENT}%): {formatPriceInCurrency(item.gstAmount, currency)}
+                        </p>
+                      )}
+                      {showGst && item.lineTotal != null && (
+                        <p className="text-sm text-zinc-300 font-mono mt-0.5">
+                          {formatPriceInCurrency(item.lineTotal, currency)}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 ))
               )}
             </div>
 
             <div className="p-4 sm:p-8 border-t border-zinc-900 bg-zinc-950">
+              {showGst && cart.length > 0 && (
+                <div className="space-y-2 mb-4 text-sm">
+                  <div className="flex justify-between text-zinc-400">
+                    <span>Subtotal</span>
+                    <span className="font-mono">{formatPriceInCurrency(orderTax.subtotal, currency)}</span>
+                  </div>
+                  <div className="flex justify-between text-zinc-400">
+                    <span>GST ({INDIAN_RESTAURANT_GST_PERCENT}%)</span>
+                    <span className="font-mono">{formatPriceInCurrency(orderTax.gstAmount, currency)}</span>
+                  </div>
+                  <p className="text-[10px] text-zinc-600 leading-snug">
+                    Menu prices exclude GST. {INDIAN_RESTAURANT_GST_PERCENT}% GST applies on restaurant food as per Indian tax law.
+                  </p>
+                </div>
+              )}
               <div className="flex justify-between items-center mb-6">
                 <span className="text-zinc-500 uppercase tracking-widest text-xs">
                   Total Amount
                 </span>
                 <span className="text-3xl font-light text-white">
-                  {formatPriceInCurrency(total, currency)}
+                  {formatPriceInCurrency(orderTax.total, currency)}
                 </span>
               </div>
               <button
