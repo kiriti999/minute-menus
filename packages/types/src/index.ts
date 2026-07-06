@@ -428,6 +428,10 @@ export interface DesignCustomization {
   showQR: boolean;
   showTagline: boolean;
   borderStyle: 'none' | 'simple' | 'decorative';
+  // Phase 2 additions
+  backgroundType: 'solid' | 'gradient';
+  backgroundGradient?: string; // CSS gradient e.g. 'linear-gradient(135deg,#FF6B35,#C0392B)'
+  logoUrl?: string;             // data URL of uploaded logo image
 }
 
 export interface RestaurantBranding {

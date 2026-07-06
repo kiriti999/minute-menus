@@ -1,7 +1,7 @@
 /**
- * PrintDesignsView — Phase 1 MVP
- * Owners choose a design type, format, template style, and customisation, then
- * download a print-ready PDF or PNG.
+ * PrintDesignsView — Phase 2
+ * Adds: wall-board-aware layouts, pocket-card, logo upload, gradient backgrounds,
+ * advanced individual colour pickers, format dimension thumbnails, Google Fonts loading.
  */
 import type {
   Category,
@@ -17,12 +17,17 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import {
   Check,
+  ChevronDown,
+  ChevronUp,
   Download,
   FileImage,
+  Image as ImageIcon,
   Layers,
   Loader2,
+  Palette,
   Printer,
   RefreshCw,
+  X,
 } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -33,6 +38,7 @@ import {
   DEFAULT_FORMAT,
   FONT_PAIRINGS,
   FORMATS,
+  GRADIENT_PRESETS,
   TEMPLATES,
 } from "../lib/printDesigns";
 import { supabaseService } from "../services/supabaseService";
@@ -52,8 +58,25 @@ const DESIGN_TYPES: { key: PrintDesignType; label: string; icon: string }[] = [
   { key: 'sticker',     label: 'Sticker',     icon: '🔵' },
 ];
 
-/** Width of the live-preview container in px (CSS). Template is scaled to fit. */
 const PREVIEW_CSS_WIDTH = 380;
+
+// ─── Format aspect-ratio thumbnail ────────────────────────────────────────────
+
+function FormatThumb({ w, h, active }: { w: number; h: number; active: boolean }) {
+  const maxW = 32;
+  const maxH = 44;
+  const ratio = w / h;
+  const thumbW = ratio >= 1 ? maxW : Math.round(maxH * ratio);
+  const thumbH = ratio >= 1 ? Math.round(maxW / ratio) : maxH;
+  return (
+    <div
+      style={{ width: thumbW, height: thumbH }}
+      className={`rounded-sm border flex-shrink-0 ${active ? 'border-current' : 'border-zinc-400 opacity-40'}`}
+    />
+  );
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   menuItems,
@@ -69,27 +92,35 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   const [branding, setBranding] = useState<RestaurantBranding>({ name: '', tagline: '', address: '', phone: '', slug: '' });
   const [exporting, setExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState('');
+  const [showAdvancedColors, setShowAdvancedColors] = useState(false);
 
   // Load restaurant branding once
   useEffect(() => {
     if (!restaurantId) return;
     supabaseService.getRestaurantDetails().then((d) => {
-      setBranding({
-        name: d.name ?? '',
-        tagline: d.tagline ?? '',
-        address: d.address ?? '',
-        phone: d.phone ?? '',
-        slug: d.slug ?? '',
-      });
+      setBranding({ name: d.name ?? '', tagline: d.tagline ?? '', address: d.address ?? '', phone: d.phone ?? '', slug: d.slug ?? '' });
     }).catch(() => {});
   }, [restaurantId]);
+
+  // Dynamically load Google Fonts for the selected pairing
+  useEffect(() => {
+    const families = FONT_PAIRINGS[custom.fontPairing].googleFonts.join('&family=');
+    const href = `https://fonts.googleapis.com/css2?family=${families}&display=swap`;
+    let link = document.getElementById('gf-print-designs') as HTMLLinkElement | null;
+    if (!link) {
+      link = document.createElement('link');
+      link.id = 'gf-print-designs';
+      link.rel = 'stylesheet';
+      document.head.appendChild(link);
+    }
+    link.href = href;
+  }, [custom.fontPairing]);
 
   const fmt = FORMATS[format];
   const siteUrl = branding.slug
     ? `${import.meta.env.VITE_SITE_URL ?? 'https://minutemenus.com'}/${branding.slug}`
     : import.meta.env.VITE_SITE_URL ?? 'https://minutemenus.com';
 
-  // Scale factor to fit the template inside the preview container
   const previewScale = PREVIEW_CSS_WIDTH / fmt.widthPx;
   const previewCssHeight = fmt.heightPx * previewScale;
 
@@ -108,26 +139,34 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     setCustom((prev) => ({
       ...prev,
       colorScheme: key,
-      colors: {
-        primary: scheme.primary, secondary: scheme.secondary,
-        background: scheme.background, text: scheme.text,
-        textMuted: scheme.textMuted, accent: scheme.accent, border: scheme.border,
-      },
+      colors: { primary: scheme.primary, secondary: scheme.secondary, background: scheme.background, text: scheme.text, textMuted: scheme.textMuted, accent: scheme.accent, border: scheme.border },
     }));
   }, []);
 
   const handleFontPairing = useCallback((key: FontPairingKey) => {
     const pairing = FONT_PAIRINGS[key];
-    setCustom((prev) => ({
-      ...prev,
-      fontPairing: key,
-      fonts: { heading: pairing.heading, body: pairing.body, price: pairing.price },
-    }));
+    setCustom((prev) => ({ ...prev, fontPairing: key, fonts: { heading: pairing.heading, body: pairing.body, price: pairing.price } }));
   }, []);
 
   const patchCustom = useCallback(<K extends keyof DesignCustomization>(key: K, value: DesignCustomization[K]) => {
     setCustom((prev) => ({ ...prev, [key]: value }));
   }, []);
+
+  const patchColor = useCallback((colorKey: keyof DesignCustomization['colors'], value: string) => {
+    setCustom((prev) => ({ ...prev, colors: { ...prev.colors, [colorKey]: value } }));
+  }, []);
+
+  const handleLogoUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result;
+      if (typeof result === 'string') patchCustom('logoUrl', result);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  }, [patchCustom]);
 
   const exportPdf = useCallback(async () => {
     const el = exportRef.current;
@@ -135,18 +174,9 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     setExporting(true);
     setExportMsg('');
     try {
-      const canvas = await html2canvas(el, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: custom.colors.background,
-        logging: false,
-      });
+      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: custom.colors.background, logging: false });
       const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: fmt.widthMm > fmt.heightMm ? 'landscape' : 'portrait',
-        unit: 'mm',
-        format: [fmt.widthMm, fmt.heightMm],
-      });
+      const pdf = new jsPDF({ orientation: fmt.widthMm > fmt.heightMm ? 'landscape' : 'portrait', unit: 'mm', format: [fmt.widthMm, fmt.heightMm] });
       pdf.addImage(imgData, 'PNG', 0, 0, fmt.widthMm, fmt.heightMm);
       pdf.save(`${branding.name || 'menu'}-${format}.pdf`);
       setExportMsg('PDF downloaded!');
@@ -163,12 +193,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     setExporting(true);
     setExportMsg('');
     try {
-      const canvas = await html2canvas(el, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: custom.colors.background,
-        logging: false,
-      });
+      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: custom.colors.background, logging: false });
       const link = document.createElement('a');
       link.download = `${branding.name || 'menu'}-${format}.png`;
       link.href = canvas.toDataURL('image/png');
@@ -184,20 +209,25 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   // ─── Style helpers ───────────────────────────────────────────────────────────
   const card = isDarkTheme ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-200';
   const muted = isDarkTheme ? 'text-zinc-500' : 'text-zinc-500';
-  const inputCls = isDarkTheme
-    ? 'bg-zinc-900 border-zinc-700 text-white'
-    : 'bg-white border-zinc-300 text-zinc-900';
+  const inputCls = isDarkTheme ? 'bg-zinc-900 border-zinc-700 text-white' : 'bg-white border-zinc-300 text-zinc-900';
   const activeTab = isDarkTheme ? 'bg-white text-black' : 'bg-zinc-900 text-white';
   const inactiveTab = isDarkTheme ? 'text-zinc-400 hover:text-white hover:bg-zinc-800' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100';
+
+  const colorLabels: { key: keyof DesignCustomization['colors']; label: string }[] = [
+    { key: 'primary', label: 'Primary' },
+    { key: 'secondary', label: 'Secondary' },
+    { key: 'background', label: 'Background' },
+    { key: 'text', label: 'Text' },
+    { key: 'accent', label: 'Accent' },
+    { key: 'border', label: 'Border' },
+  ];
 
   return (
     <div className={`flex-1 overflow-y-auto pb-24 ${isDarkTheme ? 'bg-black' : 'bg-zinc-50'}`}>
       {/* Header */}
       <header className={`sticky top-0 z-20 backdrop-blur-md px-6 py-5 border-b flex items-center justify-between ${isDarkTheme ? 'bg-black/80 border-zinc-800' : 'bg-white/80 border-zinc-200'}`}>
         <div>
-          <h1 className={`text-2xl font-light tracking-tight ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
-            Print Designs
-          </h1>
+          <h1 className={`text-2xl font-light tracking-tight ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>Print Designs</h1>
           <p className={`text-xs mt-0.5 ${muted}`}>Create print-ready menus, wall boards, pamphlets, and stickers</p>
         </div>
         <div className={`flex items-center gap-1 text-[10px] font-bold tracking-widest uppercase ${muted}`}>
@@ -227,9 +257,15 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                   </button>
                 ))}
               </div>
+              {(designType === 'pocket-card' || designType === 'sticker') && (
+                <p className={`text-[10px] mt-2 ${muted}`}>This format shows QR code + restaurant info only — too compact for a full dish list.</p>
+              )}
+              {designType === 'wall-board' && (
+                <p className={`text-[10px] mt-2 ${muted}`}>Wall board fonts scale up automatically for easy reading from a distance.</p>
+              )}
             </section>
 
-            {/* Step 2: Format */}
+            {/* Step 2: Format with visual thumbnails */}
             <section className={`border rounded-xl p-5 ${card}`}>
               <h2 className={`text-xs font-bold uppercase tracking-widest mb-3 ${muted}`}>2. Paper Format</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -240,14 +276,13 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                     <button
                       key={f}
                       onClick={() => setFormat(f)}
-                      className={`rounded-lg border p-3 text-left transition-all ${
-                        isActive
-                          ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100'
-                          : isDarkTheme ? 'border-zinc-800 hover:border-zinc-600' : 'border-zinc-200 hover:border-zinc-400'
-                      }`}
+                      className={`rounded-lg border p-3 text-left flex items-center gap-3 transition-all ${isActive ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100' : isDarkTheme ? 'border-zinc-800 hover:border-zinc-600' : 'border-zinc-200 hover:border-zinc-400'}`}
                     >
-                      <div className={`text-sm font-semibold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{fi.label}</div>
-                      <div className={`text-[10px] font-mono mt-0.5 ${muted}`}>{fi.widthMm}×{fi.heightMm}mm</div>
+                      <FormatThumb w={fi.widthMm} h={fi.heightMm} active={isActive} />
+                      <div>
+                        <div className={`text-sm font-semibold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{fi.label}</div>
+                        <div className={`text-[10px] font-mono mt-0.5 ${muted}`}>{fi.widthMm}×{fi.heightMm}mm</div>
+                      </div>
                     </button>
                   );
                 })}
@@ -262,11 +297,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                   <button
                     key={t.key}
                     onClick={() => handleTemplateChange(t.key)}
-                    className={`rounded-lg border p-3 text-left transition-all ${
-                      templateStyle === t.key
-                        ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100'
-                        : isDarkTheme ? 'border-zinc-800 hover:border-zinc-600' : 'border-zinc-200 hover:border-zinc-400'
-                    }`}
+                    className={`rounded-lg border p-3 text-left transition-all ${templateStyle === t.key ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100' : isDarkTheme ? 'border-zinc-800 hover:border-zinc-600' : 'border-zinc-200 hover:border-zinc-400'}`}
                   >
                     <div className={`text-sm font-semibold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{t.label}</div>
                     <div className={`text-[10px] mt-1 ${muted}`}>{t.description}</div>
@@ -275,11 +306,39 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
               </div>
             </section>
 
-            {/* Step 4: Customise */}
+            {/* Step 4: Logo */}
             <section className={`border rounded-xl p-5 ${card}`}>
-              <h2 className={`text-xs font-bold uppercase tracking-widest mb-4 ${muted}`}>4. Customise</h2>
+              <h2 className={`text-xs font-bold uppercase tracking-widest mb-3 ${muted}`}>4. Logo <span className={`font-normal normal-case ${muted}`}>(optional)</span></h2>
+              {custom.logoUrl ? (
+                <div className="flex items-center gap-4">
+                  <img src={custom.logoUrl} alt="Logo preview" className="h-16 w-auto object-contain rounded border" style={{ borderColor: isDarkTheme ? '#3f3f46' : '#e4e4e7' }} />
+                  <div className="space-y-1">
+                    <p className={`text-xs ${muted}`}>Logo will appear above the restaurant name in the design.</p>
+                    <button
+                      onClick={() => patchCustom('logoUrl', undefined)}
+                      className={`flex items-center gap-1 text-xs text-red-400 hover:text-red-500`}
+                    >
+                      <X size={11} /> Remove logo
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <label className={`flex items-center gap-3 border-2 border-dashed rounded-lg px-4 py-3 cursor-pointer transition-colors ${isDarkTheme ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-300 hover:border-zinc-400'}`}>
+                  <ImageIcon size={18} className={muted} />
+                  <div>
+                    <p className={`text-sm font-medium ${isDarkTheme ? 'text-white' : 'text-zinc-800'}`}>Upload logo image</p>
+                    <p className={`text-[10px] ${muted}`}>PNG, JPG or SVG — transparent PNG recommended</p>
+                  </div>
+                  <input type="file" accept="image/*" className="sr-only" onChange={handleLogoUpload} />
+                </label>
+              )}
+            </section>
 
-              {/* Color scheme */}
+            {/* Step 5: Customise */}
+            <section className={`border rounded-xl p-5 ${card}`}>
+              <h2 className={`text-xs font-bold uppercase tracking-widest mb-4 ${muted}`}>5. Customise</h2>
+
+              {/* Colour scheme */}
               <div className="mb-4">
                 <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Colour Scheme</p>
                 <div className="flex flex-wrap gap-2">
@@ -288,17 +347,50 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                       key={key}
                       onClick={() => handleColorScheme(key)}
                       title={scheme.label}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border transition-all ${
-                        custom.colorScheme === key
-                          ? isDarkTheme ? 'border-white' : 'border-zinc-900'
-                          : isDarkTheme ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-200 hover:border-zinc-400'
-                      }`}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border transition-all ${custom.colorScheme === key ? isDarkTheme ? 'border-white' : 'border-zinc-900' : isDarkTheme ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-200 hover:border-zinc-400'}`}
                     >
                       <span className="w-3 h-3 rounded-full inline-block border border-zinc-300" style={{ background: scheme.primary }} />
                       <span className={isDarkTheme ? 'text-zinc-300' : 'text-zinc-700'}>{scheme.label}</span>
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Background type */}
+              <div className="mb-4">
+                <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Background</p>
+                <div className="flex gap-2 mb-2">
+                  {(['solid', 'gradient'] as const).map((bt) => (
+                    <button
+                      key={bt}
+                      onClick={() => patchCustom('backgroundType', bt)}
+                      className={`px-3 py-1.5 rounded-full text-xs border transition-all capitalize ${custom.backgroundType === bt ? isDarkTheme ? 'border-white bg-zinc-800 text-white' : 'border-zinc-900 bg-zinc-100 text-zinc-900' : isDarkTheme ? 'border-zinc-700 text-zinc-400' : 'border-zinc-200 text-zinc-500'}`}
+                    >
+                      {bt}
+                    </button>
+                  ))}
+                </div>
+                {custom.backgroundType === 'gradient' && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {GRADIENT_PRESETS.map((g) => {
+                      const isActive = custom.backgroundGradient === g.value;
+                      return (
+                        <button
+                          key={g.value}
+                          onClick={() => patchCustom('backgroundGradient', g.value)}
+                          title={g.label}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border transition-all ${isActive ? isDarkTheme ? 'border-white' : 'border-zinc-900' : isDarkTheme ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-200 hover:border-zinc-400'}`}
+                        >
+                          <span
+                            className="w-4 h-3 rounded-sm inline-block flex-shrink-0"
+                            style={{ background: g.value }}
+                          />
+                          <span className={isDarkTheme ? 'text-zinc-300' : 'text-zinc-700'}>{g.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Font pairing */}
@@ -309,11 +401,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                     <button
                       key={key}
                       onClick={() => handleFontPairing(key)}
-                      className={`px-3 py-1.5 rounded-full text-xs border transition-all ${
-                        custom.fontPairing === key
-                          ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100'
-                          : isDarkTheme ? 'border-zinc-700 hover:border-zinc-600' : 'border-zinc-200 hover:border-zinc-400'
-                      } ${isDarkTheme ? 'text-zinc-300' : 'text-zinc-700'}`}
+                      className={`px-3 py-1.5 rounded-full text-xs border transition-all ${custom.fontPairing === key ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100' : isDarkTheme ? 'border-zinc-700 hover:border-zinc-600' : 'border-zinc-200 hover:border-zinc-400'} ${isDarkTheme ? 'text-zinc-300' : 'text-zinc-700'}`}
                     >
                       {pairing.label}
                     </button>
@@ -321,7 +409,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                 </div>
               </div>
 
-              {/* Layout */}
+              {/* Layout columns */}
               <div className="mb-4">
                 <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Columns</p>
                 <div className="flex gap-2">
@@ -329,11 +417,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                     <button
                       key={c}
                       onClick={() => patchCustom('layout', { ...custom.layout, columns: c })}
-                      className={`px-4 py-1.5 rounded-full text-xs border transition-all ${
-                        custom.layout.columns === c
-                          ? isDarkTheme ? 'border-white bg-zinc-800 text-white' : 'border-zinc-900 bg-zinc-100 text-zinc-900'
-                          : isDarkTheme ? 'border-zinc-700 text-zinc-400' : 'border-zinc-200 text-zinc-500'
-                      }`}
+                      className={`px-4 py-1.5 rounded-full text-xs border transition-all ${custom.layout.columns === c ? isDarkTheme ? 'border-white bg-zinc-800 text-white' : 'border-zinc-900 bg-zinc-100 text-zinc-900' : isDarkTheme ? 'border-zinc-700 text-zinc-400' : 'border-zinc-200 text-zinc-500'}`}
                     >
                       {c} col
                     </button>
@@ -341,21 +425,18 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                 </div>
               </div>
 
-              {/* Toggle switches */}
-              <div className="grid grid-cols-2 gap-2">
+              {/* Visibility toggles */}
+              <div className="grid grid-cols-2 gap-2 mb-4">
                 {([
                   ['showPrices', 'Prices'],
                   ['showDescriptions', 'Descriptions'],
                   ['showQR', 'QR Code'],
                   ['showTagline', 'Tagline'],
-                  ['showImages', 'Dish Photos'],
                 ] as [keyof DesignCustomization, string][]).map(([k, label]) => (
                   <label key={k} className="flex items-center gap-2 cursor-pointer select-none">
                     <div
                       onClick={() => patchCustom(k, !custom[k])}
-                      className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${
-                        custom[k] ? 'bg-green-500' : isDarkTheme ? 'bg-zinc-700' : 'bg-zinc-300'
-                      }`}
+                      className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${custom[k] ? 'bg-green-500' : isDarkTheme ? 'bg-zinc-700' : 'bg-zinc-300'}`}
                     >
                       <div className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-transform ${custom[k] ? 'translate-x-4' : 'translate-x-0.5'}`} />
                     </div>
@@ -363,11 +444,36 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                   </label>
                 ))}
               </div>
+
+              {/* Advanced colour pickers */}
+              <button
+                onClick={() => setShowAdvancedColors((v) => !v)}
+                className={`flex items-center gap-2 text-xs font-semibold ${isDarkTheme ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-800'} transition-colors`}
+              >
+                <Palette size={13} />
+                Advanced Colours
+                {showAdvancedColors ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+              </button>
+              {showAdvancedColors && (
+                <div className="grid grid-cols-2 gap-3 mt-3">
+                  {colorLabels.map(({ key, label }) => (
+                    <label key={key} className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={custom.colors[key]}
+                        onChange={(e) => patchColor(key, e.target.value)}
+                        className="w-7 h-7 rounded cursor-pointer border-0 p-0"
+                      />
+                      <span className={`text-xs ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>{label}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
             </section>
 
-            {/* Step 5: Restaurant details */}
+            {/* Step 6: Restaurant details */}
             <section className={`border rounded-xl p-5 ${card}`}>
-              <h2 className={`text-xs font-bold uppercase tracking-widest mb-3 ${muted}`}>5. Restaurant Details</h2>
+              <h2 className={`text-xs font-bold uppercase tracking-widest mb-3 ${muted}`}>6. Restaurant Details</h2>
               <div className="space-y-3">
                 {(['name', 'tagline', 'phone', 'address'] as const).map((field) => (
                   <div key={field}>
@@ -395,22 +501,14 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                 </div>
               </div>
 
-              {/* Scaled preview wrapper */}
               <div
                 style={{ width: PREVIEW_CSS_WIDTH, height: Math.round(previewCssHeight) }}
                 className={`relative overflow-hidden rounded border ${isDarkTheme ? 'border-zinc-700' : 'border-zinc-300'} mx-auto`}
               >
-                <div
-                  style={{
-                    transform: `scale(${previewScale})`,
-                    transformOrigin: 'top left',
-                    width: fmt.widthPx,
-                    height: fmt.heightPx,
-                    pointerEvents: 'none',
-                  }}
-                >
+                <div style={{ transform: `scale(${previewScale})`, transformOrigin: 'top left', width: fmt.widthPx, height: fmt.heightPx, pointerEvents: 'none' }}>
                   <MenuTemplate
                     style={templateStyle}
+                    designType={designType}
                     customization={custom}
                     branding={branding}
                     menuItems={menuItems}
@@ -482,20 +580,11 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
       </div>
 
       {/* Off-screen full-resolution render target for html2canvas */}
-      <div
-        style={{
-          position: 'fixed',
-          top: -99999,
-          left: -99999,
-          width: fmt.widthPx,
-          height: fmt.heightPx,
-          pointerEvents: 'none',
-          zIndex: -1,
-        }}
-      >
+      <div style={{ position: 'fixed', top: -99999, left: -99999, width: fmt.widthPx, height: fmt.heightPx, pointerEvents: 'none', zIndex: -1 }}>
         <div ref={exportRef}>
           <MenuTemplate
             style={templateStyle}
+            designType={designType}
             customization={custom}
             branding={branding}
             menuItems={menuItems}
