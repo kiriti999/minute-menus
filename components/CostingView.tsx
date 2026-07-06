@@ -23,6 +23,7 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Download,
   FileText,
   Loader2,
   Plus,
@@ -98,6 +99,7 @@ export const CostingView: React.FC<CostingViewProps> = ({
   const [parsing, setParsing] = useState(false);
   const [parsedRows, setParsedRows] = useState<InvoiceLineItem[]>([]);
   const [parsedFileName, setParsedFileName] = useState("");
+  const [parsedFileUrl, setParsedFileUrl] = useState("");
   const [savingInvoice, setSavingInvoice] = useState(false);
   const [parsedPage, setParsedPage] = useState(0);
 
@@ -223,8 +225,12 @@ export const CostingView: React.FC<CostingViewProps> = ({
         const err = (await res.json()) as { error?: string };
         throw new Error(err.error ?? "Failed to parse invoice");
       }
-      const { lineItems } = (await res.json()) as { lineItems: InvoiceLineItem[] };
+      const { lineItems, fileUrl } = (await res.json()) as { 
+        lineItems: InvoiceLineItem[];
+        fileUrl?: string;
+      };
       setParsedRows(lineItems);
+      setParsedFileUrl(fileUrl ?? "");
       setParsedPage(0);
       setParsedFileName(file.name);
     } catch (e) {
@@ -301,7 +307,13 @@ export const CostingView: React.FC<CostingViewProps> = ({
     setSavingInvoice(true);
     setError("");
     try {
-      const invoiceId = await supabaseService.saveInvoice(month, parsedRows, parsedFileName, restaurantId);
+      const invoiceId = await supabaseService.saveInvoice(
+        month, 
+        parsedRows, 
+        parsedFileName, 
+        parsedFileUrl,
+        restaurantId
+      );
       await Promise.all(
         parsedRows.map((r) =>
           supabaseService.upsertIngredient(
@@ -319,6 +331,7 @@ export const CostingView: React.FC<CostingViewProps> = ({
       );
       setParsedRows([]);
       setParsedFileName("");
+      setParsedFileUrl("");
       await loadMonth();
     } catch (e) {
       setError(getErrorMessage(e));
@@ -711,6 +724,54 @@ export const CostingView: React.FC<CostingViewProps> = ({
                     {savingInvoice ? <Loader2 className="animate-spin" size={14} /> : <Receipt size={14} />}
                     SAVE TO LIBRARY
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* Uploaded invoices list */}
+            {invoices.length > 0 && (
+              <div className="mt-6">
+                <p className={`text-xs font-medium mb-2 uppercase tracking-wider ${label}`}>
+                  Uploaded this month ({invoices.length})
+                </p>
+                <div className="space-y-2">
+                  {invoices.map((inv) => (
+                    <div
+                      key={inv.id}
+                      className={`flex items-center justify-between p-3 rounded-lg border ${
+                        isDarkTheme ? "border-zinc-800 bg-zinc-900/50" : "border-zinc-200 bg-zinc-50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <FileText size={16} className={label} />
+                        <div>
+                          <p className={`text-sm ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
+                            {inv.fileName || "Invoice"}
+                          </p>
+                          <p className={`text-xs ${label}`}>
+                            {new Date(inv.createdAt).toLocaleDateString()} •{" "}
+                            {formatPriceInCurrency(inv.totalAmount, currency)} •{" "}
+                            {inv.lineItems.length} items
+                          </p>
+                        </div>
+                      </div>
+                      {inv.fileUrl && (
+                        <a
+                          href={inv.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                            isDarkTheme
+                              ? "bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
+                              : "bg-zinc-200 text-zinc-700 hover:bg-zinc-300"
+                          }`}
+                        >
+                          <Download size={12} />
+                          Download
+                        </a>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

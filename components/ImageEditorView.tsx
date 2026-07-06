@@ -274,7 +274,7 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
 
   useEffect(() => {
     resetTransform();
-  }, [presetId, customWidth, customHeight, showEnhanced, resetTransform]);
+  }, [presetId, customWidth, customHeight, resetTransform]);
 
   const onPanStart = (clientX: number, clientY: number) => {
     setIsDragging(true);
@@ -308,7 +308,7 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
             Image Editor
           </h1>
           <p className={`text-xs mt-1 max-w-xl ${muted}`}>
-            Enhance food photos with AI styles, then crop to reel, delivery, or banner sizes.
+            Crop and resize food photos for reel, delivery, or banner sizes.
           </p>
         </div>
         <div className={`flex items-center gap-2 text-[10px] font-bold tracking-widest uppercase ${muted}`}>
@@ -447,9 +447,9 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
                   onTouchMove={(e) => onPanMove(e.touches[0].clientX, e.touches[0].clientY)}
                   onTouchEnd={onPanEnd}
                 >
-                  {activePreviewUrl && (
+                  {originalSourceUrl && (
                     <img
-                      src={activePreviewUrl}
+                      src={originalSourceUrl}
                       alt="Crop preview"
                       draggable={false}
                       className="absolute inset-0 w-full h-full object-cover pointer-events-none"
@@ -458,7 +458,7 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
                       }}
                     />
                   )}
-                  {!activePreviewUrl && (
+                  {!originalSourceUrl && (
                     <div className={`absolute inset-0 flex items-center justify-center text-xs ${muted}`}>
                       Load a photo to preview crop
                     </div>
@@ -467,11 +467,6 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
                     <div className="absolute bottom-2 left-2 flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-black/60 text-white">
                       <Move size={10} />
                       Drag to pan
-                    </div>
-                  )}
-                  {hasEnhanced && (
-                    <div className="absolute top-2 right-2 text-[10px] px-2 py-1 rounded-full bg-black/60 text-white font-bold tracking-widest">
-                      {showEnhanced ? "AFTER" : "BEFORE"}
                     </div>
                   )}
                 </div>

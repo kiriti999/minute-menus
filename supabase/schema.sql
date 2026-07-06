@@ -859,6 +859,50 @@ create policy "Owner manage dish media"
   );
 
 -- ─────────────────────────────────────────────
+-- 18B. STORAGE — invoices (PDF/image invoices for costing)
+-- Private bucket; only owners can access their restaurant's invoices.
+-- ─────────────────────────────────────────────
+drop policy if exists "Owner read invoices" on storage.objects;
+drop policy if exists "Owner manage invoices" on storage.objects;
+
+create or replace function public.is_invoice_owner(object_name text)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.restaurants r
+    where r.owner_id = auth.uid()
+      and split_part(object_name, '/', 1) = r.id::text
+  );
+$$;
+
+grant execute on function public.is_invoice_owner(text) to authenticated;
+
+-- Owners can read their own restaurant's invoices
+create policy "Owner read invoices"
+  on storage.objects for select to authenticated
+  using (
+    bucket_id = 'invoices'
+    and public.is_invoice_owner(name)
+  );
+
+-- Owners can upload/delete their own restaurant's invoices
+create policy "Owner manage invoices"
+  on storage.objects for all to authenticated
+  using (
+    bucket_id = 'invoices'
+    and public.is_invoice_owner(name)
+  )
+  with check (
+    bucket_id = 'invoices'
+    and public.is_invoice_owner(name)
+  );
+
+-- ─────────────────────────────────────────────
 -- MIGRATION: harden payment-related tables (existing databases)
 -- Orders, customer subscriptions, and Plus tier upgrades now write via the
 -- admin client only, after server-side Razorpay signature verification —

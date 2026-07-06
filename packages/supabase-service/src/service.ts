@@ -1248,6 +1248,7 @@ export class SupabaseService {
         month: string,
         lineItems: InvoiceLineItem[],
         fileName?: string,
+        fileUrl?: string,
         restaurantId?: string,
     ): Promise<string> {
         const rid = restaurantId ?? (await this.getRestaurantId());
@@ -1257,6 +1258,7 @@ export class SupabaseService {
             .insert({
                 restaurant_id: rid,
                 month,
+                file_url: fileUrl ?? null,
                 file_name: fileName ?? null,
                 total_amount: total,
                 line_items: lineItems as unknown as Json,

@@ -1,9 +1,10 @@
 /**
  * POST /api/parse-invoice
  * Owner-authenticated. Accepts a purchase invoice (PDF or image data URL),
- * extracts ingredient line items via Anthropic Claude vision, and returns a
- * normalized table the UI can review and save. Self-contained (npm imports
- * only) so Vercel bundles it reliably.
+ * uploads it to Supabase Storage (organized by month), extracts ingredient
+ * line items via Anthropic Claude vision, and returns a normalized table the
+ * UI can review and save. Self-contained (npm imports only) so Vercel bundles
+ * it reliably.
  */
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -20,6 +21,7 @@ type PurchaseUnit = "kg" | "g" | "l" | "ml" | "piece";
 type LineItem = { name: string; quantity: number; unit: PurchaseUnit; amount: number };
 
 const VALID_UNITS: PurchaseUnit[] = ["kg", "g", "l", "ml", "piece"];
+const INVOICE_BUCKET = "invoices";
 
 let adminClient: SupabaseClient | null = null;
 const requireSupabaseAdmin = (): SupabaseClient => {
@@ -37,10 +39,14 @@ const getBearerToken = (req: VercelRequest): string | null => {
     return header.slice("Bearer ".length).trim() || null;
 };
 
-const parseDataUrl = (dataUrl: string): { mimeType: string; base64: string } | null => {
+const parseDataUrl = (dataUrl: string): { mimeType: string; base64: string; buffer: Buffer } | null => {
     const match = /^data:([^;]+);base64,(.+)$/.exec(dataUrl);
     if (!match) return null;
-    return { mimeType: match[1], base64: match[2] };
+    return { 
+        mimeType: match[1], 
+        base64: match[2],
+        buffer: Buffer.from(match[2], 'base64')
+    };
 };
 
 const normalizeUnit = (raw: unknown): PurchaseUnit => {
@@ -130,6 +136,69 @@ const extractLineItems = async (mimeType: string, base64: string): Promise<LineI
     return block && block.type === "text" ? parseJsonArray(block.text) : [];
 };
 
+/**
+ * Uploads invoice file to Supabase Storage with month-based folder structure.
+ * Path: {restaurantId}/YYYY-MM/YYYY-MM-DD-HHmmss-{randomId}.{ext}
+ * Returns the file URL.
+ */
+const uploadInvoiceToStorage = async (
+    admin: SupabaseClient,
+    restaurantId: string,
+    buffer: Buffer,
+    mimeType: string
+): Promise<string> => {
+    // Ensure bucket exists
+    const { data: buckets } = await admin.storage.listBuckets();
+    if (!buckets?.some(b => b.name === INVOICE_BUCKET)) {
+        const { error: createErr } = await admin.storage.createBucket(INVOICE_BUCKET, {
+            public: false, // Private bucket, requires auth
+            fileSizeLimit: 20 * 1024 * 1024, // 20MB
+        });
+        if (createErr) throw new Error(`Failed to create invoices bucket: ${createErr.message}`);
+    }
+
+    // Generate filename with upload date
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const randomId = Math.random().toString(36).substring(2, 8);
+    
+    // Determine extension from MIME type
+    let ext = 'pdf';
+    if (mimeType.includes('png')) ext = 'png';
+    else if (mimeType.includes('jpg') || mimeType.includes('jpeg')) ext = 'jpg';
+    else if (mimeType.includes('webp')) ext = 'webp';
+    
+    // Path: restaurantId/YYYY-MM/YYYY-MM-DD-HHmmss-randomId.ext
+    const path = `${restaurantId}/${year}-${month}/${year}-${month}-${day}-${hours}${minutes}${seconds}-${randomId}.${ext}`;
+
+    const { error: uploadErr } = await admin.storage
+        .from(INVOICE_BUCKET)
+        .upload(path, buffer, {
+            contentType: mimeType,
+            upsert: false, // Each upload is unique
+        });
+
+    if (uploadErr) {
+        throw new Error(`Failed to upload invoice: ${uploadErr.message}`);
+    }
+
+    // Get signed URL (expires in 1 year for owner access)
+    const { data: urlData, error: urlErr } = await admin.storage
+        .from(INVOICE_BUCKET)
+        .createSignedUrl(path, 365 * 24 * 60 * 60); // 1 year expiry
+
+    if (urlErr || !urlData) {
+        throw new Error(`Failed to get invoice URL: ${urlErr?.message ?? 'Unknown error'}`);
+    }
+
+    return urlData.signedUrl;
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "OPTIONS") return res.status(200).end();
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -165,10 +234,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: "Not allowed to parse invoices for this restaurant" });
         }
 
+        // 1. Upload file to Supabase Storage first
+        const fileUrl = await uploadInvoiceToStorage(admin, restaurantId, parsed.buffer, parsed.mimeType);
+
+        // 2. Parse line items using AI
         const lineItems = await extractLineItems(parsed.mimeType, parsed.base64);
         const total = Math.round(lineItems.reduce((s, i) => s + i.amount, 0) * 100) / 100;
 
-        return res.status(200).json({ lineItems, total, unitsAllowed: VALID_UNITS });
+        return res.status(200).json({ 
+            lineItems, 
+            total, 
+            unitsAllowed: VALID_UNITS,
+            fileUrl, // Return the uploaded file URL
+            uploadedAt: new Date().toISOString(),
+        });
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         console.error("[parse-invoice] failed", message);
