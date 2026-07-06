@@ -301,7 +301,7 @@ export const CostingView: React.FC<CostingViewProps> = ({
     setSavingInvoice(true);
     setError("");
     try {
-      await supabaseService.saveInvoice(month, parsedRows, parsedFileName, restaurantId);
+      const invoiceId = await supabaseService.saveInvoice(month, parsedRows, parsedFileName, restaurantId);
       await Promise.all(
         parsedRows.map((r) =>
           supabaseService.upsertIngredient(
@@ -311,6 +311,7 @@ export const CostingView: React.FC<CostingViewProps> = ({
               purchaseQuantity: r.quantity,
               purchaseAmount: r.amount,
               source: "invoice",
+              sourceInvoiceId: invoiceId,
             },
             restaurantId,
           ),
