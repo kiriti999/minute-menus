@@ -33,6 +33,7 @@ import { supabaseService } from "../services/supabaseService";
 import { supabase } from "../lib/supabase";
 import { formatDisplayName } from "../lib/formatDisplayName";
 import { openRazorpayCheckout } from "../lib/loadRazorpayCheckout";
+import { PAYMENT_API_PATHS } from "../lib/api/paymentRouteRewrites";
 import { ButtonSpinner } from "@minute-menus/ui";
 import type { Category, CustomerProfile, CustomerSubscription, DailyOrder, Dish, MealPlan, OrderItem, SubDeliveryType, DeliveryFeeMode, TicketReason, TimeSlot } from "@minute-menus/types";
 import { TICKET_REASON_LABELS, TIME_SLOT_LABELS } from "@minute-menus/types";
@@ -586,7 +587,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     const timeToOrder = (Date.now() - sessionStartTime) / 1000;
     try {
       // 1. Create Razorpay order server-side
-      const orderRes = await fetch("/api/order/create-razorpay-order", {
+      const orderRes = await fetch(PAYMENT_API_PATHS.createOrder, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ amount: total, currency, restaurantId, customerName: profile.name ?? "Customer" }),
@@ -625,7 +626,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         })
         .filter((d): d is { id: string; name: string } => d !== null);
 
-      const confirmRes = await fetch("/api/order/confirm-order", {
+      const confirmRes = await fetch(PAYMENT_API_PATHS.confirmOrder, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ ...payment, restaurantId, items: cart, timeToOrder }),
@@ -790,7 +791,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     setSubError("");
     try {
       // 1. Create Razorpay order server-side
-      const orderRes = await fetch("/api/subscription/create-razorpay-order", {
+      const orderRes = await fetch(PAYMENT_API_PATHS.createSubscriptionOrder, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ planId: plan.id, restaurantId, deliveryFeeMode: subDeliveryFeeMode, deliveryType: subDeliveryType }),
@@ -816,7 +817,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
 
       // 3. Verify the payment and create the subscription server-side (atomic —
       // the subscription is only ever written after a signature check passes)
-      const confirmRes = await fetch("/api/subscription/confirm-subscription", {
+      const confirmRes = await fetch(PAYMENT_API_PATHS.confirmSubscription, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({

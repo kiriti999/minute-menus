@@ -1,3 +1,5 @@
+import { PAYMENT_API_PATHS } from "./api/paymentRouteRewrites";
+
 let loadPromise: Promise<void> | null = null;
 
 /** Lazily loads Razorpay checkout.js the first time a checkout is opened (customer order/subscription or owner Plus upgrade). */
@@ -92,7 +94,7 @@ export const openRazorpayCheckout = (
 
 /** Verifies a Razorpay payment signature server-side. Throws if verification fails. */
 export const verifyRazorpayPayment = async (success: RazorpaySuccess): Promise<void> => {
-  const res = await fetch("/api/payment/verify-razorpay-payment", {
+  const res = await fetch(PAYMENT_API_PATHS.verifyPayment, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(success),

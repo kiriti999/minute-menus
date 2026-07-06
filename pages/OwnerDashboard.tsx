@@ -68,6 +68,7 @@ import { generateAnalyticsReport } from "@minute-menus/ai";
 import { supabaseService } from "../services/supabaseService";
 import { supabase } from "../lib/supabase";
 import { openRazorpayCheckout } from "../lib/loadRazorpayCheckout";
+import { PAYMENT_API_PATHS } from "../lib/api/paymentRouteRewrites";
 import {
   type AggregatedMetrics,
   type AnalyticsReport,
@@ -865,7 +866,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     setIsUpgrading(true);
     setUpgradeError(null);
     try {
-      const orderRes = await fetch("/api/subscription/create-plus-order", {
+      const orderRes = await fetch(PAYMENT_API_PATHS.createPlusOrder, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ plan, restaurantId: restaurantDetails.id, currency: restaurantDetails.currency }),
@@ -888,7 +889,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         prefill: {},
       });
 
-      const confirmRes = await fetch("/api/subscription/confirm-plus-payment", {
+      const confirmRes = await fetch(PAYMENT_API_PATHS.confirmPlusPayment, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ ...payment, restaurantId: restaurantDetails.id, plan }),
