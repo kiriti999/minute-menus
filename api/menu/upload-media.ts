@@ -9,6 +9,7 @@ import { rejectUnlessPost } from "../../lib/server/api-helpers";
 import { createLogger } from "../../lib/server/logger";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
+import { getUserFromAccessToken } from "../../lib/supabase-admin";
 import { putDishMediaFromDataUrlServer } from "../../lib/put-dish-media-server";
 
 const log = createLogger("menu-upload-media");
@@ -70,8 +71,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         }
 
-        const { data: authData, error: authErr } = await admin.auth.getUser(token);
-        if (authErr || !authData.user) {
+        const user = await getUserFromAccessToken(admin, token);
+        if (!user) {
             return res.status(401).json({ error: "Invalid or expired session" });
         }
 
@@ -79,7 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .from("restaurants")
             .select("id")
             .eq("id", payload.restaurantId!)
-            .eq("owner_id", authData.user.id)
+            .eq("owner_id", user.id)
             .maybeSingle();
 
         if (restaurantErr || !restaurant) {

@@ -6,7 +6,7 @@ import { buildDailyDigestEmailHtml, formatFromRestaurant, TIME_SLOT_LABELS } fro
 import { createLogger } from "../../lib/server/logger";
 import { sendMail } from "../../lib/server/mailer";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { supabaseAdmin } from "../../lib/supabase-admin";
+import { getUserEmailById, supabaseAdmin } from "../../lib/supabase-admin";
 
 const log = createLogger("daily-digest");
 
@@ -60,8 +60,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
 
         if (!restaurant) continue;
 
-        const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(restaurant.owner_id);
-        const ownerEmail = user?.email;
+        const ownerEmail = await getUserEmailById(restaurant.owner_id);
         if (!ownerEmail) continue;
 
         const rows = restaurantOrders.map((o) => {

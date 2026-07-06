@@ -6,7 +6,7 @@ import { getErrorDetail, rejectUnlessPost, verifyInternalSecret } from "../../li
 import { buildCancelOrderEmailHtml, formatFromRestaurant } from "../../lib/server/email-templates";
 import { sendMail } from "../../lib/server/mailer";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { supabaseAdmin } from "../../lib/supabase-admin";
+import { getUserEmailById, supabaseAdmin } from "../../lib/supabase-admin";
 
 interface CancelPayload {
     subscriptionId: string;
@@ -37,8 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (!restaurant) return res.status(404).json({ error: "Restaurant not found" });
 
-    const { data: { user } } = await supabaseAdmin.auth.admin.getUserById(restaurant.owner_id);
-    const ownerEmail = user?.email;
+    const ownerEmail = await getUserEmailById(restaurant.owner_id);
     const from = formatFromRestaurant(restaurant.name);
 
     const sends: Promise<unknown>[] = [];
