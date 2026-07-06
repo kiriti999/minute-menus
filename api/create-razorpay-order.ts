@@ -4,7 +4,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { runPostHandler } from "../lib/api/runPostHandler";
+import { runPostHandler } from "../lib/server/api-helpers";
 import { handleCreateOrderRazorpay } from "../lib/api-handlers/payments/create-order-razorpay";
 import { handleCreateSubscriptionRazorpayOrder } from "../lib/api-handlers/payments/create-subscription-razorpay-order";
 

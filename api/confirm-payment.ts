@@ -4,7 +4,7 @@
  */
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { runPostHandler } from "../lib/api/runPostHandler";
+import { runPostHandler } from "../lib/server/api-helpers";
 import { normalizePaymentAction } from "../lib/api/paymentRouteRewrites";
 import { handleConfirmOrder } from "../lib/api-handlers/payments/confirm-order";
 import { handleConfirmPlusPayment } from "../lib/api-handlers/payments/confirm-plus-payment";
