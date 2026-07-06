@@ -2358,20 +2358,22 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         )}
 
         {currentView === "COSTING" && (
-          <CostingView
-            menuItems={menuItems}
-            restaurantId={restaurantDetails?.id ?? null}
-            currency={restaurantDetails?.currency ?? "USD"}
-            isDarkTheme={isDarkTheme}
-            onDishPriceUpdated={(dishId, price) => {
-              setMenuItems((prev) =>
-                prev.map((cat) => ({
-                  ...cat,
-                  items: cat.items.map((d) => (d.id === dishId ? { ...d, price } : d)),
-                })),
-              );
-            }}
-          />
+          <div className={`flex-1 overflow-y-auto animate-in fade-in duration-500 pb-24 ${isDarkTheme ? "bg-black" : "bg-zinc-50"}`}>
+            <CostingView
+              menuItems={menuItems}
+              restaurantId={restaurantDetails?.id ?? null}
+              currency={restaurantDetails?.currency ?? "USD"}
+              isDarkTheme={isDarkTheme}
+              onDishPriceUpdated={(dishId, price) => {
+                setMenuItems((prev) =>
+                  prev.map((cat) => ({
+                    ...cat,
+                    items: cat.items.map((d) => (d.id === dishId ? { ...d, price } : d)),
+                  })),
+                );
+              }}
+            />
+          </div>
         )}
 
         {currentView === "CUSTOMERS" && (() => {
