@@ -1,7 +1,7 @@
 /**
- * PrintDesignsView — Phase 2
- * Adds: wall-board-aware layouts, pocket-card, logo upload, gradient backgrounds,
- * advanced individual colour pickers, format dimension thumbnails, Google Fonts loading.
+ * PrintDesignsView — Phase 3
+ * 10 templates, category filter, typography/effects, pattern+image backgrounds,
+ * custom Google Fonts, logo positioning, social fields.
  */
 import type {
   Category,
@@ -11,6 +11,7 @@ import type {
   PrintDesignType,
   PrintFormat,
   RestaurantBranding,
+  TemplateCategory,
   TemplateStyle,
 } from "@minute-menus/types";
 import html2canvas from "html2canvas";
@@ -38,7 +39,10 @@ import {
   DEFAULT_FORMAT,
   FONT_PAIRINGS,
   FORMATS,
+  GOOGLE_FONT_OPTIONS,
+  googleFontsForCustomization,
   GRADIENT_PRESETS,
+  TEMPLATE_CATEGORIES,
   TEMPLATES,
 } from "../lib/printDesigns";
 import { supabaseService } from "../services/supabaseService";
@@ -92,7 +96,8 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   const [branding, setBranding] = useState<RestaurantBranding>({ name: '', tagline: '', address: '', phone: '', slug: '' });
   const [exporting, setExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState('');
-  const [showAdvancedColors, setShowAdvancedColors] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [templateCategory, setTemplateCategory] = useState<TemplateCategory>('all');
 
   // Load restaurant branding once
   useEffect(() => {
@@ -102,9 +107,9 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     }).catch(() => {});
   }, [restaurantId]);
 
-  // Dynamically load Google Fonts for the selected pairing
+  // Dynamically load Google Fonts for pairing + custom overrides
   useEffect(() => {
-    const families = FONT_PAIRINGS[custom.fontPairing].googleFonts.join('&family=');
+    const families = googleFontsForCustomization(custom).join('&family=');
     const href = `https://fonts.googleapis.com/css2?family=${families}&display=swap`;
     let link = document.getElementById('gf-print-designs') as HTMLLinkElement | null;
     if (!link) {
@@ -114,7 +119,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
       document.head.appendChild(link);
     }
     link.href = href;
-  }, [custom.fontPairing]);
+  }, [custom.fontPairing, custom.customFonts, custom.fonts]);
 
   const fmt = FORMATS[format];
   const siteUrl = branding.slug
@@ -167,6 +172,40 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     reader.readAsDataURL(file);
     e.target.value = '';
   }, [patchCustom]);
+
+  const handleBgImageUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = ev.target?.result;
+      if (typeof result === 'string') {
+        patchCustom('backgroundType', 'image');
+        patchCustom('backgroundImageUrl', result);
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  }, [patchCustom]);
+
+  const patchTypography = useCallback(<K extends keyof DesignCustomization['typography']>(key: K, value: DesignCustomization['typography'][K]) => {
+    setCustom((prev) => ({ ...prev, typography: { ...prev.typography, [key]: value } }));
+  }, []);
+
+  const patchEffects = useCallback(<K extends keyof DesignCustomization['effects']>(key: K, value: DesignCustomization['effects'][K]) => {
+    setCustom((prev) => ({ ...prev, effects: { ...prev.effects, [key]: value } }));
+  }, []);
+
+  const patchCustomFont = useCallback((slot: keyof DesignCustomization['fonts'], font: string) => {
+    setCustom((prev) => {
+      const next = { ...prev.customFonts };
+      if (font === prev.fonts[slot]) delete next[slot];
+      else next[slot] = font;
+      return { ...prev, customFonts: Object.keys(next).length > 0 ? next : undefined };
+    });
+  }, []);
+
+  const filteredTemplates = TEMPLATES.filter((t) => templateCategory === 'all' || t.category === templateCategory);
 
   const exportPdf = useCallback(async () => {
     const el = exportRef.current;
@@ -289,16 +328,32 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
               </div>
             </section>
 
-            {/* Step 3: Template style */}
+            {/* Step 3: Template style with filter + thumbnails */}
             <section className={`border rounded-xl p-5 ${card}`}>
               <h2 className={`text-xs font-bold uppercase tracking-widest mb-3 ${muted}`}>3. Template Style</h2>
-              <div className="grid grid-cols-3 gap-3">
-                {TEMPLATES.map((t) => (
+              <div className="flex flex-wrap gap-2 mb-3">
+                {TEMPLATE_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.key}
+                    onClick={() => setTemplateCategory(cat.key)}
+                    className={`px-3 py-1 rounded-full text-xs border transition-all ${templateCategory === cat.key ? activeTab : inactiveTab} ${isDarkTheme ? 'border-zinc-700' : 'border-zinc-200'}`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {filteredTemplates.map((t) => (
                   <button
                     key={t.key}
                     onClick={() => handleTemplateChange(t.key)}
                     className={`rounded-lg border p-3 text-left transition-all ${templateStyle === t.key ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100' : isDarkTheme ? 'border-zinc-800 hover:border-zinc-600' : 'border-zinc-200 hover:border-zinc-400'}`}
                   >
+                    <div className="flex gap-1 mb-2">
+                      {t.previewColors.map((c) => (
+                        <span key={c} className="w-4 h-4 rounded-sm border border-zinc-300/50" style={{ background: c }} />
+                      ))}
+                    </div>
                     <div className={`text-sm font-semibold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{t.label}</div>
                     <div className={`text-[10px] mt-1 ${muted}`}>{t.description}</div>
                   </button>
@@ -312,12 +367,20 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
               {custom.logoUrl ? (
                 <div className="flex items-center gap-4">
                   <img src={custom.logoUrl} alt="Logo preview" className="h-16 w-auto object-contain rounded border" style={{ borderColor: isDarkTheme ? '#3f3f46' : '#e4e4e7' }} />
-                  <div className="space-y-1">
-                    <p className={`text-xs ${muted}`}>Logo will appear above the restaurant name in the design.</p>
-                    <button
-                      onClick={() => patchCustom('logoUrl', undefined)}
-                      className={`flex items-center gap-1 text-xs text-red-400 hover:text-red-500`}
-                    >
+                  <div className="space-y-2">
+                    <p className={`text-xs ${muted}`}>Logo appears in the design header.</p>
+                    <div className="flex gap-2">
+                      {(['left', 'center', 'right'] as const).map((pos) => (
+                        <button
+                          key={pos}
+                          onClick={() => patchCustom('logoPosition', pos)}
+                          className={`px-2 py-1 rounded text-[10px] border capitalize ${custom.logoPosition === pos ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100' : isDarkTheme ? 'border-zinc-700 text-zinc-400' : 'border-zinc-200 text-zinc-500'}`}
+                        >
+                          {pos}
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={() => patchCustom('logoUrl', undefined)} className="flex items-center gap-1 text-xs text-red-400 hover:text-red-500">
                       <X size={11} /> Remove logo
                     </button>
                   </div>
@@ -359,8 +422,8 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
               {/* Background type */}
               <div className="mb-4">
                 <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Background</p>
-                <div className="flex gap-2 mb-2">
-                  {(['solid', 'gradient'] as const).map((bt) => (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {(['solid', 'gradient', 'pattern', 'image'] as const).map((bt) => (
                     <button
                       key={bt}
                       onClick={() => patchCustom('backgroundType', bt)}
@@ -372,23 +435,45 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                 </div>
                 {custom.backgroundType === 'gradient' && (
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {GRADIENT_PRESETS.map((g) => {
-                      const isActive = custom.backgroundGradient === g.value;
-                      return (
-                        <button
-                          key={g.value}
-                          onClick={() => patchCustom('backgroundGradient', g.value)}
-                          title={g.label}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border transition-all ${isActive ? isDarkTheme ? 'border-white' : 'border-zinc-900' : isDarkTheme ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-200 hover:border-zinc-400'}`}
-                        >
-                          <span
-                            className="w-4 h-3 rounded-sm inline-block flex-shrink-0"
-                            style={{ background: g.value }}
-                          />
-                          <span className={isDarkTheme ? 'text-zinc-300' : 'text-zinc-700'}>{g.label}</span>
-                        </button>
-                      );
-                    })}
+                    {GRADIENT_PRESETS.map((g) => (
+                      <button
+                        key={g.value}
+                        onClick={() => patchCustom('backgroundGradient', g.value)}
+                        title={g.label}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border transition-all ${custom.backgroundGradient === g.value ? isDarkTheme ? 'border-white' : 'border-zinc-900' : isDarkTheme ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-200 hover:border-zinc-400'}`}
+                      >
+                        <span className="w-4 h-3 rounded-sm inline-block" style={{ background: g.value }} />
+                        <span className={isDarkTheme ? 'text-zinc-300' : 'text-zinc-700'}>{g.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {custom.backgroundType === 'pattern' && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {(['dots', 'lines', 'geometric'] as const).map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => patchCustom('backgroundPattern', p)}
+                        className={`px-3 py-1.5 rounded-full text-xs border capitalize transition-all ${custom.backgroundPattern === p ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100' : isDarkTheme ? 'border-zinc-700 text-zinc-400' : 'border-zinc-200 text-zinc-500'}`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {custom.backgroundType === 'image' && (
+                  <div className="mt-2">
+                    {custom.backgroundImageUrl ? (
+                      <div className="flex items-center gap-3">
+                        <img src={custom.backgroundImageUrl} alt="Background" className="h-12 w-20 object-cover rounded border" />
+                        <button onClick={() => patchCustom('backgroundImageUrl', undefined)} className="text-xs text-red-400">Remove</button>
+                      </div>
+                    ) : (
+                      <label className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-xs cursor-pointer ${isDarkTheme ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-300 hover:border-zinc-400'}`}>
+                        <ImageIcon size={14} /> Upload background image
+                        <input type="file" accept="image/*" className="sr-only" onChange={handleBgImageUpload} />
+                      </label>
+                    )}
                   </div>
                 )}
               </div>
@@ -445,28 +530,89 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                 ))}
               </div>
 
-              {/* Advanced colour pickers */}
+              {/* Advanced options */}
               <button
-                onClick={() => setShowAdvancedColors((v) => !v)}
+                onClick={() => setShowAdvanced((v) => !v)}
                 className={`flex items-center gap-2 text-xs font-semibold ${isDarkTheme ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-800'} transition-colors`}
               >
                 <Palette size={13} />
-                Advanced Colours
-                {showAdvancedColors ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                Advanced Options
+                {showAdvanced ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
               </button>
-              {showAdvancedColors && (
-                <div className="grid grid-cols-2 gap-3 mt-3">
-                  {colorLabels.map(({ key, label }) => (
-                    <label key={key} className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={custom.colors[key]}
-                        onChange={(e) => patchColor(key, e.target.value)}
-                        className="w-7 h-7 rounded cursor-pointer border-0 p-0"
-                      />
-                      <span className={`text-xs ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>{label}</span>
-                    </label>
-                  ))}
+              {showAdvanced && (
+                <div className="mt-4 space-y-4">
+                  <div>
+                    <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Individual Colours</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {colorLabels.map(({ key, label }) => (
+                        <label key={key} className="flex items-center gap-2">
+                          <input type="color" value={custom.colors[key]} onChange={(e) => patchColor(key, e.target.value)} className="w-7 h-7 rounded cursor-pointer border-0 p-0" />
+                          <span className={`text-xs ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>{label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Typography</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([
+                        ['headingSize', 'Heading size', ['small', 'medium', 'large']],
+                        ['bodySize', 'Body size', ['small', 'medium', 'large']],
+                        ['headingWeight', 'Heading weight', ['light', 'regular', 'bold']],
+                        ['textTransform', 'Text transform', ['none', 'uppercase', 'capitalize']],
+                      ] as const).map(([key, label, opts]) => (
+                        <div key={key}>
+                          <span className={`text-[10px] block mb-1 ${muted}`}>{label}</span>
+                          <div className="flex gap-1">
+                            {opts.map((o) => (
+                              <button
+                                key={o}
+                                onClick={() => patchTypography(key, o)}
+                                className={`px-2 py-0.5 rounded text-[10px] border capitalize ${custom.typography[key] === o ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100' : isDarkTheme ? 'border-zinc-700 text-zinc-500' : 'border-zinc-200 text-zinc-500'}`}
+                              >
+                                {o}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Custom Fonts (Google)</p>
+                    <div className="space-y-2">
+                      {(['heading', 'body', 'price'] as const).map((slot) => (
+                        <label key={slot} className="flex items-center gap-2">
+                          <span className={`text-[10px] w-14 capitalize ${muted}`}>{slot}</span>
+                          <select
+                            value={custom.customFonts?.[slot] ?? custom.fonts[slot]}
+                            onChange={(e) => patchCustomFont(slot, e.target.value)}
+                            className={`flex-1 px-2 py-1 rounded border text-xs ${inputCls}`}
+                          >
+                            {GOOGLE_FONT_OPTIONS.map((f) => (
+                              <option key={f} value={f}>{f}</option>
+                            ))}
+                          </select>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Border & Effects</p>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {(['none', 'simple', 'decorative'] as const).map((b) => (
+                        <button key={b} onClick={() => patchCustom('borderStyle', b)} className={`px-2 py-1 rounded-full text-[10px] border capitalize ${custom.borderStyle === b ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100' : isDarkTheme ? 'border-zinc-700 text-zinc-500' : 'border-zinc-200 text-zinc-500'}`}>{b}</button>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {(['none', 'small', 'medium', 'large'] as const).map((r) => (
+                        <button key={r} onClick={() => patchEffects('cornerRadius', r)} className={`px-2 py-1 rounded-full text-[10px] border capitalize ${custom.effects.cornerRadius === r ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100' : isDarkTheme ? 'border-zinc-700 text-zinc-500' : 'border-zinc-200 text-zinc-500'}`}>radius {r}</button>
+                      ))}
+                      {(['none', 'soft', 'medium'] as const).map((s) => (
+                        <button key={s} onClick={() => patchEffects('shadow', s)} className={`px-2 py-1 rounded-full text-[10px] border capitalize ${custom.effects.shadow === s ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100' : isDarkTheme ? 'border-zinc-700 text-zinc-500' : 'border-zinc-200 text-zinc-500'}`}>shadow {s}</button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
             </section>
@@ -475,11 +621,11 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
             <section className={`border rounded-xl p-5 ${card}`}>
               <h2 className={`text-xs font-bold uppercase tracking-widest mb-3 ${muted}`}>6. Restaurant Details</h2>
               <div className="space-y-3">
-                {(['name', 'tagline', 'phone', 'address'] as const).map((field) => (
+                {(['name', 'tagline', 'phone', 'address', 'instagram', 'website'] as const).map((field) => (
                   <div key={field}>
                     <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1 ${muted}`}>{field}</label>
                     <input
-                      value={branding[field]}
+                      value={branding[field] ?? ''}
                       onChange={(e) => setBranding((b) => ({ ...b, [field]: e.target.value }))}
                       placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
                       className={`w-full px-3 py-2 rounded-lg border text-sm outline-none ${inputCls}`}

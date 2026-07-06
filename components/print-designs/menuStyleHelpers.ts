@@ -1,0 +1,128 @@
+/**
+ * Pure style builders for MenuTemplate — keeps TSX cyclomatic complexity low.
+ */
+import type { BackgroundPattern, DesignCustomization, DesignFonts } from "@minute-menus/types";
+import { resolveFonts } from "../../lib/printDesigns";
+import {
+  BODY_SIZE_SCALE,
+  CORNER_RADIUS_MAP,
+  HEADING_SIZE_SCALE,
+  HEADING_WEIGHT_MAP,
+  SHADOW_MAP,
+  type TemplateVisualConfig,
+} from "../../lib/templateConfig";
+
+type CSS = Record<string, string | number | undefined>;
+
+export function scaledBodyFs(widthPx: number, customization: DesignCustomization): number {
+  const base = Math.max(9, Math.round(widthPx * 0.014));
+  return Math.round(base * BODY_SIZE_SCALE[customization.typography.bodySize]);
+}
+
+export function scaledDescFs(widthPx: number, customization: DesignCustomization): number {
+  return Math.max(8, Math.round(scaledBodyFs(widthPx, customization) * 0.8));
+}
+
+export function scaledCatFs(widthPx: number, customization: DesignCustomization): number {
+  const base = Math.max(10, Math.round(widthPx * 0.018));
+  return Math.round(base * BODY_SIZE_SCALE[customization.typography.bodySize]);
+}
+
+export function scaledHeadingFs(widthPx: number, customization: DesignCustomization): number {
+  const base = Math.round(widthPx * 0.055);
+  return Math.round(base * HEADING_SIZE_SCALE[customization.typography.headingSize]);
+}
+
+export function headingWeight(customization: DesignCustomization): number {
+  return HEADING_WEIGHT_MAP[customization.typography.headingWeight];
+}
+
+export function effectiveFonts(customization: DesignCustomization): DesignFonts {
+  return resolveFonts(customization);
+}
+
+export function baseBackground(customization: DesignCustomization): string {
+  if (customization.backgroundType === 'gradient' && customization.backgroundGradient) {
+    return customization.backgroundGradient;
+  }
+  if (customization.backgroundType === 'image' && customization.backgroundImageUrl) {
+    return customization.colors.background;
+  }
+  return customization.colors.background;
+}
+
+type CSS = Record<string, string | number | undefined>;
+
+export function patternOverlay(pattern: BackgroundPattern, borderColor: string): CSS {
+  if (pattern === 'dots') {
+    return { backgroundImage: `radial-gradient(${borderColor}44 1px, transparent 1px)`, backgroundSize: '14px 14px' };
+  }
+  if (pattern === 'lines') {
+    return { backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 11px, ${borderColor}22 11px, ${borderColor}22 12px)` };
+  }
+  return {
+    backgroundImage: `linear-gradient(45deg, ${borderColor}18 25%, transparent 25%, transparent 75%, ${borderColor}18 75%)`,
+    backgroundSize: '18px 18px',
+  };
+}
+
+export function outerBorderCss(visual: TemplateVisualConfig, customization: DesignCustomization): string {
+  const { colors } = customization;
+  const style = customization.borderStyle !== 'none' ? customization.borderStyle : visual.outerBorder;
+  if (style === 'double') return `6px double ${colors.accent}`;
+  if (style === 'decorative') return `4px solid ${colors.accent}`;
+  if (style === 'dashed' || visual.outerBorder === 'dashed') return `3px dashed ${colors.secondary}`;
+  if (style === 'simple' || visual.outerBorder === 'simple') return `2px solid ${colors.border}`;
+  return 'none';
+}
+
+export function containerRadius(customization: DesignCustomization): number {
+  return CORNER_RADIUS_MAP[customization.effects.cornerRadius];
+}
+
+export function containerShadow(customization: DesignCustomization): string {
+  return SHADOW_MAP[customization.effects.shadow];
+}
+
+export function textTransformCss(customization: DesignCustomization): 'none' | 'uppercase' | 'capitalize' {
+  return customization.typography.textTransform;
+}
+
+export function logoAlign(position: DesignCustomization['logoPosition']): 'flex-start' | 'center' | 'flex-end' {
+  if (position === 'center') return 'center';
+  if (position === 'right') return 'flex-end';
+  return 'flex-start';
+}
+
+
+export function categoryHeadingStyle(
+  variant: TemplateVisualConfig['category'],
+  customization: DesignCustomization,
+  catFs: number,
+  fonts: DesignFonts,
+): CSS {
+  const { colors } = customization;
+  const base: CSS = {
+    fontFamily: fonts.heading,
+    fontSize: catFs,
+    fontWeight: 700,
+    marginBottom: Math.round(catFs * 0.5),
+    letterSpacing: '0.04em',
+  };
+  if (variant === 'filled-banner') {
+    return { ...base, color: colors.background, backgroundColor: colors.primary, padding: `${Math.round(catFs * 0.3)}px ${Math.round(catFs * 0.75)}px` };
+  }
+  if (variant === 'pill') {
+    return { ...base, color: colors.background, backgroundColor: colors.primary, borderRadius: 999, padding: '3px 12px', display: 'inline-block' };
+  }
+  if (variant === 'left-accent') {
+    return { ...base, color: colors.primary, borderLeft: `3px solid ${colors.accent}`, padding: '2px 0 2px 8px' };
+  }
+  if (variant === 'dashed-rustic') {
+    return { ...base, color: colors.primary, borderBottom: `2px dashed ${colors.secondary}`, paddingBottom: 4 };
+  }
+  if (variant === 'gold-rule') {
+    return { ...base, color: colors.primary, borderBottom: `1px solid ${colors.accent}`, paddingBottom: 4 };
+  }
+  return { ...base, color: colors.primary, borderBottom: `1px solid ${colors.border}`, textTransform: 'uppercase', letterSpacing: '0.12em' };
+}

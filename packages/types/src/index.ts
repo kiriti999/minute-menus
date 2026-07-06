@@ -386,14 +386,34 @@ export type PrintFormat =
 export type TemplateStyle =
   | 'modern-minimal'
   | 'classic-elegant'
-  | 'bold-colorful';
+  | 'bold-colorful'
+  | 'rustic-vintage'
+  | 'luxury-premium'
+  | 'street-food-vibes'
+  | 'cafe-cozy'
+  | 'fine-dining-minimal'
+  | 'fast-food-pop'
+  | 'ethnic-traditional';
+
+export type TemplateCategory = 'all' | 'modern' | 'classic' | 'casual' | 'premium' | 'indian';
 
 export type ColorSchemeKey =
   | 'classic-black' | 'warm-sunset' | 'ocean-blue'
-  | 'indian-saffron' | 'luxury-gold';
+  | 'indian-saffron' | 'luxury-gold'
+  | 'forest-green' | 'royal-purple' | 'spice-red'
+  | 'minimalist-gray' | 'vintage-brown' | 'cafe-latte'
+  | 'fresh-mint' | 'berry-blast' | 'sunset-orange'
+  | 'deep-navy' | 'earthy-olive' | 'cherry-red'
+  | 'slate-modern' | 'peach-cream' | 'teal-calm';
 
 export type FontPairingKey =
-  | 'modern-clean' | 'classic-serif' | 'bold-impact';
+  | 'modern-clean' | 'classic-serif' | 'bold-impact'
+  | 'rustic-hand' | 'luxury-display' | 'street-playful'
+  | 'cafe-script' | 'fine-dining' | 'fast-condensed'
+  | 'ethnic-hindi' | 'editorial' | 'minimal-sans'
+  | 'warm-serif' | 'pop-display' | 'heritage';
+
+export type BackgroundPattern = 'dots' | 'lines' | 'geometric';
 
 export interface DesignColors {
   primary: string;
@@ -403,6 +423,18 @@ export interface DesignColors {
   textMuted: string;
   accent: string;
   border: string;
+}
+
+export interface DesignTypography {
+  headingSize: 'small' | 'medium' | 'large';
+  bodySize: 'small' | 'medium' | 'large';
+  headingWeight: 'light' | 'regular' | 'bold';
+  textTransform: 'none' | 'uppercase' | 'capitalize';
+}
+
+export interface DesignEffects {
+  cornerRadius: 'none' | 'small' | 'medium' | 'large';
+  shadow: 'none' | 'soft' | 'medium';
 }
 
 export interface DesignFonts {
@@ -416,6 +448,10 @@ export interface DesignCustomization {
   fontPairing: FontPairingKey;
   colors: DesignColors;
   fonts: DesignFonts;
+  /** Optional per-element font overrides (Google Fonts family names). */
+  customFonts?: Partial<DesignFonts>;
+  typography: DesignTypography;
+  effects: DesignEffects;
   layout: {
     columns: 1 | 2;
     spacing: 'compact' | 'normal' | 'spacious';
@@ -428,10 +464,12 @@ export interface DesignCustomization {
   showQR: boolean;
   showTagline: boolean;
   borderStyle: 'none' | 'simple' | 'decorative';
-  // Phase 2 additions
-  backgroundType: 'solid' | 'gradient';
-  backgroundGradient?: string; // CSS gradient e.g. 'linear-gradient(135deg,#FF6B35,#C0392B)'
-  logoUrl?: string;             // data URL of uploaded logo image
+  backgroundType: 'solid' | 'gradient' | 'pattern' | 'image';
+  backgroundGradient?: string;
+  backgroundPattern?: BackgroundPattern;
+  backgroundImageUrl?: string;
+  logoUrl?: string;
+  logoPosition: 'left' | 'center' | 'right';
 }
 
 export interface RestaurantBranding {
@@ -440,6 +478,8 @@ export interface RestaurantBranding {
   address: string;
   phone: string;
   slug: string;
+  instagram?: string;
+  website?: string;
 }
 
 export interface CustomerAddress {
