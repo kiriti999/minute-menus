@@ -1,7 +1,7 @@
 import { createLogger } from "../../server/logger";
 import { safeVerifyRazorpaySignature } from "../../server/payments";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { supabaseAdmin } from "../../supabase-admin";
+import { requireSupabaseAdmin } from "../../supabase-admin";
 
 const log = createLogger("payments/confirm-subscription");
 
@@ -50,7 +50,7 @@ export const handleConfirmSubscription = async (req: VercelRequest, res: VercelR
     end.setDate(end.getDate() + 30);
     const endDate = end.toISOString().slice(0, 10);
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await requireSupabaseAdmin()
         .from("customer_subscriptions")
         .insert({
             restaurant_id: restaurantId,

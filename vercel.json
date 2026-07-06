@@ -1,5 +1,8 @@
 {
   "functions": {
+    "api/**/*.ts": {
+      "includeFiles": "lib/**"
+    },
     "api/image/enhance.ts": {
       "maxDuration": 120,
       "memory": 1024

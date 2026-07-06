@@ -15,7 +15,7 @@
 
 import { createLogger } from "../../lib/server/logger";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { supabaseAdmin } from "../../lib/supabase-admin";
+import { requireSupabaseAdmin } from "../../lib/supabase-admin";
 
 const log = createLogger("auto-deliver");
 
@@ -33,7 +33,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const today = new Date().toISOString().slice(0, 10);
 
     // Find all active subscriptions with this time_slot, then mark their pending orders
-    const { data: subscriptions } = await supabaseAdmin
+    const admin = requireSupabaseAdmin();
+    const { data: subscriptions } = await admin
         .from("customer_subscriptions")
         .select("id")
         .eq("time_slot", validSlot)
@@ -45,7 +46,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const subIds = subscriptions.map((s) => s.id);
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await admin
         .from("subscription_daily_orders")
         .update({ status: "delivered", updated_at: new Date().toISOString() })
         .eq("delivery_date", today)

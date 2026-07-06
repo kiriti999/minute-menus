@@ -11,7 +11,7 @@
 import { createLogger } from "../lib/server/logger";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { ensureDishMediaStorage } from "../lib/ensure-dish-media-storage";
-import { supabaseAdmin } from "../lib/supabase-admin";
+import { getSupabaseAdmin } from "../lib/supabase-admin";
 
 const log = createLogger("keepalive");
 
@@ -22,7 +22,13 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
         log.error("storage ensure failed", { message: error instanceof Error ? error.message : String(error) });
     }
 
-    const { error } = await supabaseAdmin.from("restaurants").select("id").limit(1);
+    const admin = getSupabaseAdmin();
+    if (!admin) {
+        log.error("keepalive failed", { message: "missing Supabase env" });
+        return res.status(500).json({ ok: false, error: "Server is not configured" });
+    }
+
+    const { error } = await admin.from("restaurants").select("id").limit(1);
 
     if (error) {
         log.error("keepalive failed", { message: error.message });

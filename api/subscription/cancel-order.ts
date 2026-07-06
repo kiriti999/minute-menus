@@ -6,7 +6,7 @@ import { getErrorDetail, rejectUnlessPost, verifyInternalSecret } from "../../li
 import { buildCancelOrderEmailHtml, formatFromRestaurant } from "../../lib/server/email-templates";
 import { sendMail } from "../../lib/server/mailer";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getUserEmailById, supabaseAdmin } from "../../lib/supabase-admin";
+import { getUserEmailById, requireSupabaseAdmin } from "../../lib/supabase-admin";
 
 interface CancelPayload {
     subscriptionId: string;
@@ -29,7 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const { data: restaurant } = await supabaseAdmin
+    const { data: restaurant } = await requireSupabaseAdmin()
         .from("restaurants")
         .select("name, owner_id")
         .eq("id", restaurantId)

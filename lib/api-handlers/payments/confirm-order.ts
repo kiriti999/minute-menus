@@ -2,7 +2,7 @@ import { createLogger } from "../../server/logger";
 import { safeVerifyRazorpaySignature } from "../../server/payments";
 import type { Json } from "../../server/database.types";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { supabaseAdmin } from "../../supabase-admin";
+import { requireSupabaseAdmin } from "../../supabase-admin";
 
 const log = createLogger("payments/confirm-order");
 
@@ -38,7 +38,8 @@ export const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse
     }
 
     const totalAmount = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-    const { data: order, error: insertError } = await supabaseAdmin
+    const admin = requireSupabaseAdmin();
+    const { data: order, error: insertError } = await admin
         .from("orders")
         .insert({
             restaurant_id: restaurantId,
@@ -60,7 +61,7 @@ export const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse
     const today = new Date().toISOString().slice(0, 10);
     await Promise.allSettled(
         items.map((item) =>
-            supabaseAdmin.rpc("increment_dish_stock", {
+            admin.rpc("increment_dish_stock", {
                 p_dish_id: item.dishId,
                 p_restaurant_id: restaurantId,
                 p_sold_date: today,

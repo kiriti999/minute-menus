@@ -1,7 +1,7 @@
 import { createLogger } from "../../server/logger";
 import { safeVerifyRazorpaySignature } from "../../server/payments";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { supabaseAdmin } from "../../supabase-admin";
+import { requireSupabaseAdmin } from "../../supabase-admin";
 
 const log = createLogger("payments/confirm-plus-payment");
 
@@ -39,7 +39,7 @@ export const handleConfirmPlusPayment = async (req: VercelRequest, res: VercelRe
     const periodEnd = new Date();
     periodEnd.setDate(periodEnd.getDate() + periodDays);
 
-    const { error } = await supabaseAdmin
+    const { error } = await requireSupabaseAdmin()
         .from("subscriptions")
         .upsert(
             {

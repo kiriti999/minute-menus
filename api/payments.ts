@@ -1,45 +1,51 @@
 /**
  * Consolidated Razorpay payment API (Vercel Hobby plan: max 12 serverless functions).
  *
- * This is a single static function route. The specific operation is selected via
- * the `action` query param (e.g. POST /api/payments?action=create-order).
- *
- * NOTE: We deliberately do NOT use a catch-all route file (`[...action].ts` /
- * `[[...action]].ts`) — those only work in Next.js, not in a plain Vite + Vercel
- * Functions project, where nested paths silently fall through to the SPA (405).
+ * Single static function route — operation selected via ?action= query param.
+ * Handlers are loaded dynamically so create-order does not pull in Supabase at import time.
  */
 
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { rejectUnlessPost } from "../lib/server/api-helpers";
+import { getErrorDetail, rejectUnlessPost } from "../lib/server/api-helpers";
 import { normalizePaymentAction } from "../lib/api/paymentRouteRewrites";
-import { handleConfirmOrder } from "../lib/api-handlers/payments/confirm-order";
-import { handleConfirmPlusPayment } from "../lib/api-handlers/payments/confirm-plus-payment";
-import { handleConfirmSubscription } from "../lib/api-handlers/payments/confirm-subscription";
-import { handleCreateOrderRazorpay } from "../lib/api-handlers/payments/create-order-razorpay";
-import { handleCreatePlusOrder } from "../lib/api-handlers/payments/create-plus-order";
-import { handleCreateSubscriptionRazorpayOrder } from "../lib/api-handlers/payments/create-subscription-razorpay-order";
-import { handleVerifyRazorpayPayment } from "../lib/api-handlers/payments/verify-razorpay-payment";
 
 type PaymentHandler = (req: VercelRequest, res: VercelResponse) => Promise<unknown>;
 
-const ROUTES: Record<string, PaymentHandler> = {
-    "create-order": handleCreateOrderRazorpay,
-    "confirm-order": handleConfirmOrder,
-    "verify-payment": handleVerifyRazorpayPayment,
-    "create-subscription-order": handleCreateSubscriptionRazorpayOrder,
-    "confirm-subscription": handleConfirmSubscription,
-    "create-plus-order": handleCreatePlusOrder,
-    "confirm-plus-payment": handleConfirmPlusPayment,
+const loadHandler = async (action: string): Promise<PaymentHandler | null> => {
+    switch (action) {
+        case "create-order":
+            return (await import("../lib/api-handlers/payments/create-order-razorpay")).handleCreateOrderRazorpay;
+        case "confirm-order":
+            return (await import("../lib/api-handlers/payments/confirm-order")).handleConfirmOrder;
+        case "verify-payment":
+            return (await import("../lib/api-handlers/payments/verify-razorpay-payment")).handleVerifyRazorpayPayment;
+        case "create-subscription-order":
+            return (await import("../lib/api-handlers/payments/create-subscription-razorpay-order")).handleCreateSubscriptionRazorpayOrder;
+        case "confirm-subscription":
+            return (await import("../lib/api-handlers/payments/confirm-subscription")).handleConfirmSubscription;
+        case "create-plus-order":
+            return (await import("../lib/api-handlers/payments/create-plus-order")).handleCreatePlusOrder;
+        case "confirm-plus-payment":
+            return (await import("../lib/api-handlers/payments/confirm-plus-payment")).handleConfirmPlusPayment;
+        default:
+            return null;
+    }
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-    if (rejectUnlessPost(req, res)) return;
+    try {
+        if (rejectUnlessPost(req, res)) return;
 
-    const action = normalizePaymentAction(req.query.action as string | string[] | undefined);
-    const routeHandler = ROUTES[action];
-    if (!routeHandler) {
-        return res.status(404).json({ error: `Unknown payment action: ${action || "(none)"}` });
+        const action = normalizePaymentAction(req.query.action as string | string[] | undefined);
+        const routeHandler = await loadHandler(action);
+        if (!routeHandler) {
+            return res.status(404).json({ error: `Unknown payment action: ${action || "(none)"}` });
+        }
+
+        await routeHandler(req, res);
+    } catch (error) {
+        const message = getErrorDetail(error);
+        console.error("[payments] unhandled error", message);
+        return res.status(500).json({ error: "Payment handler failed", detail: message });
     }
-
-    await routeHandler(req, res);
 }
