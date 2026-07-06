@@ -1,17 +1,11 @@
-/**
- * Vercel Serverless Function: POST /api/order/create-razorpay-order
- */
-
-import { getErrorDetail, rejectUnlessPost } from "@minute-menus/api-helpers";
-import { createLogger } from "@minute-menus/logger";
-import { createRazorpayOrder } from "@minute-menus/payments";
+import { getErrorDetail } from "../../server/api-helpers";
+import { createLogger } from "../../server/logger";
+import { createRazorpayOrder } from "../../server/payments";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-const log = createLogger("order/create-razorpay-order");
+const log = createLogger("payments/create-order-razorpay");
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-    if (rejectUnlessPost(req, res)) return;
-
+export const handleCreateOrderRazorpay = async (req: VercelRequest, res: VercelResponse) => {
     const { amount, currency = "INR", restaurantId, customerName } = req.body as {
         amount?: number;
         currency?: string;
@@ -37,4 +31,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const status = msg === "Razorpay not configured" ? 500 : 502;
         return res.status(status).json({ error: "Failed to create payment order", detail: msg });
     }
-}
+};

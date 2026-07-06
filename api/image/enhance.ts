@@ -3,8 +3,8 @@
  * Owner-authenticated AI food photo enhancement via Gemini.
  */
 
-import { getErrorDetail, rejectUnlessPost } from "@minute-menus/api-helpers";
-import { createLogger } from "@minute-menus/logger";
+import { getErrorDetail, rejectUnlessPost } from "../../lib/server/api-helpers";
+import { createLogger } from "../../lib/server/logger";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
 import { enhanceFoodPhoto, parseDataUrl } from "../../lib/imageEditor/enhanceFoodPhoto";

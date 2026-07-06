@@ -3,7 +3,7 @@
  * Uses SUPABASE_SERVICE_ROLE_KEY which bypasses RLS — never expose client-side.
  */
 import { createClient } from "@supabase/supabase-js";
-import type { Database } from "@minute-menus/types/db";
+import type { Database } from "./server/database.types";
 
 const url = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL ?? "";
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";

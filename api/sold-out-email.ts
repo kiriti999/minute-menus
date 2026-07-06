@@ -7,10 +7,10 @@ import {
     parseSoldOutPayload,
     rejectUnlessPost,
     soldOutEmailSubject,
-} from "@minute-menus/api-helpers";
-import { buildSoldOutEmailHtml } from "@minute-menus/email-templates";
-import { createLogger } from "@minute-menus/logger";
-import { sendMail } from "@minute-menus/mailer";
+} from "../lib/server/api-helpers";
+import { buildSoldOutEmailHtml } from "../lib/server/email-templates";
+import { createLogger } from "../lib/server/logger";
+import { sendMail } from "../lib/server/mailer";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 const log = createLogger("sold-out-email");

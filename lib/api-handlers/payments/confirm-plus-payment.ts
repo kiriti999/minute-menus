@@ -1,26 +1,15 @@
-/**
- * Vercel Serverless Function: POST /api/subscription/confirm-plus-payment
- *
- * Verifies a Razorpay checkout signature and upgrades the restaurant to the
- * Plus tier server-side (admin client) — an owner can never set their own
- * tier to "plus" directly (see subscriptions RLS in supabase/schema.sql).
- */
-
-import { rejectUnlessPost } from "@minute-menus/api-helpers";
-import { createLogger } from "@minute-menus/logger";
-import { safeVerifyRazorpaySignature } from "@minute-menus/payments";
+import { createLogger } from "../../server/logger";
+import { safeVerifyRazorpaySignature } from "../../server/payments";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { supabaseAdmin } from "../../lib/supabase-admin";
+import { supabaseAdmin } from "../../supabase-admin";
 
-const log = createLogger("subscription/confirm-plus-payment");
+const log = createLogger("payments/confirm-plus-payment");
 
 type PlusPlanId = "annual" | "monthly";
 
 const PLAN_PERIOD_DAYS: Record<PlusPlanId, number> = { annual: 365, monthly: 30 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-    if (rejectUnlessPost(req, res)) return;
-
+export const handleConfirmPlusPayment = async (req: VercelRequest, res: VercelResponse) => {
     const {
         razorpay_order_id, razorpay_payment_id, razorpay_signature, restaurantId, plan,
     } = req.body as {
@@ -69,4 +58,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     return res.status(200).json({ success: true });
-}
+};

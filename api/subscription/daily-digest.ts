@@ -2,9 +2,9 @@
  * Vercel Serverless Function: GET /api/subscription/daily-digest
  */
 
-import { buildDailyDigestEmailHtml, formatFromRestaurant, TIME_SLOT_LABELS } from "@minute-menus/email-templates";
-import { createLogger } from "@minute-menus/logger";
-import { sendMail } from "@minute-menus/mailer";
+import { buildDailyDigestEmailHtml, formatFromRestaurant, TIME_SLOT_LABELS } from "../../lib/server/email-templates";
+import { createLogger } from "../../lib/server/logger";
+import { sendMail } from "../../lib/server/mailer";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { supabaseAdmin } from "../../lib/supabase-admin";
 

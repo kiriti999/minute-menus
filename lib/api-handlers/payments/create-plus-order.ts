@@ -1,28 +1,18 @@
-/**
- * Vercel Serverless Function: POST /api/subscription/create-plus-order
- *
- * Creates a Razorpay order for an owner's Plus tier upgrade. Pricing is
- * looked up server-side by plan id — the client only chooses which plan,
- * never the amount.
- */
-
-import { getErrorDetail, rejectUnlessPost } from "@minute-menus/api-helpers";
-import { createLogger } from "@minute-menus/logger";
-import { createRazorpayOrder } from "@minute-menus/payments";
+import { getErrorDetail } from "../../server/api-helpers";
+import { createLogger } from "../../server/logger";
+import { createRazorpayOrder } from "../../server/payments";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-const log = createLogger("subscription/create-plus-order");
+const log = createLogger("payments/create-plus-order");
 
 export type PlusPlanId = "annual" | "monthly";
 
-export const PLUS_PLAN_PRICING: Record<PlusPlanId, { amount: number; label: string }> = {
+const PLUS_PLAN_PRICING: Record<PlusPlanId, { amount: number; label: string }> = {
     annual: { amount: 120, label: "Plus — Annual Plan" },
     monthly: { amount: 12, label: "Plus — Monthly Plan" },
 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-    if (rejectUnlessPost(req, res)) return;
-
+export const handleCreatePlusOrder = async (req: VercelRequest, res: VercelResponse) => {
     const { plan, restaurantId, currency = "USD" } = req.body as {
         plan?: PlusPlanId;
         restaurantId?: string;
@@ -48,4 +38,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const status = msg === "Razorpay not configured" ? 500 : 502;
         return res.status(status).json({ error: "Failed to create payment order", detail: msg });
     }
-}
+};

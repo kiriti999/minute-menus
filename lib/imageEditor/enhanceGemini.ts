@@ -1,4 +1,4 @@
-import { createLogger } from "@minute-menus/logger";
+import { createLogger } from "../server/logger";
 import { getPhotographyStyle, type PhotographyStyleId } from "./styles";
 
 const log = createLogger("image-enhance-gemini");

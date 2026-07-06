@@ -2,9 +2,9 @@
  * Vercel Serverless Function: POST /api/subscription/cancel-order
  */
 
-import { getErrorDetail, rejectUnlessPost, verifyInternalSecret } from "@minute-menus/api-helpers";
-import { buildCancelOrderEmailHtml, formatFromRestaurant } from "@minute-menus/email-templates";
-import { sendMail } from "@minute-menus/mailer";
+import { getErrorDetail, rejectUnlessPost, verifyInternalSecret } from "../../lib/server/api-helpers";
+import { buildCancelOrderEmailHtml, formatFromRestaurant } from "../../lib/server/email-templates";
+import { sendMail } from "../../lib/server/mailer";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { supabaseAdmin } from "../../lib/supabase-admin";
 

@@ -1,4 +1,4 @@
-import { createLogger } from "@minute-menus/logger";
+import { createLogger } from "../../logger/src/index";
 import nodemailer from "nodemailer";
 
 const log = createLogger("mailer");

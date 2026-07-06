@@ -1,19 +1,10 @@
-/**
- * Vercel Serverless Function: POST /api/order/confirm-order
- *
- * Verifies a Razorpay checkout signature and records the order server-side
- * (admin client) in one step, so a client can never insert an "order" without
- * a payment that actually verifies.
- */
-
-import { rejectUnlessPost } from "@minute-menus/api-helpers";
-import { createLogger } from "@minute-menus/logger";
-import { safeVerifyRazorpaySignature } from "@minute-menus/payments";
-import type { Json } from "@minute-menus/types/db";
+import { createLogger } from "../../server/logger";
+import { safeVerifyRazorpaySignature } from "../../server/payments";
+import type { Json } from "../../server/database.types";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { supabaseAdmin } from "../../lib/supabase-admin";
+import { supabaseAdmin } from "../../supabase-admin";
 
-const log = createLogger("order/confirm-order");
+const log = createLogger("payments/confirm-order");
 
 type OrderItemInput = { dishId: string; quantity: number; name: string; price: number };
 
@@ -26,9 +17,7 @@ type Body = {
     timeToOrder?: number;
 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-    if (rejectUnlessPost(req, res)) return;
-
+export const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse) => {
     const {
         razorpay_order_id, razorpay_payment_id, razorpay_signature, restaurantId, items, timeToOrder,
     } = req.body as Body;
@@ -81,4 +70,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     );
 
     return res.status(200).json({ success: true, orderId: order.id });
-}
+};

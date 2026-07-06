@@ -1,4 +1,4 @@
-import { createLogger } from "@minute-menus/logger";
+import { createLogger } from "../server/logger";
 import { enhanceWithReplicate } from "./enhanceReplicate";
 import { enhanceWithGemini, type EnhanceFoodPhotoInput } from "./enhanceGemini";
 

@@ -13,7 +13,7 @@
  *   VITE_SUPABASE_URL / SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  */
 
-import { createLogger } from "@minute-menus/logger";
+import { createLogger } from "../../lib/server/logger";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { supabaseAdmin } from "../../lib/supabase-admin";
 

@@ -5,8 +5,8 @@
  * Fallback path — primary uploads go direct from the browser to Storage.
  */
 
-import { rejectUnlessPost } from "@minute-menus/api-helpers";
-import { createLogger } from "@minute-menus/logger";
+import { rejectUnlessPost } from "../../lib/server/api-helpers";
+import { createLogger } from "../../lib/server/logger";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
 import { putDishMediaFromDataUrlServer } from "../../lib/put-dish-media-server";

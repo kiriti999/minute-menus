@@ -2,6 +2,10 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
 import { loadEnv } from "vite";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import {
+  PAYMENTS_CATCH_ALL_HANDLER,
+  paymentActionFromPath,
+} from "./lib/api/paymentRouteRewrites";
 
 const readBody = (req: IncomingMessage): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -39,7 +43,11 @@ const createVercelResponse = (res: ServerResponse): VercelResponse => {
   return api;
 };
 
-const createVercelRequest = async (req: IncomingMessage, url: URL): Promise<VercelRequest> => {
+const createVercelRequest = async (
+  req: IncomingMessage,
+  url: URL,
+  paymentAction?: string,
+): Promise<VercelRequest> => {
   const rawBody = req.method === "POST" || req.method === "PUT" ? await readBody(req) : "";
   let body: unknown = rawBody;
   if (rawBody && req.headers["content-type"]?.includes("application/json")) {
@@ -50,20 +58,31 @@ const createVercelRequest = async (req: IncomingMessage, url: URL): Promise<Verc
     }
   }
 
+  const query = Object.fromEntries(url.searchParams.entries());
+  if (paymentAction) {
+    query.action = paymentAction;
+  }
+
   return {
     method: req.method,
     headers: req.headers as VercelRequest["headers"],
     body,
-    query: Object.fromEntries(url.searchParams.entries()),
+    query,
     url: req.url,
   } as VercelRequest;
 };
 
-const handlerPathForUrl = (pathname: string): string | null => {
+const handlerPathForUrl = (pathname: string): { handlerPath: string; action?: string } | null => {
   if (!pathname.startsWith("/api/")) return null;
+
+  const paymentAction = paymentActionFromPath(pathname);
+  if (paymentAction) {
+    return { handlerPath: PAYMENTS_CATCH_ALL_HANDLER, action: paymentAction };
+  }
+
   const relative = pathname.slice("/api/".length);
   if (!relative || relative.includes("..")) return null;
-  return `./api/${relative}.ts`;
+  return { handlerPath: `./api/${relative}.ts` };
 };
 
 /** Runs Vercel `/api/*` handlers during `pnpm dev` (Vite does not serve them by default). */
@@ -75,11 +94,11 @@ export const vercelApiDevPlugin = (): Plugin => ({
 
     server.middlewares.use(async (req, res, next) => {
       const url = new URL(req.url ?? "/", "http://localhost");
-      const handlerPath = handlerPathForUrl(url.pathname);
-      if (!handlerPath) return next();
+      const resolved = handlerPathForUrl(url.pathname);
+      if (!resolved) return next();
 
       try {
-        const mod = (await server.ssrLoadModule(handlerPath)) as {
+        const mod = (await server.ssrLoadModule(resolved.handlerPath)) as {
           default?: (req: VercelRequest, res: VercelResponse) => Promise<void>;
         };
         const handler = mod.default;
@@ -90,7 +109,7 @@ export const vercelApiDevPlugin = (): Plugin => ({
           return;
         }
 
-        const vercelReq = await createVercelRequest(req, url);
+        const vercelReq = await createVercelRequest(req, url, resolved.action);
         await handler(vercelReq, createVercelResponse(res));
       } catch (error) {
         if (!res.writableEnded) {

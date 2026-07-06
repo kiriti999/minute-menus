@@ -1,20 +1,10 @@
-/**
- * Vercel Serverless Function: POST /api/payment/verify-razorpay-payment
- *
- * Verifies a Razorpay checkout signature server-side. Used by both the customer
- * cart order and meal-plan subscription flows before persisting anything.
- */
-
-import { rejectUnlessPost } from "@minute-menus/api-helpers";
-import { createLogger } from "@minute-menus/logger";
-import { safeVerifyRazorpaySignature } from "@minute-menus/payments";
+import { createLogger } from "../../server/logger";
+import { safeVerifyRazorpaySignature } from "../../server/payments";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-const log = createLogger("payment/verify-razorpay-payment");
+const log = createLogger("payments/verify-razorpay-payment");
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-    if (rejectUnlessPost(req, res)) return;
-
+export const handleVerifyRazorpayPayment = async (req: VercelRequest, res: VercelResponse) => {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body as {
         razorpay_order_id?: string;
         razorpay_payment_id?: string;
@@ -39,4 +29,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(outcome.status).json({ verified: false, error: outcome.error });
     }
     return res.status(200).json({ verified: true });
-}
+};

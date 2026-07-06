@@ -1,18 +1,9 @@
-/**
- * Vercel Serverless Function: POST /api/subscription/confirm-subscription
- *
- * Verifies a Razorpay checkout signature and creates the customer subscription
- * server-side (admin client) in one step, so a client can never insert a
- * subscription row without a payment that actually verifies.
- */
-
-import { rejectUnlessPost } from "@minute-menus/api-helpers";
-import { createLogger } from "@minute-menus/logger";
-import { safeVerifyRazorpaySignature } from "@minute-menus/payments";
+import { createLogger } from "../../server/logger";
+import { safeVerifyRazorpaySignature } from "../../server/payments";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { supabaseAdmin } from "../../lib/supabase-admin";
+import { supabaseAdmin } from "../../supabase-admin";
 
-const log = createLogger("subscription/confirm-subscription");
+const log = createLogger("payments/confirm-subscription");
 
 type Body = {
     razorpay_order_id?: string;
@@ -29,9 +20,7 @@ type Body = {
     rotationDishIds?: string[];
 };
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-    if (rejectUnlessPost(req, res)) return;
-
+export const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse) => {
     const {
         razorpay_order_id, razorpay_payment_id, razorpay_signature,
         restaurantId, planId, customerName, phone, email,
@@ -87,4 +76,4 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     return res.status(200).json({ success: true, subscriptionId: data.id });
-}
+};

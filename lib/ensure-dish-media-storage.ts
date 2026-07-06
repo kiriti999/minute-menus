@@ -1,4 +1,4 @@
-import { createLogger } from "@minute-menus/logger";
+import { createLogger } from "./server/logger";
 import { supabaseAdmin } from "./supabase-admin";
 
 const log = createLogger("storage");
