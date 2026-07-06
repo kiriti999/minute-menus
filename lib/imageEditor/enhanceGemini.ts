@@ -15,10 +15,12 @@ export type GeminiEnhanceResult = {
   summary?: string;
 };
 
+type GeminiInline = { mimeType?: string; mime_type?: string; data?: string };
+
 type GeminiPart = {
   text?: string;
-  inlineData?: { mimeType?: string; data?: string };
-  inline_data?: { mime_type?: string; data?: string };
+  inlineData?: GeminiInline;
+  inline_data?: GeminiInline;
 };
 
 type GeminiResponse = {
@@ -33,7 +35,7 @@ const DEFAULT_MODEL = "gemini-2.5-flash-image";
 const parseInlineImage = (part: GeminiPart): { mimeType: string; base64: string } | null => {
   const inline = part.inlineData ?? part.inline_data;
   if (!inline) return null;
-  const mimeType = ("mimeType" in inline ? inline.mimeType : inline.mime_type) ?? "image/png";
+  const mimeType = inline.mimeType ?? inline.mime_type ?? "image/png";
   const base64 = inline.data;
   if (!base64) return null;
   return { mimeType, base64 };

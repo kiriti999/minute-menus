@@ -8,7 +8,11 @@ import { createLogger } from "@minute-menus/logger";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
 import { enhanceFoodPhoto, parseDataUrl } from "../../lib/imageEditor/enhanceFoodPhoto";
-import { isPhotographyStyleId, toGeminiAspectRatio } from "../../lib/imageEditor/styles";
+import {
+  isPhotographyStyleId,
+  toGeminiAspectRatio,
+  type PhotographyStyleId,
+} from "../../lib/imageEditor/styles";
 
 const log = createLogger("image/enhance");
 
@@ -16,9 +20,9 @@ const log = createLogger("image/enhance");
 export const maxDuration = 120;
 
 type EnhancePayload = {
-  restaurantId?: string;
-  imageDataUrl?: string;
-  styleId?: string;
+  restaurantId: string;
+  imageDataUrl: string;
+  styleId: PhotographyStyleId;
   outputWidth?: number;
   outputHeight?: number;
 };
@@ -29,13 +33,27 @@ const getBearerToken = (req: VercelRequest): string | null => {
   return header.slice("Bearer ".length).trim() || null;
 };
 
+type RawEnhancePayload = {
+  restaurantId?: string;
+  imageDataUrl?: string;
+  styleId?: string;
+  outputWidth?: number;
+  outputHeight?: number;
+};
+
 const parsePayload = (body: unknown): EnhancePayload | null => {
   if (!body || typeof body !== "object") return null;
-  const payload = body as EnhancePayload;
+  const payload = body as RawEnhancePayload;
   if (!payload.restaurantId || !payload.imageDataUrl || !payload.styleId) return null;
   if (!payload.imageDataUrl.startsWith("data:image/")) return null;
   if (!isPhotographyStyleId(payload.styleId)) return null;
-  return payload;
+  return {
+    restaurantId: payload.restaurantId,
+    imageDataUrl: payload.imageDataUrl,
+    styleId: payload.styleId,
+    outputWidth: payload.outputWidth,
+    outputHeight: payload.outputHeight,
+  };
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -72,7 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: restaurant, error: restaurantErr } = await admin
       .from("restaurants")
       .select("id")
-      .eq("id", payload.restaurantId!)
+      .eq("id", payload.restaurantId)
       .eq("owner_id", authData.user.id)
       .maybeSingle();
 
@@ -80,7 +98,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(403).json({ error: "Not allowed to enhance images for this restaurant" });
     }
 
-    const { mimeType, base64 } = parseDataUrl(payload.imageDataUrl!);
+    const { mimeType, base64 } = parseDataUrl(payload.imageDataUrl);
     const aspectRatio =
       payload.outputWidth && payload.outputHeight
         ? toGeminiAspectRatio(payload.outputWidth, payload.outputHeight)
@@ -89,7 +107,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const result = await enhanceFoodPhoto({
       imageBase64: base64,
       mimeType,
-      styleId: payload.styleId!,
+      styleId: payload.styleId,
       aspectRatio,
     });
 
