@@ -135,14 +135,14 @@ function WallFooter({ style, customization, branding, siteUrl, widthPx, heightPx
   );
 }
 
-function WallCategory({ cat, customization, widthPx, heightPx, blockColor }: {
-  cat: Category; customization: DesignCustomization; widthPx: number; heightPx: number; blockColor: string;
+function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols }: {
+  cat: Category; customization: DesignCustomization; widthPx: number; heightPx: number; blockColor: string; cols: number;
 }) {
   const fonts = effectiveFonts(customization);
   const { showPrices, showDescriptions } = customization;
-  const bfs = scaledBodyFsWall(widthPx, heightPx, customization);
-  const dfs = scaledDescFsWall(widthPx, heightPx, customization);
-  const cfs = scaledCatFsWall(widthPx, heightPx, customization);
+  const bfs = scaledBodyFsWall(widthPx, heightPx, customization, cols);
+  const dfs = scaledDescFsWall(widthPx, heightPx, customization, cols);
+  const cfs = scaledCatFsWall(widthPx, heightPx, customization, cols);
   const text = contrastTextColor(blockColor);
   const mutedText = hexToRgba(text === '#FFFFFF' ? '#FFFFFF' : '#000000', 0.64);
   const ruleColor = hexToRgba(text === '#FFFFFF' ? '#FFFFFF' : '#000000', 0.28);
@@ -156,23 +156,38 @@ function WallCategory({ cat, customization, widthPx, heightPx, blockColor }: {
     }}>
       <div style={{
         fontFamily: fonts.heading, fontSize: cfs, fontWeight: 700, color: text,
-        textTransform: 'uppercase', letterSpacing: '0.06em', lineHeight: 1.15,
+        textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1.15,
         borderBottom: `2px solid ${ruleColor}`, paddingBottom: Math.round(cfs * 0.35),
-        marginBottom: Math.round(cfs * 0.5),
+        marginBottom: Math.round(cfs * 0.5), wordBreak: 'break-word',
       }}>
         {cat.title}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: Math.round(bfs * 0.4), overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: Math.round(bfs * 0.55), overflow: 'hidden' }}>
         {cat.items.map((dish) => (
-          <div key={dish.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+          <div key={dish.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: fonts.body, fontSize: bfs, fontWeight: 600, color: text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dish.name}</div>
+              <div style={{
+                fontFamily: fonts.body, fontSize: bfs, fontWeight: 600, color: text,
+                lineHeight: 1.25, wordBreak: 'break-word', hyphens: 'auto',
+              }}>
+                {dish.name}
+              </div>
               {showDescriptions && dish.description && (
-                <div style={{ fontFamily: fonts.body, fontSize: dfs, color: mutedText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dish.description}</div>
+                <div style={{
+                  fontFamily: fonts.body, fontSize: dfs, color: mutedText,
+                  lineHeight: 1.2, marginTop: Math.round(dfs * 0.25), wordBreak: 'break-word',
+                }}>
+                  {dish.description}
+                </div>
               )}
             </div>
             {showPrices && dish.price != null && (
-              <div style={{ fontFamily: fonts.price, fontSize: bfs, fontWeight: 700, color: text, flexShrink: 0 }}>₹{dish.price}</div>
+              <div style={{
+                fontFamily: fonts.price, fontSize: bfs, fontWeight: 700, color: text,
+                flexShrink: 0, whiteSpace: 'nowrap', lineHeight: 1.25,
+              }}>
+                ₹{dish.price}
+              </div>
             )}
           </div>
         ))}
@@ -215,6 +230,7 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
             widthPx={widthPx}
             heightPx={heightPx}
             blockColor={palette[i % palette.length]}
+            cols={cols}
           />
         ))}
       </div>

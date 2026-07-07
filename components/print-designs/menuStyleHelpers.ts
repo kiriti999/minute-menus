@@ -48,16 +48,28 @@ export function wallBoardColumns(widthPx: number, heightPx: number, userCols: nu
   return userCols >= 2 ? userCols : defaultCols;
 }
 
-export function scaledBodyFsWall(widthPx: number, heightPx: number, customization: DesignCustomization): number {
-  return Math.round(scaledBodyFs(widthPx, customization) * wallBoardFontScale(widthPx, heightPx));
+export function wallBoardColumnFontScale(widthPx: number, cols: number): number {
+  const colWidth = widthPx / Math.max(cols, 1);
+  if (colWidth < 220) return 0.55;
+  if (colWidth < 300) return 0.68;
+  if (colWidth < 400) return 0.82;
+  if (colWidth < 520) return 0.92;
+  return 1;
 }
 
-export function scaledDescFsWall(widthPx: number, heightPx: number, customization: DesignCustomization): number {
-  return Math.round(scaledDescFs(widthPx, customization) * wallBoardFontScale(widthPx, heightPx));
+export function scaledBodyFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
+  const base = Math.round(scaledBodyFs(widthPx, customization) * wallBoardFontScale(widthPx, heightPx));
+  return Math.max(8, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
 }
 
-export function scaledCatFsWall(widthPx: number, heightPx: number, customization: DesignCustomization): number {
-  return Math.round(scaledCatFs(widthPx, customization) * wallBoardFontScale(widthPx, heightPx));
+export function scaledDescFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
+  const base = Math.round(scaledDescFs(widthPx, customization) * wallBoardFontScale(widthPx, heightPx));
+  return Math.max(7, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
+}
+
+export function scaledCatFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
+  const base = Math.round(scaledCatFs(widthPx, customization) * wallBoardFontScale(widthPx, heightPx));
+  return Math.max(9, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
 }
 
 export function scaledHeadingFsWall(widthPx: number, heightPx: number, customization: DesignCustomization): number {
