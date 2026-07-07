@@ -51,6 +51,7 @@ import { getMaterialRecommendation } from "../lib/printMaterials";
 import { supabaseService } from "../services/supabaseService";
 import MenuTemplate from "./print-designs/MenuTemplate";
 import { PrintGuidesOverlay } from "./print-designs/PrintGuidesOverlay";
+import { defaultColumnPalette } from "./print-designs/menuStyleHelpers";
 
 export interface PrintDesignsViewProps {
   menuItems: Category[];
@@ -138,9 +139,9 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     setDesignType(t);
     setFormat(DEFAULT_FORMAT[t]);
     if (t === 'wall-board') {
-      setCustom((prev) => ({ ...prev, layout: { ...prev.layout, columns: 5 } }));
+      setCustom((prev) => ({ ...prev, layout: { ...prev.layout, columns: 5 }, showQR: false }));
     } else if (t === 'menu-card' || t === 'pamphlet') {
-      setCustom((prev) => ({ ...prev, layout: { ...prev.layout, columns: 2 } }));
+      setCustom((prev) => ({ ...prev, layout: { ...prev.layout, columns: 2 }, showQR: true }));
     }
   }, []);
 
@@ -571,6 +572,41 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                   ))}
                 </div>
               </div>
+
+              {/* Column colors (wall board only) */}
+              {designType === 'wall-board' && (
+                <div className="mb-4">
+                  <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Column Colours</p>
+                  <div className="flex flex-wrap gap-2">
+                    {Array.from({ length: custom.layout.columns }).map((_, i) => {
+                      const currentColors = custom.columnColors ?? defaultColumnPalette(custom.colors);
+                      const color = currentColors[i] ?? currentColors[i % currentColors.length];
+                      return (
+                        <label key={i} className="flex flex-col items-center gap-1">
+                          <input
+                            type="color"
+                            value={color}
+                            onChange={(e) => {
+                              const updated = [...(custom.columnColors ?? defaultColumnPalette(custom.colors))];
+                              while (updated.length < custom.layout.columns) updated.push(updated[updated.length - 1] ?? '#888888');
+                              updated[i] = e.target.value;
+                              patchCustom('columnColors', updated);
+                            }}
+                            className="w-9 h-9 rounded cursor-pointer border-0 p-0"
+                          />
+                          <span className={`text-[9px] ${muted}`}>{i + 1}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <button
+                    onClick={() => patchCustom('columnColors', undefined)}
+                    className={`mt-2 text-[10px] ${isDarkTheme ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-600'}`}
+                  >
+                    Reset to scheme colours
+                  </button>
+                </div>
+              )}
 
               {/* Visibility toggles */}
               <div className="grid grid-cols-2 gap-2 mb-4">

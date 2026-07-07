@@ -180,7 +180,7 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
   const pad = Math.round(Math.min(widthPx, heightPx) * 0.04);
   const border = outerBorderCss(visual, customization);
   const cols = wallBoardColumns(widthPx, heightPx, customization.layout.columns);
-  const palette = wallColumnPalette(customization.colors);
+  const palette = wallColumnPalette(customization.colors, customization.columnColors);
   const isLandscape = fmt.orientation === 'landscape';
 
   return (

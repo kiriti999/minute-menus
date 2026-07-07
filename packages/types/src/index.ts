@@ -488,6 +488,8 @@ export interface DesignCustomization {
   colorMode: ColorMode;
   showBleedGuides: boolean;
   includeCropMarks: boolean;
+  /** Custom colors for wall board category columns (up to 6). */
+  columnColors?: string[];
 }
 
 export interface RestaurantBranding {

@@ -181,9 +181,21 @@ export function contrastTextColor(bgHex: string): string {
   return luminance > 0.55 ? '#1A1A1A' : '#FFFFFF';
 }
 
-/** Curated 4-color rotation for wall-board category blocks, driven by the active color scheme. */
-export function wallColumnPalette(colors: DesignColors): string[] {
-  return [colors.primary, colors.secondary, colors.accent, mixHexColors(colors.primary, colors.accent, 0.5)];
+/** Default 5-color rotation for wall-board category blocks, driven by the active color scheme. */
+export function defaultColumnPalette(colors: DesignColors): string[] {
+  return [
+    colors.primary,
+    colors.secondary,
+    colors.accent,
+    mixHexColors(colors.primary, colors.secondary, 0.5),
+    mixHexColors(colors.secondary, colors.accent, 0.5),
+  ];
+}
+
+/** Returns custom column colors if provided, otherwise generates from color scheme. */
+export function wallColumnPalette(colors: DesignColors, customColors?: string[]): string[] {
+  if (customColors && customColors.length > 0) return customColors;
+  return defaultColumnPalette(colors);
 }
 
 
