@@ -41,30 +41,12 @@ export function wallBoardFontScale(widthPx: number, heightPx: number): number {
   return 1.15;
 }
 
-/** Max category columns for wall boards — landscape (rectangle) boards get more horizontal columns. */
-export function wallBoardColumns(widthPx: number, heightPx: number, userCols: 1 | 2): number {
+/** Category columns for wall boards — landscape (rectangle) boards always get 4 columns. */
+export function wallBoardColumns(widthPx: number, heightPx: number): number {
   const landscape = widthPx > heightPx;
-  if (landscape) {
-    if (widthPx > 2000) return userCols === 2 ? 4 : 3;
-    return userCols === 2 ? 3 : 2;
-  }
-  if (heightPx > widthPx * 1.3) return userCols === 2 ? 2 : 1;
-  return userCols === 2 ? 2 : 1;
-}
-
-/**
- * Picks the actual column count so category blocks never leave empty grid tracks —
- * uses exactly as many columns as categories when they fit, otherwise balances rows.
- */
-export function optimalWallColumns(categoryCount: number, maxCols: number): number {
-  const cap = Math.max(1, Math.min(maxCols, categoryCount || 1));
-  if (categoryCount <= cap) return Math.max(1, categoryCount);
-  const remAtCap = categoryCount % cap;
-  const wasteAtCap = remAtCap === 0 ? 0 : cap - remAtCap;
-  if (cap <= 1) return cap;
-  const remAtCapMinus1 = categoryCount % (cap - 1);
-  const wasteAtCapMinus1 = remAtCapMinus1 === 0 ? 0 : (cap - 1) - remAtCapMinus1;
-  return wasteAtCapMinus1 < wasteAtCap ? cap - 1 : cap;
+  if (landscape) return 4;
+  if (heightPx > widthPx * 1.3) return 2;
+  return 3;
 }
 
 export function scaledBodyFsWall(widthPx: number, heightPx: number, customization: DesignCustomization): number {

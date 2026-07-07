@@ -14,7 +14,6 @@ import {
   headingWeight,
   hexToRgba,
   logoAlign,
-  optimalWallColumns,
   outerBorderCss,
   patternOverlay,
   scaledBodyFsWall,
@@ -180,8 +179,7 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
   const visual = TEMPLATE_VISUALS[style];
   const pad = Math.round(Math.min(widthPx, heightPx) * 0.04);
   const border = outerBorderCss(visual, customization);
-  const maxCols = wallBoardColumns(widthPx, heightPx, customization.layout.columns);
-  const cols = optimalWallColumns(menuItems.length, maxCols);
+  const cols = wallBoardColumns(widthPx, heightPx);
   const palette = wallColumnPalette(customization.colors);
   const isLandscape = fmt.orientation === 'landscape';
 
