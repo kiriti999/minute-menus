@@ -468,7 +468,7 @@ export interface DesignCustomization {
   typography: DesignTypography;
   effects: DesignEffects;
   layout: {
-    columns: 1 | 2;
+    columns: 1 | 2 | 3 | 4 | 5 | 6;
     spacing: 'compact' | 'normal' | 'spacious';
     alignment: 'left' | 'center';
     categoryStyle: 'heading' | 'banner' | 'badge';

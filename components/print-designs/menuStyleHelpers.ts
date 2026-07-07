@@ -41,12 +41,11 @@ export function wallBoardFontScale(widthPx: number, heightPx: number): number {
   return 1.15;
 }
 
-/** Category columns for wall boards — landscape (rectangle) boards always get 4 columns. */
-export function wallBoardColumns(widthPx: number, heightPx: number): number {
+/** Category columns for wall boards — uses user selection, with sensible defaults per orientation. */
+export function wallBoardColumns(widthPx: number, heightPx: number, userCols: number): number {
   const landscape = widthPx > heightPx;
-  if (landscape) return 4;
-  if (heightPx > widthPx * 1.3) return 2;
-  return 3;
+  const defaultCols = landscape ? 5 : (heightPx > widthPx * 1.3 ? 2 : 3);
+  return userCols >= 2 ? userCols : defaultCols;
 }
 
 export function scaledBodyFsWall(widthPx: number, heightPx: number, customization: DesignCustomization): number {

@@ -179,7 +179,7 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
   const visual = TEMPLATE_VISUALS[style];
   const pad = Math.round(Math.min(widthPx, heightPx) * 0.04);
   const border = outerBorderCss(visual, customization);
-  const cols = wallBoardColumns(widthPx, heightPx);
+  const cols = wallBoardColumns(widthPx, heightPx, customization.layout.columns);
   const palette = wallColumnPalette(customization.colors);
   const isLandscape = fmt.orientation === 'landscape';
 

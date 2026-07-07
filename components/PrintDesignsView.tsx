@@ -137,6 +137,11 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   const handleDesignTypeChange = useCallback((t: PrintDesignType) => {
     setDesignType(t);
     setFormat(DEFAULT_FORMAT[t]);
+    if (t === 'wall-board') {
+      setCustom((prev) => ({ ...prev, layout: { ...prev.layout, columns: 5 } }));
+    } else if (t === 'menu-card' || t === 'pamphlet') {
+      setCustom((prev) => ({ ...prev, layout: { ...prev.layout, columns: 2 } }));
+    }
   }, []);
 
   const handleTemplateChange = useCallback((s: TemplateStyle) => {
@@ -541,14 +546,14 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
               {/* Layout columns */}
               <div className="mb-4">
                 <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Columns</p>
-                <div className="flex gap-2">
-                  {([1, 2] as const).map((c) => (
+                <div className="flex flex-wrap gap-2">
+                  {(designType === 'wall-board' ? [2, 3, 4, 5, 6] : [1, 2]).map((c) => (
                     <button
                       key={c}
-                      onClick={() => patchCustom('layout', { ...custom.layout, columns: c })}
-                      className={`px-4 py-1.5 rounded-full text-xs border transition-all ${custom.layout.columns === c ? isDarkTheme ? 'border-white bg-zinc-800 text-white' : 'border-zinc-900 bg-zinc-100 text-zinc-900' : isDarkTheme ? 'border-zinc-700 text-zinc-400' : 'border-zinc-200 text-zinc-500'}`}
+                      onClick={() => patchCustom('layout', { ...custom.layout, columns: c as 1 | 2 | 3 | 4 | 5 | 6 })}
+                      className={`px-3 py-1.5 rounded-full text-xs border transition-all ${custom.layout.columns === c ? isDarkTheme ? 'border-white bg-zinc-800 text-white' : 'border-zinc-900 bg-zinc-100 text-zinc-900' : isDarkTheme ? 'border-zinc-700 text-zinc-400' : 'border-zinc-200 text-zinc-500'}`}
                     >
-                      {c} col
+                      {c}
                     </button>
                   ))}
                 </div>
