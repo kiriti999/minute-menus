@@ -7,12 +7,14 @@ import type { FormatInfo } from "../../lib/printDesigns";
 import { TEMPLATE_VISUALS } from "../../lib/templateConfig";
 import {
   baseBackground,
-  categoryHeadingStyle,
   containerRadius,
   containerShadow,
+  contrastTextColor,
   effectiveFonts,
   headingWeight,
+  hexToRgba,
   logoAlign,
+  optimalWallColumns,
   outerBorderCss,
   patternOverlay,
   scaledBodyFsWall,
@@ -21,6 +23,7 @@ import {
   scaledHeadingFsWall,
   textTransformCss,
   wallBoardColumns,
+  wallColumnPalette,
 } from "./menuStyleHelpers";
 
 export interface WallBoardMenuProps {
@@ -127,28 +130,44 @@ function WallFooter({ style, customization, branding, siteUrl, widthPx, heightPx
   );
 }
 
-function WallCategory({ cat, style, customization, widthPx, heightPx }: { cat: Category; style: TemplateStyle; customization: DesignCustomization; widthPx: number; heightPx: number }) {
+function WallCategory({ cat, customization, widthPx, heightPx, blockColor }: {
+  cat: Category; customization: DesignCustomization; widthPx: number; heightPx: number; blockColor: string;
+}) {
   const fonts = effectiveFonts(customization);
-  const visual = TEMPLATE_VISUALS[style];
-  const { colors, showPrices, showDescriptions } = customization;
+  const { showPrices, showDescriptions } = customization;
   const bfs = scaledBodyFsWall(widthPx, heightPx, customization);
   const dfs = scaledDescFsWall(widthPx, heightPx, customization);
   const cfs = scaledCatFsWall(widthPx, heightPx, customization);
+  const text = contrastTextColor(blockColor);
+  const mutedText = hexToRgba(text === '#FFFFFF' ? '#FFFFFF' : '#000000', 0.64);
+  const ruleColor = hexToRgba(text === '#FFFFFF' ? '#FFFFFF' : '#000000', 0.28);
+  const pad = Math.round(widthPx * 0.016);
 
   return (
-    <div style={{ breakInside: 'avoid' }}>
-      <div style={categoryHeadingStyle(visual.category, customization, cfs, fonts)}>{cat.title}</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: Math.round(bfs * 0.4) }}>
+    <div style={{
+      breakInside: 'avoid', background: blockColor, color: text, boxSizing: 'border-box',
+      height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column',
+      borderRadius: Math.max(4, Math.round(widthPx * 0.006)), padding: pad,
+    }}>
+      <div style={{
+        fontFamily: fonts.heading, fontSize: cfs, fontWeight: 700, color: text,
+        textTransform: 'uppercase', letterSpacing: '0.06em', lineHeight: 1.15,
+        borderBottom: `2px solid ${ruleColor}`, paddingBottom: Math.round(cfs * 0.35),
+        marginBottom: Math.round(cfs * 0.5),
+      }}>
+        {cat.title}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: Math.round(bfs * 0.4), overflow: 'hidden' }}>
         {cat.items.map((dish) => (
           <div key={dish.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: fonts.body, fontSize: bfs, fontWeight: 600, color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dish.name}</div>
+              <div style={{ fontFamily: fonts.body, fontSize: bfs, fontWeight: 600, color: text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dish.name}</div>
               {showDescriptions && dish.description && (
-                <div style={{ fontFamily: fonts.body, fontSize: dfs, color: colors.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dish.description}</div>
+                <div style={{ fontFamily: fonts.body, fontSize: dfs, color: mutedText, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{dish.description}</div>
               )}
             </div>
             {showPrices && dish.price != null && (
-              <div style={{ fontFamily: fonts.price, fontSize: bfs, fontWeight: 700, color: colors.accent, flexShrink: 0 }}>₹{dish.price}</div>
+              <div style={{ fontFamily: fonts.price, fontSize: bfs, fontWeight: 700, color: text, flexShrink: 0 }}>₹{dish.price}</div>
             )}
           </div>
         ))}
@@ -161,7 +180,9 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
   const visual = TEMPLATE_VISUALS[style];
   const pad = Math.round(Math.min(widthPx, heightPx) * 0.04);
   const border = outerBorderCss(visual, customization);
-  const cols = wallBoardColumns(widthPx, heightPx, customization.layout.columns);
+  const maxCols = wallBoardColumns(widthPx, heightPx, customization.layout.columns);
+  const cols = optimalWallColumns(menuItems.length, maxCols);
+  const palette = wallColumnPalette(customization.colors);
   const isLandscape = fmt.orientation === 'landscape';
 
   return (
@@ -179,11 +200,18 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
       </div>
       <div style={{
         flex: 1, minHeight: 0, overflow: 'hidden',
-        display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`,
-        gap: Math.round(widthPx * 0.02), alignContent: 'start',
+        display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gridAutoRows: 'minmax(0, 1fr)',
+        gap: Math.round(widthPx * 0.018), alignContent: 'start',
       }}>
-        {menuItems.map((cat) => (
-          <WallCategory key={cat.id} cat={cat} style={style} customization={customization} widthPx={widthPx} heightPx={heightPx} />
+        {menuItems.map((cat, i) => (
+          <WallCategory
+            key={cat.id}
+            cat={cat}
+            customization={customization}
+            widthPx={widthPx}
+            heightPx={heightPx}
+            blockColor={palette[i % palette.length]}
+          />
         ))}
       </div>
       <WallFooter style={style} customization={customization} branding={branding} siteUrl={siteUrl} widthPx={widthPx} heightPx={heightPx} pad={pad} />

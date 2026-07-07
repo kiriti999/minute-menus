@@ -1,7 +1,7 @@
 /**
  * Pure style builders for MenuTemplate — keeps TSX cyclomatic complexity low.
  */
-import type { BackgroundPattern, DesignCustomization, DesignFonts } from "@minute-menus/types";
+import type { BackgroundPattern, DesignColors, DesignCustomization, DesignFonts } from "@minute-menus/types";
 import { resolveFonts } from "../../lib/printDesigns";
 import {
   BODY_SIZE_SCALE,
@@ -41,16 +41,30 @@ export function wallBoardFontScale(widthPx: number, heightPx: number): number {
   return 1.15;
 }
 
-/** Category columns for wall boards — landscape boards get more horizontal columns. */
+/** Max category columns for wall boards — landscape (rectangle) boards get more horizontal columns. */
 export function wallBoardColumns(widthPx: number, heightPx: number, userCols: 1 | 2): number {
   const landscape = widthPx > heightPx;
   if (landscape) {
-    if (widthPx > 2800) return userCols === 2 ? 4 : 3;
-    if (widthPx > 2000) return 3;
-    return 2;
+    if (widthPx > 2000) return userCols === 2 ? 4 : 3;
+    return userCols === 2 ? 3 : 2;
   }
   if (heightPx > widthPx * 1.3) return userCols === 2 ? 2 : 1;
   return userCols === 2 ? 2 : 1;
+}
+
+/**
+ * Picks the actual column count so category blocks never leave empty grid tracks —
+ * uses exactly as many columns as categories when they fit, otherwise balances rows.
+ */
+export function optimalWallColumns(categoryCount: number, maxCols: number): number {
+  const cap = Math.max(1, Math.min(maxCols, categoryCount || 1));
+  if (categoryCount <= cap) return Math.max(1, categoryCount);
+  const remAtCap = categoryCount % cap;
+  const wasteAtCap = remAtCap === 0 ? 0 : cap - remAtCap;
+  if (cap <= 1) return cap;
+  const remAtCapMinus1 = categoryCount % (cap - 1);
+  const wasteAtCapMinus1 = remAtCapMinus1 === 0 ? 0 : (cap - 1) - remAtCapMinus1;
+  return wasteAtCapMinus1 < wasteAtCap ? cap - 1 : cap;
 }
 
 export function scaledBodyFsWall(widthPx: number, heightPx: number, customization: DesignCustomization): number {
@@ -156,6 +170,39 @@ export function compactMaxItemsPerCategory(widthPx: number, heightPx: number): n
   if (area < 45_000) return 3;
   if (area < 80_000) return 5;
   return 8;
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const h = hex.replace('#', '');
+  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+  const num = parseInt(full, 16);
+  return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+}
+
+/** Blends two hex colors — used to derive a 4th wall-board column tone from the palette. */
+export function mixHexColors(a: string, b: string, weight = 0.5): string {
+  const [r1, g1, b1] = hexToRgb(a);
+  const [r2, g2, b2] = hexToRgb(b);
+  const mix = (x: number, y: number) => Math.round(x * (1 - weight) + y * weight);
+  const toHex = (n: number) => n.toString(16).padStart(2, '0');
+  return `#${toHex(mix(r1, r2))}${toHex(mix(g1, g2))}${toHex(mix(b1, b2))}`;
+}
+
+export function hexToRgba(hex: string, alpha: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/** Chooses readable foreground text (near-black or white) for a given background color. */
+export function contrastTextColor(bgHex: string): string {
+  const [r, g, b] = hexToRgb(bgHex);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.55 ? '#1A1A1A' : '#FFFFFF';
+}
+
+/** Curated 4-color rotation for wall-board category blocks, driven by the active color scheme. */
+export function wallColumnPalette(colors: DesignColors): string[] {
+  return [colors.primary, colors.secondary, colors.accent, mixHexColors(colors.primary, colors.accent, 0.5)];
 }
 
 
