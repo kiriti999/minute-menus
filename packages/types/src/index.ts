@@ -440,11 +440,15 @@ export interface DesignColors {
   border: string;
 }
 
+export type TitleStyle = 'classic' | 'cursive' | 'bold' | 'elegant';
+
 export interface DesignTypography {
   headingSize: 'small' | 'medium' | 'large';
   bodySize: 'small' | 'medium' | 'large';
   headingWeight: 'light' | 'regular' | 'bold';
   textTransform: 'none' | 'uppercase' | 'capitalize';
+  /** Restaurant title / name styling — independent from category body fonts. */
+  titleStyle: TitleStyle;
 }
 
 export interface DesignEffects {

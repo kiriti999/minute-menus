@@ -11,9 +11,12 @@ import {
   containerRadius,
   containerShadow,
   effectiveFonts,
+  formatPrintDisplayName,
   scaledBodyFs,
   scaledCatFs,
   scaledHeadingFs,
+  titleFontFamily,
+  titleStyleExtras,
 } from "./menuStyleHelpers";
 
 export interface CompactMenuLayoutProps {
@@ -104,6 +107,9 @@ const CompactMenuLayout: React.FC<CompactMenuLayoutProps> = ({
   const qrSize = Math.round(Math.min(widthPx, heightPx) * (isLandscape ? 0.32 : 0.28));
   const cols = isLandscape && widthPx > heightPx * 1.3 ? 2 : 1;
   const resolvedRadius = borderRadius ?? containerRadius(customization);
+  const displayName = formatPrintDisplayName(branding.name, customization.typography.textTransform);
+  const titleFont = titleFontFamily(customization);
+  const titleExtras = titleStyleExtras(customization);
 
   return (
     <div style={{
@@ -115,10 +121,11 @@ const CompactMenuLayout: React.FC<CompactMenuLayoutProps> = ({
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
         {logoUrl && <Logo url={logoUrl} height={Math.round(hfs * 1.4)} />}
         <div style={{
-          fontFamily: fonts.heading, fontSize: hfs, fontWeight: 700, color: colors.primary,
+          fontFamily: titleFont, fontSize: hfs, fontWeight: 700, color: colors.primary,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
+          ...titleExtras,
         }}>
-          {branding.name || 'Restaurant'}
+          {displayName || 'Restaurant'}
         </div>
       </div>
 

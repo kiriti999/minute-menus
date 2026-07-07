@@ -19,6 +19,7 @@ import {
   containerRadius,
   containerShadow,
   effectiveFonts,
+  formatPrintDisplayName,
   headingWeight,
   logoAlign,
   outerBorderCss,
@@ -28,6 +29,8 @@ import {
   scaledDescFs,
   scaledHeadingFs,
   textTransformCss,
+  titleFontFamily,
+  titleStyleExtras,
 } from "./menuStyleHelpers";
 import CompactMenuLayout from "./CompactMenuLayout";
 import StickerLayout from "./StickerLayout";
@@ -120,13 +123,17 @@ function MenuHeader({ style, customization, branding, widthPx, heightPx }: Pick<
   const ttf = textTransformCss(customization);
   const pad = Math.round(widthPx * 0.05);
   const align = logoAlign(logoPosition);
+  const displayName = formatPrintDisplayName(branding.name, customization.typography.textTransform);
+  const titleFont = titleFontFamily(customization);
+  const titleExtras = titleStyleExtras(customization);
+  const titleTransform = titleExtras.textTransform ?? ttf;
 
   if (visual.header === 'gradient-band' || visual.header === 'fast-bold' || (visual.headerGradient && visual.header === 'street-playful')) {
     const bandH = Math.round(heightPx * 0.17);
     return (
       <div style={{ background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`, height: bandH, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: align, padding: `0 ${pad}px`, margin: `-${pad}px -${pad}px ${Math.round(widthPx * 0.02)}px`, gap: 4 }}>
         {logoUrl && <Logo url={logoUrl} height={Math.round(bandH * 0.3)} />}
-        <div style={{ fontFamily: fonts.heading, fontSize: hfs, fontWeight: hw, color: '#FFF', textTransform: ttf, letterSpacing: '0.04em' }}>{branding.name}</div>
+        <div style={{ fontFamily: titleFont, fontSize: hfs, fontWeight: hw, color: '#FFF', textTransform: titleTransform, letterSpacing: '0.04em', ...titleExtras }}>{displayName}</div>
         {showTagline && branding.tagline && <div style={{ fontSize: dfs, color: 'rgba(255,255,255,0.85)' }}>{branding.tagline}</div>}
       </div>
     );
@@ -137,7 +144,7 @@ function MenuHeader({ style, customization, branding, widthPx, heightPx }: Pick<
       <div style={{ textAlign: 'center', marginBottom: Math.round(widthPx * 0.02) }}>
         {logoUrl && <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}><Logo url={logoUrl} height={Math.round(widthPx * 0.07)} /></div>}
         {visual.showOrnaments && <div style={{ fontSize: Math.round(widthPx * 0.014), color: colors.accent, letterSpacing: '0.3em', marginBottom: 6 }}>✦ ✦ ✦</div>}
-        <div style={{ fontFamily: fonts.heading, fontSize: hfs, fontWeight: hw, color: colors.primary, letterSpacing: '0.06em', textTransform: ttf }}>{branding.name}</div>
+        <div style={{ fontFamily: titleFont, fontSize: hfs, fontWeight: hw, color: colors.primary, letterSpacing: '0.06em', textTransform: titleTransform, ...titleExtras }}>{displayName}</div>
         {showTagline && branding.tagline && <div style={{ fontFamily: fonts.body, fontSize: dfs, color: colors.textMuted, fontStyle: 'italic', marginTop: 3 }}>{branding.tagline}</div>}
         <div style={{ height: 1, background: `linear-gradient(to right, transparent, ${colors.accent}, transparent)`, marginTop: 10 }} />
       </div>
@@ -148,7 +155,7 @@ function MenuHeader({ style, customization, branding, widthPx, heightPx }: Pick<
     return (
       <div style={{ border: `2px dashed ${colors.secondary}`, borderRadius: 4, padding: Math.round(widthPx * 0.02), marginBottom: Math.round(widthPx * 0.02), textAlign: align === 'center' ? 'center' : 'left' }}>
         {logoUrl && <Logo url={logoUrl} height={Math.round(widthPx * 0.06)} />}
-        <div style={{ fontFamily: fonts.heading, fontSize: hfs, fontWeight: 700, color: colors.primary, textTransform: 'uppercase' }}>{branding.name}</div>
+        <div style={{ fontFamily: titleFont, fontSize: hfs, fontWeight: 700, color: colors.primary, textTransform: titleTransform, ...titleExtras }}>{displayName}</div>
         {showTagline && branding.tagline && <div style={{ fontSize: dfs, color: colors.textMuted }}>{branding.tagline}</div>}
       </div>
     );
@@ -158,7 +165,7 @@ function MenuHeader({ style, customization, branding, widthPx, heightPx }: Pick<
     return (
       <div style={{ textAlign: 'center', marginBottom: Math.round(widthPx * 0.02) }}>
         {logoUrl && <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}><Logo url={logoUrl} height={Math.round(widthPx * 0.06)} /></div>}
-        <div style={{ fontFamily: fonts.heading, fontSize: Math.round(hfs * 1.1), fontWeight: 400, color: colors.primary }}>{branding.name}</div>
+        <div style={{ fontFamily: titleFont, fontSize: Math.round(hfs * 1.1), fontWeight: 400, color: colors.primary, ...titleExtras }}>{displayName}</div>
         {showTagline && branding.tagline && <div style={{ fontFamily: fonts.body, fontSize: dfs, color: colors.textMuted, fontStyle: 'italic' }}>{branding.tagline}</div>}
       </div>
     );
@@ -167,7 +174,7 @@ function MenuHeader({ style, customization, branding, widthPx, heightPx }: Pick<
   if (visual.header === 'fine-sparse') {
     return (
       <div style={{ marginBottom: Math.round(widthPx * 0.03), textAlign: 'center' }}>
-        <div style={{ fontFamily: fonts.heading, fontSize: hfs, fontWeight: 300, color: colors.primary, letterSpacing: '0.2em', textTransform: 'uppercase' }}>{branding.name}</div>
+        <div style={{ fontFamily: titleFont, fontSize: hfs, fontWeight: 300, color: colors.primary, letterSpacing: '0.2em', textTransform: titleTransform, ...titleExtras }}>{displayName}</div>
         {showTagline && branding.tagline && <div style={{ fontSize: dfs, color: colors.textMuted, marginTop: 4, letterSpacing: '0.1em' }}>{branding.tagline}</div>}
         <div style={{ width: 40, height: 1, background: colors.border, margin: '10px auto 0' }} />
       </div>
@@ -179,7 +186,7 @@ function MenuHeader({ style, customization, branding, widthPx, heightPx }: Pick<
     <div style={{ borderBottom: `2px solid ${colors.primary}`, paddingBottom: Math.round(widthPx * 0.012), marginBottom: Math.round(widthPx * 0.02), display: 'flex', alignItems: 'center', justifyContent: logoPosition === 'center' ? 'center' : 'flex-start', gap: Math.round(widthPx * 0.015), flexDirection: logoPosition === 'center' ? 'column' : 'row' }}>
       {logoUrl && <Logo url={logoUrl} height={Math.round(widthPx * 0.07)} />}
       <div style={{ textAlign: logoPosition === 'center' ? 'center' : 'left' }}>
-        <div style={{ fontFamily: fonts.heading, fontSize: hfs, fontWeight: hw, color: colors.primary, textTransform: ttf, letterSpacing: '0.04em' }}>{branding.name}</div>
+        <div style={{ fontFamily: titleFont, fontSize: hfs, fontWeight: hw, color: colors.primary, textTransform: titleTransform, letterSpacing: '0.04em', ...titleExtras }}>{displayName}</div>
         {showTagline && branding.tagline && <div style={{ fontFamily: fonts.body, fontSize: dfs, color: colors.textMuted, marginTop: 2 }}>{branding.tagline}</div>}
       </div>
     </div>

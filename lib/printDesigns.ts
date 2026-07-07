@@ -162,7 +162,8 @@ export const GOOGLE_FONT_OPTIONS = [
   'Poppins', 'Inter', 'Montserrat', 'Roboto', 'Open Sans', 'Lato',
   'Playfair Display', 'Cormorant', 'Lora', 'Libre Baskerville', 'Merriweather',
   'Oswald', 'Bebas Neue', 'Anton', 'Righteous',
-  'Dancing Script', 'Pacifico', 'Satisfy',
+  'Dancing Script', 'Pacifico', 'Satisfy', 'Great Vibes', 'Allura', 'Sacramento', 'Tangerine',
+  'Cinzel Decorative', 'Abril Fatface', 'Lobster', 'Courgette', 'Kaushan Script',
   'Hind', 'Baloo Bhai 2', 'Mukta', 'Tiro Devanagari Hindi',
   'Cinzel', 'Barlow', 'Work Sans', 'Roboto Condensed',
 ] as const;
@@ -205,7 +206,7 @@ export const TEMPLATES: TemplateInfo[] = [
 ];
 
 export const DEFAULT_TYPOGRAPHY: DesignTypography = {
-  headingSize: 'medium', bodySize: 'medium', headingWeight: 'regular', textTransform: 'none',
+  headingSize: 'medium', bodySize: 'medium', headingWeight: 'regular', textTransform: 'capitalize', titleStyle: 'classic',
 };
 
 export const DEFAULT_EFFECTS: DesignEffects = {
@@ -228,7 +229,9 @@ export function googleFontsForCustomization(customization: DesignCustomization):
   const extra = [resolved.heading, resolved.body, resolved.price]
     .filter((f) => !pairing.some((p) => p.startsWith(f.replace(/ /g, '+'))))
     .map((f) => `${f.replace(/ /g, '+')}:400,600,700`);
-  return [...pairing, ...extra];
+  const titleStyle = customization.typography.titleStyle ?? 'classic';
+  const titleFonts = titleStyle === 'classic' ? [] : [`${({ cursive: 'Dancing Script', bold: 'Anton', elegant: 'Playfair Display' } as const)[titleStyle].replace(/ /g, '+')}:400,700`];
+  return [...pairing, ...extra, ...titleFonts.filter((f) => !pairing.some((p) => p.startsWith(f.split(':')[0])))];
 }
 
 export function defaultCustomization(style: TemplateStyle): DesignCustomization {

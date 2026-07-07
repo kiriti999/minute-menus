@@ -1,7 +1,7 @@
 /**
  * Pure style builders for MenuTemplate — keeps TSX cyclomatic complexity low.
  */
-import type { BackgroundPattern, DesignColors, DesignCustomization, DesignFonts } from "@minute-menus/types";
+import type { BackgroundPattern, DesignColors, DesignCustomization, DesignFonts, TitleStyle } from "@minute-menus/types";
 import { resolveFonts } from "../../lib/printDesigns";
 import {
   BODY_SIZE_SCALE,
@@ -123,6 +123,37 @@ export function logoAlign(position: DesignCustomization['logoPosition']): 'flex-
   if (position === 'center') return 'center';
   if (position === 'right') return 'flex-end';
   return 'flex-start';
+}
+
+const TITLE_STYLE_FONTS: Record<Exclude<TitleStyle, 'classic'>, string> = {
+  cursive: 'Dancing Script',
+  bold: 'Anton',
+  elegant: 'Playfair Display',
+};
+
+/** Slug-style names (fresh-and-fusion) → readable title text. */
+export function formatPrintDisplayName(name: string, textTransform: DesignCustomization['typography']['textTransform']): string {
+  const cleaned = name.replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!cleaned) return 'Restaurant';
+  if (textTransform === 'uppercase') return cleaned.toUpperCase();
+  if (textTransform === 'capitalize') {
+    return cleaned.replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+  return cleaned;
+}
+
+export function titleFontFamily(customization: DesignCustomization): string {
+  const style = customization.typography.titleStyle ?? 'classic';
+  if (style === 'classic') return effectiveFonts(customization).heading;
+  return TITLE_STYLE_FONTS[style];
+}
+
+export function titleStyleExtras(customization: DesignCustomization): CSS {
+  const style = customization.typography.titleStyle ?? 'classic';
+  if (style === 'cursive') return { fontStyle: 'normal', letterSpacing: '0.02em' };
+  if (style === 'bold') return { fontWeight: 400, letterSpacing: '0.06em', textTransform: 'uppercase' };
+  if (style === 'elegant') return { fontWeight: 400, letterSpacing: '0.08em', fontStyle: 'italic' };
+  return {};
 }
 
 /** Space to reserve above absolute footers so menu content does not overlap. */

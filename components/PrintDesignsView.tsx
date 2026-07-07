@@ -13,6 +13,7 @@ import type {
   RestaurantBranding,
   TemplateCategory,
   TemplateStyle,
+  TitleStyle,
 } from "@minute-menus/types";
 import html2canvas from "html2canvas";
 import {
@@ -68,6 +69,13 @@ const DESIGN_TYPES: { key: PrintDesignType; label: string; icon: string }[] = [
 ];
 
 const PREVIEW_CSS_WIDTH = 380;
+
+const TITLE_STYLE_OPTIONS: { key: TitleStyle; label: string; sample: string }[] = [
+  { key: 'classic', label: 'Classic', sample: 'Serif / pairing font' },
+  { key: 'cursive', label: 'Cursive', sample: 'Dancing Script' },
+  { key: 'bold', label: 'Bold Display', sample: 'Anton' },
+  { key: 'elegant', label: 'Elegant', sample: 'Playfair italic' },
+];
 
 // ─── Format aspect-ratio thumbnail ────────────────────────────────────────────
 
@@ -555,6 +563,24 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Title style */}
+              <div className="mb-4">
+                <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Title / Name Style</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {TITLE_STYLE_OPTIONS.map(({ key, label, sample }) => (
+                    <button
+                      key={key}
+                      onClick={() => patchTypography('titleStyle', key)}
+                      className={`rounded-lg border p-2.5 text-left transition-all ${(custom.typography.titleStyle ?? 'classic') === key ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100' : isDarkTheme ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-200 hover:border-zinc-400'}`}
+                    >
+                      <div className={`text-xs font-semibold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{label}</div>
+                      <div className={`text-[10px] mt-0.5 ${muted}`}>{sample}</div>
+                    </button>
+                  ))}
+                </div>
+                <p className={`text-[10px] mt-2 ${muted}`}>Hyphens in slug-style names are shown as spaces (e.g. Fresh And Fusion).</p>
               </div>
 
               {/* Layout columns */}

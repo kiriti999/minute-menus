@@ -11,6 +11,7 @@ import {
   containerShadow,
   contrastTextColor,
   effectiveFonts,
+  formatPrintDisplayName,
   headingWeight,
   hexToRgba,
   logoAlign,
@@ -21,6 +22,8 @@ import {
   scaledDescFsWall,
   scaledHeadingFsWall,
   textTransformCss,
+  titleFontFamily,
+  titleStyleExtras,
   wallBoardColumns,
   wallColumnPalette,
 } from "./menuStyleHelpers";
@@ -53,6 +56,9 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
   const pad = Math.round(widthPx * 0.04);
   const align = logoAlign(logoPosition);
   const bandH = isLandscape ? Math.round(heightPx * 0.14) : Math.round(heightPx * 0.12);
+  const displayName = formatPrintDisplayName(branding.name, customization.typography.textTransform);
+  const titleFont = titleFontFamily(customization);
+  const titleExtras = titleStyleExtras(customization);
 
   if (visual.headerGradient || visual.header === 'gradient-band' || visual.header === 'fast-bold') {
     return (
@@ -64,8 +70,8 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
       }}>
         {logoUrl && <Logo url={logoUrl} height={Math.round(bandH * 0.45)} />}
         <div style={{ textAlign: isLandscape ? 'left' : 'center' }}>
-          <div style={{ fontFamily: fonts.heading, fontSize: hfs, fontWeight: headingWeight(customization), color: '#FFF', letterSpacing: '0.04em', textTransform: textTransformCss(customization) }}>
-            {branding.name}
+          <div style={{ fontFamily: titleFont, fontSize: hfs, fontWeight: headingWeight(customization), color: '#FFF', letterSpacing: '0.04em', ...titleExtras, textTransform: titleExtras.textTransform ?? textTransformCss(customization) }}>
+            {displayName}
           </div>
           {showTagline && branding.tagline && <div style={{ fontSize: dfs, color: 'rgba(255,255,255,0.85)' }}>{branding.tagline}</div>}
         </div>
@@ -82,7 +88,7 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
     }}>
       {logoUrl && <Logo url={logoUrl} height={Math.round(hfs * 1.2)} />}
       <div>
-        <div style={{ fontFamily: fonts.heading, fontSize: hfs, fontWeight: headingWeight(customization), color: colors.primary, textTransform: textTransformCss(customization) }}>{branding.name}</div>
+        <div style={{ fontFamily: titleFont, fontSize: hfs, fontWeight: headingWeight(customization), color: colors.primary, ...titleExtras, textTransform: titleExtras.textTransform ?? textTransformCss(customization) }}>{displayName}</div>
         {showTagline && branding.tagline && <div style={{ fontSize: dfs, color: colors.textMuted }}>{branding.tagline}</div>}
       </div>
     </div>
