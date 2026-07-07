@@ -482,6 +482,19 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                     </button>
                   ))}
                 </div>
+                {custom.backgroundType === 'solid' && (
+                  <div className="flex items-center gap-3 mt-2">
+                    <input
+                      type="color"
+                      value={custom.colors.background}
+                      onChange={(e) => patchColor('background', e.target.value)}
+                      className="w-10 h-10 rounded cursor-pointer border-0 p-0"
+                    />
+                    <span className={`text-xs ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                      Pick background colour
+                    </span>
+                  </div>
+                )}
                 {custom.backgroundType === 'gradient' && (
                   <div className="flex flex-wrap gap-2 mt-2">
                     {GRADIENT_PRESETS.map((g) => (
