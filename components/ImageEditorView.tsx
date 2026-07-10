@@ -252,8 +252,9 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
         dataUrl,
         toDownloadFilename(dishName, outputDimensions.width, outputDimensions.height),
       );
-      setStatusMessage(`Download started for ${dishName}.`);
-      setApplyDishId("");
+      setStatusMessage(
+        `Download started for ${dishName}. Apply to menu when ready, or upload a new photo for the next item.`,
+      );
     } catch (err) {
       setError(getErrorMessage(err, "Export failed"));
     } finally {
@@ -287,7 +288,7 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
       const saved = await supabaseService.saveMenu(newMenu);
       onMenuUpdated(saved);
       const dishName = getDishNameFromOption(target);
-      setStatusMessage(`Applied to ${dishName}.`);
+      setStatusMessage(`Applied to ${dishName}. Upload or select the next photo to continue.`);
       setApplyDishId("");
     } catch (err) {
       setError(getErrorMessage(err, "Failed to apply image"));
