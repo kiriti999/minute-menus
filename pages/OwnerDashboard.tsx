@@ -507,6 +507,78 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
   );
 };
 
+interface DeleteCategoryConfirmModalProps {
+  categoryTitle: string;
+  itemCount: number;
+  isDeleting: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isDarkTheme: boolean;
+}
+
+const DeleteCategoryConfirmModal: React.FC<DeleteCategoryConfirmModalProps> = ({
+  categoryTitle,
+  itemCount,
+  isDeleting,
+  onConfirm,
+  onCancel,
+  isDarkTheme,
+}) => (
+  <div
+    className={`fixed inset-0 z-[70] backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200 ${isDarkTheme ? "bg-black/90" : "bg-white/90"}`}
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="delete-category-title"
+  >
+    <div
+      className={`w-full max-w-md rounded-xl border shadow-2xl p-6 space-y-5 ${isDarkTheme ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-300"}`}
+    >
+      <div className="flex items-start gap-3">
+        <div className={`p-2 rounded-lg shrink-0 ${isDarkTheme ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-600"}`}>
+          <Trash2 size={18} />
+        </div>
+        <div>
+          <h3
+            id="delete-category-title"
+            className={`text-lg font-bold ${isDarkTheme ? "text-white" : "text-zinc-900"}`}
+          >
+            Remove category?
+          </h3>
+          <p className={`text-sm mt-2 ${isDarkTheme ? "text-zinc-400" : "text-zinc-600"}`}>
+            Removing <strong className={isDarkTheme ? "text-zinc-200" : "text-zinc-800"}>{categoryTitle}</strong> will
+            permanently delete {itemCount === 1 ? "its item" : `all ${itemCount} items`} in this category.
+          </p>
+        </div>
+      </div>
+      <div className="flex gap-3 justify-end">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={isDeleting}
+          className={`px-4 py-2 rounded-lg text-sm font-bold border transition-colors disabled:opacity-50 ${isDarkTheme ? "border-zinc-700 text-white hover:bg-zinc-800" : "border-zinc-300 text-zinc-900 hover:bg-zinc-100"}`}
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={isDeleting}
+          className="px-4 py-2 rounded-lg text-sm font-bold bg-red-600 text-white hover:bg-red-500 transition-colors disabled:opacity-50 flex items-center gap-2"
+        >
+          {isDeleting ? (
+            <>
+              <Spinner size="sm" />
+              Removing…
+            </>
+          ) : (
+            "Remove Category"
+          )}
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
 // --- Media Editor Component (Reuse) ---
 interface MediaEditorProps {
   file: File;
@@ -794,6 +866,12 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const [activeOptionsDishId, setActiveOptionsDishId] = useState<string | null>(
     null,
   );
+  const [categoryToDelete, setCategoryToDelete] = useState<{
+    index: number;
+    title: string;
+    itemCount: number;
+  } | null>(null);
+  const [isDeletingCategory, setIsDeletingCategory] = useState(false);
 
   useEffect(() => {
     unsavedChangesRef.current = unsavedChanges;
@@ -1035,6 +1113,45 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     setIsEditingCategory(true);
     // Persist immediately so a refresh doesn't lose the new category
     supabaseService.saveMenu(newMenu).catch(console.error);
+  };
+
+  const handleRequestDeleteCategory = (catIndex: number) => {
+    const category = menuItems[catIndex];
+    if (!category) return;
+    setCategoryToDelete({
+      index: catIndex,
+      title: category.title,
+      itemCount: category.items.length,
+    });
+  };
+
+  const handleConfirmDeleteCategory = async () => {
+    if (!categoryToDelete || isDeletingCategory) return;
+
+    const { index: catIndex } = categoryToDelete;
+    const newMenu = menuItems.filter((_, idx) => idx !== catIndex);
+
+    setIsDeletingCategory(true);
+    try {
+      const saved = await supabaseService.saveMenu(newMenu);
+      setMenuItems(saved);
+      setUnsavedChanges(false);
+      setIsEditingCategory(false);
+      setCategoryToDelete(null);
+
+      if (saved.length === 0) {
+        setSelectedCategoryIdx(0);
+      } else if (selectedCategoryIdx >= saved.length) {
+        setSelectedCategoryIdx(saved.length - 1);
+      } else if (catIndex < selectedCategoryIdx) {
+        setSelectedCategoryIdx(selectedCategoryIdx - 1);
+      }
+    } catch (err) {
+      console.error("Category delete failed:", err);
+      alert(`Failed to remove category: ${getErrorMessage(err)}`);
+    } finally {
+      setIsDeletingCategory(false);
+    }
   };
 
   const handleAddDish = () => {
@@ -1290,6 +1407,19 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           restaurantSlug={restaurantDetails.slug}
           restaurantName={restaurantDetails.name}
           onSlugUpdated={(newSlug) => setRestaurantDetails(prev => prev ? { ...prev, slug: newSlug } : null)}
+          isDarkTheme={isDarkTheme}
+        />
+      )}
+
+      {categoryToDelete && (
+        <DeleteCategoryConfirmModal
+          categoryTitle={categoryToDelete.title}
+          itemCount={categoryToDelete.itemCount}
+          isDeleting={isDeletingCategory}
+          onConfirm={handleConfirmDeleteCategory}
+          onCancel={() => {
+            if (!isDeletingCategory) setCategoryToDelete(null);
+          }}
           isDarkTheme={isDarkTheme}
         />
       )}
@@ -2019,13 +2149,23 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                   </div>
                 )}
 
-                <button
-                  onClick={handleAddDish}
-                  className={`flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-bold transition-all ${isDarkTheme ? 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-white hover:border-zinc-500' : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-300 text-zinc-900 hover:border-zinc-400'}`}
-                >
-                  <Plus size={15} />
-                  Add Item
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleRequestDeleteCategory(selectedCategoryIdx)}
+                    className={`flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-bold transition-all ${isDarkTheme ? "bg-transparent hover:bg-red-500/10 border-zinc-700 text-red-400 hover:border-red-500/50" : "bg-transparent hover:bg-red-50 border-zinc-300 text-red-600 hover:border-red-300"}`}
+                  >
+                    <Trash2 size={15} />
+                    Remove Category
+                  </button>
+                  <button
+                    onClick={handleAddDish}
+                    className={`flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-bold transition-all ${isDarkTheme ? 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-white hover:border-zinc-500' : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-300 text-zinc-900 hover:border-zinc-400'}`}
+                  >
+                    <Plus size={15} />
+                    Add Item
+                  </button>
+                </div>
               </div>
             )}
 

@@ -41,6 +41,15 @@ type DishOption = {
   dishIndex: number;
 };
 
+const getDishNameFromOption = (option: DishOption): string =>
+  option.label.split(" — ").pop() ?? option.label;
+
+const toDownloadFilename = (dishName: string, width: number, height: number): string => {
+  const slug =
+    dishName.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "menu-photo";
+  return `${slug}-${width}x${height}.png`;
+};
+
 export interface ImageEditorViewProps {
   menuItems: Category[];
   restaurantId: string | null;
@@ -139,7 +148,7 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
         setOriginalSourceUrl(url);
         setSourceLabel(label);
         setSourceDishId(dishId);
-        if (dishId) setApplyDishId(dishId);
+        setApplyDishId(dishId ?? "");
         resetTransform();
       } catch (err) {
         imageRef.current = null;
@@ -217,14 +226,34 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
     setError(message);
   };
 
+  const resolveApplyTarget = (): DishOption | null => {
+    if (!applyDishId) {
+      showError("Choose a menu item before downloading or applying.");
+      return null;
+    }
+    const target = dishOptions.find((d) => d.id === applyDishId);
+    if (!target) {
+      showError("Selected dish was not found.");
+      return null;
+    }
+    return target;
+  };
+
   const handleDownload = async () => {
+    const target = resolveApplyTarget();
+    if (!target) return;
+
     setIsExporting(true);
     setError(null);
     try {
       const dataUrl = await exportImage();
-      const slug = sourceLabel.replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "menu-photo";
-      downloadDataUrl(dataUrl, `${slug}-${outputDimensions.width}x${outputDimensions.height}.png`);
-      setStatusMessage("Download started.");
+      const dishName = getDishNameFromOption(target);
+      downloadDataUrl(
+        dataUrl,
+        toDownloadFilename(dishName, outputDimensions.width, outputDimensions.height),
+      );
+      setStatusMessage(`Download started for ${dishName}.`);
+      setApplyDishId("");
     } catch (err) {
       setError(getErrorMessage(err, "Export failed"));
     } finally {
@@ -237,16 +266,9 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
       setError("Sign in to your owner account to apply images to the menu.");
       return;
     }
-    if (!applyDishId) {
-      setError("Choose a menu item to apply this image to.");
-      return;
-    }
 
-    const target = dishOptions.find((d) => d.id === applyDishId);
-    if (!target) {
-      setError("Selected dish was not found.");
-      return;
-    }
+    const target = resolveApplyTarget();
+    if (!target) return;
 
     setIsApplying(true);
     setError(null);
@@ -264,7 +286,9 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
       );
       const saved = await supabaseService.saveMenu(newMenu);
       onMenuUpdated(saved);
-      setStatusMessage(`Applied to ${target.label.split(" — ").pop() ?? "menu item"}.`);
+      const dishName = getDishNameFromOption(target);
+      setStatusMessage(`Applied to ${dishName}.`);
+      setApplyDishId("");
     } catch (err) {
       setError(getErrorMessage(err, "Failed to apply image"));
     } finally {
@@ -568,14 +592,15 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
             <section className={`rounded-xl border p-5 ${card}`}>
               <h2 className="font-semibold mb-4">3. Export</h2>
               <label className={`text-[10px] font-bold tracking-widest uppercase block mb-2 ${muted}`}>
-                Apply to menu item
+                Apply to menu item <span className="text-red-500">*</span>
               </label>
               <select
                 value={applyDishId}
                 onChange={(e) => setApplyDishId(e.target.value)}
+                required
                 className={`w-full px-3 py-2.5 rounded-lg border text-sm outline-none mb-4 ${inputClass}`}
               >
-                <option value="">Select dish…</option>
+                <option value="">Select a dish…</option>
                 {menuItems.map((cat) => (
                   <optgroup key={cat.id} label={cat.title}>
                     {cat.items.map((dish) => (
@@ -591,7 +616,7 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
                 <button
                   type="button"
                   onClick={() => void handleDownload()}
-                  disabled={!hasSource || busy}
+                  disabled={!hasSource || !applyDishId || busy}
                   className={`flex items-center justify-center gap-2 px-5 py-2.5 rounded-full text-xs font-bold tracking-widest border disabled:opacity-40 ${isDarkTheme ? "border-zinc-600 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
                 >
                   {isExporting ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}

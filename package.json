@@ -13,6 +13,7 @@
     "db:push": "tsx scripts/db-push.ts",
     "seed:menu-categories": "tsx scripts/seed-menu-categories.ts",
     "update:dish-images": "tsx scripts/update-dish-images.ts",
+    "move:dishes-to-category": "tsx scripts/move-dishes-to-category.ts",
     "backfill:nutrition": "tsx scripts/backfill-dish-nutrition.ts",
     "storage:ensure": "tsx scripts/ensure-storage.ts"
   },
