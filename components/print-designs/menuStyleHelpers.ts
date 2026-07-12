@@ -168,6 +168,15 @@ export function titleStyleExtras(customization: DesignCustomization): CSS {
   return {};
 }
 
+/** Usable width per column in multi-column menu / pamphlet layouts. */
+export function menuColumnWidth(widthPx: number, pageColumns: number): number {
+  const pad = Math.round(widthPx * 0.06);
+  const gap = Math.round(widthPx * 0.025);
+  const inner = widthPx - pad * 2;
+  if (pageColumns <= 1) return inner;
+  return (inner - gap * (pageColumns - 1)) / pageColumns;
+}
+
 /** QR size for menu card / wall board footers — large enough to scan reliably. */
 export function footerQrSize(widthPx: number): number {
   return Math.max(56, Math.round(widthPx * 0.12));

@@ -23,6 +23,7 @@ import {
   formatPrintDisplayName,
   headingWeight,
   logoAlign,
+  menuColumnWidth,
   outerBorderCss,
   patternOverlay,
   scaledBodyFs,
@@ -80,18 +81,19 @@ function DishList({ cat, style, customization, widthPx, pageColumns }: { cat: Ca
   const fonts = effectiveFonts(customization);
   const visual = TEMPLATE_VISUALS[style];
   const { colors, layout, showPrices, showDescriptions } = customization;
-  const bfs = scaledBodyFs(widthPx, customization);
-  const dfs = scaledDescFs(widthPx, customization);
-  const cfs = scaledCatFs(widthPx, customization);
-  const gap = layout.spacing === 'compact' ? Math.round(widthPx * 0.004) : Math.round(widthPx * 0.008);
+  const colWidth = menuColumnWidth(widthPx, pageColumns);
+  const bfs = scaledBodyFs(colWidth, customization);
+  const dfs = scaledDescFs(colWidth, customization);
+  const cfs = scaledCatFs(colWidth, customization);
+  const gap = layout.spacing === 'compact' ? Math.round(colWidth * 0.008) : Math.round(colWidth * 0.016);
   const dishCols = pageColumns > 1 ? 1 : (layout.columns === 2 ? 2 : 1);
 
   return (
-    <div style={{ marginBottom: Math.round(widthPx * 0.02), breakInside: 'avoid' }}>
+    <div style={{ marginBottom: Math.round(colWidth * 0.04), breakInside: 'avoid', minWidth: 0, width: '100%' }}>
       <div style={categoryHeadingStyle(visual.category, customization, cfs, fonts)}>{cat.title}</div>
-      <div style={{ display: 'grid', gridTemplateColumns: dishCols > 1 ? '1fr 1fr' : '1fr', gap }}>
+      <div style={{ display: 'grid', gridTemplateColumns: dishCols > 1 ? 'minmax(0, 1fr) minmax(0, 1fr)' : 'minmax(0, 1fr)', gap }}>
         {cat.items.map((dish) => (
-          <div key={dish.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 6 }}>
+          <div key={dish.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 6, minWidth: 0, width: '100%' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontFamily: fonts.body, fontSize: bfs, fontWeight: 500, color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {dish.name}
@@ -103,7 +105,7 @@ function DishList({ cat, style, customization, widthPx, pageColumns }: { cat: Ca
               )}
             </div>
             {showPrices && dish.price != null && (
-              <div style={{ fontFamily: fonts.price, fontSize: bfs, fontWeight: 600, color: colors.accent, flexShrink: 0 }}>
+              <div style={{ fontFamily: fonts.price, fontSize: bfs, fontWeight: 600, color: colors.accent, flexShrink: 0, whiteSpace: 'nowrap' }}>
                 ₹{dish.price}
               </div>
             )}
@@ -293,7 +295,7 @@ function StandardMenu({ style, customization, branding, menuItems, widthPx, heig
       </div>
       <div style={{
         flex: 1, minHeight: 0, overflow: 'hidden',
-        display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`,
+        display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
         gap: Math.round(widthPx * 0.025), alignContent: 'start',
       }}>
         {menuItems.map((cat) => (
