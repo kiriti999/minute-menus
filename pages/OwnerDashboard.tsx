@@ -2500,6 +2500,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           <ImageEditorView
             menuItems={menuItems}
             restaurantId={restaurantDetails?.id ?? null}
+            restaurantName={restaurantDetails?.name ?? "Restaurant"}
+            currencyCode={restaurantDetails?.currency ?? "INR"}
             isDarkTheme={isDarkTheme}
             onMenuUpdated={(saved) => {
               setMenuItems(saved);

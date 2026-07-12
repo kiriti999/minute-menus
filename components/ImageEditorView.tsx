@@ -1,3 +1,4 @@
+import { DeliveryMenuExportPanel } from "./DeliveryMenuExportPanel";
 import { getErrorMessage } from "@minute-menus/errors";
 import type { Category } from "@minute-menus/types";
 import { InlineLoader } from "@minute-menus/ui";
@@ -53,13 +54,19 @@ const toDownloadFilename = (dishName: string, width: number, height: number): st
 export interface ImageEditorViewProps {
   menuItems: Category[];
   restaurantId: string | null;
+  restaurantName: string;
+  currencyCode: string;
   isDarkTheme: boolean;
   onMenuUpdated: (menu: Category[]) => void;
 }
 
+type ImageEditorMode = "single" | "delivery-export";
+
 export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
   menuItems,
   restaurantId,
+  restaurantName,
+  currencyCode,
   isDarkTheme,
   onMenuUpdated,
 }) => {
@@ -85,6 +92,7 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
   const [isDragOver, setIsDragOver] = useState(false);
   const [resolvedRestaurantId, setResolvedRestaurantId] = useState<string | null>(restaurantId);
   const [restaurantLoading, setRestaurantLoading] = useState(!restaurantId);
+  const [editorMode, setEditorMode] = useState<ImageEditorMode>("single");
 
   const card = isDarkTheme
     ? "bg-zinc-900 border-zinc-800 text-white"
@@ -333,15 +341,61 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
             Image Editor
           </h1>
           <p className={`text-xs mt-1 max-w-xl ${muted}`}>
-            Crop and resize food photos for reel, delivery, or banner sizes.
+            {editorMode === "single"
+              ? "Crop and resize food photos for reel, delivery, or banner sizes."
+              : "Bulk upload photos and export a Zomato / Swiggy menu spreadsheet."}
           </p>
+          <div className="flex flex-wrap gap-2 mt-4">
+            <button
+              type="button"
+              onClick={() => setEditorMode("single")}
+              className={`px-4 py-2 rounded-full text-[10px] font-bold tracking-widest border transition-colors ${
+                editorMode === "single"
+                  ? isDarkTheme
+                    ? "bg-white text-black border-white"
+                    : "bg-zinc-900 text-white border-zinc-900"
+                  : isDarkTheme
+                    ? "border-zinc-700 text-zinc-400 hover:text-white"
+                    : "border-zinc-300 text-zinc-600 hover:text-zinc-900"
+              }`}
+            >
+              Single photo
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditorMode("delivery-export")}
+              className={`px-4 py-2 rounded-full text-[10px] font-bold tracking-widest border transition-colors ${
+                editorMode === "delivery-export"
+                  ? isDarkTheme
+                    ? "bg-white text-black border-white"
+                    : "bg-zinc-900 text-white border-zinc-900"
+                  : isDarkTheme
+                    ? "border-zinc-700 text-zinc-400 hover:text-white"
+                    : "border-zinc-300 text-zinc-600 hover:text-zinc-900"
+              }`}
+            >
+              Zomato / Swiggy export
+            </button>
+          </div>
         </div>
-        <div className={`flex items-center gap-2 text-[10px] font-bold tracking-widest uppercase ${muted}`}>
-          <Sparkles size={14} />
-          {outputDimensions.width} × {outputDimensions.height}px
-        </div>
+        {editorMode === "single" && (
+          <div className={`flex items-center gap-2 text-[10px] font-bold tracking-widest uppercase ${muted}`}>
+            <Sparkles size={14} />
+            {outputDimensions.width} × {outputDimensions.height}px
+          </div>
+        )}
       </header>
 
+      {editorMode === "delivery-export" ? (
+        <div className="px-4 md:px-8 py-8 max-w-6xl">
+          <DeliveryMenuExportPanel
+            menuItems={menuItems}
+            restaurantName={restaurantName}
+            currencyCode={currencyCode}
+            isDarkTheme={isDarkTheme}
+          />
+        </div>
+      ) : (
       <div className="px-4 md:px-8 py-8 space-y-8 max-w-6xl">
         {error && (
           <div
@@ -637,6 +691,7 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 };
