@@ -110,15 +110,19 @@ export const DeliveryMenuExportPanel: React.FC<DeliveryMenuExportPanelProps> = (
     setStatusMessage(null);
 
     try {
-      const { swiggyRows, zomatoRows, missingPrices } = await buildExportRows({
+      const { menuRows, missingPrices } = await buildExportRows({
         dishes,
         assignmentByDishId,
         exportOnlyWithPhotos,
         defaultFoodType,
       });
 
-      if (swiggyRows.length === 0) {
-        setError("No menu items to export.");
+      if (menuRows.length === 0) {
+        setError(
+          exportOnlyWithPhotos
+            ? "No rows to export. Upload photos or uncheck “Only items with photos”."
+            : "No menu items to export.",
+        );
         return;
       }
 
@@ -129,30 +133,26 @@ export const DeliveryMenuExportPanel: React.FC<DeliveryMenuExportPanelProps> = (
         })
         .map((upload) => upload.file.name);
 
-      const withPhotos = swiggyRows.filter((row) => row.imageBuffer).length;
-      const buffer = await buildDeliveryMenuExcel(swiggyRows, zomatoRows, {
+      const withPhotos = menuRows.filter((row) => row.imageBuffer).length;
+      const buffer = await buildDeliveryMenuExcel(menuRows, {
         restaurantName,
         currencyCode,
         generatedAt: new Date(),
         totalItems: dishes.length,
+        exportedItems: menuRows.length,
         withPhotos,
-        missingPhotos: dishes.length - assignmentByDishId.size,
+        missingPhotos: menuRows.length - withPhotos,
         unmatchedUploads,
       });
 
       const slug =
         restaurantName.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() ||
         "menu";
-      downloadExcelBuffer(buffer, `${slug}-zomato-swiggy-menu.xlsx`);
+      downloadExcelBuffer(buffer, `${slug}-delivery-menu.xlsx`);
 
-      let message = `Exported Swiggy sheet with ${swiggyRows.length} item${swiggyRows.length === 1 ? "" : "s"} (names, descriptions, and prices).`;
-      if (zomatoRows.length > 0) {
-        message += ` Zomato sheet: ${zomatoRows.length} item${zomatoRows.length === 1 ? "" : "s"} with photos.`;
-      } else if (exportOnlyWithPhotos) {
-        message += " Upload photos or uncheck “Only items with photos” to include the Zomato sheet.";
-      }
+      let message = `Exported ${menuRows.length} item${menuRows.length === 1 ? "" : "s"} to Menu sheet.`;
       if (missingPrices.length > 0) {
-        message += ` ${missingPrices.length} item${missingPrices.length === 1 ? "" : "s"} missing price — set prices in Menu Editor before uploading to Swiggy.`;
+        message += ` ${missingPrices.length} item${missingPrices.length === 1 ? "" : "s"} missing price — set prices in Menu Editor.`;
       }
       setStatusMessage(message);
     } catch (err) {
@@ -186,14 +186,13 @@ export const DeliveryMenuExportPanel: React.FC<DeliveryMenuExportPanelProps> = (
           <div>
             <h2 className="font-semibold text-lg flex items-center gap-2">
               <FileSpreadsheet size={18} />
-              Zomato / Swiggy menu Excel
+              Zomato / Swiggy menu export
             </h2>
             <p className={`text-sm mt-1 max-w-2xl ${muted}`}>
               Upload photos in bulk (files or folders). Names are matched to menu items automatically.
-              Export creates Excel with a <strong className={isDarkTheme ? "text-zinc-300" : "text-zinc-700"}>Swiggy</strong> sheet
-              (category, item name, description, price, veg/non-veg for every menu item) and a{" "}
-              <strong className={isDarkTheme ? "text-zinc-300" : "text-zinc-700"}>Zomato</strong> sheet with
-              embedded photos (1600 × 1200).
+              Export creates one <strong className={isDarkTheme ? "text-zinc-300" : "text-zinc-700"}>Menu</strong> sheet
+              (items, descriptions, prices, photos) plus Export Summary and Image Gallery — works for
+              Zomato and Swiggy uploads.
             </p>
           </div>
           <button

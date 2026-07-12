@@ -1,5 +1,5 @@
 import type { DeliveryExportMeta, DeliveryExportRow } from "./types";
-import { buildSwiggySheetRows, SWIGGY_SHEET_HEADERS } from "./swiggyFormat";
+import { isSpicyItem, MENU_SHEET_HEADERS } from "./menuExportFormat";
 
 const HEADER_FILL = {
   type: "pattern" as const,
@@ -34,33 +34,39 @@ const styleHeaderRow = (sheet: import("exceljs").Worksheet, columnCount: number)
   }
 };
 
-const addSwiggySheet = (workbook: import("exceljs").Workbook, rows: DeliveryExportRow[]): void => {
-  const sheet = workbook.addWorksheet("Swiggy");
+const addMenuSheet = (
+  workbook: import("exceljs").Workbook,
+  rows: DeliveryExportRow[],
+  priceHeader: string,
+): void => {
+  const sheet = workbook.addWorksheet("Menu");
   sheet.columns = [
-    { width: 20 },
+    { width: 7 },
     { width: 18 },
-    { width: 34 },
-    { width: 40 },
-    { width: 12 },
+    { width: 32 },
+    { width: 36 },
     { width: 14 },
+    { width: 12 },
     { width: 10 },
     { width: 16 },
     { width: 28 },
   ];
 
-  sheet.addRow([...SWIGGY_SHEET_HEADERS]);
-  styleHeaderRow(sheet, SWIGGY_SHEET_HEADERS.length);
+  const headers = MENU_SHEET_HEADERS.map((header) =>
+    header === "Price" ? priceHeader : header,
+  );
+  sheet.addRow(headers);
+  styleHeaderRow(sheet, headers.length);
 
-  const swiggyRows = buildSwiggySheetRows(rows);
-  swiggyRows.forEach((row, index) => {
+  rows.forEach((row, index) => {
     const sheetRow = sheet.addRow([
-      row.categoryName,
-      row.subCategoryName,
+      row.serialNo,
+      row.category,
       row.itemName,
-      row.description,
+      row.description.trim(),
       row.price,
-      row.vegEggNonveg,
-      row.isSpicy,
+      row.foodType,
+      isSpicyItem(row.itemName, row.description),
       "",
       row.imageFileName,
     ]);
@@ -81,52 +87,6 @@ const addSwiggySheet = (workbook: import("exceljs").Workbook, rows: DeliveryExpo
   });
 };
 
-const addMenuSheet = (
-  workbook: import("exceljs").Workbook,
-  rows: DeliveryExportRow[],
-  priceHeader: string,
-): void => {
-  const sheet = workbook.addWorksheet("Zomato");
-  sheet.columns = [
-    { width: 7 },
-    { width: 18 },
-    { width: 34 },
-    { width: 14 },
-    { width: 12 },
-    { width: 16 },
-    { width: 30 },
-  ];
-
-  sheet.addRow(["S.No", "Category", "Item Name", priceHeader, "Food Type", "Image", "Image File"]);
-  styleHeaderRow(sheet, 7);
-
-  rows.forEach((row, index) => {
-    const sheetRow = sheet.addRow([
-      row.serialNo,
-      row.category,
-      row.itemName,
-      row.price,
-      row.foodType,
-      "",
-      row.imageFileName,
-    ]);
-    sheetRow.height = row.imageBuffer ? DATA_ROW_HEIGHT : 20;
-    sheetRow.getCell(4).fill = PRICE_FILL;
-    sheetRow.alignment = { vertical: "middle", wrapText: true };
-
-    if (row.imageBuffer && row.imageExtension) {
-      const imageId = workbook.addImage({
-        buffer: row.imageBuffer,
-        extension: row.imageExtension,
-      });
-      sheet.addImage(imageId, {
-        tl: { col: 5, row: index + 1 },
-        ext: { width: THUMB_WIDTH, height: THUMB_HEIGHT },
-      });
-    }
-  });
-};
-
 const addSummarySheet = (workbook: import("exceljs").Workbook, meta: DeliveryExportMeta): void => {
   const sheet = workbook.addWorksheet("Export Summary");
   sheet.columns = [{ width: 28 }, { width: 40 }];
@@ -135,11 +95,10 @@ const addSummarySheet = (workbook: import("exceljs").Workbook, meta: DeliveryExp
     ["Restaurant", meta.restaurantName],
     ["Generated", meta.generatedAt.toLocaleString()],
     ["Total menu items", meta.totalItems],
+    ["Exported items", meta.exportedItems],
     ["Items with photos", meta.withPhotos],
     ["Items missing photos", meta.missingPhotos],
     ["Unmatched uploads", meta.unmatchedUploads.length],
-    ["Swiggy sheet", "All menu items with prices"],
-    ["Zomato sheet", "Items with uploaded photos (when enabled)"],
   ];
 
   sheet.addRow(["Field", "Value"]);
@@ -179,8 +138,7 @@ const addGallerySheet = (
 };
 
 export const buildDeliveryMenuExcel = async (
-  swiggyRows: DeliveryExportRow[],
-  zomatoRows: DeliveryExportRow[],
+  rows: DeliveryExportRow[],
   meta: DeliveryExportMeta,
 ): Promise<ArrayBuffer> => {
   const ExcelJS = await import("exceljs");
@@ -192,9 +150,8 @@ export const buildDeliveryMenuExcel = async (
     meta.currencyCode === "INR" ? "Price (INR)" : `Price (${meta.currencyCode})`;
 
   addSummarySheet(workbook, meta);
-  addSwiggySheet(workbook, swiggyRows);
-  addMenuSheet(workbook, zomatoRows, priceHeader);
-  addGallerySheet(workbook, zomatoRows);
+  addMenuSheet(workbook, rows, priceHeader);
+  addGallerySheet(workbook, rows);
 
   return workbook.xlsx.writeBuffer();
 };

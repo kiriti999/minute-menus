@@ -1,13 +1,40 @@
 import { fileToDataUrl, loadImageSource } from "../imageEditor/canvasResize";
 
-const blobToArrayBuffer = (blob: Blob): Promise<ArrayBuffer> =>
-  blob.arrayBuffer();
+/** Target size per export image — keeps Excel/PDF lean while preserving detail at 1600×1200. */
+export const EXPORT_IMAGE_MAX_BYTES = 450 * 1024;
+
+const JPEG_QUALITY_STEPS = [0.88, 0.82, 0.76, 0.7, 0.64, 0.58];
+
+const blobToArrayBuffer = (blob: Blob): Promise<ArrayBuffer> => blob.arrayBuffer();
+
+const canvasToJpeg = (canvas: HTMLCanvasElement, quality: number): Promise<Blob | null> =>
+  new Promise((resolve) => {
+    canvas.toBlob(resolve, "image/jpeg", quality);
+  });
+
+const encodeJpegUnderLimit = async (
+  canvas: HTMLCanvasElement,
+  maxBytes: number,
+): Promise<Blob> => {
+  let bestBlob: Blob | null = null;
+
+  for (const quality of JPEG_QUALITY_STEPS) {
+    const blob = await canvasToJpeg(canvas, quality);
+    if (!blob) continue;
+    bestBlob = blob;
+    if (blob.size <= maxBytes) return blob;
+  }
+
+  if (bestBlob) return bestBlob;
+  throw new Error("Failed to encode export image");
+};
 
 export const prepareDeliveryImage = async (
   file: File,
   width: number,
   height: number,
-): Promise<{ buffer: ArrayBuffer; extension: "png" | "jpeg" }> => {
+  maxBytes = EXPORT_IMAGE_MAX_BYTES,
+): Promise<{ buffer: ArrayBuffer; extension: "jpeg" }> => {
   const dataUrl = await fileToDataUrl(file);
   const img = await loadImageSource(dataUrl);
 
@@ -25,14 +52,11 @@ export const prepareDeliveryImage = async (
   ctx.fillRect(0, 0, width, height);
   ctx.drawImage(img, (width - drawWidth) / 2, (height - drawHeight) / 2, drawWidth, drawHeight);
 
-  const mime = file.type === "image/png" ? "image/png" : "image/jpeg";
-  const blob = await new Promise<Blob | null>((resolve) => {
-    canvas.toBlob(resolve, mime, mime === "image/jpeg" ? 0.92 : undefined);
-  });
+  const blob = await encodeJpegUnderLimit(canvas, maxBytes);
   if (!blob) throw new Error(`Failed to prepare ${file.name}`);
 
   return {
     buffer: await blobToArrayBuffer(blob),
-    extension: mime === "image/png" ? "png" : "jpeg",
+    extension: "jpeg",
   };
 };

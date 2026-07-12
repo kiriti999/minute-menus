@@ -1,6 +1,6 @@
 import type { Category } from "@minute-menus/types";
 import type { FoodType, MenuDishRef } from "./types";
-import { matchDishIdFromFile, toImageFileName } from "./matchImageToDish";
+import { matchDishIdFromFile } from "./matchImageToDish";
 
 export type UploadedImageRow = {
   id: string;
@@ -58,9 +58,9 @@ export const revokeUploadedPreviews = (rows: UploadedImageRow[]): void => {
 export const buildImageFileNameForDish = (dishName: string, assignedFile?: File): string => {
   if (assignedFile) {
     const base = assignedFile.name.replace(/\.[^.]+$/, "").trim();
-    if (base) return `${base}.png`;
+    if (base) return `${base}.jpg`;
   }
-  return toImageFileName(dishName);
+  return `${dishName.trim()}.jpg`;
 };
 
 export const guessFoodType = (dishName: string, defaultFoodType: FoodType): FoodType => {

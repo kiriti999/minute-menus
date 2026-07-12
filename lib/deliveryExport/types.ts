@@ -25,6 +25,7 @@ export type DeliveryExportMeta = {
   currencyCode: string;
   generatedAt: Date;
   totalItems: number;
+  exportedItems: number;
   withPhotos: number;
   missingPhotos: number;
   unmatchedUploads: string[];
