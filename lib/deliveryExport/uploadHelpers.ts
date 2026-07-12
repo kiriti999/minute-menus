@@ -17,6 +17,7 @@ export const flattenMenuDishes = (menuItems: Category[]): MenuDishRef[] =>
       id: dish.id,
       category: category.title,
       name: dish.name,
+      description: dish.description ?? "",
       price: dish.price,
     })),
   );

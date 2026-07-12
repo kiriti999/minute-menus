@@ -1,4 +1,5 @@
 import type { DeliveryExportMeta, DeliveryExportRow } from "./types";
+import { buildSwiggySheetRows, SWIGGY_SHEET_HEADERS } from "./swiggyFormat";
 
 const HEADER_FILL = {
   type: "pattern" as const,
@@ -33,12 +34,59 @@ const styleHeaderRow = (sheet: import("exceljs").Worksheet, columnCount: number)
   }
 };
 
+const addSwiggySheet = (workbook: import("exceljs").Workbook, rows: DeliveryExportRow[]): void => {
+  const sheet = workbook.addWorksheet("Swiggy");
+  sheet.columns = [
+    { width: 20 },
+    { width: 18 },
+    { width: 34 },
+    { width: 40 },
+    { width: 12 },
+    { width: 14 },
+    { width: 10 },
+    { width: 16 },
+    { width: 28 },
+  ];
+
+  sheet.addRow([...SWIGGY_SHEET_HEADERS]);
+  styleHeaderRow(sheet, SWIGGY_SHEET_HEADERS.length);
+
+  const swiggyRows = buildSwiggySheetRows(rows);
+  swiggyRows.forEach((row, index) => {
+    const sheetRow = sheet.addRow([
+      row.categoryName,
+      row.subCategoryName,
+      row.itemName,
+      row.description,
+      row.price,
+      row.vegEggNonveg,
+      row.isSpicy,
+      "",
+      row.imageFileName,
+    ]);
+    sheetRow.height = row.imageBuffer ? DATA_ROW_HEIGHT : 20;
+    sheetRow.getCell(5).fill = PRICE_FILL;
+    sheetRow.alignment = { vertical: "middle", wrapText: true };
+
+    if (row.imageBuffer && row.imageExtension) {
+      const imageId = workbook.addImage({
+        buffer: row.imageBuffer,
+        extension: row.imageExtension,
+      });
+      sheet.addImage(imageId, {
+        tl: { col: 7, row: index + 1 },
+        ext: { width: THUMB_WIDTH, height: THUMB_HEIGHT },
+      });
+    }
+  });
+};
+
 const addMenuSheet = (
   workbook: import("exceljs").Workbook,
   rows: DeliveryExportRow[],
   priceHeader: string,
 ): void => {
-  const sheet = workbook.addWorksheet("Menu");
+  const sheet = workbook.addWorksheet("Zomato");
   sheet.columns = [
     { width: 7 },
     { width: 18 },
@@ -90,6 +138,8 @@ const addSummarySheet = (workbook: import("exceljs").Workbook, meta: DeliveryExp
     ["Items with photos", meta.withPhotos],
     ["Items missing photos", meta.missingPhotos],
     ["Unmatched uploads", meta.unmatchedUploads.length],
+    ["Swiggy sheet", "All menu items with prices"],
+    ["Zomato sheet", "Items with uploaded photos (when enabled)"],
   ];
 
   sheet.addRow(["Field", "Value"]);
@@ -129,7 +179,8 @@ const addGallerySheet = (
 };
 
 export const buildDeliveryMenuExcel = async (
-  rows: DeliveryExportRow[],
+  swiggyRows: DeliveryExportRow[],
+  zomatoRows: DeliveryExportRow[],
   meta: DeliveryExportMeta,
 ): Promise<ArrayBuffer> => {
   const ExcelJS = await import("exceljs");
@@ -141,8 +192,9 @@ export const buildDeliveryMenuExcel = async (
     meta.currencyCode === "INR" ? "Price (INR)" : `Price (${meta.currencyCode})`;
 
   addSummarySheet(workbook, meta);
-  addMenuSheet(workbook, rows, priceHeader);
-  addGallerySheet(workbook, rows);
+  addSwiggySheet(workbook, swiggyRows);
+  addMenuSheet(workbook, zomatoRows, priceHeader);
+  addGallerySheet(workbook, zomatoRows);
 
   return workbook.xlsx.writeBuffer();
 };

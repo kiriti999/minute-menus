@@ -4,6 +4,7 @@ export type MenuDishRef = {
   id: string;
   category: string;
   name: string;
+  description: string;
   price: number;
 };
 
@@ -11,6 +12,7 @@ export type DeliveryExportRow = {
   serialNo: number;
   category: string;
   itemName: string;
+  description: string;
   price: number;
   foodType: FoodType;
   imageFileName: string;
