@@ -173,6 +173,12 @@ export function footerQrSize(widthPx: number): number {
   return Math.max(56, Math.round(widthPx * 0.12));
 }
 
+/** QR size for pocket cards and compact stickers (~10–11mm at 96dpi export). */
+export function compactQrSize(widthPx: number, heightPx: number): number {
+  const minDim = Math.min(widthPx, heightPx);
+  return Math.max(36, Math.min(46, Math.round(minDim * 0.20)));
+}
+
 /** Space to reserve above absolute footers so menu content does not overlap. */
 export function menuFooterReserveHeight(
   widthPx: number,

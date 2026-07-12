@@ -8,6 +8,7 @@ import {
   baseBackground,
   compactMaxItemsPerCategory,
   compactMenuScale,
+  compactQrSize,
   containerRadius,
   containerShadow,
   effectiveFonts,
@@ -106,7 +107,9 @@ const CompactMenuLayout: React.FC<CompactMenuLayoutProps> = ({
   const pad = Math.round(Math.min(widthPx, heightPx) * 0.05);
   const maxItems = compactMaxItemsPerCategory(widthPx, heightPx);
   const isLandscape = layout === 'landscape' || (layout !== 'square' && widthPx > heightPx * 1.15);
-  const qrSize = Math.round(Math.min(widthPx, heightPx) * (isLandscape ? 0.32 : 0.28));
+  const qrSize = compactQrSize(widthPx, heightPx);
+  const qrLabelFs = Math.max(4, bfs - 1);
+  const qrBlockH = qrSize + qrLabelFs + 4;
   const cols = isLandscape && widthPx > heightPx * 1.3 ? 2 : 1;
   const resolvedRadius = borderRadius ?? containerRadius(customization);
   const displayName = formatPrintDisplayName(branding.name, customization.typography.textTransform);
@@ -133,7 +136,8 @@ const CompactMenuLayout: React.FC<CompactMenuLayoutProps> = ({
       </div>
 
       <div style={{
-        flex: 1, minHeight: 0, display: 'flex',
+        flex: 1, minHeight: 0, position: 'relative',
+        display: 'flex',
         flexDirection: isLandscape ? 'row' : 'column',
         gap: Math.round(pad * 0.5),
         alignItems: isLandscape ? 'stretch' : 'flex-start',
@@ -142,7 +146,8 @@ const CompactMenuLayout: React.FC<CompactMenuLayoutProps> = ({
           flex: 1, minWidth: 0, minHeight: 0, overflow: 'hidden',
           display: 'grid', gridTemplateColumns: cols > 1 ? '1fr 1fr' : '1fr',
           gap: Math.round(pad * 0.4), alignContent: 'start',
-          paddingRight: showQR && qrAtBottomRight && isLandscape ? Math.round(qrSize * 0.15) : undefined,
+          paddingRight: showQR && qrAtBottomRight ? qrSize + 4 : undefined,
+          paddingBottom: showQR && qrAtBottomRight ? qrBlockH : undefined,
         }}>
           {menuItems.map((cat) => (
             <CompactCategory
@@ -158,19 +163,27 @@ const CompactMenuLayout: React.FC<CompactMenuLayoutProps> = ({
           ))}
         </div>
 
-        {showQR && (
+        {showQR && qrAtBottomRight && (
+          <div style={{
+            position: 'absolute', right: 0, bottom: 0,
+            display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1,
+          }}>
+            <QRCodeSVG value={siteUrl} size={qrSize} fgColor={colors.primary} bgColor={colors.background} level="H" />
+            <div style={{ fontSize: qrLabelFs, color: colors.textMuted, textAlign: 'right', lineHeight: 1 }}>Scan menu</div>
+          </div>
+        )}
+
+        {showQR && !qrAtBottomRight && (
           <div style={{
             flexShrink: 0,
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'flex-end',
-            justifyContent: qrAtBottomRight ? 'flex-end' : isLandscape ? 'center' : 'flex-end',
-            alignSelf: qrAtBottomRight ? 'flex-end' : undefined,
-            marginTop: qrAtBottomRight && !isLandscape ? 'auto' : undefined,
+            justifyContent: isLandscape ? 'center' : 'flex-end',
             gap: 2,
           }}>
             <QRCodeSVG value={siteUrl} size={qrSize} fgColor={colors.primary} bgColor={colors.background} level="H" />
-            <div style={{ fontSize: Math.max(5, bfs - 1), color: colors.textMuted, textAlign: 'right' }}>Scan menu</div>
+            <div style={{ fontSize: qrLabelFs, color: colors.textMuted, textAlign: 'right' }}>Scan menu</div>
           </div>
         )}
       </div>
