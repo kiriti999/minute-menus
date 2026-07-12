@@ -7,81 +7,206 @@ import type React from "react";
 import type { FormatInfo } from "../../lib/printDesigns";
 import CompactMenuLayout from "./CompactMenuLayout";
 import {
-  baseBackground,
-  effectiveFonts,
+	effectiveFonts,
+	formatPrintDisplayName,
+	hexToRgba,
+	titleFontFamily,
+	titleStyleExtras,
 } from "./menuStyleHelpers";
 
 export interface StickerLayoutProps {
-  customization: DesignCustomization;
-  branding: RestaurantBranding;
-  menuItems: Category[];
-  fmt: FormatInfo;
-  widthPx: number;
-  heightPx: number;
-  siteUrl: string;
+	customization: DesignCustomization;
+	branding: RestaurantBranding;
+	menuItems: Category[];
+	fmt: FormatInfo;
+	widthPx: number;
+	heightPx: number;
+	siteUrl: string;
 }
 
 function Logo({ url, height }: { url?: string; height: number }) {
-  if (!url) return null;
-  return <img src={url} alt="Logo" style={{ height, width: 'auto', objectFit: 'contain' }} />;
+	if (!url) return null;
+	return <img src={url} alt="Logo" style={{ height, width: "auto", objectFit: "contain", display: "block" }} />;
 }
 
-function CircleSticker({ customization, branding, widthPx, siteUrl }: Omit<StickerLayoutProps, 'fmt' | 'heightPx' | 'menuItems'>) {
-  const fonts = effectiveFonts(customization);
-  const { colors, showQR, showTagline, logoUrl } = customization;
-  const size = widthPx;
-  const qrSize = Math.round(size * 0.42);
-  const nameFs = Math.max(7, Math.round(size * 0.09));
-  const pad = Math.round(size * 0.08);
+function CircleQrBadge({
+	siteUrl,
+	qrSize,
+	colors,
+	size,
+}: {
+	siteUrl: string;
+	qrSize: number;
+	colors: DesignCustomization["colors"];
+	size: number;
+}) {
+	const pad = Math.max(3, Math.round(size * 0.018));
+	return (
+		<div
+			style={{
+				padding: pad,
+				borderRadius: Math.round(size * 0.035),
+				background: "#FFF",
+				border: `2px solid ${hexToRgba(colors.accent, 0.45)}`,
+				boxShadow: `0 2px 10px ${hexToRgba(colors.primary, 0.14)}`,
+			}}
+		>
+			<QRCodeSVG value={siteUrl} size={qrSize} fgColor={colors.primary} bgColor="#FFFFFF" level="H" />
+		</div>
+	);
+}
 
-  return (
-    <div
-      style={{
-        width: size, height: size, borderRadius: '50%', overflow: 'hidden', position: 'relative',
-        background: baseBackground(customization), border: `3px solid ${colors.primary}`,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        gap: Math.round(size * 0.03), padding: pad, boxSizing: 'border-box', fontFamily: fonts.body,
-      }}
-    >
-      {logoUrl && <Logo url={logoUrl} height={Math.round(size * 0.12)} />}
-      {showQR && <QRCodeSVG value={siteUrl} size={qrSize} fgColor={colors.primary} bgColor={colors.background} level="H" />}
-      <div style={{ textAlign: 'center', maxWidth: '90%' }}>
-        <div style={{ fontFamily: fonts.heading, fontSize: nameFs, fontWeight: 700, color: colors.primary, lineHeight: 1.1 }}>
-          {branding.name || 'Restaurant'}
-        </div>
-        {showTagline && branding.tagline && (
-          <div style={{ fontSize: Math.max(6, nameFs - 2), color: colors.textMuted, marginTop: 2 }}>{branding.tagline}</div>
-        )}
-      </div>
-      <div style={{ fontSize: Math.max(5, Math.round(size * 0.055)), color: colors.textMuted }}>Scan to order</div>
-    </div>
-  );
+function CircleSticker({
+	customization,
+	branding,
+	widthPx,
+	siteUrl,
+}: Omit<StickerLayoutProps, "fmt" | "heightPx" | "menuItems">) {
+	const fonts = effectiveFonts(customization);
+	const { colors, showQR, showTagline, logoUrl } = customization;
+	const size = widthPx;
+	const ring = Math.max(4, Math.round(size * 0.024));
+	const hasLogo = Boolean(logoUrl);
+	const qrSize = Math.round(size * (hasLogo ? 0.32 : 0.36));
+	const nameFs = Math.max(7, Math.round(size * 0.072));
+	const innerPad = Math.round(size * 0.07);
+	const displayName = formatPrintDisplayName(branding.name, customization.typography.textTransform);
+	const titleFont = titleFontFamily(customization);
+	const titleExtras = titleStyleExtras(customization);
+	const innerBg = customization.backgroundType === "gradient" ? "#FFFFFF" : colors.background;
+
+	return (
+		<div
+			style={{
+				width: size,
+				height: size,
+				borderRadius: "50%",
+				boxSizing: "border-box",
+				background: `linear-gradient(145deg, ${colors.primary}, ${colors.secondary}, ${colors.accent})`,
+				padding: ring,
+				boxShadow: `0 4px 18px ${hexToRgba(colors.primary, 0.22)}`,
+			}}
+		>
+			<div
+				style={{
+					width: "100%",
+					height: "100%",
+					borderRadius: "50%",
+					overflow: "hidden",
+					position: "relative",
+					background: innerBg,
+					display: "flex",
+					flexDirection: "column",
+					alignItems: "center",
+					justifyContent: "center",
+					padding: innerPad,
+					boxSizing: "border-box",
+					fontFamily: fonts.body,
+					gap: Math.round(size * 0.02),
+				}}
+			>
+				<div
+					aria-hidden
+					style={{
+						position: "absolute",
+						inset: Math.round(size * 0.045),
+						borderRadius: "50%",
+						border: `1px dashed ${hexToRgba(colors.accent, 0.4)}`,
+						pointerEvents: "none",
+					}}
+				/>
+
+				{hasLogo && (
+					<div
+						style={{
+							padding: Math.round(size * 0.014),
+							borderRadius: "50%",
+							border: `1.5px solid ${hexToRgba(colors.primary, 0.25)}`,
+							background: hexToRgba(colors.primary, 0.06),
+							flexShrink: 0,
+						}}
+					>
+						<Logo url={logoUrl} height={Math.round(size * 0.09)} />
+					</div>
+				)}
+
+				{showQR && (
+					<CircleQrBadge siteUrl={siteUrl} qrSize={qrSize} colors={colors} size={size} />
+				)}
+
+				<div style={{ textAlign: "center", maxWidth: "86%", zIndex: 1, flexShrink: 0 }}>
+					<div
+						style={{
+							fontFamily: titleFont,
+							fontSize: nameFs,
+							fontWeight: 700,
+							color: colors.primary,
+							lineHeight: 1.15,
+							...titleExtras,
+						}}
+					>
+						{displayName}
+					</div>
+					{showTagline && branding.tagline && (
+						<div
+							style={{
+								fontSize: Math.max(5, nameFs - 2),
+								color: colors.textMuted,
+								marginTop: 2,
+								lineHeight: 1.2,
+							}}
+						>
+							{branding.tagline}
+						</div>
+					)}
+				</div>
+
+				<div
+					style={{
+						marginTop: Math.round(size * 0.01),
+						padding: `${Math.max(3, Math.round(size * 0.012))}px ${Math.round(size * 0.038)}px`,
+						borderRadius: 999,
+						background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})`,
+						color: "#FFF",
+						fontSize: Math.max(5, Math.round(size * 0.045)),
+						fontWeight: 600,
+						letterSpacing: "0.14em",
+						textTransform: "uppercase",
+						flexShrink: 0,
+						zIndex: 1,
+					}}
+				>
+					Scan to order
+				</div>
+			</div>
+		</div>
+	);
 }
 
 const StickerLayout: React.FC<StickerLayoutProps> = (props) => {
-  const shape = props.fmt.shape;
-  const { colors } = props.customization;
+	const shape = props.fmt.shape;
+	const { colors } = props.customization;
 
-  if (shape === 'circle') return <CircleSticker {...props} />;
+	if (shape === "circle") return <CircleSticker {...props} />;
 
-  const layout = shape === 'square' ? 'square' : (props.widthPx > props.heightPx ? 'landscape' : 'portrait');
-  const borderRadius = shape === 'square'
-    ? Math.round(props.widthPx * 0.06)
-    : Math.round(props.widthPx * 0.04);
+	const layout =
+		shape === "square" ? "square" : props.widthPx > props.heightPx ? "landscape" : "portrait";
+	const borderRadius =
+		shape === "square" ? Math.round(props.widthPx * 0.06) : Math.round(props.widthPx * 0.04);
 
-  return (
-    <CompactMenuLayout
-      customization={props.customization}
-      branding={props.branding}
-      menuItems={props.menuItems}
-      widthPx={props.widthPx}
-      heightPx={props.heightPx}
-      siteUrl={props.siteUrl}
-      border={`2px solid ${colors.primary}`}
-      borderRadius={borderRadius}
-      layout={layout}
-    />
-  );
+	return (
+		<CompactMenuLayout
+			customization={props.customization}
+			branding={props.branding}
+			menuItems={props.menuItems}
+			widthPx={props.widthPx}
+			heightPx={props.heightPx}
+			siteUrl={props.siteUrl}
+			border={`2px solid ${colors.primary}`}
+			borderRadius={borderRadius}
+			layout={layout}
+		/>
+	);
 };
 
 export default StickerLayout;
