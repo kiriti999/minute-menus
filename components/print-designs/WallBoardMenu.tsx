@@ -11,6 +11,7 @@ import {
   containerShadow,
   contrastTextColor,
   effectiveFonts,
+  footerQrSize,
   formatPrintDisplayName,
   headingWeight,
   hexToRgba,
@@ -102,7 +103,7 @@ function WallFooter({ style, customization, branding, siteUrl, widthPx, heightPx
   const fonts = effectiveFonts(customization);
   const { colors, showQR } = customization;
   const dfs = scaledDescFsWall(widthPx, heightPx, customization);
-  const qrSize = Math.round(Math.min(widthPx, heightPx) * 0.09);
+  const qrSize = footerQrSize(widthPx);
   const social = [branding.phone, branding.instagram].filter(Boolean).join(' · ');
   const visual = TEMPLATE_VISUALS[style];
 
@@ -120,17 +121,26 @@ function WallFooter({ style, customization, branding, siteUrl, widthPx, heightPx
   }
 
   return (
-    <div style={{
-      flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      borderTop: `2px solid ${colors.border}`, paddingTop: 10, marginTop: Math.round(heightPx * 0.01),
-    }}>
+    <div style={{ flexShrink: 0, marginTop: Math.round(heightPx * 0.01) }}>
       {showQR && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <QRCodeSVG value={siteUrl} size={qrSize} fgColor={colors.primary} bgColor="transparent" level="H" />
-          <div style={{ fontSize: dfs, color: colors.textMuted, fontFamily: fonts.body }}>Scan to order</div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+            <QRCodeSVG value={siteUrl} size={qrSize} fgColor={colors.primary} bgColor="transparent" level="H" />
+            <div style={{ fontSize: dfs, color: colors.textMuted, fontFamily: fonts.body }}>Scan to order</div>
+          </div>
         </div>
       )}
-      {social && <div style={{ fontSize: dfs, color: colors.textMuted, fontFamily: fonts.body }}>{social}</div>}
+      <div style={{
+        borderTop: `2px solid ${colors.border}`,
+        paddingTop: 10,
+        display: 'flex',
+        justifyContent: social ? 'flex-start' : 'flex-end',
+        alignItems: 'center',
+      }}>
+        {social && (
+          <div style={{ fontSize: dfs, color: colors.textMuted, fontFamily: fonts.body }}>{social}</div>
+        )}
+      </div>
     </div>
   );
 }

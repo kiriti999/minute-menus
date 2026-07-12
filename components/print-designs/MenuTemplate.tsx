@@ -19,6 +19,7 @@ import {
   containerRadius,
   containerShadow,
   effectiveFonts,
+  footerQrSize,
   formatPrintDisplayName,
   headingWeight,
   logoAlign,
@@ -198,7 +199,7 @@ function MenuFooter({ style, customization, branding, siteUrl, widthPx, pad }: {
   const fonts = effectiveFonts(customization);
   const { colors, showQR } = customization;
   const dfs = scaledDescFs(widthPx, customization);
-  const qrSize = Math.round(widthPx * 0.06);
+  const qrSize = footerQrSize(widthPx);
   const social = [branding.phone, branding.instagram, branding.website].filter(Boolean).join(' · ');
 
   if (visual.footer === 'strip') {
@@ -227,17 +228,26 @@ function MenuFooter({ style, customization, branding, siteUrl, widthPx, pad }: {
   }
 
   return (
-    <div style={{
-      flexShrink: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end',
-      borderTop: `1px solid ${colors.border}`, paddingTop: 8, marginTop: Math.round(widthPx * 0.015),
-    }}>
+    <div style={{ flexShrink: 0, marginTop: Math.round(widthPx * 0.015) }}>
       {showQR && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <QRCodeSVG value={siteUrl} size={qrSize} fgColor={colors.primary} bgColor="transparent" />
-          <div style={{ fontSize: dfs, color: colors.textMuted, fontFamily: fonts.body }}>Scan menu</div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+            <QRCodeSVG value={siteUrl} size={qrSize} fgColor={colors.primary} bgColor="transparent" level="H" />
+            <div style={{ fontSize: dfs, color: colors.textMuted, fontFamily: fonts.body }}>Scan menu</div>
+          </div>
         </div>
       )}
-      {social && <div style={{ fontSize: dfs, color: colors.textMuted, fontFamily: fonts.body, textAlign: 'right' }}>{social}</div>}
+      <div style={{
+        borderTop: `1px solid ${colors.border}`,
+        paddingTop: 8,
+        display: 'flex',
+        justifyContent: social ? 'flex-start' : 'flex-end',
+        alignItems: 'center',
+      }}>
+        {social && (
+          <div style={{ fontSize: dfs, color: colors.textMuted, fontFamily: fonts.body }}>{social}</div>
+        )}
+      </div>
     </div>
   );
 }
@@ -256,6 +266,7 @@ function PocketCard({ customization, branding, menuItems, widthPx, heightPx, sit
       siteUrl={siteUrl}
       border={`2px solid ${colors.primary}`}
       layout={isLandscape ? 'landscape' : 'portrait'}
+      qrAlign="bottom-right"
     />
   );
 }

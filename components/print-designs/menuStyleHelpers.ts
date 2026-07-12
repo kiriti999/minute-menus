@@ -168,6 +168,11 @@ export function titleStyleExtras(customization: DesignCustomization): CSS {
   return {};
 }
 
+/** QR size for menu card / wall board footers — large enough to scan reliably. */
+export function footerQrSize(widthPx: number): number {
+  return Math.max(56, Math.round(widthPx * 0.12));
+}
+
 /** Space to reserve above absolute footers so menu content does not overlap. */
 export function menuFooterReserveHeight(
   widthPx: number,
@@ -175,9 +180,9 @@ export function menuFooterReserveHeight(
   footerVariant: TemplateVisualConfig['footer'],
   showQR: boolean,
 ): number {
-  const qrSize = Math.round(widthPx * 0.06);
+  const qrSize = footerQrSize(widthPx);
   if (footerVariant === 'strip') return qrSize + 24;
-  if (showQR) return qrSize + Math.round(heightPx * 0.04) + 20;
+  if (showQR) return qrSize + Math.round(heightPx * 0.04) + 28;
   return Math.round(heightPx * 0.06);
 }
 

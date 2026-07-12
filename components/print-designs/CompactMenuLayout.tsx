@@ -29,6 +29,7 @@ export interface CompactMenuLayoutProps {
   border?: string;
   borderRadius?: number | string;
   layout?: 'landscape' | 'portrait' | 'square';
+  qrAlign?: 'center-right' | 'bottom-right';
 }
 
 function Logo({ url, height }: { url?: string; height: number }) {
@@ -94,6 +95,7 @@ const CompactMenuLayout: React.FC<CompactMenuLayoutProps> = ({
   border,
   borderRadius,
   layout,
+  qrAlign = 'center-right',
 }) => {
   const fonts = effectiveFonts(customization);
   const { colors, showQR, showPrices, logoUrl } = customization;
@@ -110,6 +112,7 @@ const CompactMenuLayout: React.FC<CompactMenuLayoutProps> = ({
   const displayName = formatPrintDisplayName(branding.name, customization.typography.textTransform);
   const titleFont = titleFontFamily(customization);
   const titleExtras = titleStyleExtras(customization);
+  const qrAtBottomRight = qrAlign === 'bottom-right';
 
   return (
     <div style={{
@@ -132,12 +135,14 @@ const CompactMenuLayout: React.FC<CompactMenuLayoutProps> = ({
       <div style={{
         flex: 1, minHeight: 0, display: 'flex',
         flexDirection: isLandscape ? 'row' : 'column',
-        gap: Math.round(pad * 0.5), alignItems: isLandscape ? 'stretch' : 'flex-start',
+        gap: Math.round(pad * 0.5),
+        alignItems: isLandscape ? 'stretch' : 'flex-start',
       }}>
         <div style={{
           flex: 1, minWidth: 0, minHeight: 0, overflow: 'hidden',
           display: 'grid', gridTemplateColumns: cols > 1 ? '1fr 1fr' : '1fr',
           gap: Math.round(pad * 0.4), alignContent: 'start',
+          paddingRight: showQR && qrAtBottomRight && isLandscape ? Math.round(qrSize * 0.15) : undefined,
         }}>
           {menuItems.map((cat) => (
             <CompactCategory
@@ -155,11 +160,17 @@ const CompactMenuLayout: React.FC<CompactMenuLayoutProps> = ({
 
         {showQR && (
           <div style={{
-            flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: isLandscape ? 'center' : 'flex-end',
+            flexShrink: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'flex-end',
+            justifyContent: qrAtBottomRight ? 'flex-end' : isLandscape ? 'center' : 'flex-end',
+            alignSelf: qrAtBottomRight ? 'flex-end' : undefined,
+            marginTop: qrAtBottomRight && !isLandscape ? 'auto' : undefined,
             gap: 2,
           }}>
             <QRCodeSVG value={siteUrl} size={qrSize} fgColor={colors.primary} bgColor={colors.background} level="H" />
-            <div style={{ fontSize: Math.max(5, bfs - 1), color: colors.textMuted, textAlign: 'center' }}>Scan menu</div>
+            <div style={{ fontSize: Math.max(5, bfs - 1), color: colors.textMuted, textAlign: 'right' }}>Scan menu</div>
           </div>
         )}
       </div>
