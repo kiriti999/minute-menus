@@ -1029,3 +1029,163 @@ create index if not exists idx_overhead_restaurant   on restaurant_overhead(rest
 create index if not exists idx_invoices_restaurant   on ingredient_invoices(restaurant_id);
 create index if not exists idx_ingredients_restaurant on ingredients(restaurant_id);
 create index if not exists idx_recipe_dish           on dish_recipe_lines(dish_id);
+
+-- ─────────────────────────────────────────────
+-- 19. STAFF TIME TRACKING (QR badge clock in/out)
+-- Reusable badge slots; owner reassigns staff without reprinting stickers.
+-- ─────────────────────────────────────────────
+create table if not exists staff_badges (
+  id                 uuid primary key default gen_random_uuid(),
+  restaurant_id      uuid not null references restaurants(id) on delete cascade,
+  badge_token        text not null unique default encode(gen_random_bytes(24), 'hex'),
+  label              text not null default 'Badge',
+  assigned_staff_id  uuid,
+  created_at         timestamptz not null default now()
+);
+
+create table if not exists restaurant_staff (
+  id             uuid primary key default gen_random_uuid(),
+  restaurant_id  uuid not null references restaurants(id) on delete cascade,
+  name           text not null,
+  phone          text,
+  active         boolean not null default true,
+  resigned_at    timestamptz,
+  created_at     timestamptz not null default now()
+);
+
+alter table staff_badges
+  add constraint staff_badges_assigned_staff_fk
+  foreign key (assigned_staff_id) references restaurant_staff(id) on delete set null;
+
+create table if not exists time_logs (
+  id             uuid primary key default gen_random_uuid(),
+  restaurant_id  uuid not null references restaurants(id) on delete cascade,
+  staff_id       uuid not null references restaurant_staff(id) on delete cascade,
+  badge_id       uuid references staff_badges(id) on delete set null,
+  clock_in_at    timestamptz not null default now(),
+  clock_out_at   timestamptz,
+  source         text not null default 'qr_scan',
+  created_at     timestamptz not null default now()
+);
+
+alter table staff_badges enable row level security;
+alter table restaurant_staff enable row level security;
+alter table time_logs enable row level security;
+
+create policy "Owner can manage staff badges"
+  on staff_badges for all
+  using (exists (select 1 from restaurants r where r.id = staff_badges.restaurant_id and r.owner_id = auth.uid()))
+  with check (exists (select 1 from restaurants r where r.id = staff_badges.restaurant_id and r.owner_id = auth.uid()));
+
+create policy "Owner can manage restaurant staff"
+  on restaurant_staff for all
+  using (exists (select 1 from restaurants r where r.id = restaurant_staff.restaurant_id and r.owner_id = auth.uid()))
+  with check (exists (select 1 from restaurants r where r.id = restaurant_staff.restaurant_id and r.owner_id = auth.uid()));
+
+create policy "Owner can read time logs"
+  on time_logs for select
+  using (exists (select 1 from restaurants r where r.id = time_logs.restaurant_id and r.owner_id = auth.uid()));
+
+create index if not exists idx_staff_badges_restaurant on staff_badges(restaurant_id);
+create index if not exists idx_restaurant_staff_restaurant on restaurant_staff(restaurant_id);
+create index if not exists idx_time_logs_restaurant on time_logs(restaurant_id);
+create index if not exists idx_time_logs_staff on time_logs(staff_id);
+create index if not exists idx_time_logs_clock_in on time_logs(clock_in_at desc);
+
+create or replace function get_staff_clock_status(p_badge_token text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_badge staff_badges%rowtype;
+  v_staff restaurant_staff%rowtype;
+  v_open  time_logs%rowtype;
+begin
+  select * into v_badge from staff_badges where badge_token = p_badge_token;
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'Invalid badge');
+  end if;
+
+  if v_badge.assigned_staff_id is null then
+    return jsonb_build_object('ok', false, 'error', 'Badge not assigned', 'badge_label', v_badge.label);
+  end if;
+
+  select * into v_staff from restaurant_staff
+  where id = v_badge.assigned_staff_id and active = true;
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'No active staff on this badge', 'badge_label', v_badge.label);
+  end if;
+
+  select * into v_open from time_logs
+  where staff_id = v_staff.id and clock_out_at is null
+  order by clock_in_at desc limit 1;
+
+  return jsonb_build_object(
+    'ok', true,
+    'staff_name', v_staff.name,
+    'badge_label', v_badge.label,
+    'is_clocked_in', v_open.id is not null,
+    'last_event_at', coalesce(v_open.clock_in_at, null)
+  );
+end;
+$$;
+
+grant execute on function get_staff_clock_status to anon, authenticated;
+
+-- RPC: toggle clock in/out on QR scan
+create or replace function toggle_staff_clock(p_badge_token text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_badge staff_badges%rowtype;
+  v_staff restaurant_staff%rowtype;
+  v_open  time_logs%rowtype;
+  v_now   timestamptz := now();
+begin
+  select * into v_badge from staff_badges where badge_token = p_badge_token;
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'Invalid badge');
+  end if;
+
+  if v_badge.assigned_staff_id is null then
+    return jsonb_build_object('ok', false, 'error', 'Badge not assigned');
+  end if;
+
+  select * into v_staff from restaurant_staff
+  where id = v_badge.assigned_staff_id and active = true;
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'No active staff on this badge');
+  end if;
+
+  select * into v_open from time_logs
+  where staff_id = v_staff.id and clock_out_at is null
+  order by clock_in_at desc limit 1;
+
+  if v_open.id is not null then
+    update time_logs set clock_out_at = v_now where id = v_open.id;
+    return jsonb_build_object(
+      'ok', true,
+      'action', 'out',
+      'staff_name', v_staff.name,
+      'at', v_now
+    );
+  end if;
+
+  insert into time_logs (restaurant_id, staff_id, badge_id, clock_in_at, source)
+  values (v_badge.restaurant_id, v_staff.id, v_badge.id, v_now, 'qr_scan');
+
+  return jsonb_build_object(
+    'ok', true,
+    'action', 'in',
+    'staff_name', v_staff.name,
+    'at', v_now
+  );
+end;
+$$;
+
+grant execute on function toggle_staff_clock to anon, authenticated;

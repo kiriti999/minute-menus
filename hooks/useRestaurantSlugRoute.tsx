@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { devMenuSlug } from "../lib/devFlags";
 import { supabaseService } from "../services/supabaseService";
 
-const RESERVED_PATHS = ["dashboard", "login", "owner", "admin", "api"];
+const RESERVED_PATHS = ["dashboard", "login", "owner", "admin", "api", "clock"];
 
 export type SlugRestaurantContext = {
     slug: string | null;

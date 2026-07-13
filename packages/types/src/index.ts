@@ -519,3 +519,61 @@ export interface CustomerAddress {
   lng?: number;
   formattedAddress?: string;
 }
+
+// ── Staff time tracking ─────────────────────────────────────────
+export interface StaffBadge {
+  id: string;
+  restaurantId: string;
+  badgeToken: string;
+  label: string;
+  assignedStaffId: string | null;
+  assignedStaffName?: string | null;
+  assignedStaffPhone?: string | null;
+  createdAt: string;
+}
+
+export interface RestaurantStaffMember {
+  id: string;
+  restaurantId: string;
+  name: string;
+  phone: string | null;
+  active: boolean;
+  resignedAt: string | null;
+  createdAt: string;
+}
+
+export interface TimeLogEntry {
+  id: string;
+  restaurantId: string;
+  staffId: string;
+  staffName?: string;
+  badgeId: string | null;
+  clockInAt: string;
+  clockOutAt: string | null;
+  source: string;
+}
+
+export interface StaffClockStatus {
+  ok: boolean;
+  error?: string;
+  staffName?: string;
+  badgeLabel?: string;
+  isClockedIn?: boolean;
+  lastEventAt?: string | null;
+}
+
+export interface StaffClockToggleResult {
+  ok: boolean;
+  error?: string;
+  action?: 'in' | 'out';
+  staffName?: string;
+  at?: string;
+}
+
+export interface WeeklyStaffHours {
+  staffId: string;
+  staffName: string;
+  phone: string | null;
+  totalHours: number;
+  daysWorked: number;
+}

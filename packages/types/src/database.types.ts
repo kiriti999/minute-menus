@@ -692,6 +692,96 @@ export type Database = {
                 };
                 Relationships: [];
             };
+            staff_badges: {
+                Row: {
+                    id: string;
+                    restaurant_id: string;
+                    badge_token: string;
+                    label: string;
+                    assigned_staff_id: string | null;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    restaurant_id: string;
+                    badge_token?: string;
+                    label?: string;
+                    assigned_staff_id?: string | null;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    restaurant_id?: string;
+                    badge_token?: string;
+                    label?: string;
+                    assigned_staff_id?: string | null;
+                    created_at?: string;
+                };
+                Relationships: [];
+            };
+            restaurant_staff: {
+                Row: {
+                    id: string;
+                    restaurant_id: string;
+                    name: string;
+                    phone: string | null;
+                    active: boolean;
+                    resigned_at: string | null;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    restaurant_id: string;
+                    name: string;
+                    phone?: string | null;
+                    active?: boolean;
+                    resigned_at?: string | null;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    restaurant_id?: string;
+                    name?: string;
+                    phone?: string | null;
+                    active?: boolean;
+                    resigned_at?: string | null;
+                    created_at?: string;
+                };
+                Relationships: [];
+            };
+            time_logs: {
+                Row: {
+                    id: string;
+                    restaurant_id: string;
+                    staff_id: string;
+                    badge_id: string | null;
+                    clock_in_at: string;
+                    clock_out_at: string | null;
+                    source: string;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    restaurant_id: string;
+                    staff_id: string;
+                    badge_id?: string | null;
+                    clock_in_at?: string;
+                    clock_out_at?: string | null;
+                    source?: string;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    restaurant_id?: string;
+                    staff_id?: string;
+                    badge_id?: string | null;
+                    clock_in_at?: string;
+                    clock_out_at?: string | null;
+                    source?: string;
+                    created_at?: string;
+                };
+                Relationships: [];
+            };
         };
         Views: { [_ in never]?: never };
         Functions: {
@@ -722,6 +812,14 @@ export type Database = {
                     p_cancel_reason?: string | null;
                 };
                 Returns: string;
+            };
+            get_staff_clock_status: {
+                Args: { p_badge_token: string };
+                Returns: Json;
+            };
+            toggle_staff_clock: {
+                Args: { p_badge_token: string };
+                Returns: Json;
             };
         };
         Enums: { [_ in never]?: never };

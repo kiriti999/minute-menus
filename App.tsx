@@ -17,7 +17,15 @@ import { useRestaurantSlugRoute } from "./hooks/useRestaurantSlugRoute";
 import { CustomerApp } from "./pages/CustomerApp";
 import { LoginPage } from "./pages/LoginPage";
 import { OwnerDashboard } from "./pages/OwnerDashboard";
+import { StaffClockPage } from "./pages/StaffClockPage";
 import { AppMode } from "@minute-menus/types";
+
+function parseClockRoute(): { slug: string; badge: string | null } | null {
+    const match = window.location.pathname.match(/^\/clock\/([a-z0-9-]+)$/i);
+    if (!match) return null;
+    const badge = new URLSearchParams(window.location.search).get("badge");
+    return { slug: match[1].toLowerCase(), badge };
+}
 
 const App: React.FC = () => {
     const [mode, setMode] = useState<AppMode>(AppMode.LANDING);
@@ -105,6 +113,11 @@ const App: React.FC = () => {
 
     if (authLoading) {
         return <LoadingScreen />;
+    }
+
+    const clockRoute = parseClockRoute();
+    if (clockRoute) {
+        return <StaffClockPage slug={clockRoute.slug} badgeToken={clockRoute.badge} />;
     }
 
     if (slugLoading) {

@@ -1385,4 +1385,56 @@ export class SupabaseService {
         const { error } = await this.client.from("dishes").update({ price }).eq("id", dishId);
         if (error) throw error;
     }
+
+    // ── Staff time tracking ───────────────────────────────────────────────────
+
+    async getStaffClockStatus(badgeToken: string) {
+        const { getStaffClockStatus } = await import("./teamTime");
+        return getStaffClockStatus(this.client, badgeToken);
+    }
+
+    async toggleStaffClock(badgeToken: string) {
+        const { toggleStaffClock } = await import("./teamTime");
+        return toggleStaffClock(this.client, badgeToken);
+    }
+
+    async listStaffBadges(restaurantId?: string) {
+        const { listStaffBadges } = await import("./teamTime");
+        const rid = restaurantId ?? (await this.getRestaurantId());
+        return listStaffBadges(this.client, rid);
+    }
+
+    async listRestaurantStaff(restaurantId?: string) {
+        const { listRestaurantStaff } = await import("./teamTime");
+        const rid = restaurantId ?? (await this.getRestaurantId());
+        return listRestaurantStaff(this.client, rid);
+    }
+
+    async createStaffBadge(label: string, restaurantId?: string) {
+        const { createStaffBadge } = await import("./teamTime");
+        const rid = restaurantId ?? (await this.getRestaurantId());
+        return createStaffBadge(this.client, rid, label);
+    }
+
+    async upsertRestaurantStaff(input: { id?: string; name: string; phone?: string | null; active?: boolean }) {
+        const { upsertRestaurantStaff } = await import("./teamTime");
+        const rid = await this.getRestaurantId();
+        return upsertRestaurantStaff(this.client, rid, input);
+    }
+
+    async assignBadgeToStaff(badgeId: string, staffId: string | null) {
+        const { assignBadgeToStaff } = await import("./teamTime");
+        return assignBadgeToStaff(this.client, badgeId, staffId);
+    }
+
+    async deactivateRestaurantStaff(staffId: string) {
+        const { deactivateRestaurantStaff } = await import("./teamTime");
+        return deactivateRestaurantStaff(this.client, staffId);
+    }
+
+    async getWeeklyStaffHours(weekStartIso: string, restaurantId?: string) {
+        const { getWeeklyStaffHours } = await import("./teamTime");
+        const rid = restaurantId ?? (await this.getRestaurantId());
+        return getWeeklyStaffHours(this.client, rid, weekStartIso);
+    }
 }
