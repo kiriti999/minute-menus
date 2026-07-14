@@ -521,6 +521,8 @@ export interface JobFlyerContent {
   englishSkill: EnglishSkillLevel;
   /** Short hook under the role title (e.g. shift benefits). */
   hookLine?: string;
+  /** Full job description shown on the flyer body. */
+  jobDescription?: string;
   /** Optional extra line (e.g. commute / reliability notes). */
   extraNotes?: string;
 }

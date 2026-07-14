@@ -44,6 +44,14 @@ const EMPLOYMENT_LABELS: Record<JobEmploymentType, string> = {
 
 type DetailItem = { icon: string; label: string; value: string };
 
+function descriptionFontSize(text: string, smallFs: number, compact: boolean): number {
+	const len = text.length;
+	const base = Math.max(6, Math.round(smallFs * (compact ? 0.86 : 0.9)));
+	if (len > 1400) return Math.max(5, base - 2);
+	if (len > 900) return Math.max(5, base - 1);
+	return base;
+}
+
 function JobDetailCard({
 	item,
 	labelFs,
@@ -138,6 +146,8 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 	const smallFs = Math.max(8, Math.round(bodyFs * 0.82));
 	const bannerFs = Math.max(14, Math.round(widthPx * (compact ? 0.048 : 0.055)));
 	const qrSize = Math.max(52, Math.round(widthPx * (compact ? 0.14 : 0.16)));
+	const descriptionText = jobFlyer.jobDescription?.trim() ?? "";
+	const descFs = descriptionText ? descriptionFontSize(descriptionText, smallFs, compact) : smallFs;
 	const displayName = formatPrintDisplayName(branding.name, customization.typography.textTransform);
 	const titleFont = titleFontFamily(customization);
 	const titleExtras = titleStyleExtras(customization);
@@ -299,17 +309,36 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 
 				<div
 					style={{
-						flex: 1,
+						flexShrink: 0,
 						display: "grid",
 						gridTemplateColumns: compact ? "1fr" : "1fr 1fr",
 						gap: 8,
-						alignContent: "start",
 					}}
 				>
 					{details.map((item) => (
 						<JobDetailCard key={item.label} item={item} labelFs={smallFs} valueFs={bodyFs} colors={colors} />
 					))}
 				</div>
+
+				{descriptionText && (
+					<div
+						style={{
+							flex: 1,
+							minHeight: 0,
+							overflow: "hidden",
+							padding: "6px 8px",
+							borderRadius: 8,
+							background: hexToRgba(colors.background, 0.65),
+							border: `1px solid ${hexToRgba(colors.border, 0.75)}`,
+							fontSize: descFs,
+							color: colors.text,
+							lineHeight: 1.32,
+							whiteSpace: "pre-line",
+						}}
+					>
+						{descriptionText}
+					</div>
+				)}
 
 				{jobFlyer.extraNotes?.trim() && (
 					<div

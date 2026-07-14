@@ -466,7 +466,17 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                     )}
                   </div>
                   <div>
-                    <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1 ${muted}`}>Extra notes (optional)</label>
+                    <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1 ${muted}`}>Full description</label>
+                    <textarea
+                      value={jobFlyer.jobDescription ?? ''}
+                      onChange={(e) => patchJobFlyer('jobDescription', e.target.value)}
+                      placeholder="Role overview, duties, who you are looking for, how to apply…"
+                      rows={10}
+                      className={`w-full px-3 py-2 rounded-lg border text-sm outline-none resize-y leading-relaxed ${inputCls}`}
+                    />
+                  </div>
+                  <div>
+                    <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1 ${muted}`}>Short note (optional)</label>
                     <textarea
                       value={jobFlyer.extraNotes ?? ''}
                       onChange={(e) => patchJobFlyer('extraNotes', e.target.value)}
@@ -475,7 +485,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                       className={`w-full px-3 py-2 rounded-lg border text-sm outline-none resize-y ${inputCls}`}
                     />
                   </div>
-                  <p className={`text-[10px] ${muted}`}>The QR opens WhatsApp with apply steps pre-filled. Long job descriptions belong in that message, not on the flyer.</p>
+                  <p className={`text-[10px] ${muted}`}>Full description prints on the flyer. The QR still opens WhatsApp with apply steps pre-filled.</p>
                 </div>
               </section>
             )}

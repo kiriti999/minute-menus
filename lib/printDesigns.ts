@@ -111,6 +111,21 @@ export const DEFAULT_FORMAT: Record<PrintDesignType, PrintFormat> = {
   'pocket-card': 'business-card', 'sticker': 'circle-75', 'job-flyer': 'a5',
 };
 
+export const DEFAULT_JOB_FLYER_DESCRIPTION = `We are a cloud kitchen looking for dedicated, hard-working individuals to join our operations team. If you want a stable part-time role with predictable hours and reliable pay, we want to hear from you.
+
+What you will do:
+• Prep, pack, and hand over evening orders to delivery partners
+• Maintain workspace hygiene and assist with kitchen prep/inventory
+• Work efficiently in a fast-paced environment
+
+Who we are looking for:
+• Highly reliable — on time at 4:00 PM is non-negotiable
+• Detail-oriented — you follow instructions and take pride in your work
+• Local candidates preferred — easy late-evening commute
+
+How to apply:
+Scan the QR code to WhatsApp us with your availability, location, and CV. Please do not call directly — candidates who follow the WhatsApp steps are contacted first.`;
+
 export const DEFAULT_JOB_FLYER_CONTENT: JobFlyerContent = {
   roleTitle: 'Part time — Cloud Kitchen',
   employmentType: 'part-time',
@@ -120,6 +135,7 @@ export const DEFAULT_JOB_FLYER_CONTENT: JobFlyerContent = {
   qualification: '12th pass or Studying degree',
   englishSkill: 'preferred',
   hookLine: 'Fixed Evening Shifts • Steady Income • Guaranteed Weekly Off',
+  jobDescription: DEFAULT_JOB_FLYER_DESCRIPTION,
   extraNotes: 'Reliable & punctual. Local candidates preferred. Safe commute home at 11 PM required.',
 };
 
