@@ -112,14 +112,15 @@ export const DEFAULT_FORMAT: Record<PrintDesignType, PrintFormat> = {
 };
 
 export const DEFAULT_JOB_FLYER_CONTENT: JobFlyerContent = {
-  roleTitle: 'Part time',
+  roleTitle: 'Part time — Cloud Kitchen',
   employmentType: 'part-time',
-  timings: '4pm - 11pm',
+  timings: '4 PM – 11 PM, Tue–Sun (Mon off)',
   salary: '₹12,000 – ₹15,000 / month',
   minAge: '18+ years',
   qualification: '12th pass or Studying degree',
   englishSkill: 'preferred',
-  extraNotes: '',
+  hookLine: 'Fixed Evening Shifts • Steady Income • Guaranteed Weekly Off',
+  extraNotes: 'Reliable & punctual. Local candidates preferred. Safe commute home at 11 PM required.',
 };
 
 // ─── Colour schemes (20) ──────────────────────────────────────────────────────

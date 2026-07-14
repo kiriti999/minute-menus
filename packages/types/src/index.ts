@@ -519,7 +519,9 @@ export interface JobFlyerContent {
   minAge: string;
   qualification: string;
   englishSkill: EnglishSkillLevel;
-  /** Optional extra line (e.g. food & accommodation). */
+  /** Short hook under the role title (e.g. shift benefits). */
+  hookLine?: string;
+  /** Optional extra line (e.g. commute / reliability notes). */
   extraNotes?: string;
 }
 

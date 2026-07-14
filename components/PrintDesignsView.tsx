@@ -410,8 +410,17 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                       ))}
                     </div>
                   </div>
+                  <div>
+                    <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1 ${muted}`}>Hook line</label>
+                    <input
+                      value={jobFlyer.hookLine ?? ''}
+                      onChange={(e) => patchJobFlyer('hookLine', e.target.value)}
+                      placeholder="e.g. Fixed Evening Shifts • Steady Income • Monday Off"
+                      className={`w-full px-3 py-2 rounded-lg border text-sm outline-none ${inputCls}`}
+                    />
+                  </div>
                   {([
-                    { key: 'timings' as const, label: 'Timings', placeholder: 'e.g. 4pm – 11pm' },
+                    { key: 'timings' as const, label: 'Timings', placeholder: 'e.g. 4 PM – 11 PM, Tue–Sun (Mon off)' },
                     { key: 'salary' as const, label: 'Salary', placeholder: 'e.g. ₹12,000/month + tips' },
                     { key: 'minAge' as const, label: 'Minimum age', placeholder: 'e.g. 18+ years' },
                     { key: 'qualification' as const, label: 'Qualification', placeholder: 'e.g. 12th pass or Studying degree' },
@@ -458,14 +467,15 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                   </div>
                   <div>
                     <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1 ${muted}`}>Extra notes (optional)</label>
-                    <input
+                    <textarea
                       value={jobFlyer.extraNotes ?? ''}
                       onChange={(e) => patchJobFlyer('extraNotes', e.target.value)}
-                      placeholder="e.g. Meals provided, nearby metro"
-                      className={`w-full px-3 py-2 rounded-lg border text-sm outline-none ${inputCls}`}
+                      placeholder="e.g. Reliable & punctual. Local candidates preferred."
+                      rows={2}
+                      className={`w-full px-3 py-2 rounded-lg border text-sm outline-none resize-y ${inputCls}`}
                     />
                   </div>
-                  <p className={`text-[10px] ${muted}`}>Address and other details come from Restaurant Info below. The QR opens WhatsApp to apply.</p>
+                  <p className={`text-[10px] ${muted}`}>The QR opens WhatsApp with apply steps pre-filled. Long job descriptions belong in that message, not on the flyer.</p>
                 </div>
               </section>
             )}

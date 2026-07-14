@@ -12,6 +12,7 @@ import type {
 import { QRCodeSVG } from "qrcode.react";
 import type React from "react";
 import { TEMPLATE_VISUALS } from "../../lib/templateConfig";
+import { buildJobFlyerApplyMessage } from "../../lib/jobFlyerWhatsApp";
 import { whatsAppChatUrl } from "../../lib/whatsappLink";
 import {
 	baseBackground,
@@ -141,7 +142,7 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 	const titleFont = titleFontFamily(customization);
 	const titleExtras = titleStyleExtras(customization);
 
-	const applyMessage = `Hi, I'm interested in the ${jobFlyer.roleTitle.trim() || "open"} (${EMPLOYMENT_LABELS[jobFlyer.employmentType]}) role at ${branding.name || "your restaurant"}.`;
+	const applyMessage = buildJobFlyerApplyMessage(jobFlyer, branding.name);
 	const whatsAppUrl = branding.phone ? whatsAppChatUrl(branding.phone, applyMessage) : null;
 
 	const details: DetailItem[] = [
@@ -273,8 +274,22 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 							...titleExtras,
 						}}
 					>
-						{jobFlyer.roleTitle.trim() || "Part time"}
+						{jobFlyer.roleTitle.trim() || "Part time — Cloud Kitchen"}
 					</h1>
+					{jobFlyer.hookLine?.trim() && (
+						<p
+							style={{
+								margin: "8px auto 0",
+								maxWidth: "92%",
+								fontSize: smallFs,
+								fontWeight: 600,
+								color: colors.accent,
+								lineHeight: 1.35,
+							}}
+						>
+							{jobFlyer.hookLine.trim()}
+						</p>
+					)}
 					{branding.tagline && customization.showTagline && (
 						<p style={{ margin: "6px 0 0", fontSize: smallFs, color: colors.textMuted, fontStyle: "italic" }}>
 							{branding.tagline}
