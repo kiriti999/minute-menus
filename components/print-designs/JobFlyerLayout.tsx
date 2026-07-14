@@ -334,19 +334,18 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 							boxShadow: `0 4px 14px ${hexToRgba("#000", 0.15)}`,
 						}}
 					>
-						<QRCodeSVG value={whatsAppUrl} size={qrSize} level="H" bgColor="#FFFFFF" fgColor="#111111" />
 						<p
 							style={{
-								margin: "4px 0 0",
+								margin: "0 0 4px",
 								fontSize: Math.max(7, smallFs - 1),
 								fontWeight: 700,
-								color: "#25D366",
-								textTransform: "uppercase",
-								letterSpacing: "0.04em",
+								color: "#111111",
+								lineHeight: 1.2,
 							}}
 						>
-							WhatsApp
+							Scan & Share resume
 						</p>
+						<QRCodeSVG value={whatsAppUrl} size={qrSize} level="H" bgColor="#FFFFFF" fgColor="#111111" />
 					</div>
 				)}
 			</div>
