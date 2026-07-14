@@ -1,11 +1,13 @@
 /**
  * POST /api/counter-invoice?action=create|mark-paid|get
+ * POST /api/counter-invoice — Razorpay webhook (x-razorpay-signature header)
  * Owner-authenticated counter billing (Phase 1).
  */
 
 import { calculateOrderTax, enrichOrderItemsWithGst } from "@minute-menus/currency";
 import type { SalesInvoiceLine, SalesPaymentMethod } from "@minute-menus/types";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { handleRazorpayCounterWebhook } from "../lib/server/razorpayCounterWebhook";
 import { createCounterRazorpayArtifacts } from "../lib/server/razorpayCounterPayments";
 import { requireSupabaseAdminOrThrow, verifyOwnerForRestaurant } from "../lib/server/verifyOwnerRestaurant";
 
@@ -208,6 +210,12 @@ const ROUTES: Record<string, (req: VercelRequest, res: VercelResponse) => Promis
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
 	if (req.method === "OPTIONS") return res.status(200).end();
+
+	if (req.headers["x-razorpay-signature"]) {
+		await handleRazorpayCounterWebhook(req, res);
+		return;
+	}
+
 	if (req.method !== "POST" && req.method !== "GET") {
 		return res.status(405).json({ error: "Method not allowed" });
 	}
@@ -224,7 +232,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 		const message = getErrorDetail(error);
 		console.error(`[counter-invoice/${action}]`, message);
 		if (!res.writableEnded) {
-		 res.status(500).json({ error: "counter-invoice failed", detail: message });
+			res.status(500).json({ error: "counter-invoice failed", detail: message });
 		}
 	}
 }

@@ -5,6 +5,7 @@
     }
   },
   "rewrites": [
+    { "source": "/api/razorpay-webhook", "destination": "/api/counter-invoice" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],

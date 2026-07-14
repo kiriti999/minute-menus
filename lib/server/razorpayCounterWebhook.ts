@@ -1,11 +1,11 @@
 /**
- * POST /api/razorpay-webhook
- * Marks counter sales invoices paid on Razorpay payment events.
+ * Razorpay webhook handler for counter sales invoices.
+ * Invoked from /api/counter-invoice when x-razorpay-signature is present.
  */
 
 import crypto from "node:crypto";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { requireSupabaseAdminOrThrow } from "../lib/server/verifyOwnerRestaurant";
+import { requireSupabaseAdminOrThrow } from "./verifyOwnerRestaurant";
 
 const getErrorDetail = (err: unknown): string =>
 	err instanceof Error ? err.message : String(err);
@@ -35,7 +35,7 @@ async function markInvoicePaid(invoiceId: string, paymentId: string): Promise<bo
 		.maybeSingle();
 
 	if (error) {
-		console.error("[razorpay-webhook] update failed", error.message);
+		console.error("[counter-invoice/webhook] update failed", error.message);
 		return false;
 	}
 	return Boolean(data);
@@ -69,14 +69,21 @@ async function resolveInvoiceId(payload: Record<string, unknown>): Promise<strin
 	return data?.id ?? null;
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-	if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+export async function handleRazorpayCounterWebhook(
+	req: VercelRequest,
+	res: VercelResponse,
+): Promise<void> {
+	if (req.method !== "POST") {
+		res.status(405).json({ error: "Method not allowed" });
+		return;
+	}
 
 	const rawBody = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
 	const signature = req.headers["x-razorpay-signature"] as string | undefined;
 
 	if (process.env.RAZORPAY_WEBHOOK_SECRET && !verifyWebhookSignature(rawBody, signature)) {
-		return res.status(400).json({ error: "Invalid webhook signature" });
+		res.status(400).json({ error: "Invalid webhook signature" });
+		return;
 	}
 
 	try {
@@ -91,7 +98,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 			!eventName.startsWith("payment_link.paid") &&
 			!eventName.startsWith("qr_code.credited")
 		) {
-			return res.status(200).json({ ok: true, ignored: true });
+			res.status(200).json({ ok: true, ignored: true });
+			return;
 		}
 
 		const payload = event.payload ?? {};
@@ -101,19 +109,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
 		const invoiceId = await resolveInvoiceId(payload);
 		if (!invoiceId) {
-			return res.status(200).json({ ok: true, skipped: "no invoice match" });
+			res.status(200).json({ ok: true, skipped: "no invoice match" });
+			return;
 		}
 
 		await markInvoicePaid(invoiceId, paymentId);
-		return res.status(200).json({ ok: true, invoiceId });
+		res.status(200).json({ ok: true, invoiceId });
 	} catch (error) {
-		console.error("[razorpay-webhook]", getErrorDetail(error));
-		return res.status(500).json({ error: "webhook processing failed" });
+		console.error("[counter-invoice/webhook]", getErrorDetail(error));
+		res.status(500).json({ error: "webhook processing failed" });
 	}
 }
-
-export const config = {
-	api: {
-		bodyParser: true,
-	},
-};
