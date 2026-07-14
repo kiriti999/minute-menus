@@ -4,6 +4,10 @@
  *
  * Usage:
  *   pnpm db:push
+ *   pnpm db:push -- --start=121   # resume after rate-limit interruption
+ *
+ * Optional env:
+ *   DB_PUSH_DELAY_MS=300   pause between statements (default 300)
  *
  * Required env var in .env:
  *   SUPABASE_ACCESS_TOKEN — personal access token from:
@@ -52,6 +56,21 @@ if (!projectRef) {
 
 const schemaPath = join(__dirname, "..", "supabase", "schema.sql");
 const sql = readFileSync(schemaPath, "utf8");
+
+function parseStartIndex(argv: string[]): number {
+	const arg = argv.find((a) => a.startsWith("--start="));
+	if (!arg) return 1;
+	const n = Number.parseInt(arg.slice("--start=".length), 10);
+	return Number.isFinite(n) && n >= 1 ? n : 1;
+}
+
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+const START_AT = parseStartIndex(process.argv.slice(2));
+const DELAY_MS = Number.parseInt(process.env.DB_PUSH_DELAY_MS ?? "300", 10) || 300;
+const MAX_RETRIES = 6;
 
 // Split SQL respecting $$-quoted function bodies and single-quoted strings
 function splitStatements(src: string): string[] {
@@ -106,41 +125,74 @@ function splitStatements(src: string): string[] {
 }
 
 const statements = splitStatements(sql);
-console.log(`\nApplying schema to project ${projectRef} (${statements.length} statements)...`);
+const total = statements.length;
+const resumeNote = START_AT > 1 ? ` (resuming from statement ${START_AT})` : "";
+console.log(`\nApplying schema to project ${projectRef} (${total} statements${resumeNote})...`);
 
 let applied = 0;
 let skipped = 0;
 let failed = 0;
 
-for (const stmt of statements) {
-    const res = await fetch(
-        `https://api.supabase.com/v1/projects/${projectRef}/database/query`,
-        {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${ACCESS_TOKEN}`,
-            },
-            body: JSON.stringify({ query: stmt }),
-        },
-    );
+async function runStatement(stmt: string, index: number): Promise<"ok" | "skip" | "fail"> {
+	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+		if (attempt > 0) {
+			const backoff = Math.min(32_000, 2_000 * 2 ** (attempt - 1));
+			console.warn(`  ↻ [${index}] rate limited — retry ${attempt}/${MAX_RETRIES} in ${backoff / 1000}s`);
+			await sleep(backoff);
+		}
 
-    if (!res.ok) {
-        const body = await res.json().catch(() => ({})) as { message?: string; error?: string };
-        const msg = body.message ?? body.error ?? res.statusText;
-        // Skip idempotent DDL collisions — safe to ignore on re-runs
-        if (/already exists|duplicate/i.test(msg)) {
-            skipped++;
-        } else {
-            const preview = stmt.replace(/\s+/g, " ").slice(0, 80);
-            console.error(`  ✗ [${applied + skipped + failed + 1}] ${preview}\n    → ${msg}\n`);
-            failed++;
-        }
-    } else {
-        const preview = stmt.replace(/\s+/g, " ").slice(0, 60);
-        console.log(`  ✓ [${applied + 1}] ${preview}`);
-        applied++;
-    }
+		const res = await fetch(
+			`https://api.supabase.com/v1/projects/${projectRef}/database/query`,
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${ACCESS_TOKEN}`,
+				},
+				body: JSON.stringify({ query: stmt }),
+			},
+		);
+
+		if (res.ok) return "ok";
+
+		const body = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
+		const msg = body.message ?? body.error ?? res.statusText;
+
+		if (/already exists|duplicate/i.test(msg)) return "skip";
+
+		const rateLimited =
+			res.status === 429 || /too many requests|throttler/i.test(msg);
+
+		if (rateLimited && attempt < MAX_RETRIES) continue;
+
+		const preview = stmt.replace(/\s+/g, " ").slice(0, 80);
+		console.error(`  ✗ [${index}] ${preview}\n    → ${msg}\n`);
+		return "fail";
+	}
+
+	return "fail";
+}
+
+for (let i = 0; i < statements.length; i++) {
+	const index = i + 1;
+	if (index < START_AT) continue;
+
+	const stmt = statements[i];
+	const result = await runStatement(stmt, index);
+
+	if (result === "ok") {
+		const preview = stmt.replace(/\s+/g, " ").slice(0, 60);
+		console.log(`  ✓ [${index}] ${preview}`);
+		applied++;
+	} else if (result === "skip") {
+		skipped++;
+	} else {
+		failed++;
+	}
+
+	if (i < statements.length - 1 && DELAY_MS > 0) {
+		await sleep(DELAY_MS);
+	}
 }
 
 if (failed > 0) {

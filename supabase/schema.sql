@@ -1189,3 +1189,78 @@ end;
 $$;
 
 grant execute on function toggle_staff_clock to anon, authenticated;
+
+-- ─────────────────────────────────────────────
+-- 20. COUNTER SALES INVOICES (offline billing)
+-- ─────────────────────────────────────────────
+do $$ begin
+  create type sales_payment_method as enum ('cash', 'paytm_card', 'razorpay');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type sales_payment_status as enum ('pending', 'paid', 'cancelled');
+exception when duplicate_object then null; end $$;
+
+create table if not exists sales_invoice_counters (
+  restaurant_id  uuid primary key references restaurants(id) on delete cascade,
+  last_num       int not null default 0
+);
+
+create table if not exists sales_invoices (
+  id                      uuid primary key default gen_random_uuid(),
+  restaurant_id           uuid not null references restaurants(id) on delete cascade,
+  invoice_num             int not null,
+  invoice_label           text not null,
+  items                   jsonb not null default '[]',
+  subtotal_amount         numeric(10, 2) not null default 0,
+  gst_amount              numeric(10, 2) not null default 0,
+  total_amount            numeric(10, 2) not null,
+  payment_method          sales_payment_method,
+  payment_status          sales_payment_status not null default 'pending',
+  customer_phone          text,
+  razorpay_order_id       text,
+  razorpay_payment_id     text,
+  razorpay_qr_id          text,
+  razorpay_qr_image_url   text,
+  razorpay_payment_link_id text,
+  payment_link_url        text,
+  paid_at                 timestamptz,
+  created_at              timestamptz not null default now(),
+  unique (restaurant_id, invoice_num)
+);
+
+alter table sales_invoices enable row level security;
+
+create policy "Owner can manage sales invoices"
+  on sales_invoices for all
+  using (exists (select 1 from restaurants r where r.id = sales_invoices.restaurant_id and r.owner_id = auth.uid()))
+  with check (exists (select 1 from restaurants r where r.id = sales_invoices.restaurant_id and r.owner_id = auth.uid()));
+
+create index if not exists idx_sales_invoices_restaurant on sales_invoices(restaurant_id);
+create index if not exists idx_sales_invoices_created on sales_invoices(created_at desc);
+create index if not exists idx_sales_invoices_razorpay_order on sales_invoices(razorpay_order_id);
+
+create or replace function next_sales_invoice_label(p_restaurant_id uuid)
+returns table(invoice_num int, invoice_label text)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_num int;
+  v_slug text;
+begin
+  insert into sales_invoice_counters (restaurant_id, last_num)
+  values (p_restaurant_id, 1)
+  on conflict (restaurant_id) do update
+  set last_num = sales_invoice_counters.last_num + 1
+  returning last_num into v_num;
+
+  select slug into v_slug from restaurants where id = p_restaurant_id;
+  invoice_num := v_num;
+  invoice_label := upper(substr(coalesce(v_slug, 'inv'), 1, 8)) || '-' || lpad(v_num::text, 4, '0');
+  return next;
+end;
+$$;
+
+grant execute on function next_sales_invoice_label to authenticated;

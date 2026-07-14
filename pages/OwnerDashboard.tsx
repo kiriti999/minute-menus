@@ -2,6 +2,8 @@ import { ImageEditorView } from "../components/ImageEditorView";
 import { CostingView } from "../components/CostingView";
 import { PrintDesignsView } from "../components/PrintDesignsView";
 import { TeamView } from "../components/TeamView";
+import { CounterBillView } from "../components/CounterBillView";
+import { SalesView } from "../components/SalesView";
 import {
   AlertTriangle,
   BrainCircuit,
@@ -34,6 +36,7 @@ import {
   Plus,
   Printer,
   QrCode,
+  Receipt,
   RefreshCw,
   Save,
   Search,
@@ -97,7 +100,7 @@ import {
   Spinner,
 } from "@minute-menus/ui";
 
-type ViewMode = "DASHBOARD" | "MENU" | "IMAGE_EDITOR" | "COSTING" | "PRINT_DESIGNS" | "CUSTOMERS" | "TEAM" | "SUBSCRIPTIONS";
+type ViewMode = "DASHBOARD" | "MENU" | "IMAGE_EDITOR" | "COSTING" | "PRINT_DESIGNS" | "CUSTOMERS" | "TEAM" | "SALES" | "COUNTER" | "SUBSCRIPTIONS";
 type SubTab = "plans" | "subscribers" | "tomorrow" | "tickets" | "refunds";
 type TimeWindow = "24h" | "7d" | "30d";
 
@@ -911,7 +914,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   const refreshViewData = (view: ViewMode) => {
     if (view === "DASHBOARD") loadDashboardMetrics();
-    if (view === "MENU" || view === "COSTING" || view === "IMAGE_EDITOR" || view === "PRINT_DESIGNS") loadMenuFromServer();
+    if (view === "MENU" || view === "COSTING" || view === "IMAGE_EDITOR" || view === "PRINT_DESIGNS" || view === "COUNTER") loadMenuFromServer();
     if (view === "CUSTOMERS") loadCustomersData();
     if (view === "SUBSCRIPTIONS") loadSubscriptionData();
   };
@@ -1340,6 +1343,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       >
         <Clock size={18} />
         <span className="font-medium">Team</span>
+      </button>
+      <button
+        onClick={() => {
+          setCurrentView("SALES");
+          setIsMobileMenuOpen(false);
+        }}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-300 ${currentView === "SALES" || currentView === "COUNTER" ? (isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white") + " shadow-[0_0_15px_rgba(255,255,255,0.1)]" : isDarkTheme ? "text-zinc-500 hover:text-white hover:bg-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200"}`}
+      >
+        <Receipt size={18} />
+        <span className="font-medium">Sales</span>
       </button>
       <button
         onClick={() => {
@@ -2550,6 +2563,23 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         )}
 
         {currentView === "TEAM" && <TeamView isDarkTheme={isDarkTheme} />}
+
+        {currentView === "SALES" && restaurantDetails && (
+          <SalesView
+            currency={restaurantDetails.currency}
+            isDarkTheme={isDarkTheme}
+            onNewBill={() => setCurrentView("COUNTER")}
+          />
+        )}
+
+        {currentView === "COUNTER" && restaurantDetails && (
+          <CounterBillView
+            menuItems={menuItems}
+            restaurantId={restaurantDetails.id}
+            currency={restaurantDetails.currency}
+            isDarkTheme={isDarkTheme}
+          />
+        )}
 
         {currentView === "CUSTOMERS" && (() => {
           const PAGE_SIZE = 20;

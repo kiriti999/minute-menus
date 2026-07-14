@@ -782,6 +782,87 @@ export type Database = {
                 };
                 Relationships: [];
             };
+            sales_invoice_counters: {
+                Row: {
+                    restaurant_id: string;
+                    last_num: number;
+                };
+                Insert: {
+                    restaurant_id: string;
+                    last_num?: number;
+                };
+                Update: {
+                    restaurant_id?: string;
+                    last_num?: number;
+                };
+                Relationships: [];
+            };
+            sales_invoices: {
+                Row: {
+                    id: string;
+                    restaurant_id: string;
+                    invoice_num: number;
+                    invoice_label: string;
+                    items: Json;
+                    subtotal_amount: number;
+                    gst_amount: number;
+                    total_amount: number;
+                    payment_method: "cash" | "paytm_card" | "razorpay" | null;
+                    payment_status: "pending" | "paid" | "cancelled";
+                    customer_phone: string | null;
+                    razorpay_order_id: string | null;
+                    razorpay_payment_id: string | null;
+                    razorpay_qr_id: string | null;
+                    razorpay_qr_image_url: string | null;
+                    razorpay_payment_link_id: string | null;
+                    payment_link_url: string | null;
+                    paid_at: string | null;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    restaurant_id: string;
+                    invoice_num: number;
+                    invoice_label: string;
+                    items?: Json;
+                    subtotal_amount?: number;
+                    gst_amount?: number;
+                    total_amount: number;
+                    payment_method?: "cash" | "paytm_card" | "razorpay" | null;
+                    payment_status?: "pending" | "paid" | "cancelled";
+                    customer_phone?: string | null;
+                    razorpay_order_id?: string | null;
+                    razorpay_payment_id?: string | null;
+                    razorpay_qr_id?: string | null;
+                    razorpay_qr_image_url?: string | null;
+                    razorpay_payment_link_id?: string | null;
+                    payment_link_url?: string | null;
+                    paid_at?: string | null;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    restaurant_id?: string;
+                    invoice_num?: number;
+                    invoice_label?: string;
+                    items?: Json;
+                    subtotal_amount?: number;
+                    gst_amount?: number;
+                    total_amount?: number;
+                    payment_method?: "cash" | "paytm_card" | "razorpay" | null;
+                    payment_status?: "pending" | "paid" | "cancelled";
+                    customer_phone?: string | null;
+                    razorpay_order_id?: string | null;
+                    razorpay_payment_id?: string | null;
+                    razorpay_qr_id?: string | null;
+                    razorpay_qr_image_url?: string | null;
+                    razorpay_payment_link_id?: string | null;
+                    payment_link_url?: string | null;
+                    paid_at?: string | null;
+                    created_at?: string;
+                };
+                Relationships: [];
+            };
         };
         Views: { [_ in never]?: never };
         Functions: {
@@ -820,6 +901,10 @@ export type Database = {
             toggle_staff_clock: {
                 Args: { p_badge_token: string };
                 Returns: Json;
+            };
+            next_sales_invoice_label: {
+                Args: { p_restaurant_id: string };
+                Returns: { invoice_num: number; invoice_label: string }[];
             };
         };
         Enums: { [_ in never]?: never };

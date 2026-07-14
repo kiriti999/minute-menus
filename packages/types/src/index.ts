@@ -577,3 +577,43 @@ export interface WeeklyStaffHours {
   totalHours: number;
   daysWorked: number;
 }
+
+export type SalesPaymentMethod = 'cash' | 'paytm_card' | 'razorpay';
+export type SalesPaymentStatus = 'pending' | 'paid' | 'cancelled';
+
+export interface SalesInvoiceLine {
+  dishId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  gstAmount?: number;
+  lineTotal?: number;
+}
+
+export interface SalesInvoice {
+  id: string;
+  restaurantId: string;
+  invoiceNum: number;
+  invoiceLabel: string;
+  items: SalesInvoiceLine[];
+  subtotalAmount: number;
+  gstAmount: number;
+  totalAmount: number;
+  paymentMethod: SalesPaymentMethod | null;
+  paymentStatus: SalesPaymentStatus;
+  customerPhone: string | null;
+  razorpayOrderId: string | null;
+  razorpayPaymentId: string | null;
+  paymentLinkUrl: string | null;
+  razorpayQrImageUrl: string | null;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+export interface SalesDailySummary {
+  cashTotal: number;
+  paytmCardTotal: number;
+  razorpayTotal: number;
+  grandTotal: number;
+  invoiceCount: number;
+}
