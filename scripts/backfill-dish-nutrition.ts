@@ -40,6 +40,11 @@ const NUTRITION_BY_NAME: Record<string, NutritionRow> = {
         benefits: "Hydrating, digestion support, skin glow",
         calories: 95,
     },
+    "Apple Carrot Cold Pressed": {
+        ingredients: "Apple, carrot, lemon, ginger",
+        benefits: "Beta-carotene boost, natural energy, eye-friendly",
+        calories: 105,
+    },
     "Apple Carrot Pomegranate Cold Pressed": {
         ingredients: "Apple, carrot, pomegranate, mint",
         benefits: "Antioxidant-rich, heart-friendly, refreshing",
@@ -190,7 +195,78 @@ const NUTRITION_BY_NAME: Record<string, NutritionRow> = {
         benefits: "High protein, muscle recovery, keeps you full longer",
         calories: 360,
     },
+    "Chia Jam Overnight Oats": {
+        ingredients: "Rolled oats, milk, chia seeds, fruit jam, honey",
+        benefits: "Omega-3 from chia, fiber-rich, ready-to-eat breakfast",
+        calories: 320,
+    },
+    "Mango Chia Overnight Oats": {
+        ingredients: "Rolled oats, milk, mango, chia seeds, honey",
+        benefits: "Vitamin C, tropical refresh, fiber keeps you full",
+        calories: 325,
+    },
+    "Overnight oats with dry fruits": {
+        ingredients: "Rolled oats, honey, chia, mixed dry fruits",
+        benefits: "Beta-glucan fiber, steady energy, heart-friendly oats",
+        calories: 330,
+    },
+    "Quinoa Paneer Salad": {
+        ingredients: "Quinoa, paneer, cucumber, tomato, citrus dressing",
+        benefits: "Complete protein, calcium, gluten-free filling bowl",
+        calories: 370,
+    },
+    "Paneer Tortilla Wrap": {
+        ingredients: "Paneer, tortilla, tomato, onion, cheese, mayo",
+        benefits: "Plant protein, calcium, veggie fiber, satisfying meal",
+        calories: 440,
+    },
+    "Chicken Tortilla Wrap": {
+        ingredients: "Grilled chicken breast, tortilla, tomato, onion, cheese, mayo",
+        benefits: "Lean protein, muscle fuel, B vitamins, filling lunch",
+        calories: 480,
+    },
+    "Double Egg Wrap": {
+        ingredients: "Eggs, wheat paratha, onion, lemon, spices",
+        benefits: "Complete protein, choline for focus, iron, sustained energy",
+        calories: 410,
+    },
+    "Tomato Mutti Wrap/Bowl": {
+        ingredients: "Tomato mutti, spiced base, rice or wrap",
+        benefits: "Lycopene antioxidant, comforting, vitamin C from tomatoes",
+        calories: 360,
+    },
+    "Tomato Mutti Bowl": {
+        ingredients: "Tomato mutti, spiced base, rice",
+        benefits: "Lycopene antioxidant, comforting, vitamin C from tomatoes",
+        calories: 380,
+    },
+    "Apple Pomegranate Boost": {
+        ingredients: "Apple, pomegranate, lime",
+        benefits: "Punicalagins antioxidants, immunity support, heart-friendly",
+        calories: 115,
+    },
+    "Watermelon Hydrator": {
+        ingredients: "Fresh watermelon, ice",
+        benefits: "Hydrating, lycopene antioxidant, low-calorie refresh",
+        calories: 90,
+    },
+    "Pomegranate Cold Pressed": {
+        ingredients: "Fresh pomegranate, apple, lime",
+        benefits: "Antioxidant-rich, immunity support, refreshing",
+        calories: 115,
+    },
 };
+
+function buildNutritionUpdates(
+    dish: { ingredients?: string | null; benefits?: string | null; calories?: number | null },
+    nutrition: NutritionRow,
+): Partial<NutritionRow> | null {
+    const updates: Partial<NutritionRow> = {};
+    if (nutrition.ingredients && !dish.ingredients?.trim()) updates.ingredients = nutrition.ingredients;
+    if (nutrition.benefits && !dish.benefits?.trim()) updates.benefits = nutrition.benefits;
+    if (nutrition.calories && (dish.calories == null || dish.calories <= 0)) updates.calories = nutrition.calories;
+    return Object.keys(updates).length ? updates : null;
+}
 
 function nutritionForDish(name: string): NutritionRow | undefined {
     const direct = NUTRITION_BY_NAME[name];
@@ -260,32 +336,21 @@ for (const restaurant of restaurants) {
             continue;
         }
 
-        const alreadySet =
-            dish.ingredients?.trim() &&
-            dish.benefits?.trim() &&
-            dish.calories != null &&
-            dish.calories > 0;
-
-        if (alreadySet) {
+        const updates = buildNutritionUpdates(dish, nutrition);
+        if (!updates) {
             skipped++;
             continue;
         }
 
-        const { error: updateErr } = await supabase
-            .from("dishes")
-            .update({
-                ingredients: nutrition.ingredients,
-                benefits: nutrition.benefits,
-                calories: nutrition.calories,
-            })
-            .eq("id", dish.id);
+        const { error: updateErr } = await supabase.from("dishes").update(updates).eq("id", dish.id);
 
         if (updateErr) {
             console.error(`  ✗ ${dish.name}: ${updateErr.message}`);
             continue;
         }
 
-        ok(`${dish.name} — ${nutrition.calories} kcal`);
+        const fields = Object.keys(updates).join(", ");
+        ok(`${dish.name} — updated ${fields}`);
         updated++;
     }
 }
