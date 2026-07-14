@@ -5,6 +5,12 @@ import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { getErrorMessage } from "@minute-menus/errors";
+import {
+	exportWeeklyHoursCsv,
+	formatShiftClockOut,
+	formatShiftDate,
+	formatShiftTime,
+} from "../lib/teamTimeFormat";
 import { supabaseService } from "../services/supabaseService";
 
 export interface TeamViewProps {
@@ -24,21 +30,70 @@ function badgeClockUrl(slug: string, badgeToken: string): string {
 	return `${base}/clock/${slug}?badge=${encodeURIComponent(badgeToken)}`;
 }
 
-function exportWeeklyCsv(rows: WeeklyStaffHours[], weekStart: string) {
-	const header = "Staff,Phone,Total Hours,Days Worked\n";
-	const body = rows
-		.map((r) =>
-			[`"${r.staffName.replace(/"/g, '""')}"`, r.phone ?? "", r.totalHours.toFixed(2), r.daysWorked].join(","),
-		)
-		.join("\n");
-	const blob = new Blob([header + body], { type: "text/csv;charset=utf-8" });
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement("a");
-	a.href = url;
-	a.download = `team-hours-${weekStart}.csv`;
-	a.click();
-	URL.revokeObjectURL(url);
-}
+const WeeklyHoursTables: React.FC<{
+	rows: WeeklyStaffHours[];
+	isDarkTheme: boolean;
+	muted: string;
+}> = ({ rows, isDarkTheme, muted }) => {
+	const border = isDarkTheme ? "border-t border-zinc-800" : "border-t border-zinc-100";
+	const text = isDarkTheme ? "text-white" : "text-zinc-900";
+	const shiftRows = rows.flatMap((row) =>
+		row.shifts.map((shift) => ({ row, shift, key: `${row.staffId}-${shift.clockInAt}` })),
+	);
+
+	return (
+		<div className="space-y-6">
+			<table className="w-full text-sm">
+				<thead>
+					<tr className={`text-left text-xs uppercase ${muted}`}>
+						<th className="pb-2">Staff</th>
+						<th className="pb-2">Phone</th>
+						<th className="pb-2 text-right">Hours</th>
+						<th className="pb-2 text-right">Days</th>
+					</tr>
+				</thead>
+				<tbody>
+					{rows.map((row) => (
+						<tr key={row.staffId} className={border}>
+							<td className={`py-2 ${text}`}>{row.staffName}</td>
+							<td className={`py-2 ${muted}`}>{row.phone ?? "—"}</td>
+							<td className={`py-2 text-right font-mono ${text}`}>{row.totalHours.toFixed(1)}h</td>
+							<td className={`py-2 text-right ${muted}`}>{row.daysWorked}</td>
+						</tr>
+					))}
+				</tbody>
+			</table>
+
+			{shiftRows.length > 0 && (
+				<div>
+					<h3 className={`text-xs font-bold uppercase tracking-widest mb-2 ${muted}`}>Clock in / out</h3>
+					<table className="w-full text-sm">
+						<thead>
+							<tr className={`text-left text-xs uppercase ${muted}`}>
+								<th className="pb-2">Staff</th>
+								<th className="pb-2">Date</th>
+								<th className="pb-2">Clock in</th>
+								<th className="pb-2">Clock out</th>
+								<th className="pb-2 text-right">Hours</th>
+							</tr>
+						</thead>
+						<tbody>
+							{shiftRows.map(({ row, shift, key }) => (
+								<tr key={key} className={border}>
+									<td className={`py-2 ${text}`}>{row.staffName}</td>
+									<td className={`py-2 ${muted}`}>{formatShiftDate(shift.clockInAt)}</td>
+									<td className={`py-2 font-mono ${text}`}>{formatShiftTime(shift.clockInAt)}</td>
+									<td className={`py-2 font-mono ${muted}`}>{formatShiftClockOut(shift.clockOutAt)}</td>
+									<td className={`py-2 text-right font-mono ${text}`}>{shift.hours.toFixed(1)}h</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
+				</div>
+			)}
+		</div>
+	);
+};
 
 const BadgePrintCard: React.FC<{ label: string; staffName: string | null; url: string }> = ({
 	label,
@@ -465,7 +520,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 						/>
 						<button
 							type="button"
-							onClick={() => exportWeeklyCsv(weeklyHours, weekStart)}
+							onClick={() => exportWeeklyHoursCsv(weeklyHours, weekStart)}
 							disabled={weeklyHours.length === 0}
 							className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border ${
 								isDarkTheme ? "border-zinc-700 text-white" : "border-zinc-300 text-zinc-900"
@@ -478,28 +533,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 				{weeklyHours.length === 0 ? (
 					<p className={`text-sm ${muted}`}>No time logs for this week yet.</p>
 				) : (
-					<table className="w-full text-sm">
-						<thead>
-							<tr className={`text-left text-xs uppercase ${muted}`}>
-								<th className="pb-2">Staff</th>
-								<th className="pb-2">Phone</th>
-								<th className="pb-2 text-right">Hours</th>
-								<th className="pb-2 text-right">Days</th>
-							</tr>
-						</thead>
-						<tbody>
-							{weeklyHours.map((row) => (
-								<tr key={row.staffId} className={isDarkTheme ? "border-t border-zinc-800" : "border-t border-zinc-100"}>
-									<td className={`py-2 ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>{row.staffName}</td>
-									<td className={`py-2 ${muted}`}>{row.phone ?? "—"}</td>
-									<td className={`py-2 text-right font-mono ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
-										{row.totalHours.toFixed(1)}h
-									</td>
-									<td className={`py-2 text-right ${muted}`}>{row.daysWorked}</td>
-								</tr>
-							))}
-						</tbody>
-					</table>
+					<WeeklyHoursTables rows={weeklyHours} isDarkTheme={isDarkTheme} muted={muted} />
 				)}
 			</section>
 

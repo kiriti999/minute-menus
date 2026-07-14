@@ -4,6 +4,7 @@ import type {
 	RestaurantStaffMember,
 	StaffClockStatus,
 	StaffClockToggleResult,
+	StaffTimeShift,
 	WeeklyStaffHours,
 } from "@minute-menus/types";
 import type { Database, Json } from "@minute-menus/types/db";
@@ -221,11 +222,17 @@ export async function getWeeklyStaffHours(
 		const end = row.clock_out_at ?? nowIso;
 		const hours = hoursBetween(row.clock_in_at, end);
 		const dayKey = row.clock_in_at.slice(0, 10);
+		const shift: StaffTimeShift = {
+			clockInAt: row.clock_in_at,
+			clockOutAt: row.clock_out_at,
+			hours: Math.round(hours * 100) / 100,
+		};
 		const existing = byStaff.get(row.staff_id);
 		if (existing) {
 			existing.totalHours += hours;
 			existing.days.add(dayKey);
 			existing.daysWorked = existing.days.size;
+			existing.shifts.push(shift);
 		} else {
 			byStaff.set(row.staff_id, {
 				staffId: row.staff_id,
@@ -234,6 +241,7 @@ export async function getWeeklyStaffHours(
 				totalHours: hours,
 				daysWorked: 1,
 				days: new Set([dayKey]),
+				shifts: [shift],
 			});
 		}
 	}
@@ -241,6 +249,9 @@ export async function getWeeklyStaffHours(
 	return Array.from(byStaff.values()).map(({ days: _days, ...rest }) => ({
 		...rest,
 		totalHours: Math.round(rest.totalHours * 100) / 100,
+		shifts: rest.shifts.sort(
+			(a, b) => new Date(a.clockInAt).getTime() - new Date(b.clockInAt).getTime(),
+		),
 	}));
 }
 

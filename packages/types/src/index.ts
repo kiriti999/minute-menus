@@ -591,12 +591,19 @@ export interface StaffClockToggleResult {
   at?: string;
 }
 
+export interface StaffTimeShift {
+  clockInAt: string;
+  clockOutAt: string | null;
+  hours: number;
+}
+
 export interface WeeklyStaffHours {
   staffId: string;
   staffName: string;
   phone: string | null;
   totalHours: number;
   daysWorked: number;
+  shifts: StaffTimeShift[];
 }
 
 export type SalesPaymentMethod = 'cash' | 'paytm_card' | 'razorpay';
