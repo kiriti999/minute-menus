@@ -1,5 +1,5 @@
 import type { RestaurantStaffMember, StaffBadge, WeeklyStaffHours } from "@minute-menus/types";
-import { Download, Loader2, Plus, Printer, QrCode, UserMinus } from "lucide-react";
+import { Download, Loader2, Pencil, Plus, Printer, QrCode, UserMinus, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
@@ -82,6 +82,9 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 	const [newStaffName, setNewStaffName] = useState("");
 	const [newStaffPhone, setNewStaffPhone] = useState("");
 	const [assignStaffId, setAssignStaffId] = useState<Record<string, string>>({});
+	const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
+	const [editStaffName, setEditStaffName] = useState("");
+	const [editStaffPhone, setEditStaffPhone] = useState("");
 
 	const card = isDarkTheme ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200";
 	const muted = isDarkTheme ? "text-zinc-400" : "text-zinc-500";
@@ -184,6 +187,37 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 		setSaving(true);
 		try {
 			await supabaseService.deactivateRestaurantStaff(staffId);
+			if (editingStaffId === staffId) setEditingStaffId(null);
+			await load();
+		} catch (err) {
+			setError(getErrorMessage(err));
+		} finally {
+			setSaving(false);
+		}
+	};
+
+	const startEditStaff = (member: RestaurantStaffMember) => {
+		setEditingStaffId(member.id);
+		setEditStaffName(member.name);
+		setEditStaffPhone(member.phone ?? "");
+	};
+
+	const cancelEditStaff = () => {
+		setEditingStaffId(null);
+		setEditStaffName("");
+		setEditStaffPhone("");
+	};
+
+	const handleSaveStaff = async () => {
+		if (!editingStaffId || !editStaffName.trim()) return;
+		setSaving(true);
+		try {
+			await supabaseService.upsertRestaurantStaff({
+				id: editingStaffId,
+				name: editStaffName.trim(),
+				phone: editStaffPhone.trim() || null,
+			});
+			cancelEditStaff();
 			await load();
 		} catch (err) {
 			setError(getErrorMessage(err));
@@ -328,28 +362,92 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 					</button>
 				</div>
 				<ul className="divide-y divide-zinc-800/50">
-					{staff.map((s) => (
-						<li key={s.id} className="py-3 flex items-center justify-between gap-3">
-							<div>
-								<p className={`font-medium ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
-									{s.name}
-									{!s.active && (
-										<span className="ml-2 text-xs text-zinc-500">(inactive)</span>
+					{staff.map((s) => {
+						const isEditing = editingStaffId === s.id;
+						return (
+						<li key={s.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+							{isEditing ? (
+								<div className="flex flex-wrap gap-2 flex-1">
+									<input
+										type="text"
+										value={editStaffName}
+										onChange={(e) => setEditStaffName(e.target.value)}
+										placeholder="Name"
+										className={`rounded-lg border px-3 py-2 text-sm min-w-[140px] ${input}`}
+									/>
+									<input
+										type="tel"
+										value={editStaffPhone}
+										onChange={(e) => setEditStaffPhone(e.target.value)}
+										placeholder="Mobile (optional)"
+										className={`rounded-lg border px-3 py-2 text-sm min-w-[140px] ${input}`}
+									/>
+								</div>
+							) : (
+								<div>
+									<p className={`font-medium ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
+										{s.name}
+										{!s.active && (
+											<span className="ml-2 text-xs text-zinc-500">(inactive)</span>
+										)}
+									</p>
+									{s.phone ? (
+										<p className={`text-xs ${muted}`}>{s.phone}</p>
+									) : (
+										<p className={`text-xs ${muted}`}>No mobile number</p>
 									)}
-								</p>
-								{s.phone && <p className={`text-xs ${muted}`}>{s.phone}</p>}
-							</div>
-							{s.active && (
-								<button
-									type="button"
-									onClick={() => void handleDeactivate(s.id)}
-									className="text-xs text-red-400 inline-flex items-center gap-1 hover:underline"
-								>
-									<UserMinus size={14} /> Deactivate
-								</button>
+								</div>
 							)}
+							<div className="flex items-center gap-2 shrink-0">
+								{isEditing ? (
+									<>
+										<button
+											type="button"
+											onClick={() => void handleSaveStaff()}
+											disabled={saving || !editStaffName.trim()}
+											className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
+												isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white"
+											} disabled:opacity-50`}
+										>
+											Save
+										</button>
+										<button
+											type="button"
+											onClick={cancelEditStaff}
+											disabled={saving}
+											className={`p-2 rounded-lg border ${isDarkTheme ? "border-zinc-700 text-zinc-400" : "border-zinc-200 text-zinc-500"}`}
+											title="Cancel"
+										>
+											<X size={14} />
+										</button>
+									</>
+								) : (
+									<>
+										<button
+											type="button"
+											onClick={() => startEditStaff(s)}
+											disabled={saving}
+											className={`text-xs inline-flex items-center gap-1 px-2 py-1 rounded-lg border ${
+												isDarkTheme ? "border-zinc-700 text-zinc-300 hover:bg-zinc-800" : "border-zinc-200 text-zinc-600 hover:bg-zinc-100"
+											}`}
+										>
+											<Pencil size={14} /> Edit
+										</button>
+										{s.active && (
+											<button
+												type="button"
+												onClick={() => void handleDeactivate(s.id)}
+												className="text-xs text-red-400 inline-flex items-center gap-1 hover:underline"
+											>
+												<UserMinus size={14} /> Deactivate
+											</button>
+										)}
+									</>
+								)}
+							</div>
 						</li>
-					))}
+						);
+					})}
 				</ul>
 			</section>
 
