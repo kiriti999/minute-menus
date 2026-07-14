@@ -1,5 +1,5 @@
 /**
- * Hiring pamphlet layout — part-time / full-time job flyers.
+ * Hiring pamphlet — bold "We Are Hiring" layout for print / PDF export.
  */
 import type {
 	DesignCustomization,
@@ -12,13 +12,13 @@ import { QRCodeSVG } from "qrcode.react";
 import type React from "react";
 import { whatsAppChatUrl } from "../../lib/whatsappLink";
 import {
-	baseBackground,
-	containerRadius,
 	effectiveFonts,
-	footerQrSize,
+	formatPrintDisplayName,
+	hexToRgba,
 	scaledBodyFs,
 	scaledHeadingFs,
 	titleFontFamily,
+	titleStyleExtras,
 } from "./menuStyleHelpers";
 
 const ENGLISH_LABELS: Record<EnglishSkillLevel, string> = {
@@ -32,34 +32,64 @@ const EMPLOYMENT_LABELS: Record<JobEmploymentType, string> = {
 	"full-time": "Full-time",
 };
 
-function DetailRow({
-	label,
-	value,
+type DetailItem = { icon: string; label: string; value: string };
+
+function JobDetailCard({
+	item,
 	labelFs,
 	valueFs,
-	mutedColor,
-	borderColor,
+	colors,
 }: {
-	label: string;
-	value: string;
+	item: DetailItem;
 	labelFs: number;
 	valueFs: number;
-	mutedColor: string;
-	borderColor: string;
+	colors: DesignCustomization["colors"];
 }) {
-	if (!value.trim()) return null;
+	if (!item.value.trim()) return null;
 	return (
 		<div
 			style={{
 				display: "flex",
-				justifyContent: "space-between",
-				gap: 12,
-				padding: "8px 0",
-				borderBottom: `1px solid ${borderColor}`,
+				alignItems: "flex-start",
+				gap: 10,
+				padding: "10px 12px",
+				borderRadius: 10,
+				background: hexToRgba(colors.background, 0.92),
+				border: `1px solid ${hexToRgba(colors.border, 0.85)}`,
+				boxShadow: `0 2px 8px ${hexToRgba(colors.primary, 0.06)}`,
 			}}
 		>
-			<span style={{ fontSize: labelFs, fontWeight: 600, color: mutedColor, flexShrink: 0 }}>{label}</span>
-			<span style={{ fontSize: valueFs, fontWeight: 600, textAlign: "right" }}>{value}</span>
+			<div
+				style={{
+					width: Math.round(labelFs * 2.2),
+					height: Math.round(labelFs * 2.2),
+					borderRadius: "50%",
+					flexShrink: 0,
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "center",
+					fontSize: Math.round(labelFs * 1.15),
+					background: hexToRgba(colors.secondary, 0.18),
+					color: colors.primary,
+				}}
+			>
+				{item.icon}
+			</div>
+			<div style={{ minWidth: 0, flex: 1 }}>
+				<div
+					style={{
+						fontSize: labelFs,
+						fontWeight: 700,
+						textTransform: "uppercase",
+						letterSpacing: "0.06em",
+						color: colors.textMuted,
+						marginBottom: 2,
+					}}
+				>
+					{item.label}
+				</div>
+				<div style={{ fontSize: valueFs, fontWeight: 700, color: colors.text, lineHeight: 1.25 }}>{item.value}</div>
+			</div>
 		</div>
 	);
 }
@@ -83,13 +113,27 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 }) => {
 	const { colors } = customization;
 	const fonts = effectiveFonts(customization);
-	const pad = Math.round(widthPx * 0.07);
-	const headingFs = scaledHeadingFs(widthPx, customization);
+	const compact = widthPx < 420;
+	const pad = Math.round(widthPx * (compact ? 0.055 : 0.065));
+	const headingFs = Math.round(scaledHeadingFs(widthPx, customization) * (compact ? 0.82 : 1));
 	const bodyFs = scaledBodyFs(widthPx, customization);
-	const smallFs = Math.max(8, Math.round(bodyFs * 0.88));
-	const qrSize = footerQrSize(widthPx);
+	const smallFs = Math.max(8, Math.round(bodyFs * 0.82));
+	const bannerFs = Math.max(14, Math.round(widthPx * (compact ? 0.048 : 0.055)));
+	const qrSize = Math.max(52, Math.round(widthPx * (compact ? 0.14 : 0.16)));
+	const displayName = formatPrintDisplayName(branding.name, customization.typography.textTransform);
+	const titleFont = titleFontFamily(customization);
+	const titleExtras = titleStyleExtras(customization);
+
 	const applyMessage = `Hi, I'm interested in the ${jobFlyer.roleTitle.trim() || "open"} (${EMPLOYMENT_LABELS[jobFlyer.employmentType]}) role at ${branding.name || "your restaurant"}.`;
 	const whatsAppUrl = branding.phone ? whatsAppChatUrl(branding.phone, applyMessage) : null;
+
+	const details: DetailItem[] = [
+		{ icon: "⏰", label: "Timings", value: jobFlyer.timings },
+		{ icon: "💰", label: "Salary", value: jobFlyer.salary },
+		{ icon: "👤", label: "Min. age", value: jobFlyer.minAge },
+		{ icon: "🎓", label: "Qualification", value: jobFlyer.qualification },
+		{ icon: "🗣", label: "English", value: ENGLISH_LABELS[jobFlyer.englishSkill] },
+	];
 
 	return (
 		<div
@@ -97,104 +141,163 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 				width: widthPx,
 				height: heightPx,
 				boxSizing: "border-box",
-				padding: pad,
 				display: "flex",
 				flexDirection: "column",
 				fontFamily: fonts.body,
 				color: colors.text,
-				background: baseBackground(customization),
+				background: colors.background,
+				overflow: "hidden",
+				position: "relative",
 			}}
 		>
-			<div style={{ textAlign: "center", marginBottom: Math.round(pad * 0.6) }}>
-				<span
+			{/* Header band */}
+			<div
+				style={{
+					background: `linear-gradient(135deg, ${colors.primary} 0%, ${hexToRgba(colors.primary, 0.88)} 55%, ${colors.secondary} 100%)`,
+					padding: `${Math.round(pad * 0.85)}px ${pad}px ${Math.round(pad * 0.65)}px`,
+					textAlign: "center",
+					position: "relative",
+				}}
+			>
+				<div
 					style={{
+						position: "absolute",
+						inset: 0,
+						opacity: 0.08,
+						backgroundImage: `repeating-linear-gradient(-45deg, #fff 0, #fff 2px, transparent 2px, transparent 10px)`,
+						pointerEvents: "none",
+					}}
+				/>
+				<div
+					style={{
+						fontSize: bannerFs,
+						fontWeight: 900,
+						letterSpacing: "0.14em",
+						textTransform: "uppercase",
+						color: colors.background,
+						fontFamily: titleFont,
+						...titleExtras,
+					}}
+				>
+					We Are Hiring!
+				</div>
+				<div
+					style={{
+						marginTop: 6,
 						display: "inline-block",
 						fontSize: smallFs,
 						fontWeight: 700,
-						letterSpacing: "0.12em",
+						letterSpacing: "0.08em",
 						textTransform: "uppercase",
-						color: colors.background,
-						background: colors.primary,
-						padding: "6px 14px",
+						color: colors.primary,
+						background: colors.background,
+						padding: "4px 12px",
 						borderRadius: 999,
 					}}
 				>
-					We&apos;re hiring · {EMPLOYMENT_LABELS[jobFlyer.employmentType]}
-				</span>
+					{EMPLOYMENT_LABELS[jobFlyer.employmentType]} position
+				</div>
 			</div>
 
-			<h1
-				style={{
-					margin: 0,
-					textAlign: "center",
-					fontSize: headingFs,
-					fontFamily: titleFontFamily(customization),
-					fontWeight: 700,
-					color: colors.primary,
-					lineHeight: 1.1,
-				}}
-			>
-				{jobFlyer.roleTitle.trim() || "Team Member"}
-			</h1>
-
-			{branding.name && (
-				<p
-					style={{
-						margin: `${Math.round(pad * 0.25)}px 0 0`,
-						textAlign: "center",
-						fontSize: bodyFs,
-						fontWeight: 600,
-						color: colors.textMuted,
-					}}
-				>
-					{branding.name}
-				</p>
-			)}
-
+			{/* Body */}
 			<div
 				style={{
-					marginTop: pad,
 					flex: 1,
-					background: `${colors.background}cc`,
-					borderRadius: containerRadius(customization),
-					border: `2px solid ${colors.border}`,
-					padding: Math.round(pad * 0.75),
+					padding: pad,
+					display: "flex",
+					flexDirection: "column",
+					gap: Math.round(pad * 0.55),
+					minHeight: 0,
 				}}
 			>
-				<p
+				<div style={{ textAlign: "center" }}>
+					{customization.logoUrl && (
+						<img
+							src={customization.logoUrl}
+							alt=""
+							style={{
+								height: Math.max(28, Math.round(widthPx * 0.08)),
+								width: "auto",
+								objectFit: "contain",
+								margin: "0 auto 8px",
+								display: "block",
+							}}
+						/>
+					)}
+					{displayName && (
+						<p
+							style={{
+								margin: "0 0 6px",
+								fontSize: bodyFs,
+								fontWeight: 600,
+								color: colors.textMuted,
+								letterSpacing: "0.04em",
+								textTransform: "uppercase",
+							}}
+						>
+							{displayName}
+						</p>
+					)}
+					<h1
+						style={{
+							margin: 0,
+							fontSize: headingFs,
+							fontFamily: titleFont,
+							fontWeight: 800,
+							color: colors.primary,
+							lineHeight: 1.05,
+							textTransform: "uppercase",
+							letterSpacing: "0.02em",
+							...titleExtras,
+						}}
+					>
+						{jobFlyer.roleTitle.trim() || "Team Member"}
+					</h1>
+					{branding.tagline && customization.showTagline && (
+						<p style={{ margin: "6px 0 0", fontSize: smallFs, color: colors.textMuted, fontStyle: "italic" }}>
+							{branding.tagline}
+						</p>
+					)}
+				</div>
+
+				<div
 					style={{
-						margin: "0 0 8px",
-						fontSize: smallFs,
-						fontWeight: 700,
-						textTransform: "uppercase",
-						letterSpacing: "0.08em",
-						color: colors.secondary,
+						flex: 1,
+						display: "grid",
+						gridTemplateColumns: compact ? "1fr" : "1fr 1fr",
+						gap: 8,
+						alignContent: "start",
 					}}
 				>
-					Job details
-				</p>
-				<DetailRow label="Timings" value={jobFlyer.timings} labelFs={smallFs} valueFs={bodyFs} mutedColor={colors.textMuted} borderColor={colors.border} />
-				<DetailRow label="Salary" value={jobFlyer.salary} labelFs={smallFs} valueFs={bodyFs} mutedColor={colors.textMuted} borderColor={colors.border} />
-				<DetailRow label="Min. age" value={jobFlyer.minAge} labelFs={smallFs} valueFs={bodyFs} mutedColor={colors.textMuted} borderColor={colors.border} />
-				<DetailRow label="Qualification" value={jobFlyer.qualification} labelFs={smallFs} valueFs={bodyFs} mutedColor={colors.textMuted} borderColor={colors.border} />
-				<DetailRow
-					label="English"
-					value={ENGLISH_LABELS[jobFlyer.englishSkill]}
-					labelFs={smallFs}
-					valueFs={bodyFs}
-					mutedColor={colors.textMuted}
-					borderColor={colors.border}
-				/>
+					{details.map((item) => (
+						<JobDetailCard key={item.label} item={item} labelFs={smallFs} valueFs={bodyFs} colors={colors} />
+					))}
+				</div>
+
 				{jobFlyer.extraNotes?.trim() && (
-					<p style={{ margin: "10px 0 0", fontSize: smallFs, color: colors.textMuted, lineHeight: 1.4 }}>
+					<div
+						style={{
+							padding: "8px 12px",
+							borderRadius: 8,
+							borderLeft: `4px solid ${colors.accent}`,
+							background: hexToRgba(colors.accent, 0.1),
+							fontSize: smallFs,
+							color: colors.text,
+							lineHeight: 1.35,
+						}}
+					>
+						<strong style={{ color: colors.primary }}>Note: </strong>
 						{jobFlyer.extraNotes.trim()}
-					</p>
+					</div>
 				)}
 			</div>
 
+			{/* Footer CTA */}
 			<div
 				style={{
-					marginTop: pad,
+					background: colors.primary,
+					color: colors.background,
+					padding: `${Math.round(pad * 0.75)}px ${pad}px`,
 					display: "flex",
 					alignItems: "center",
 					justifyContent: "space-between",
@@ -202,22 +305,48 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 				}}
 			>
 				<div style={{ flex: 1, minWidth: 0 }}>
-					<p style={{ margin: 0, fontSize: smallFs, fontWeight: 700, textTransform: "uppercase", color: colors.secondary }}>
-						Apply now
-					</p>
+					<div
+						style={{
+							fontSize: Math.round(bodyFs * 1.05),
+							fontWeight: 900,
+							letterSpacing: "0.1em",
+							textTransform: "uppercase",
+							fontFamily: titleFont,
+						}}
+					>
+						Apply Now
+					</div>
 					{branding.phone && (
 						<p style={{ margin: "4px 0 0", fontSize: bodyFs, fontWeight: 700 }}>{branding.phone}</p>
 					)}
 					{branding.address && (
-						<p style={{ margin: "4px 0 0", fontSize: smallFs, color: colors.textMuted, lineHeight: 1.35 }}>
-							{branding.address}
-						</p>
+						<p style={{ margin: "3px 0 0", fontSize: smallFs, opacity: 0.88, lineHeight: 1.3 }}>{branding.address}</p>
 					)}
 				</div>
 				{customization.showQR && whatsAppUrl && (
-					<div style={{ flexShrink: 0, textAlign: "center" }}>
-						<QRCodeSVG value={whatsAppUrl} size={qrSize} level="H" bgColor={colors.background} fgColor={colors.text} />
-						<p style={{ margin: "4px 0 0", fontSize: Math.max(7, smallFs - 2), color: colors.textMuted }}>Chat on WhatsApp</p>
+					<div
+						style={{
+							flexShrink: 0,
+							textAlign: "center",
+							padding: 6,
+							borderRadius: 10,
+							background: "#FFFFFF",
+							boxShadow: `0 4px 14px ${hexToRgba("#000", 0.15)}`,
+						}}
+					>
+						<QRCodeSVG value={whatsAppUrl} size={qrSize} level="H" bgColor="#FFFFFF" fgColor="#111111" />
+						<p
+							style={{
+								margin: "4px 0 0",
+								fontSize: Math.max(7, smallFs - 1),
+								fontWeight: 700,
+								color: "#25D366",
+								textTransform: "uppercase",
+								letterSpacing: "0.04em",
+							}}
+						>
+							WhatsApp
+						</p>
 					</div>
 				)}
 			</div>
