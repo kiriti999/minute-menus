@@ -99,7 +99,7 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 				flexDirection: "column",
 				fontFamily: fonts.body,
 				color: colors.text,
-				...baseBackground(customization),
+				background: baseBackground(customization),
 			}}
 		>
 			<div style={{ textAlign: "center", marginBottom: Math.round(pad * 0.6) }}>
@@ -125,7 +125,7 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 					margin: 0,
 					textAlign: "center",
 					fontSize: headingFs,
-					fontFamily: titleFontFamily(customization, fonts),
+					fontFamily: titleFontFamily(customization),
 					fontWeight: 700,
 					color: colors.primary,
 					lineHeight: 1.1,
