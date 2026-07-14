@@ -13,6 +13,4 @@ export const isDishSoldOut = (
     soldCounts: Record<string, number>,
 ): boolean =>
     dish.manualSoldOut === true ||
-    (dish.stockQuantity != null &&
-        dish.stockQuantity > 0 &&
-        (soldCounts[dish.id] ?? 0) >= dish.stockQuantity);
+    (dish.stockQuantity != null && (soldCounts[dish.id] ?? 0) >= dish.stockQuantity);
