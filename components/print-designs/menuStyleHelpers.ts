@@ -1,7 +1,7 @@
 /**
  * Pure style builders for MenuTemplate — keeps TSX cyclomatic complexity low.
  */
-import type { BackgroundPattern, DesignColors, DesignCustomization, DesignFonts, TitleStyle } from "@minute-menus/types";
+import type { BackgroundPattern, DesignColors, DesignCustomization, DesignFonts, RestaurantBranding, TitleStyle } from "@minute-menus/types";
 import { resolveFonts } from "../../lib/printDesigns";
 import {
   BODY_SIZE_SCALE,
@@ -180,6 +180,20 @@ export function menuColumnWidth(widthPx: number, pageColumns: number): number {
 /** QR size for menu card / wall board footers — large enough to scan reliably. */
 export function footerQrSize(widthPx: number): number {
   return Math.max(56, Math.round(widthPx * 0.12));
+}
+
+export const MENU_QR_LABEL = "Scan to order";
+
+/** Footer contact line — pamphlets omit phone; menu cards include it when set. */
+export function menuFooterContactLine(
+  branding: RestaurantBranding,
+  designType: "menu-card" | "pamphlet" | "wall-board",
+): string {
+  const parts =
+    designType === "pamphlet"
+      ? [branding.instagram, branding.website]
+      : [branding.phone, branding.instagram, branding.website];
+  return parts.filter(Boolean).join(" · ");
 }
 
 /** QR size for pocket cards and compact stickers (~10–11mm at 96dpi export). */

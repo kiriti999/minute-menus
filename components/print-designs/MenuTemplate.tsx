@@ -26,6 +26,8 @@ import {
   headingWeight,
   logoAlign,
   menuColumnWidth,
+  menuFooterContactLine,
+  MENU_QR_LABEL,
   outerBorderCss,
   scaledBodyFs,
   scaledCatFs,
@@ -186,13 +188,14 @@ function MenuHeader({ style, customization, branding, widthPx, heightPx }: Pick<
   );
 }
 
-function MenuFooter({ style, customization, branding, siteUrl, widthPx, pad }: { style: TemplateStyle; customization: DesignCustomization; branding: RestaurantBranding; siteUrl: string; widthPx: number; pad: number }) {
+function MenuFooter({ style, customization, branding, siteUrl, widthPx, pad, designType }: { style: TemplateStyle; customization: DesignCustomization; branding: RestaurantBranding; siteUrl: string; widthPx: number; pad: number; designType: PrintDesignType }) {
   const visual = TEMPLATE_VISUALS[style];
   const fonts = effectiveFonts(customization);
   const { colors, showQR } = customization;
   const dfs = scaledDescFs(widthPx, customization);
   const qrSize = footerQrSize(widthPx);
-  const social = [branding.phone, branding.instagram, branding.website].filter(Boolean).join(' · ');
+  const contactType = designType === 'pamphlet' || designType === 'menu-card' ? designType : 'menu-card';
+  const social = menuFooterContactLine(branding, contactType);
 
   if (visual.footer === 'strip') {
     return (
@@ -225,21 +228,21 @@ function MenuFooter({ style, customization, branding, siteUrl, widthPx, pad }: {
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
             <QRCodeSVG value={siteUrl} size={qrSize} fgColor={colors.primary} bgColor="transparent" level="H" />
-            <div style={{ fontSize: dfs, color: colors.textMuted, fontFamily: fonts.body }}>Scan menu</div>
+            <div style={{ fontSize: dfs, color: colors.textMuted, fontFamily: fonts.body }}>{MENU_QR_LABEL}</div>
           </div>
         </div>
       )}
-      <div style={{
-        borderTop: `1px solid ${colors.border}`,
-        paddingTop: 8,
-        display: 'flex',
-        justifyContent: social ? 'flex-start' : 'flex-end',
-        alignItems: 'center',
-      }}>
-        {social && (
+      {social && (
+        <div style={{
+          borderTop: `1px solid ${colors.border}`,
+          paddingTop: 8,
+          display: 'flex',
+          justifyContent: 'flex-start',
+          alignItems: 'center',
+        }}>
           <div style={{ fontSize: dfs, color: colors.textMuted, fontFamily: fonts.body }}>{social}</div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -263,7 +266,7 @@ function PocketCard({ customization, branding, menuItems, widthPx, heightPx, sit
   );
 }
 
-function StandardMenu({ style, customization, branding, menuItems, widthPx, heightPx, siteUrl }: Omit<MenuTemplateProps, 'designType'>) {
+function StandardMenu({ style, customization, branding, menuItems, widthPx, heightPx, siteUrl, designType }: Omit<MenuTemplateProps, 'designType'> & { designType: PrintDesignType }) {
   const visual = TEMPLATE_VISUALS[style];
   const fonts = effectiveFonts(customization);
   const pad = Math.round(widthPx * 0.06);
@@ -292,7 +295,7 @@ function StandardMenu({ style, customization, branding, menuItems, widthPx, heig
           <DishList key={cat.id} cat={cat} style={style} customization={customization} widthPx={widthPx} pageColumns={cols} />
         ))}
       </div>
-      <MenuFooter style={style} customization={customization} branding={branding} siteUrl={siteUrl} widthPx={widthPx} pad={pad} />
+      <MenuFooter style={style} customization={customization} branding={branding} siteUrl={siteUrl} widthPx={widthPx} pad={pad} designType={designType} />
     </div>
   );
 }
@@ -341,7 +344,7 @@ const MenuTemplate: React.FC<MenuTemplateProps> = (props) => {
       />
     );
   }
-  return <StandardMenu {...props} />;
+  return <StandardMenu {...props} designType={props.designType} />;
 };
 
 export default MenuTemplate;
