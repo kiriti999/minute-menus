@@ -10,6 +10,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { getUserFromAccessToken } from "../lib/supabase-admin";
 
 /** Vision on multi-page PDFs can take a while. */
 export const maxDuration = 60;
@@ -219,8 +220,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!parsed) return res.status(400).json({ error: "fileDataUrl must be a base64 data URL" });
 
         const admin = requireSupabaseAdmin();
-        const { data: userData, error: userErr } = await admin.auth.getUser(token);
-        if (userErr || !userData.user) {
+        const user = await getUserFromAccessToken(admin, token);
+        if (!user) {
             return res.status(401).json({ error: "Invalid or expired session" });
         }
 
@@ -228,7 +229,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .from("restaurants")
             .select("id")
             .eq("id", restaurantId)
-            .eq("owner_id", userData.user.id)
+            .eq("owner_id", user.id)
             .maybeSingle();
         if (restErr || !restaurant) {
             return res.status(403).json({ error: "Not allowed to parse invoices for this restaurant" });

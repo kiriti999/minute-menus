@@ -61,7 +61,7 @@ export async function createCounterRazorpayArtifacts(input: {
 		},
 	});
 
-	const link = await razorpay.paymentLink.create({
+	const linkBody = {
 		amount: input.amountPaise,
 		currency: input.currency,
 		description: `Bill ${input.invoiceLabel}`,
@@ -74,19 +74,24 @@ export async function createCounterRazorpayArtifacts(input: {
 			invoiceId: input.invoiceId,
 			orderId: order.id,
 		},
-		...(input.customerPhone
-			? { customer: { contact: input.customerPhone.replace(/\D/g, "").slice(-10) } }
-			: {}),
-	});
+		customer: {
+			contact: input.customerPhone
+				? input.customerPhone.replace(/\D/g, "").slice(-10)
+				: "",
+		},
+	};
+
+	const link = await razorpay.paymentLink.create(
+		linkBody as Parameters<typeof razorpay.paymentLink.create>[0],
+	);
 
 	const qrRecord = qr as { id: string; image_url?: string };
-	const linkRecord = link as { id: string; short_url?: string };
 
 	return {
 		orderId: order.id,
 		qrId: qrRecord.id,
 		qrImageUrl: qrRecord.image_url ?? "",
-		paymentLinkId: linkRecord.id,
-		paymentLinkUrl: linkRecord.short_url ?? "",
+		paymentLinkId: link.id,
+		paymentLinkUrl: link.short_url ?? "",
 	};
 }

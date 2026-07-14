@@ -1,6 +1,5 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest } from "@vercel/node";
-import { getSupabaseAdmin } from "../supabase-admin";
+import { getSupabaseAdmin, getUserFromAccessToken } from "../supabase-admin";
 
 export async function verifyOwnerForRestaurant(
 	req: VercelRequest,
@@ -13,21 +12,21 @@ export async function verifyOwnerForRestaurant(
 	const admin = getSupabaseAdmin();
 	if (!admin) return null;
 
-	const { data: userData, error: userError } = await admin.auth.getUser(token);
-	if (userError || !userData.user) return null;
+	const user = await getUserFromAccessToken(admin, token);
+	if (!user) return null;
 
 	const { data: restaurant, error: restError } = await admin
 		.from("restaurants")
 		.select("id")
 		.eq("id", restaurantId)
-		.eq("owner_id", userData.user.id)
+		.eq("owner_id", user.id)
 		.maybeSingle();
 
 	if (restError || !restaurant) return null;
-	return { userId: userData.user.id };
+	return { userId: user.id };
 }
 
-export function requireSupabaseAdminOrThrow(): SupabaseClient {
+export function requireSupabaseAdminOrThrow() {
 	const admin = getSupabaseAdmin();
 	if (!admin) throw new Error("Server is not configured (missing Supabase env vars)");
 	return admin;
