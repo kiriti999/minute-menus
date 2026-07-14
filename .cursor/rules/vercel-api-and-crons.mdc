@@ -24,6 +24,25 @@ Use `lib/supabase-admin` and server env vars (service role, Brevo SMTP, Razorpay
 
 Keep route handlers thin — validation and orchestration in `api/`, logic in packages.
 
+## Vercel Hobby: max 12 serverless functions
+
+**Each `api/**/*.ts` file = one serverless function.** Production is on Vercel **Hobby** — hard cap of **12 functions** per deployment. Exceeding this fails the deploy (not a TypeScript error).
+
+**Before adding a new `api/` file:**
+
+1. Count existing routes: `find api -name '*.ts' | wc -l` (must stay ≤ 12).
+2. Prefer **consolidating** into an existing route with `?action=` (see `api/confirm-payment.ts`, `api/counter-invoice.ts`).
+3. Move shared logic to `lib/server/` or `lib/api-handlers/` — not a new function file.
+4. `vercel.json` rewrites preserve old URLs but **do not** reduce the function count.
+
+**Verify locally:** `vercel build --yes` then `find .vercel/output/functions -name '*.func' | wc -l` (must be ≤ 12).
+
+**Current routes (12/12 — at limit):** `confirm-payment`, `counter-invoice` (includes Razorpay webhook via `x-razorpay-signature`), `create-plus-order`, `create-razorpay-order`, `image/enhance`, `keepalive`, `menu/upload-media`, `parse-invoice`, `sold-out-email`, `subscription/auto-deliver`, `subscription/cancel-order`, `subscription/daily-digest`.
+
+**Next consolidation candidates if needed:** merge `create-plus-order` into `create-razorpay-order`; merge subscription cron routes into one `api/subscription.ts`.
+
+Canonical payment path map: `lib/api/paymentRouteRewrites.ts`.
+
 ## Crons
 
 Scheduled jobs are declared in vercel.json — keepalive (Supabase idle prevention), subscription daily digest, auto-deliver slots. Match route paths when adding new crons.

@@ -38,6 +38,8 @@ Legacy shims at the app root (`lib/currency.ts`, `lib/errorMessage.ts`, `lib/mai
 
 **Server (Vercel API routes):** Use the admin Supabase client with the service role key. Use workspace packages for mail, templates, payments, and logging. Never import or expose the service role key in client-side code.
 
+**Vercel Hobby limit:** Production allows **at most 12 serverless functions** — one per `api/**/*.ts` file. The project is **at the limit (12/12)**. Before adding an API route, extend an existing handler with `?action=` or merge routes; put shared logic in `lib/server/`. Verify with `vercel build --yes`. Details: **`.cursor/rules/vercel-api-and-crons.mdc`**.
+
 **Schema changes:** Update `supabase/schema.sql`, sync `packages/types/src/database.types.ts`, push via db:push or the SQL editor, then update `@minute-menus/supabase-service` field mappings and `@minute-menus/types` if domain shapes change.
 
 **Legacy mockData:** Exists for early prototyping only. Do not add new features there or route production flows through it.
@@ -105,7 +107,7 @@ User tier defaults to FREE; upgrade flow is simulated until payment integration 
 
 1. Define or extend types in `@minute-menus/types`.
 2. Add database tables/columns/policies in `supabase/schema.sql` if persistence is needed; update `@minute-menus/types/db`.
-3. Add service methods in `@minute-menus/supabase-service` (browser) and/or an `api/` route using server packages (mailer, payments, etc.).
+3. Add service methods in `@minute-menus/supabase-service` (browser) and/or an `api/` route using server packages (mailer, payments, etc.). **Check the 12-function cap first** — count `api/**/*.ts`; consolidate into an existing route if at limit.
 4. Extract reusable logic into the appropriate workspace package — do not grow app-root files when a package already exists for that concern.
 5. Wire UI in CustomerApp or OwnerDashboard; use `@minute-menus/reels` or `@minute-menus/ui` where applicable.
 6. Add env vars to `.env.example` with a one-line comment — never commit secrets.
@@ -132,6 +134,7 @@ User tier defaults to FREE; upgrade flow is simulated until payment integration 
 | Adding a global state library | Architectural constraint |
 | Committing .env or service role keys | Security |
 | Duplicating package code in app root instead of extending packages | DRY and workspace conventions |
+| Adding a new `api/*.ts` file when already at 12 serverless functions | Vercel Hobby deploy will fail — consolidate routes first |
 
 ---
 

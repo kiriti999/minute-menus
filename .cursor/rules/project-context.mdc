@@ -20,6 +20,7 @@ Do not duplicate architecture in chat — grep source files for implementation d
 - Pinned Claude model — change only when the user explicitly asks
 - Menu save sends the full tree; omitted items may be deleted in the database
 - Never expose Supabase service role key in client-side code
+- **Vercel Hobby: max 12 serverless functions** — each `api/**/*.ts` file counts as one; at limit today; consolidate with `?action=` before adding routes (see **`.cursor/rules/vercel-api-and-crons.mdc`**)
 - Engineering norms — **SOLID, DRY, KISS, YAGNI**, fail-fast stance, cyclomatic complexity limits, and change discipline live in **`coding-standards.mdc`** (and `.claude/rules/coding-standards.md`)
 
 ## Navigation

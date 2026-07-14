@@ -88,6 +88,8 @@ Full map and extension guide: **`.cursor/rules/workspace-packages.mdc`**.
 
 **Server path:** Vercel API routes handle email, payments, subscription crons, sold-out notifications, and Supabase keepalive. These use the admin Supabase client and workspace packages for mail, templates, payments, and logging. Never expose the service role key to the browser.
 
+**Vercel deploy constraint:** Hobby plan — **max 12 serverless functions** (one `api/**/*.ts` file each). Currently at 12/12. New server endpoints must merge into existing routes (`?action=`) or replace one. See `.cursor/rules/vercel-api-and-crons.mdc`.
+
 ## Data and auth rules
 
 - **Production data** goes through `@minute-menus/supabase-service` (via the app wrapper) or Supabase clients — not mockData, not direct localStorage (except one pending-restaurant-name flag after OAuth signup).
@@ -111,6 +113,7 @@ All AI calls live in `@minute-menus/ai` (Anthropic Claude). The model name is pi
 - The hard cap on dishes shown in the customer reel view (product requirement)
 - The pinned Claude model identifier
 - Supabase RLS policies without a deliberate migration and security review
+- Adding net-new Vercel serverless functions beyond **12 total** without consolidation or Pro plan upgrade
 
 ## Operations note
 
