@@ -229,6 +229,7 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 					flexDirection: "column",
 					gap: Math.round(pad * 0.55),
 					minHeight: 0,
+					overflow: "hidden",
 				}}
 			>
 				<div style={{ textAlign: "center" }}>
@@ -316,6 +317,7 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 			{/* Footer CTA */}
 			<div
 				style={{
+					flexShrink: 0,
 					background: colors.primary,
 					color: colors.background,
 					padding: `${Math.round(pad * 0.75)}px ${pad}px`,
@@ -344,7 +346,8 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 						<p style={{ margin: "3px 0 0", fontSize: smallFs, opacity: 0.88, lineHeight: 1.3 }}>{branding.address}</p>
 					)}
 				</div>
-				{customization.showQR && whatsAppUrl && (
+				{customization.showQR && (
+					whatsAppUrl ? (
 					<div
 						style={{
 							flexShrink: 0,
@@ -368,6 +371,24 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 						</p>
 						<QRCodeSVG value={whatsAppUrl} size={qrSize} level="H" bgColor="#FFFFFF" fgColor="#111111" />
 					</div>
+					) : (
+					<div
+						style={{
+							flexShrink: 0,
+							width: qrSize + 12,
+							padding: 8,
+							borderRadius: 10,
+							border: `2px dashed ${hexToRgba(colors.background, 0.45)}`,
+							textAlign: "center",
+							fontSize: Math.max(7, smallFs - 1),
+							fontWeight: 600,
+							lineHeight: 1.25,
+							opacity: 0.9,
+						}}
+					>
+						Add WhatsApp number above
+					</div>
+					)
 				)}
 			</div>
 		</div>

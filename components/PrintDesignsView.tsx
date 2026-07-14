@@ -53,6 +53,7 @@ import {
 import { colorModeLabel, colorsToCmykSummary, cmykSimulationFilter } from "../lib/printColorUtils";
 import { exportPrintDesignToPdf } from "../lib/exportPrintPdf";
 import { getMaterialRecommendation } from "../lib/printMaterials";
+import { normalizeWhatsAppPhone } from "../lib/whatsappLink";
 import { supabaseService } from "../services/supabaseService";
 import MenuTemplate from "./print-designs/MenuTemplate";
 import { PrintGuidesOverlay } from "./print-designs/PrintGuidesOverlay";
@@ -125,13 +126,37 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   const [templateCategory, setTemplateCategory] = useState<TemplateCategory>('all');
   const [jobFlyer, setJobFlyer] = useState<JobFlyerContent>(DEFAULT_JOB_FLYER_CONTENT);
 
-  // Load restaurant branding once
+  // Load restaurant branding once (+ saved contact fields for print)
   useEffect(() => {
     if (!restaurantId) return;
     supabaseService.getRestaurantDetails().then((d) => {
-      setBranding({ name: d.name ?? '', tagline: d.tagline ?? '', address: d.address ?? '', phone: d.phone ?? '', slug: d.slug ?? '' });
+      let saved: Partial<RestaurantBranding> = {};
+      try {
+        const raw = localStorage.getItem(`mm-print-branding-${restaurantId}`);
+        if (raw) saved = JSON.parse(raw) as Partial<RestaurantBranding>;
+      } catch {
+        saved = {};
+      }
+      setBranding({
+        name: d.name ?? '',
+        tagline: saved.tagline ?? '',
+        address: saved.address ?? '',
+        phone: saved.phone ?? '',
+        slug: d.slug ?? '',
+        instagram: saved.instagram ?? '',
+        website: saved.website ?? '',
+      });
     }).catch(() => {});
   }, [restaurantId]);
+
+  useEffect(() => {
+    if (!restaurantId) return;
+    const { tagline, phone, address, instagram, website } = branding;
+    localStorage.setItem(
+      `mm-print-branding-${restaurantId}`,
+      JSON.stringify({ tagline, phone, address, instagram, website }),
+    );
+  }, [restaurantId, branding.tagline, branding.phone, branding.address, branding.instagram, branding.website]);
 
   // Dynamically load Google Fonts for pairing + custom overrides
   useEffect(() => {
@@ -417,6 +442,21 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                     </div>
                   </div>
                   <div>
+                    <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1 ${muted}`}>
+                      WhatsApp number
+                    </label>
+                    <input
+                      value={branding.phone}
+                      onChange={(e) => setBranding((b) => ({ ...b, phone: e.target.value }))}
+                      placeholder="e.g. 9876543210"
+                      inputMode="tel"
+                      className={`w-full px-3 py-2 rounded-lg border text-sm outline-none ${inputCls}`}
+                    />
+                    {custom.showQR && !normalizeWhatsAppPhone(branding.phone) && (
+                      <p className="text-[10px] mt-1 text-amber-500">Enter a valid 10-digit mobile number for the WhatsApp QR.</p>
+                    )}
+                  </div>
+                  <div>
                     <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1 ${muted}`}>Extra notes (optional)</label>
                     <input
                       value={jobFlyer.extraNotes ?? ''}
@@ -425,7 +465,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                       className={`w-full px-3 py-2 rounded-lg border text-sm outline-none ${inputCls}`}
                     />
                   </div>
-                  <p className={`text-[10px] ${muted}`}>Contact phone and address come from Restaurant Info below. The QR code opens a WhatsApp chat to apply.</p>
+                  <p className={`text-[10px] ${muted}`}>Address and other details come from Restaurant Info below. The QR opens WhatsApp to apply.</p>
                 </div>
               </section>
             )}
