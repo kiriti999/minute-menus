@@ -34,7 +34,7 @@ const toCategoryRows = (categories: Category[], restaurantId: string) =>
 
 const toDishRows = (categories: Category[], restaurantId: string) =>
     categories.flatMap((category) =>
-        category.items.map((dish) => ({
+        category.items.map((dish, index) => ({
             id: dish.id,
             category_id: category.id,
             restaurant_id: restaurantId,
@@ -51,6 +51,7 @@ const toDishRows = (categories: Category[], restaurantId: string) =>
             ingredients: dish.ingredients ?? "",
             benefits: dish.benefits ?? "",
             calories: dish.calories ?? null,
+            sort_order: index,
         })),
     );
 

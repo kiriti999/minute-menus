@@ -55,6 +55,7 @@ import { exportPrintDesignToPdf } from "../lib/exportPrintPdf";
 import { getMaterialRecommendation } from "../lib/printMaterials";
 import { normalizeWhatsAppPhone } from "../lib/whatsappLink";
 import { supabaseService } from "../services/supabaseService";
+import { supabaseService } from "../services/supabaseService";
 import MenuTemplate from "./print-designs/MenuTemplate";
 import { PrintGuidesOverlay } from "./print-designs/PrintGuidesOverlay";
 import { defaultColumnPalette } from "./print-designs/menuStyleHelpers";
@@ -63,6 +64,8 @@ export interface PrintDesignsViewProps {
   menuItems: Category[];
   restaurantId: string | null;
   isDarkTheme: boolean;
+  /** When true, preview uses in-memory menu editor state instead of re-fetching DB. */
+  hasUnsavedMenuChanges?: boolean;
 }
 
 const DESIGN_TYPES: { key: PrintDesignType; label: string; icon: string }[] = [
@@ -112,6 +115,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   menuItems,
   restaurantId,
   isDarkTheme,
+  hasUnsavedMenuChanges = false,
 }) => {
   const exportRef = useRef<HTMLDivElement>(null);
 
@@ -125,6 +129,29 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [templateCategory, setTemplateCategory] = useState<TemplateCategory>('all');
   const [jobFlyer, setJobFlyer] = useState<JobFlyerContent>(DEFAULT_JOB_FLYER_CONTENT);
+  const [printMenu, setPrintMenu] = useState<Category[]>(menuItems);
+  const [menuSyncLoading, setMenuSyncLoading] = useState(false);
+
+  const loadPrintMenuFromDb = useCallback(async () => {
+    if (!restaurantId) return;
+    setMenuSyncLoading(true);
+    try {
+      const data = await supabaseService.getMenu();
+      setPrintMenu(data);
+    } catch {
+      /* keep last good menu */
+    } finally {
+      setMenuSyncLoading(false);
+    }
+  }, [restaurantId]);
+
+  useEffect(() => {
+    if (hasUnsavedMenuChanges) {
+      setPrintMenu(menuItems);
+      return;
+    }
+    void loadPrintMenuFromDb();
+  }, [hasUnsavedMenuChanges, menuItems, loadPrintMenuFromDb]);
 
   // Load restaurant branding once (+ saved contact fields for print)
   useEffect(() => {
@@ -273,7 +300,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   const circleSticker = designType === 'sticker' && fmt.shape === 'circle';
   const isJobFlyer = designType === 'job-flyer';
   const needsMenu = !circleSticker && !isJobFlyer;
-  const canExport = !needsMenu || menuItems.length > 0;
+  const canExport = !needsMenu || printMenu.length > 0;
   const exportFilter = custom.colorMode === 'cmyk' ? cmykSimulationFilter() : undefined;
 
   const exportPdf = useCallback(async () => {
@@ -929,9 +956,23 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
             <section className={`border rounded-xl p-5 ${card}`}>
               <div className="flex items-center justify-between mb-3">
                 <h2 className={`text-xs font-bold uppercase tracking-widest ${muted}`}>Live Preview</h2>
-                <div className={`flex items-center gap-1 text-[10px] ${muted}`}>
-                  <Layers size={11} />
-                  {fmt.label}
+                <div className={`flex items-center gap-2 text-[10px] ${muted}`}>
+                  {needsMenu && (
+                    <button
+                      type="button"
+                      onClick={() => void loadPrintMenuFromDb()}
+                      disabled={menuSyncLoading || hasUnsavedMenuChanges}
+                      title={hasUnsavedMenuChanges ? 'Save menu in editor to sync from database' : 'Refresh menu from database'}
+                      className={`inline-flex items-center gap-1 ${hasUnsavedMenuChanges ? 'opacity-50 cursor-not-allowed' : isDarkTheme ? 'hover:text-white' : 'hover:text-zinc-900'}`}
+                    >
+                      <RefreshCw size={11} className={menuSyncLoading ? 'animate-spin' : ''} />
+                      {hasUnsavedMenuChanges ? 'Unsaved editor' : 'From menu'}
+                    </button>
+                  )}
+                  <span className="inline-flex items-center gap-1">
+                    <Layers size={11} />
+                    {fmt.label}
+                  </span>
                 </div>
               </div>
 
@@ -946,7 +987,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                     format={format}
                     customization={custom}
                     branding={branding}
-                    menuItems={menuItems}
+                    menuItems={printMenu}
                     widthPx={fmt.widthPx}
                     heightPx={fmt.heightPx}
                     siteUrl={siteUrl}
@@ -1067,7 +1108,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
             format={format}
             customization={custom}
             branding={branding}
-            menuItems={menuItems}
+            menuItems={printMenu}
             widthPx={fmt.widthPx}
             heightPx={fmt.heightPx}
             siteUrl={siteUrl}

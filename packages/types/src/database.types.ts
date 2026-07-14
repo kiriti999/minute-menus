@@ -76,6 +76,7 @@ export type Database = {
                     benefits?: string;
                     calories?: number | null;
                     cost_per_plate?: number | null;
+                    sort_order: number;
                     created_at: string;
                 };
                 Insert: {
@@ -96,6 +97,7 @@ export type Database = {
                     benefits?: string;
                     calories?: number | null;
                     cost_per_plate?: number | null;
+                    sort_order?: number;
                     created_at?: string;
                 };
                 Update: {
@@ -116,6 +118,7 @@ export type Database = {
                     benefits?: string;
                     calories?: number | null;
                     cost_per_plate?: number | null;
+                    sort_order?: number;
                     created_at?: string;
                 };
                 Relationships: [];

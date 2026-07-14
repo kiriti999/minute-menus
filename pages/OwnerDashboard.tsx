@@ -2559,6 +2559,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             menuItems={menuItems}
             restaurantId={restaurantDetails?.id ?? null}
             isDarkTheme={isDarkTheme}
+            hasUnsavedMenuChanges={unsavedChanges}
           />
         )}
 

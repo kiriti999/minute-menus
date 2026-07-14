@@ -58,8 +58,8 @@ export class SupabaseService {
 
         const [{ data: cats, error: catErr }, { data: dishes, error: dishErr }] =
             await Promise.all([
-                this.client.from("categories").select("*").eq("restaurant_id", rid),
-                this.client.from("dishes").select("*").eq("restaurant_id", rid),
+                this.client.from("categories").select("*").eq("restaurant_id", rid).order("sort_order"),
+                this.client.from("dishes").select("*").eq("restaurant_id", rid).order("sort_order"),
             ]);
 
         if (catErr) throw catErr;

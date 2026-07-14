@@ -100,6 +100,7 @@ create table if not exists dishes (
   ingredients      text not null default '',
   benefits         text not null default '',
   calories         int,
+  sort_order       int  not null default 0,
   created_at       timestamptz not null default now()
 );
 
@@ -109,6 +110,7 @@ ALTER TABLE dishes ADD COLUMN IF NOT EXISTS manual_sold_out boolean NOT NULL DEF
 ALTER TABLE dishes ADD COLUMN IF NOT EXISTS ingredients text NOT NULL DEFAULT '';
 ALTER TABLE dishes ADD COLUMN IF NOT EXISTS benefits text NOT NULL DEFAULT '';
 ALTER TABLE dishes ADD COLUMN IF NOT EXISTS calories int;
+ALTER TABLE dishes ADD COLUMN IF NOT EXISTS sort_order int NOT NULL DEFAULT 0;
 
 alter table dishes enable row level security;
 

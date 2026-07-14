@@ -19,6 +19,7 @@ export const rowsToCategoryTree = (
         ingredients?: string | null;
         benefits?: string | null;
         calories?: number | null;
+        sort_order?: number;
     }>,
 ): Category[] =>
     categoryRows
@@ -28,6 +29,7 @@ export const rowsToCategoryTree = (
             title: cat.title,
             items: dishRows
                 .filter((d) => d.category_id === cat.id)
+                .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
                 .map(
                     (d): Dish => ({
                         id: d.id,
