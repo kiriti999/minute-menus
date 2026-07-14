@@ -211,7 +211,12 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     setDesignType(t);
     setFormat(DEFAULT_FORMAT[t]);
     if (t === 'wall-board') {
-      setCustom((prev) => ({ ...prev, layout: { ...prev.layout, columns: 5 }, showQR: false }));
+      setCustom((prev) => ({
+        ...prev,
+        layout: { ...prev.layout, columns: 5 },
+        showQR: false,
+        showDescriptions: false,
+      }));
     } else if (t === 'menu-card' || t === 'pamphlet') {
       setCustom((prev) => ({ ...prev, layout: { ...prev.layout, columns: 2 }, showQR: true }));
     } else if (t === 'job-flyer') {
@@ -826,12 +831,18 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                       ['showQR', 'WhatsApp QR'],
                       ['showTagline', 'Tagline'],
                     ] as const)
-                  : ([
-                      ['showPrices', 'Prices'],
-                      ['showDescriptions', 'Descriptions'],
-                      ['showQR', 'QR Code'],
-                      ['showTagline', 'Tagline'],
-                    ] as const)
+                  : designType === 'wall-board'
+                    ? ([
+                        ['showPrices', 'Prices'],
+                        ['showQR', 'QR Code'],
+                        ['showTagline', 'Tagline'],
+                      ] as const)
+                    : ([
+                        ['showPrices', 'Prices'],
+                        ['showDescriptions', 'Descriptions'],
+                        ['showQR', 'QR Code'],
+                        ['showTagline', 'Tagline'],
+                      ] as const)
                 ).map(([k, label]) => (
                   <label key={k} className="flex items-center gap-2 cursor-pointer select-none">
                     <div

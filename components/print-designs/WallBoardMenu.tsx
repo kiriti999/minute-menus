@@ -4,6 +4,7 @@
 import type { Category, DesignCustomization, RestaurantBranding, TemplateStyle } from "@minute-menus/types";
 import { QRCodeSVG } from "qrcode.react";
 import type { FormatInfo } from "../../lib/printDesigns";
+import { wallBoardDisplayName } from "../../lib/wallBoardDishTitle";
 import { TEMPLATE_VISUALS } from "../../lib/templateConfig";
 import {
   baseBackground,
@@ -149,12 +150,10 @@ function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols 
   cat: Category; customization: DesignCustomization; widthPx: number; heightPx: number; blockColor: string; cols: number;
 }) {
   const fonts = effectiveFonts(customization);
-  const { showPrices, showDescriptions } = customization;
+  const { showPrices } = customization;
   const bfs = scaledBodyFsWall(widthPx, heightPx, customization, cols);
-  const dfs = scaledDescFsWall(widthPx, heightPx, customization, cols);
   const cfs = scaledCatFsWall(widthPx, heightPx, customization, cols);
   const text = contrastTextColor(blockColor);
-  const mutedText = hexToRgba(text === '#FFFFFF' ? '#FFFFFF' : '#000000', 0.64);
   const ruleColor = hexToRgba(text === '#FFFFFF' ? '#FFFFFF' : '#000000', 0.28);
   const pad = Math.round(widthPx * 0.016);
 
@@ -180,16 +179,8 @@ function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols 
                 fontFamily: fonts.body, fontSize: bfs, fontWeight: 600, color: text,
                 lineHeight: 1.25, wordBreak: 'break-word', hyphens: 'auto',
               }}>
-                {dish.name}
+                {wallBoardDisplayName(dish.name, cat.title)}
               </div>
-              {showDescriptions && dish.description && (
-                <div style={{
-                  fontFamily: fonts.body, fontSize: dfs, color: mutedText,
-                  lineHeight: 1.2, marginTop: Math.round(dfs * 0.25), wordBreak: 'break-word',
-                }}>
-                  {dish.description}
-                </div>
-              )}
             </div>
             {showPrices && dish.price != null && (
               <div style={{
