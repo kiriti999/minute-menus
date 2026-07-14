@@ -184,16 +184,13 @@ export function footerQrSize(widthPx: number): number {
 
 export const MENU_QR_LABEL = "Scan to order";
 
-/** Footer contact line — pamphlets omit phone; menu cards include it when set. */
-export function menuFooterContactLine(
-  branding: RestaurantBranding,
-  designType: "menu-card" | "pamphlet" | "wall-board",
-): string {
-  const parts =
-    designType === "pamphlet"
-      ? [branding.instagram, branding.website]
-      : [branding.phone, branding.instagram, branding.website];
-  return parts.filter(Boolean).join(" · ");
+/** Footer social line — Instagram/website only (no phone on menu cards or pamphlets). */
+export function menuFooterContactLine(branding: RestaurantBranding): string {
+  return [branding.instagram, branding.website].filter(Boolean).join(" · ");
+}
+
+export function menuQrLabelFs(widthPx: number, customization: DesignCustomization): number {
+  return Math.max(10, Math.round(scaledBodyFs(widthPx, customization) * 0.95));
 }
 
 /** QR size for pocket cards and compact stickers (~10–11mm at 96dpi export). */

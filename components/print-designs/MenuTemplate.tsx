@@ -28,6 +28,7 @@ import {
   menuColumnWidth,
   menuFooterContactLine,
   MENU_QR_LABEL,
+  menuQrLabelFs,
   outerBorderCss,
   scaledBodyFs,
   scaledCatFs,
@@ -188,14 +189,56 @@ function MenuHeader({ style, customization, branding, widthPx, heightPx }: Pick<
   );
 }
 
-function MenuFooter({ style, customization, branding, siteUrl, widthPx, pad, designType }: { style: TemplateStyle; customization: DesignCustomization; branding: RestaurantBranding; siteUrl: string; widthPx: number; pad: number; designType: PrintDesignType }) {
+function MenuQrBlock({
+  siteUrl,
+  qrSize,
+  widthPx,
+  customization,
+  colors,
+  fonts,
+  fgColor,
+  bgColor = "transparent",
+  labelColor,
+}: {
+  siteUrl: string;
+  qrSize: number;
+  widthPx: number;
+  customization: DesignCustomization;
+  colors: DesignCustomization["colors"];
+  fonts: ReturnType<typeof effectiveFonts>;
+  fgColor: string;
+  bgColor?: string;
+  labelColor: string;
+}) {
+  const labelFs = menuQrLabelFs(widthPx, customization);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+      <div
+        style={{
+          fontSize: labelFs,
+          fontWeight: 700,
+          color: labelColor,
+          fontFamily: fonts.body,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          textAlign: "center",
+          lineHeight: 1.15,
+        }}
+      >
+        {MENU_QR_LABEL}
+      </div>
+      <QRCodeSVG value={siteUrl} size={qrSize} fgColor={fgColor} bgColor={bgColor} level="H" />
+    </div>
+  );
+}
+
+function MenuFooter({ style, customization, branding, siteUrl, widthPx, pad }: { style: TemplateStyle; customization: DesignCustomization; branding: RestaurantBranding; siteUrl: string; widthPx: number; pad: number }) {
   const visual = TEMPLATE_VISUALS[style];
   const fonts = effectiveFonts(customization);
   const { colors, showQR } = customization;
   const dfs = scaledDescFs(widthPx, customization);
   const qrSize = footerQrSize(widthPx);
-  const contactType = designType === 'pamphlet' || designType === 'menu-card' ? designType : 'menu-card';
-  const social = menuFooterContactLine(branding, contactType);
+  const social = menuFooterContactLine(branding);
 
   if (visual.footer === 'strip') {
     return (
@@ -204,7 +247,18 @@ function MenuFooter({ style, customization, branding, siteUrl, widthPx, pad, des
         background: colors.primary, padding: `8px ${pad}px`,
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
       }}>
-        {showQR && <QRCodeSVG value={siteUrl} size={qrSize} fgColor="#FFF" bgColor="transparent" />}
+        {showQR && (
+          <MenuQrBlock
+            siteUrl={siteUrl}
+            qrSize={qrSize}
+            widthPx={widthPx}
+            customization={customization}
+            colors={colors}
+            fonts={fonts}
+            fgColor="#FFF"
+            labelColor="#FFF"
+          />
+        )}
         {social && <div style={{ fontSize: dfs, color: 'rgba(255,255,255,0.9)', fontFamily: fonts.body }}>{social}</div>}
       </div>
     );
@@ -214,8 +268,19 @@ function MenuFooter({ style, customization, branding, siteUrl, widthPx, pad, des
     return (
       <div style={{ flexShrink: 0, textAlign: 'center', marginTop: Math.round(widthPx * 0.015) }}>
         <div style={{ height: 1, background: `linear-gradient(to right, transparent, ${colors.accent}, transparent)`, marginBottom: 8 }} />
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12 }}>
-          {showQR && <QRCodeSVG value={siteUrl} size={qrSize} fgColor={colors.primary} bgColor="transparent" />}
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 16 }}>
+          {showQR && (
+            <MenuQrBlock
+              siteUrl={siteUrl}
+              qrSize={qrSize}
+              widthPx={widthPx}
+              customization={customization}
+              colors={colors}
+              fonts={fonts}
+              fgColor={colors.primary}
+              labelColor={colors.primary}
+            />
+          )}
           {social && <div style={{ fontSize: dfs, color: colors.textMuted, fontFamily: fonts.body }}>{social}</div>}
         </div>
       </div>
@@ -225,11 +290,17 @@ function MenuFooter({ style, customization, branding, siteUrl, widthPx, pad, des
   return (
     <div style={{ flexShrink: 0, marginTop: Math.round(widthPx * 0.015) }}>
       {showQR && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-            <QRCodeSVG value={siteUrl} size={qrSize} fgColor={colors.primary} bgColor="transparent" level="H" />
-            <div style={{ fontSize: dfs, color: colors.textMuted, fontFamily: fonts.body }}>{MENU_QR_LABEL}</div>
-          </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: social ? 8 : 0 }}>
+          <MenuQrBlock
+            siteUrl={siteUrl}
+            qrSize={qrSize}
+            widthPx={widthPx}
+            customization={customization}
+            colors={colors}
+            fonts={fonts}
+            fgColor={colors.primary}
+            labelColor={colors.primary}
+          />
         </div>
       )}
       {social && (
@@ -266,7 +337,7 @@ function PocketCard({ customization, branding, menuItems, widthPx, heightPx, sit
   );
 }
 
-function StandardMenu({ style, customization, branding, menuItems, widthPx, heightPx, siteUrl, designType }: Omit<MenuTemplateProps, 'designType'> & { designType: PrintDesignType }) {
+function StandardMenu({ style, customization, branding, menuItems, widthPx, heightPx, siteUrl }: Omit<MenuTemplateProps, 'designType'>) {
   const visual = TEMPLATE_VISUALS[style];
   const fonts = effectiveFonts(customization);
   const pad = Math.round(widthPx * 0.06);
@@ -295,7 +366,7 @@ function StandardMenu({ style, customization, branding, menuItems, widthPx, heig
           <DishList key={cat.id} cat={cat} style={style} customization={customization} widthPx={widthPx} pageColumns={cols} />
         ))}
       </div>
-      <MenuFooter style={style} customization={customization} branding={branding} siteUrl={siteUrl} widthPx={widthPx} pad={pad} designType={designType} />
+      <MenuFooter style={style} customization={customization} branding={branding} siteUrl={siteUrl} widthPx={widthPx} pad={pad} />
     </div>
   );
 }
@@ -344,7 +415,7 @@ const MenuTemplate: React.FC<MenuTemplateProps> = (props) => {
       />
     );
   }
-  return <StandardMenu {...props} designType={props.designType} />;
+  return <StandardMenu {...props} />;
 };
 
 export default MenuTemplate;
