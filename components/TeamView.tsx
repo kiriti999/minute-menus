@@ -3,6 +3,7 @@ import { Download, Loader2, Plus, Printer, QrCode, UserMinus } from "lucide-reac
 import { QRCodeSVG } from "qrcode.react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { getErrorMessage } from "@minute-menus/errors";
 import { supabaseService } from "../services/supabaseService";
 
@@ -51,6 +52,21 @@ const BadgePrintCard: React.FC<{ label: string; staffName: string | null; url: s
 		<p className="text-[10px] text-zinc-500 text-center">Scan to clock in / out</p>
 	</div>
 );
+
+const TEAM_BADGE_PRINT_STYLE = `
+@media print {
+	body.printing-team-badge * { visibility: hidden; }
+	body.printing-team-badge #team-badge-print-root,
+	body.printing-team-badge #team-badge-print-root * { visibility: visible; }
+	body.printing-team-badge #team-badge-print-root {
+		position: fixed;
+		inset: 0;
+		display: flex !important;
+		align-items: center;
+		justify-content: center;
+	}
+}
+`;
 
 export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 	const [loading, setLoading] = useState(true);
@@ -102,6 +118,22 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 	useEffect(() => {
 		void load();
 	}, [load]);
+
+	useEffect(() => {
+		let style = document.getElementById("team-badge-print-style");
+		if (!style) {
+			style = document.createElement("style");
+			style.id = "team-badge-print-style";
+			style.textContent = TEAM_BADGE_PRINT_STYLE;
+			document.head.appendChild(style);
+		}
+	}, []);
+
+	useEffect(() => {
+		if (!printBadge) return;
+		document.body.classList.add("printing-team-badge");
+		return () => document.body.classList.remove("printing-team-badge");
+	}, [printBadge]);
 
 	const handleAddBadge = async () => {
 		setSaving(true);
@@ -374,38 +406,43 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 			</section>
 
 			{printBadge && slug && (
-				<div className="fixed inset-0 z-[80] bg-black/80 flex items-center justify-center p-4 print:p-0 print:bg-white print:static">
-					<div className="bg-zinc-900 rounded-xl max-w-md w-full p-6 print:hidden space-y-4">
-						<h3 className="text-white font-semibold">Print badge sticker</h3>
-						<p className="text-zinc-400 text-sm">Use Print — sticker URL stays the same when you reassign staff.</p>
-						<div className="flex gap-2 justify-end">
-							<button type="button" onClick={() => setPrintBadge(null)} className="text-zinc-400 text-sm px-3 py-2">
-								Close
-							</button>
-							<button
-								type="button"
-								onClick={() => window.print()}
-								className="bg-white text-black px-4 py-2 rounded-lg text-sm font-bold inline-flex items-center gap-2"
-							>
-								<Printer size={14} /> Print
-							</button>
+				<>
+					<div className="fixed inset-0 z-[80] bg-black/80 flex items-center justify-center p-4">
+						<div className="bg-zinc-900 rounded-xl max-w-md w-full p-6 space-y-4">
+							<h3 className="text-white font-semibold">Print badge sticker</h3>
+							<p className="text-zinc-400 text-sm">
+								Use Print — only the sticker below is sent to the printer (no dashboard or browser UI).
+							</p>
+							<BadgePrintCard
+								label={printBadge.label}
+								staffName={printBadge.assignedStaffName ?? null}
+								url={badgeClockUrl(slug, printBadge.badgeToken)}
+							/>
+							<div className="flex gap-2 justify-end">
+								<button type="button" onClick={() => setPrintBadge(null)} className="text-zinc-400 text-sm px-3 py-2">
+									Close
+								</button>
+								<button
+									type="button"
+									onClick={() => window.print()}
+									className="bg-white text-black px-4 py-2 rounded-lg text-sm font-bold inline-flex items-center gap-2"
+								>
+									<Printer size={14} /> Print
+								</button>
+							</div>
 						</div>
 					</div>
-					<div className="hidden print:block">
-						<BadgePrintCard
-							label={printBadge.label}
-							staffName={printBadge.assignedStaffName ?? null}
-							url={badgeClockUrl(slug, printBadge.badgeToken)}
-						/>
-					</div>
-					<div className="print:hidden">
-						<BadgePrintCard
-							label={printBadge.label}
-							staffName={printBadge.assignedStaffName ?? null}
-							url={badgeClockUrl(slug, printBadge.badgeToken)}
-						/>
-					</div>
-				</div>
+					{createPortal(
+						<div id="team-badge-print-root" aria-hidden="true">
+							<BadgePrintCard
+								label={printBadge.label}
+								staffName={printBadge.assignedStaffName ?? null}
+								url={badgeClockUrl(slug, printBadge.badgeToken)}
+							/>
+						</div>,
+						document.body,
+					)}
+				</>
 			)}
 		</div>
 	);

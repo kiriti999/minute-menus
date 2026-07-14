@@ -1,4 +1,4 @@
-/** Canonical payment API paths. Vercel Hobby: max 12 serverless functions (one api/**/*.ts file each). */
+/** Canonical payment API paths. Vercel Hobby: max 12 serverless functions (one api route file each). */
 export const PAYMENT_API_PATHS = {
     createOrder: "/api/create-razorpay-order",
     createSubscriptionOrder: "/api/create-razorpay-order",
