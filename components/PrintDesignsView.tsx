@@ -7,7 +7,10 @@ import type {
   Category,
   ColorSchemeKey,
   DesignCustomization,
+  EnglishSkillLevel,
   FontPairingKey,
+  JobEmploymentType,
+  JobFlyerContent,
   PrintDesignType,
   PrintFormat,
   RestaurantBranding,
@@ -37,6 +40,7 @@ import {
   defaultCustomization,
   DESIGN_TYPE_FORMATS,
   DEFAULT_FORMAT,
+  DEFAULT_JOB_FLYER_CONTENT,
   FONT_PAIRINGS,
   FORMATS,
   GOOGLE_FONT_OPTIONS,
@@ -64,8 +68,15 @@ const DESIGN_TYPES: { key: PrintDesignType; label: string; icon: string }[] = [
   { key: 'menu-card',   label: 'Menu Card',   icon: '📋' },
   { key: 'wall-board',  label: 'Wall Board',  icon: '🗓️' },
   { key: 'pamphlet',    label: 'Pamphlet',    icon: '📄' },
+  { key: 'job-flyer',   label: 'Job Flyer',   icon: '💼' },
   { key: 'pocket-card', label: 'Pocket Card', icon: '🪪' },
   { key: 'sticker',     label: 'Sticker',     icon: '🔵' },
+];
+
+const ENGLISH_SKILL_OPTIONS: { key: EnglishSkillLevel; label: string }[] = [
+  { key: 'required', label: 'Required' },
+  { key: 'preferred', label: 'Preferred' },
+  { key: 'not-required', label: 'Not required' },
 ];
 
 const PREVIEW_CSS_WIDTH = 380;
@@ -112,6 +123,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   const [exportMsg, setExportMsg] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [templateCategory, setTemplateCategory] = useState<TemplateCategory>('all');
+  const [jobFlyer, setJobFlyer] = useState<JobFlyerContent>(DEFAULT_JOB_FLYER_CONTENT);
 
   // Load restaurant branding once
   useEffect(() => {
@@ -150,7 +162,13 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
       setCustom((prev) => ({ ...prev, layout: { ...prev.layout, columns: 5 }, showQR: false }));
     } else if (t === 'menu-card' || t === 'pamphlet') {
       setCustom((prev) => ({ ...prev, layout: { ...prev.layout, columns: 2 }, showQR: true }));
+    } else if (t === 'job-flyer') {
+      setCustom((prev) => ({ ...prev, layout: { ...prev.layout, columns: 1 }, showQR: true }));
     }
+  }, []);
+
+  const patchJobFlyer = useCallback(<K extends keyof JobFlyerContent>(key: K, value: JobFlyerContent[K]) => {
+    setJobFlyer((prev) => ({ ...prev, [key]: value }));
   }, []);
 
   const handleTemplateChange = useCallback((s: TemplateStyle) => {
@@ -228,7 +246,8 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   const material = getMaterialRecommendation(designType, format);
   const cmykSummary = colorsToCmykSummary(custom.colors);
   const circleSticker = designType === 'sticker' && fmt.shape === 'circle';
-  const needsMenu = !circleSticker;
+  const isJobFlyer = designType === 'job-flyer';
+  const needsMenu = !circleSticker && !isJobFlyer;
   const canExport = !needsMenu || menuItems.length > 0;
   const exportFilter = custom.colorMode === 'cmyk' ? cmykSimulationFilter() : undefined;
 
@@ -259,7 +278,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
       const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: custom.colors.background, logging: false });
       const link = document.createElement('a');
       const suffix = custom.colorMode === 'cmyk' ? '-cmyk' : '';
-      link.download = `${branding.name || 'menu'}-${format}${suffix}.png`;
+      link.download = `${isJobFlyer ? jobFlyer.roleTitle.replace(/\s+/g, '-').toLowerCase() || 'hiring' : branding.name || 'menu'}-${format}${suffix}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
       setExportMsg('PNG downloaded!');
@@ -268,7 +287,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     } finally {
       setExporting(false);
     }
-  }, [branding.name, custom.colorMode, custom.colors.background, format]);
+  }, [branding.name, custom.colorMode, custom.colors.background, format, isJobFlyer, jobFlyer.roleTitle]);
 
   // ─── Style helpers ───────────────────────────────────────────────────────────
   const card = isDarkTheme ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-200';
@@ -292,7 +311,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
       <header className={`sticky top-0 z-20 backdrop-blur-md px-6 py-5 border-b flex items-center justify-between ${isDarkTheme ? 'bg-black/80 border-zinc-800' : 'bg-white/80 border-zinc-200'}`}>
         <div>
           <h1 className={`text-2xl font-light tracking-tight ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>Print Designs</h1>
-          <p className={`text-xs mt-0.5 ${muted}`}>Create print-ready menus, wall boards, pamphlets, and stickers</p>
+          <p className={`text-xs mt-0.5 ${muted}`}>Menus, wall boards, pamphlets, hiring flyers, and stickers</p>
         </div>
         <div className={`flex items-center gap-1 text-[10px] font-bold tracking-widest uppercase ${muted}`}>
           <Printer size={14} />
@@ -321,6 +340,11 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                   </button>
                 ))}
               </div>
+              {designType === 'job-flyer' && (
+                <p className={`text-[10px] mt-2 ${muted}`}>
+                  Hiring pamphlet for part-time or full-time roles — timings, pay, age, qualification, and English level.
+                </p>
+              )}
               {(designType === 'pocket-card' || designType === 'sticker') && (
                 <p className={`text-[10px] mt-2 ${muted}`}>
                   {designType === 'sticker'
@@ -332,6 +356,79 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                 <p className={`text-[10px] mt-2 ${muted}`}>Choose landscape (wide above-counter), portrait (tall wall), or square. Fonts and columns adapt to orientation.</p>
               )}
             </section>
+
+            {isJobFlyer && (
+              <section className={`border rounded-xl p-5 ${card}`}>
+                <h2 className={`text-xs font-bold uppercase tracking-widest mb-3 ${muted}`}>Job details</h2>
+                <div className="space-y-3">
+                  <div>
+                    <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1 ${muted}`}>Role / position</label>
+                    <input
+                      value={jobFlyer.roleTitle}
+                      onChange={(e) => patchJobFlyer('roleTitle', e.target.value)}
+                      placeholder="e.g. Kitchen Helper, Wait Staff"
+                      className={`w-full px-3 py-2 rounded-lg border text-sm outline-none ${inputCls}`}
+                    />
+                  </div>
+                  <div>
+                    <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Employment type</p>
+                    <div className="flex flex-wrap gap-2">
+                      {(['part-time', 'full-time'] as JobEmploymentType[]).map((type) => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => patchJobFlyer('employmentType', type)}
+                          className={`px-4 py-2 rounded-full text-xs font-semibold border transition-all ${jobFlyer.employmentType === type ? activeTab : inactiveTab} ${isDarkTheme ? 'border-zinc-700' : 'border-zinc-200'}`}
+                        >
+                          {type === 'part-time' ? 'Part-time' : 'Full-time'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {([
+                    { key: 'timings' as const, label: 'Timings', placeholder: 'e.g. 10 AM – 4 PM, 6 days/week' },
+                    { key: 'salary' as const, label: 'Salary', placeholder: 'e.g. ₹12,000/month + tips' },
+                    { key: 'minAge' as const, label: 'Minimum age', placeholder: 'e.g. 18 years' },
+                    { key: 'qualification' as const, label: 'Qualification', placeholder: 'e.g. 10th pass, basic cooking' },
+                  ]).map(({ key, label, placeholder }) => (
+                    <div key={key}>
+                      <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1 ${muted}`}>{label}</label>
+                      <input
+                        value={jobFlyer[key]}
+                        onChange={(e) => patchJobFlyer(key, e.target.value)}
+                        placeholder={placeholder}
+                        className={`w-full px-3 py-2 rounded-lg border text-sm outline-none ${inputCls}`}
+                      />
+                    </div>
+                  ))}
+                  <div>
+                    <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>English speaking</p>
+                    <div className="flex flex-wrap gap-2">
+                      {ENGLISH_SKILL_OPTIONS.map(({ key, label }) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => patchJobFlyer('englishSkill', key)}
+                          className={`px-3 py-1.5 rounded-full text-xs border transition-all ${jobFlyer.englishSkill === key ? isDarkTheme ? 'border-white bg-zinc-800 text-white' : 'border-zinc-900 bg-zinc-100 text-zinc-900' : isDarkTheme ? 'border-zinc-700 text-zinc-400' : 'border-zinc-200 text-zinc-500'}`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1 ${muted}`}>Extra notes (optional)</label>
+                    <input
+                      value={jobFlyer.extraNotes ?? ''}
+                      onChange={(e) => patchJobFlyer('extraNotes', e.target.value)}
+                      placeholder="e.g. Meals provided, nearby metro"
+                      className={`w-full px-3 py-2 rounded-lg border text-sm outline-none ${inputCls}`}
+                    />
+                  </div>
+                  <p className={`text-[10px] ${muted}`}>Contact phone and address come from Restaurant Info below.</p>
+                </div>
+              </section>
+            )}
 
             {/* Step 2: Format with visual thumbnails */}
             <section className={`border rounded-xl p-5 ${card}`}>
@@ -584,6 +681,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
               </div>
 
               {/* Layout columns */}
+              {!isJobFlyer && (
               <div className="mb-4">
                 <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Columns</p>
                 <div className="flex flex-wrap gap-2">
@@ -598,8 +696,8 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                   ))}
                 </div>
               </div>
+              )}
 
-              {/* Column colors (wall board only) */}
               {designType === 'wall-board' && (
                 <div className="mb-4">
                   <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Column Colours</p>
@@ -786,6 +884,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                     widthPx={fmt.widthPx}
                     heightPx={fmt.heightPx}
                     siteUrl={siteUrl}
+                    jobFlyer={isJobFlyer ? jobFlyer : undefined}
                   />
                   {custom.showBleedGuides && (
                     <PrintGuidesOverlay fmt={fmt} widthPx={fmt.widthPx} heightPx={fmt.heightPx} showBleed showCropMarks={false} />
@@ -906,6 +1005,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
             widthPx={fmt.widthPx}
             heightPx={fmt.heightPx}
             siteUrl={siteUrl}
+            jobFlyer={isJobFlyer ? jobFlyer : undefined}
           />
           {custom.includeCropMarks && (
             <PrintGuidesOverlay fmt={fmt} widthPx={fmt.widthPx} heightPx={fmt.heightPx} showBleed={false} showCropMarks />

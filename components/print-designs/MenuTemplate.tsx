@@ -4,6 +4,7 @@
 import type {
   Category,
   DesignCustomization,
+  JobFlyerContent,
   PrintDesignType,
   PrintFormat,
   RestaurantBranding,
@@ -35,6 +36,7 @@ import {
   titleStyleExtras,
 } from "./menuStyleHelpers";
 import CompactMenuLayout from "./CompactMenuLayout";
+import { JobFlyerLayout } from "./JobFlyerLayout";
 import StickerLayout from "./StickerLayout";
 import { WallBoardMenu } from "./WallBoardMenu";
 
@@ -48,6 +50,7 @@ export interface MenuTemplateProps {
   widthPx: number;
   heightPx: number;
   siteUrl: string;
+  jobFlyer?: JobFlyerContent;
 }
 
 function Logo({ url, height }: { url?: string; height: number }) {
@@ -308,6 +311,18 @@ function StandardMenu({ style, customization, branding, menuItems, widthPx, heig
 }
 
 const MenuTemplate: React.FC<MenuTemplateProps> = (props) => {
+  if (props.designType === 'job-flyer' && props.jobFlyer) {
+    return (
+      <JobFlyerLayout
+        customization={props.customization}
+        branding={props.branding}
+        jobFlyer={props.jobFlyer}
+        widthPx={props.widthPx}
+        heightPx={props.heightPx}
+        siteUrl={props.siteUrl}
+      />
+    );
+  }
   if (props.designType === 'sticker') {
     return (
       <StickerLayout

@@ -373,7 +373,7 @@ export interface CustomerProfile {
 
 // ─── Print Design Types ───────────────────────────────────────────────────────
 
-export type PrintDesignType = 'menu-card' | 'wall-board' | 'pamphlet' | 'pocket-card' | 'sticker';
+export type PrintDesignType = 'menu-card' | 'wall-board' | 'pamphlet' | 'pocket-card' | 'sticker' | 'job-flyer';
 
 export type PrintFormat =
   | 'a4' | 'a3' | 'tabloid'
@@ -504,6 +504,23 @@ export interface RestaurantBranding {
   slug: string;
   instagram?: string;
   website?: string;
+}
+
+export type JobEmploymentType = 'part-time' | 'full-time';
+
+export type EnglishSkillLevel = 'required' | 'preferred' | 'not-required';
+
+/** Content for hiring pamphlets (Print Designs → Job Flyer). */
+export interface JobFlyerContent {
+  roleTitle: string;
+  employmentType: JobEmploymentType;
+  timings: string;
+  salary: string;
+  minAge: string;
+  qualification: string;
+  englishSkill: EnglishSkillLevel;
+  /** Optional extra line (e.g. food & accommodation). */
+  extraNotes?: string;
 }
 
 export interface CustomerAddress {

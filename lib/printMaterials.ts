@@ -47,6 +47,13 @@ const BY_TYPE: Record<PrintDesignType, MaterialRecommendation> = {
     costRange: '₹3–8 per sticker',
     notes: 'Circle stickers need die-cut. Use permanent adhesive for outdoor.',
   },
+  'job-flyer': {
+    material: '130–170 GSM gloss/matt paper',
+    finish: 'Single-sided colour print',
+    quantity: '200–500 flyers',
+    costRange: '₹2–8 per print',
+    notes: 'Post near counter, gate, or local notice boards. A5 is standard hiring flyer size.',
+  },
 };
 
 const FORMAT_OVERRIDES: Partial<Record<PrintFormat, Partial<MaterialRecommendation>>> = {

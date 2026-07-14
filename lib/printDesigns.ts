@@ -15,6 +15,7 @@ import type {
   StickerShape,
   TemplateCategory,
   TemplateStyle,
+  type JobFlyerContent,
 } from "@minute-menus/types";
 import { GRADIENT_PRESETS } from "./printDesignsGradients";
 
@@ -102,11 +103,23 @@ export const DESIGN_TYPE_FORMATS: Record<PrintDesignType, PrintFormat[]> = {
   'pamphlet':    ['a5', 'dl', 'a6'],
   'pocket-card': ['business-card', 'mini-card'],
   'sticker':     ['circle-50', 'circle-75', 'circle-100', 'square-50', 'square-75', 'rect-100x50'],
+  'job-flyer':   ['a5', 'dl', 'a6', 'a4'],
 };
 
 export const DEFAULT_FORMAT: Record<PrintDesignType, PrintFormat> = {
   'menu-card': 'a4', 'wall-board': 'a2-landscape', 'pamphlet': 'a5',
-  'pocket-card': 'business-card', 'sticker': 'circle-75',
+  'pocket-card': 'business-card', 'sticker': 'circle-75', 'job-flyer': 'a5',
+};
+
+export const DEFAULT_JOB_FLYER_CONTENT: JobFlyerContent = {
+  roleTitle: 'Team Member',
+  employmentType: 'part-time',
+  timings: '10 AM – 4 PM (flexible shifts)',
+  salary: '₹12,000 – ₹15,000 / month',
+  minAge: '18 years',
+  qualification: '10th pass or above',
+  englishSkill: 'preferred',
+  extraNotes: '',
 };
 
 // ─── Colour schemes (20) ──────────────────────────────────────────────────────
