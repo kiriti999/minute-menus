@@ -14,6 +14,7 @@ import { QRCodeSVG } from "qrcode.react";
 import type React from "react";
 import { FORMATS } from "../../lib/printDesigns";
 import { TEMPLATE_VISUALS } from "../../lib/templateConfig";
+import { PrintBackgroundLayers } from "./PrintBackgroundLayers";
 import {
   baseBackground,
   categoryHeadingStyle,
@@ -26,7 +27,6 @@ import {
   logoAlign,
   menuColumnWidth,
   outerBorderCss,
-  patternOverlay,
   scaledBodyFs,
   scaledCatFs,
   scaledDescFs,
@@ -58,23 +58,10 @@ function Logo({ url, height }: { url?: string; height: number }) {
   return <img src={url} alt="Logo" style={{ height, width: 'auto', objectFit: 'contain', display: 'block' }} />;
 }
 
-function BackgroundLayers({ customization, widthPx, heightPx }: { customization: DesignCustomization; widthPx: number; heightPx: number }) {
-  const showPattern = customization.backgroundType === 'pattern' && customization.backgroundPattern;
-  const showImage = customization.backgroundType === 'image' && customization.backgroundImageUrl;
+function BackgroundLayers({ customization }: { customization: DesignCustomization }) {
   return (
     <>
-      {showPattern && (
-        <div style={{ position: 'absolute', inset: 0, ...patternOverlay(customization.backgroundPattern!, customization.colors.border), pointerEvents: 'none' }} />
-      )}
-      {showImage && (
-        <div
-          style={{
-            position: 'absolute', inset: 0,
-            backgroundImage: `url(${customization.backgroundImageUrl})`,
-            backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.18, pointerEvents: 'none',
-          }}
-        />
-      )}
+      <PrintBackgroundLayers customization={customization} />
       <div style={{ position: 'absolute', inset: 0, background: baseBackground(customization), zIndex: -1 }} />
     </>
   );
@@ -292,7 +279,7 @@ function StandardMenu({ style, customization, branding, menuItems, widthPx, heig
         display: 'flex', flexDirection: 'column',
       }}
     >
-      <BackgroundLayers customization={customization} widthPx={widthPx} heightPx={heightPx} />
+      <BackgroundLayers customization={customization} />
       <div style={{ flexShrink: 0 }}>
         <MenuHeader style={style} customization={customization} branding={branding} widthPx={widthPx} heightPx={heightPx} />
       </div>
@@ -314,6 +301,7 @@ const MenuTemplate: React.FC<MenuTemplateProps> = (props) => {
   if (props.designType === 'job-flyer' && props.jobFlyer) {
     return (
       <JobFlyerLayout
+        style={props.style}
         customization={props.customization}
         branding={props.branding}
         jobFlyer={props.jobFlyer}

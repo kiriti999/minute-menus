@@ -7,19 +7,28 @@ import type {
 	JobFlyerContent,
 	JobEmploymentType,
 	RestaurantBranding,
+	TemplateStyle,
 } from "@minute-menus/types";
 import { QRCodeSVG } from "qrcode.react";
 import type React from "react";
+import { TEMPLATE_VISUALS } from "../../lib/templateConfig";
 import { whatsAppChatUrl } from "../../lib/whatsappLink";
 import {
+	baseBackground,
+	containerRadius,
+	containerShadow,
 	effectiveFonts,
 	formatPrintDisplayName,
+	headingWeight,
 	hexToRgba,
+	outerBorderCss,
 	scaledBodyFs,
 	scaledHeadingFs,
+	textTransformCss,
 	titleFontFamily,
 	titleStyleExtras,
 } from "./menuStyleHelpers";
+import { PrintBackgroundLayers } from "./PrintBackgroundLayers";
 
 const ENGLISH_LABELS: Record<EnglishSkillLevel, string> = {
 	required: "Required",
@@ -95,6 +104,7 @@ function JobDetailCard({
 }
 
 export interface JobFlyerLayoutProps {
+	style: TemplateStyle;
 	customization: DesignCustomization;
 	branding: RestaurantBranding;
 	jobFlyer: JobFlyerContent;
@@ -104,6 +114,7 @@ export interface JobFlyerLayoutProps {
 }
 
 export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
+	style,
 	customization,
 	branding,
 	jobFlyer,
@@ -113,6 +124,12 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 }) => {
 	const { colors } = customization;
 	const fonts = effectiveFonts(customization);
+	const visual = TEMPLATE_VISUALS[style];
+	const border = outerBorderCss(visual, customization);
+	const radius = containerRadius(customization);
+	const shadow = containerShadow(customization);
+	const hw = headingWeight(customization);
+	const nameTransform = textTransformCss(customization);
 	const compact = widthPx < 420;
 	const pad = Math.round(widthPx * (compact ? 0.055 : 0.065));
 	const headingFs = Math.round(scaledHeadingFs(widthPx, customization) * (compact ? 0.82 : 1));
@@ -145,11 +162,15 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 				flexDirection: "column",
 				fontFamily: fonts.body,
 				color: colors.text,
-				background: colors.background,
+				background: baseBackground(customization),
+				border: border === "none" ? undefined : border,
+				borderRadius: radius,
+				boxShadow: shadow === "none" ? undefined : shadow,
 				overflow: "hidden",
 				position: "relative",
 			}}
 		>
+			<PrintBackgroundLayers customization={customization} />
 			{/* Header band */}
 			<div
 				style={{
@@ -171,7 +192,7 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 				<div
 					style={{
 						fontSize: bannerFs,
-						fontWeight: 900,
+						fontWeight: hw,
 						letterSpacing: "0.14em",
 						textTransform: "uppercase",
 						color: colors.background,
@@ -232,7 +253,7 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 								fontWeight: 600,
 								color: colors.textMuted,
 								letterSpacing: "0.04em",
-								textTransform: "uppercase",
+								textTransform: nameTransform,
 							}}
 						>
 							{displayName}
@@ -243,10 +264,10 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 							margin: 0,
 							fontSize: headingFs,
 							fontFamily: titleFont,
-							fontWeight: 800,
+							fontWeight: hw,
 							color: colors.primary,
 							lineHeight: 1.05,
-							textTransform: "uppercase",
+							textTransform: nameTransform,
 							letterSpacing: "0.02em",
 							...titleExtras,
 						}}

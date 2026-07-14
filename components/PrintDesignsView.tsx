@@ -735,7 +735,10 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
               {/* Visibility toggles */}
               <div className="grid grid-cols-2 gap-2 mb-4">
                 {(isJobFlyer
-                  ? [['showQR', 'WhatsApp QR'] as const]
+                  ? ([
+                      ['showQR', 'WhatsApp QR'],
+                      ['showTagline', 'Tagline'],
+                    ] as const)
                   : ([
                       ['showPrices', 'Prices'],
                       ['showDescriptions', 'Descriptions'],
