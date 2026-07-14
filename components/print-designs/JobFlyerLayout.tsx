@@ -273,7 +273,7 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 							...titleExtras,
 						}}
 					>
-						{jobFlyer.roleTitle.trim() || "Team Member"}
+						{jobFlyer.roleTitle.trim() || "Part time"}
 					</h1>
 					{branding.tagline && customization.showTagline && (
 						<p style={{ margin: "6px 0 0", fontSize: smallFs, color: colors.textMuted, fontStyle: "italic" }}>
@@ -312,83 +312,53 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 						{jobFlyer.extraNotes.trim()}
 					</div>
 				)}
-			</div>
 
-			{/* Footer CTA */}
-			<div
-				style={{
-					flexShrink: 0,
-					background: colors.primary,
-					color: colors.background,
-					padding: `${Math.round(pad * 0.75)}px ${pad}px`,
-					display: "flex",
-					alignItems: "center",
-					justifyContent: "space-between",
-					gap: pad,
-				}}
-			>
-				<div style={{ flex: 1, minWidth: 0 }}>
-					<div
-						style={{
-							fontSize: Math.round(bodyFs * 1.05),
-							fontWeight: 900,
-							letterSpacing: "0.1em",
-							textTransform: "uppercase",
-							fontFamily: titleFont,
-						}}
-					>
-						Apply Now
-					</div>
-					{branding.phone && (
-						<p style={{ margin: "4px 0 0", fontSize: bodyFs, fontWeight: 700 }}>{branding.phone}</p>
-					)}
-					{branding.address && (
-						<p style={{ margin: "3px 0 0", fontSize: smallFs, opacity: 0.88, lineHeight: 1.3 }}>{branding.address}</p>
-					)}
-				</div>
 				{customization.showQR && (
-					whatsAppUrl ? (
-					<div
-						style={{
-							flexShrink: 0,
-							textAlign: "center",
-							padding: 6,
-							borderRadius: 10,
-							background: "#FFFFFF",
-							boxShadow: `0 4px 14px ${hexToRgba("#000", 0.15)}`,
-						}}
-					>
-						<p
-							style={{
-								margin: "0 0 4px",
-								fontSize: Math.max(7, smallFs - 1),
-								fontWeight: 700,
-								color: "#111111",
-								lineHeight: 1.2,
-							}}
-						>
-							Scan & Share resume
-						</p>
-						<QRCodeSVG value={whatsAppUrl} size={qrSize} level="H" bgColor="#FFFFFF" fgColor="#111111" />
+					<div style={{ display: "flex", justifyContent: "flex-end", marginTop: "auto", paddingTop: Math.round(pad * 0.35) }}>
+						{whatsAppUrl ? (
+							<div
+								style={{
+									flexShrink: 0,
+									textAlign: "center",
+									padding: 6,
+									borderRadius: 10,
+									background: "#FFFFFF",
+									border: `1px solid ${hexToRgba(colors.border, 0.85)}`,
+									boxShadow: `0 4px 14px ${hexToRgba(colors.primary, 0.1)}`,
+								}}
+							>
+								<p
+									style={{
+										margin: "0 0 4px",
+										fontSize: Math.max(7, smallFs - 1),
+										fontWeight: 700,
+										color: colors.text,
+										lineHeight: 1.2,
+									}}
+								>
+									Scan & Share CV
+								</p>
+								<QRCodeSVG value={whatsAppUrl} size={qrSize} level="H" bgColor="#FFFFFF" fgColor="#111111" />
+							</div>
+						) : (
+							<div
+								style={{
+									flexShrink: 0,
+									width: qrSize + 12,
+									padding: 8,
+									borderRadius: 10,
+									border: `2px dashed ${hexToRgba(colors.border, 0.85)}`,
+									textAlign: "center",
+									fontSize: Math.max(7, smallFs - 1),
+									fontWeight: 600,
+									color: colors.textMuted,
+									lineHeight: 1.25,
+								}}
+							>
+								Add WhatsApp number above
+							</div>
+						)}
 					</div>
-					) : (
-					<div
-						style={{
-							flexShrink: 0,
-							width: qrSize + 12,
-							padding: 8,
-							borderRadius: 10,
-							border: `2px dashed ${hexToRgba(colors.background, 0.45)}`,
-							textAlign: "center",
-							fontSize: Math.max(7, smallFs - 1),
-							fontWeight: 600,
-							lineHeight: 1.25,
-							opacity: 0.9,
-						}}
-					>
-						Add WhatsApp number above
-					</div>
-					)
 				)}
 			</div>
 		</div>

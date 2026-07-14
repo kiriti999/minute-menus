@@ -112,12 +112,12 @@ export const DEFAULT_FORMAT: Record<PrintDesignType, PrintFormat> = {
 };
 
 export const DEFAULT_JOB_FLYER_CONTENT: JobFlyerContent = {
-  roleTitle: 'Team Member',
+  roleTitle: 'Part time',
   employmentType: 'part-time',
-  timings: '10 AM – 4 PM (flexible shifts)',
+  timings: '4pm - 11pm',
   salary: '₹12,000 – ₹15,000 / month',
-  minAge: '18 years',
-  qualification: '10th pass or above',
+  minAge: '18+ years',
+  qualification: '12th pass or Studying degree',
   englishSkill: 'preferred',
   extraNotes: '',
 };

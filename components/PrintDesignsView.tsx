@@ -391,7 +391,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                     <input
                       value={jobFlyer.roleTitle}
                       onChange={(e) => patchJobFlyer('roleTitle', e.target.value)}
-                      placeholder="e.g. Kitchen Helper, Wait Staff"
+                      placeholder="e.g. Part time, Wait Staff"
                       className={`w-full px-3 py-2 rounded-lg border text-sm outline-none ${inputCls}`}
                     />
                   </div>
@@ -411,10 +411,10 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                     </div>
                   </div>
                   {([
-                    { key: 'timings' as const, label: 'Timings', placeholder: 'e.g. 10 AM – 4 PM, 6 days/week' },
+                    { key: 'timings' as const, label: 'Timings', placeholder: 'e.g. 4pm – 11pm' },
                     { key: 'salary' as const, label: 'Salary', placeholder: 'e.g. ₹12,000/month + tips' },
-                    { key: 'minAge' as const, label: 'Minimum age', placeholder: 'e.g. 18 years' },
-                    { key: 'qualification' as const, label: 'Qualification', placeholder: 'e.g. 10th pass, basic cooking' },
+                    { key: 'minAge' as const, label: 'Minimum age', placeholder: 'e.g. 18+ years' },
+                    { key: 'qualification' as const, label: 'Qualification', placeholder: 'e.g. 12th pass or Studying degree' },
                   ]).map(({ key, label, placeholder }) => (
                     <div key={key}>
                       <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1 ${muted}`}>{label}</label>
