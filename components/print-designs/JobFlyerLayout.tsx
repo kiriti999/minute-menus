@@ -10,6 +10,7 @@ import type {
 } from "@minute-menus/types";
 import { QRCodeSVG } from "qrcode.react";
 import type React from "react";
+import { whatsAppChatUrl } from "../../lib/whatsappLink";
 import {
 	baseBackground,
 	containerRadius,
@@ -78,7 +79,7 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 	jobFlyer,
 	widthPx,
 	heightPx,
-	siteUrl,
+	siteUrl: _siteUrl,
 }) => {
 	const { colors } = customization;
 	const fonts = effectiveFonts(customization);
@@ -87,6 +88,8 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 	const bodyFs = scaledBodyFs(widthPx, customization);
 	const smallFs = Math.max(8, Math.round(bodyFs * 0.88));
 	const qrSize = footerQrSize(widthPx);
+	const applyMessage = `Hi, I'm interested in the ${jobFlyer.roleTitle.trim() || "open"} (${EMPLOYMENT_LABELS[jobFlyer.employmentType]}) role at ${branding.name || "your restaurant"}.`;
+	const whatsAppUrl = branding.phone ? whatsAppChatUrl(branding.phone, applyMessage) : null;
 
 	return (
 		<div
@@ -211,10 +214,10 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 						</p>
 					)}
 				</div>
-				{customization.showQR && siteUrl && (
+				{customization.showQR && whatsAppUrl && (
 					<div style={{ flexShrink: 0, textAlign: "center" }}>
-						<QRCodeSVG value={siteUrl} size={qrSize} level="H" bgColor={colors.background} fgColor={colors.text} />
-						<p style={{ margin: "4px 0 0", fontSize: Math.max(7, smallFs - 2), color: colors.textMuted }}>Scan menu</p>
+						<QRCodeSVG value={whatsAppUrl} size={qrSize} level="H" bgColor={colors.background} fgColor={colors.text} />
+						<p style={{ margin: "4px 0 0", fontSize: Math.max(7, smallFs - 2), color: colors.textMuted }}>Chat on WhatsApp</p>
 					</div>
 				)}
 			</div>

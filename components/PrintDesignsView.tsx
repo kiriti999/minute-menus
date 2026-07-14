@@ -425,7 +425,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                       className={`w-full px-3 py-2 rounded-lg border text-sm outline-none ${inputCls}`}
                     />
                   </div>
-                  <p className={`text-[10px] ${muted}`}>Contact phone and address come from Restaurant Info below.</p>
+                  <p className={`text-[10px] ${muted}`}>Contact phone and address come from Restaurant Info below. The QR code opens a WhatsApp chat to apply.</p>
                 </div>
               </section>
             )}
@@ -734,12 +734,15 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
 
               {/* Visibility toggles */}
               <div className="grid grid-cols-2 gap-2 mb-4">
-                {([
-                  ['showPrices', 'Prices'],
-                  ['showDescriptions', 'Descriptions'],
-                  ['showQR', 'QR Code'],
-                  ['showTagline', 'Tagline'],
-                ] as [keyof DesignCustomization, string][]).map(([k, label]) => (
+                {(isJobFlyer
+                  ? [['showQR', 'WhatsApp QR'] as const]
+                  : ([
+                      ['showPrices', 'Prices'],
+                      ['showDescriptions', 'Descriptions'],
+                      ['showQR', 'QR Code'],
+                      ['showTagline', 'Tagline'],
+                    ] as const)
+                ).map(([k, label]) => (
                   <label key={k} className="flex items-center gap-2 cursor-pointer select-none">
                     <div
                       onClick={() => patchCustom(k, !custom[k])}
