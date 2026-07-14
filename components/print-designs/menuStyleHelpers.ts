@@ -33,12 +33,52 @@ export function scaledHeadingFs(widthPx: number, customization: DesignCustomizat
   return Math.round(base * HEADING_SIZE_SCALE[customization.typography.headingSize]);
 }
 
+/** Scale from printable height — landscape boards are width-rich but height-constrained. */
 export function wallBoardFontScale(widthPx: number, heightPx: number): number {
-  const area = widthPx * heightPx;
-  if (area > 4_000_000) return 1.45;
-  if (area > 2_500_000) return 1.3;
-  if (widthPx > heightPx) return 1.2;
-  return 1.15;
+  const h = Math.min(widthPx, heightPx);
+  if (h >= 3200) return 1.3;
+  if (h >= 2400) return 1.1;
+  if (h >= 1700) return 0.92;
+  if (h >= 1200) return 0.8;
+  return 0.72;
+}
+
+/** Vertical space left for category columns after header/footer. */
+export function wallBoardContentHeight(
+  heightPx: number,
+  widthPx: number,
+  pad: number,
+  isLandscape: boolean,
+  showQR: boolean,
+  hasFooterSocial: boolean,
+): number {
+  const headerBand = isLandscape ? heightPx * 0.14 : heightPx * 0.12;
+  const headerGap = widthPx * 0.015;
+  const footerGap = heightPx * 0.01;
+  let footerBlock = 24;
+  if (showQR) footerBlock += footerQrSize(widthPx) + 20;
+  else if (hasFooterSocial) footerBlock += 32;
+  return Math.max(200, heightPx - pad * 2 - headerBand - headerGap - footerGap - footerBlock);
+}
+
+/** Shrink fonts when the busiest column has many items for the available height. */
+export function wallBoardDensityScale(
+  maxItems: number,
+  contentHeightPx: number,
+  baseBodyFs: number,
+  maxTitleChars = 0,
+  colWidthPx = 400,
+): number {
+  if (maxItems <= 0) return 1;
+  const catHeaderPx = Math.max(52, baseBodyFs * 2.1);
+  const usable = contentHeightPx - catHeaderPx;
+  const gapRatio = 0.36;
+  const lineHeight = 1.15;
+  const charsPerLine = Math.max(10, colWidthPx / (baseBodyFs * 0.55));
+  const avgLines = Math.min(2.4, Math.max(1.1, maxTitleChars / charsPerLine));
+  const blockRatio = avgLines * lineHeight + gapRatio;
+  const targetFs = usable / (maxItems * blockRatio);
+  return Math.min(1, Math.max(0.48, targetFs / baseBodyFs));
 }
 
 /** Category columns for wall boards — uses user selection, with sensible defaults per orientation. */

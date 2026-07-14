@@ -9,6 +9,7 @@
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
+import { JUICE_MARKETING_TITLES } from "../lib/juiceMarketingTitles";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 for (const line of readFileSync(join(__dirname, "..", ".env"), "utf8").split("\n")) {
@@ -191,6 +192,15 @@ const NUTRITION_BY_NAME: Record<string, NutritionRow> = {
     },
 };
 
+function nutritionForDish(name: string): NutritionRow | undefined {
+    const direct = NUTRITION_BY_NAME[name];
+    if (direct) return direct;
+    for (const [legacy, marketing] of Object.entries(JUICE_MARKETING_TITLES)) {
+        if (marketing === name) return NUTRITION_BY_NAME[legacy];
+    }
+    return undefined;
+}
+
 const { createClient } = await import("@supabase/supabase-js");
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? "";
@@ -243,7 +253,7 @@ for (const restaurant of restaurants) {
     }
 
     for (const dish of dishes) {
-        const nutrition = NUTRITION_BY_NAME[dish.name];
+        const nutrition = nutritionForDish(dish.name);
         if (!nutrition) {
             unmatched.push(`${restaurant.slug}: ${dish.name}`);
             skipped++;

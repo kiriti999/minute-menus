@@ -27,6 +27,8 @@ import {
   titleFontFamily,
   titleStyleExtras,
   wallBoardColumns,
+  wallBoardContentHeight,
+  wallBoardDensityScale,
   wallColumnPalette,
 } from "./menuStyleHelpers";
 
@@ -146,13 +148,15 @@ function WallFooter({ style, customization, branding, siteUrl, widthPx, heightPx
   );
 }
 
-function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols }: {
-  cat: Category; customization: DesignCustomization; widthPx: number; heightPx: number; blockColor: string; cols: number;
+function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols, densityScale }: {
+  cat: Category; customization: DesignCustomization; widthPx: number; heightPx: number; blockColor: string; cols: number; densityScale: number;
 }) {
   const fonts = effectiveFonts(customization);
   const { showPrices } = customization;
-  const bfs = scaledBodyFsWall(widthPx, heightPx, customization, cols);
-  const cfs = scaledCatFsWall(widthPx, heightPx, customization, cols);
+  const bfs = Math.max(7, Math.round(scaledBodyFsWall(widthPx, heightPx, customization, cols) * densityScale));
+  const cfs = Math.max(8, Math.round(scaledCatFsWall(widthPx, heightPx, customization, cols) * densityScale));
+  const itemGap = Math.max(2, Math.round(bfs * (densityScale < 0.88 ? 0.28 : 0.36)));
+  const lineHeight = densityScale < 0.88 ? 1.1 : 1.15;
   const text = contrastTextColor(blockColor);
   const ruleColor = hexToRgba(text === '#FFFFFF' ? '#FFFFFF' : '#000000', 0.28);
   const pad = Math.round(widthPx * 0.016);
@@ -171,13 +175,16 @@ function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols 
       }}>
         {cat.title}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: Math.round(bfs * 0.55), overflow: 'hidden' }}>
+      <div style={{
+        flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
+        justifyContent: 'space-evenly', gap: itemGap, overflow: 'hidden',
+      }}>
         {cat.items.map((dish) => (
-          <div key={dish.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+          <div key={dish.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6, flexShrink: 0 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{
                 fontFamily: fonts.body, fontSize: bfs, fontWeight: 600, color: text,
-                lineHeight: 1.25, wordBreak: 'break-word', hyphens: 'auto',
+                lineHeight, wordBreak: 'break-word', hyphens: 'auto',
               }}>
                 {wallBoardDisplayName(dish.name, cat.title)}
               </div>
@@ -204,6 +211,24 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
   const cols = wallBoardColumns(widthPx, heightPx, customization.layout.columns);
   const palette = wallColumnPalette(customization.colors, customization.columnColors);
   const isLandscape = fmt.orientation === 'landscape';
+  const hasFooterSocial = Boolean(branding.phone || branding.instagram);
+  const contentHeight = wallBoardContentHeight(heightPx, widthPx, pad, isLandscape, customization.showQR, hasFooterSocial);
+  const maxItems = Math.max(1, ...menuItems.map((c) => c.items.length));
+  const maxTitleChars = Math.max(
+    1,
+    ...menuItems.flatMap((c) => c.items.map((d) => wallBoardDisplayName(d.name, c.title).length)),
+  );
+  const baseBodyFs = scaledBodyFsWall(widthPx, heightPx, customization, cols);
+  const gridRows = Math.max(1, Math.ceil(menuItems.length / cols));
+  const gridGap = Math.round(widthPx * 0.014);
+  const colWidth = (widthPx - pad * 2 - gridGap * (cols - 1)) / cols;
+  const densityScale = wallBoardDensityScale(
+    maxItems,
+    contentHeight / gridRows,
+    baseBodyFs,
+    maxTitleChars,
+    colWidth,
+  );
 
   return (
     <div style={{
@@ -220,8 +245,11 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
       </div>
       <div style={{
         flex: 1, minHeight: 0, overflow: 'hidden',
-        display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gridAutoRows: 'minmax(0, 1fr)',
-        gap: Math.round(widthPx * 0.018), alignContent: 'start',
+        display: 'grid',
+        gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+        gridTemplateRows: `repeat(${gridRows}, minmax(0, 1fr))`,
+        gap: gridGap,
+        alignContent: 'stretch',
       }}>
         {menuItems.map((cat, i) => (
           <WallCategory
@@ -232,6 +260,7 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
             heightPx={heightPx}
             blockColor={palette[i % palette.length]}
             cols={cols}
+            densityScale={densityScale}
           />
         ))}
       </div>
