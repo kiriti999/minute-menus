@@ -13,6 +13,7 @@ import { QRCodeCanvas } from "qrcode.react";
 import type React from "react";
 import { TEMPLATE_VISUALS } from "../../lib/templateConfig";
 import { buildJobFlyerApplyMessage } from "../../lib/jobFlyerWhatsApp";
+import { computeJobFlyerSizing } from "../../lib/jobFlyerMetrics";
 import { whatsAppChatUrl } from "../../lib/whatsappLink";
 import {
 	baseBackground,
@@ -44,23 +45,6 @@ const EMPLOYMENT_LABELS: Record<JobEmploymentType, string> = {
 
 type DetailItem = { icon: string; label: string; value: string };
 
-function descriptionFontSize(text: string, smallFs: number, pamphlet: boolean): number {
-	const len = text.length;
-	let fs = Math.max(9, Math.round(smallFs * (pamphlet ? 1.08 : 0.98)));
-	if (len > 1200) fs -= 1;
-	if (len > 1600) fs -= 1;
-	return Math.max(8, fs);
-}
-
-/** A5 job flyers need slightly larger type than menu pamphlets. */
-function jobFlyerTypeScale(widthPx: number, heightPx: number, pamphlet: boolean): number {
-	if (!pamphlet) return 1;
-	const area = widthPx * heightPx;
-	if (area < 500_000) return 1.28;
-	if (area < 650_000) return 1.18;
-	return 1.1;
-}
-
 function JobDetailCard({
 	item,
 	labelFs,
@@ -78,8 +62,8 @@ function JobDetailCard({
 			style={{
 				display: "flex",
 				alignItems: "flex-start",
-				gap: 8,
-				padding: "10px 12px",
+				gap: 7,
+				padding: "8px 10px",
 				borderRadius: 8,
 				background: hexToRgba(colors.background, 0.92),
 				border: `1px solid ${hexToRgba(colors.border, 0.85)}`,
@@ -203,22 +187,35 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 	const hw = headingWeight(customization);
 	const nameTransform = textTransformCss(customization);
 	const pamphlet = heightPx <= 860;
-	const typeScale = jobFlyerTypeScale(widthPx, heightPx, pamphlet);
-	const pad = Math.round(widthPx * (pamphlet ? 0.052 : 0.06));
-	const headingFs = Math.round(scaledHeadingFs(widthPx, customization) * (pamphlet ? 0.96 : 1) * typeScale);
-	const bodyFs = Math.round(scaledBodyFs(widthPx, customization) * typeScale);
-	const smallFs = Math.max(10, Math.round(bodyFs * 0.94));
-	const bannerFs = Math.max(15, Math.round(widthPx * 0.052 * (pamphlet ? 1.05 : 1)));
-	const qrSize = Math.max(62, Math.round(widthPx * (pamphlet ? 0.155 : 0.13)));
 	const descriptionText = jobFlyer.jobDescription?.trim() ?? "";
-	const descFs = descriptionText ? descriptionFontSize(descriptionText, smallFs, pamphlet) : smallFs;
+	const hasNotes = Boolean(jobFlyer.extraNotes?.trim());
+	const sizing = computeJobFlyerSizing({
+		widthPx,
+		heightPx,
+		pamphlet,
+		descriptionText,
+		hasNotes,
+		showQr: customization.showQR,
+		detailCount: 5,
+		baseHeadingFs: scaledHeadingFs(widthPx, customization),
+		baseBodyFs: scaledBodyFs(widthPx, customization),
+	});
+	const {
+		pad,
+		gap,
+		headingFs,
+		smallFs,
+		descFs,
+		bannerFs,
+		qrSize,
+		detailLabelFs,
+		detailValueFs,
+		useCompactQrRow,
+	} = sizing;
 	const displayName = formatPrintDisplayName(branding.name, customization.typography.textTransform);
 	const titleFont = titleFontFamily(customization);
 	const titleExtras = titleStyleExtras(customization);
-	const gap = pamphlet ? 10 : Math.round(pad * 0.5);
 	const detailCols = widthPx < 400 ? 1 : 2;
-	const detailLabelFs = Math.max(8, Math.round(smallFs * 0.88));
-	const detailValueFs = Math.max(10, smallFs);
 
 	const applyMessage = buildJobFlyerApplyMessage(jobFlyer, branding.name);
 	const whatsAppUrl = branding.phone ? whatsAppChatUrl(branding.phone, applyMessage) : null;
@@ -340,12 +337,12 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 					{jobFlyer.hookLine?.trim() && (
 						<p
 							style={{
-								margin: "8px auto 0",
+								margin: "6px auto 0",
 								maxWidth: "94%",
-								fontSize: Math.round(smallFs * 1.02),
+								fontSize: smallFs,
 								fontWeight: 600,
 								color: colors.accent,
-								lineHeight: 1.38,
+								lineHeight: 1.34,
 							}}
 						>
 							{jobFlyer.hookLine.trim()}
@@ -380,9 +377,9 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 							borderRadius: 6,
 							borderLeft: `3px solid ${colors.accent}`,
 							background: hexToRgba(colors.accent, 0.1),
-							fontSize: Math.max(9, Math.round(smallFs * 0.96)),
+							fontSize: Math.max(8, Math.round(smallFs * 0.94)),
 							color: colors.text,
-							lineHeight: 1.42,
+							lineHeight: 1.36,
 						}}
 					>
 						<strong style={{ color: colors.primary }}>Note: </strong>
@@ -390,33 +387,44 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 					</div>
 				)}
 
-				{descriptionText && (
+				{(descriptionText || customization.showQR) && (
 					<div
 						style={{
 							flexShrink: 0,
-							padding: "12px 14px",
-							borderRadius: 8,
-							background: hexToRgba(colors.background, 0.7),
-							border: `1px solid ${hexToRgba(colors.border, 0.75)}`,
-							fontSize: descFs,
-							color: colors.text,
-							lineHeight: 1.48,
-							whiteSpace: "pre-line",
+							display: "flex",
+							flexDirection: useCompactQrRow ? "row" : "column",
+							alignItems: useCompactQrRow ? "flex-end" : "stretch",
+							justifyContent: useCompactQrRow ? "space-between" : "flex-start",
+							gap: useCompactQrRow ? 10 : 8,
 						}}
 					>
-						{descriptionText}
+						{descriptionText && (
+							<div
+								style={{
+									flex: useCompactQrRow ? 1 : undefined,
+									minWidth: 0,
+									padding: "10px 12px",
+									borderRadius: 8,
+									background: hexToRgba(colors.background, 0.7),
+									border: `1px solid ${hexToRgba(colors.border, 0.75)}`,
+									fontSize: descFs,
+									color: colors.text,
+									lineHeight: 1.4,
+									whiteSpace: "pre-line",
+								}}
+							>
+								{descriptionText}
+							</div>
+						)}
+						<JobFlyerQrPanel
+							show={customization.showQR}
+							whatsAppUrl={whatsAppUrl}
+							qrSize={qrSize}
+							smallFs={smallFs}
+							colors={colors}
+						/>
 					</div>
 				)}
-
-				<div style={{ flexShrink: 0, display: "flex", justifyContent: "flex-end", paddingTop: 8 }}>
-					<JobFlyerQrPanel
-						show={customization.showQR}
-						whatsAppUrl={whatsAppUrl}
-						qrSize={qrSize}
-						smallFs={smallFs}
-						colors={colors}
-					/>
-				</div>
 			</div>
 		</div>
 	);
