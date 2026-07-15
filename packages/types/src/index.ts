@@ -169,6 +169,9 @@ export interface MenuItemForStorageGuide {
 
 export interface IngredientStorageAdvice {
   ingredient: string;
+  /** e.g. Vegetables, Dairy, Herbs */
+  category: string;
+  /** Fridge or Outside wooden racks (no pantry) */
   storagePlace: string;
   shelfLife: string;
   simpleHacks: string;

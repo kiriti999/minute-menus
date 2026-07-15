@@ -227,13 +227,67 @@ const uploadInvoiceToStorage = async (
     return urlData.signedUrl;
 };
 
+const CATEGORY_ALIASES: Record<string, string> = {
+	veg: "Vegetables",
+	veggie: "Vegetables",
+	veggies: "Vegetables",
+	vegetable: "Vegetables",
+	vegetables: "Vegetables",
+	fruit: "Fruits",
+	fruits: "Fruits",
+	herb: "Herbs",
+	herbs: "Herbs",
+	"herbs & greens": "Herbs",
+	greens: "Herbs",
+	dairy: "Dairy",
+	milk: "Dairy",
+	protein: "Proteins",
+	proteins: "Proteins",
+	meat: "Proteins",
+	seafood: "Proteins",
+	egg: "Proteins",
+	eggs: "Proteins",
+	grain: "Grains & staples",
+	grains: "Grains & staples",
+	"grains & staples": "Grains & staples",
+	staple: "Grains & staples",
+	staples: "Grains & staples",
+	spice: "Spices & condiments",
+	spices: "Spices & condiments",
+	"spices & condiments": "Spices & condiments",
+	condiment: "Spices & condiments",
+	oil: "Oils & fats",
+	oils: "Oils & fats",
+	"oils & fats": "Oils & fats",
+	fat: "Oils & fats",
+};
+
+const normalizeAdviceCategory = (raw: string): string => {
+	const key = raw.trim().toLowerCase();
+	if (!key) return "Other";
+	return CATEGORY_ALIASES[key] ?? raw.trim().replace(/\b\w/g, (c) => c.toUpperCase());
+};
+
+/** This kitchen has only fridge or outside wooden racks — never pantry/counter. */
+const normalizeStoragePlace = (raw: string): string => {
+	const t = raw.trim().toLowerCase();
+	if (!t) return "Fridge";
+	if (/fridge|refrigerat|freezer|chill|cold/.test(t)) return "Fridge";
+	if (/rack|outside|room.?temp|ambient|wooden|pantry|counter|cupboard|cabinet|shelf|dry/.test(t)) {
+		return "Outside wooden racks";
+	}
+	// Default perishables → fridge; AI should already choose correctly for staples.
+	return "Fridge";
+};
+
 const coerceAdviceRow = (row: unknown): IngredientStorageAdvice | null => {
 	if (!row || typeof row !== "object") return null;
 	const item = row as Record<string, unknown>;
 	const dishes = item.usedInDishes ?? item.used_in_dishes ?? item.dishes;
 	const advice: IngredientStorageAdvice = {
 		ingredient: String(item.ingredient ?? "").trim(),
-		storagePlace: String(item.storagePlace ?? item.storage_place ?? "").trim(),
+		category: normalizeAdviceCategory(String(item.category ?? item.group ?? "").trim()),
+		storagePlace: normalizeStoragePlace(String(item.storagePlace ?? item.storage_place ?? "").trim()),
 		shelfLife: String(item.shelfLife ?? item.shelf_life ?? "").trim(),
 		simpleHacks: String(item.simpleHacks ?? item.simple_hacks ?? item.hacks ?? "").trim(),
 		usedInDishes: Array.isArray(dishes)
@@ -375,10 +429,11 @@ const generateStorageGuide = async (
 				role: "user",
 				content: `You are a cloud-kitchen food safety and prep coach for "${restaurantName}" in India.
 
-Scan every menu dish and its ingredients below. Extract UNIQUE raw ingredients (veggies, fruits, dairy, grains, proteins, herbs, etc.).
+Scan every menu dish and its ingredients below. Extract UNIQUE raw ingredients.
 
 For EACH unique ingredient return practical storage guidance:
-- storagePlace: fridge zone / counter / pantry / freezer — short
+- category: ONE of Vegetables, Fruits, Herbs, Dairy, Proteins, Grains & staples, Spices & condiments, Oils & fats, Other
+- storagePlace: ONLY "Fridge" OR "Outside wooden racks" (this kitchen has NO pantry and NO counter storage — dry goods like onion/potato/garlic go on outside wooden racks; perishables go in fridge)
 - shelfLife: e.g. "3-4 days"
 - simpleHacks: ONE short tip, no quotes inside the string if possible
 - usedInDishes: dish names that use it
@@ -388,10 +443,11 @@ Rules:
 - Keep values short so the JSON stays valid
 - Merge duplicates across dishes
 - Skip pure water/ice
+- NEVER say pantry, counter, cupboard, or freezer as storagePlace — only Fridge or Outside wooden racks
 - Return ONLY a valid JSON array — no markdown fences, no prose
 - Escape any double quotes inside string values as \\"
 
-Keys exactly: ingredient, storagePlace, shelfLife, simpleHacks, usedInDishes
+Keys exactly: ingredient, category, storagePlace, shelfLife, simpleHacks, usedInDishes
 
 MENU:
 ${JSON.stringify(menuPayload)}`,

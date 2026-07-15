@@ -6,6 +6,16 @@ const log = createLogger("ai-storage-guide");
 
 export const STORAGE_GUIDE_MODEL = "claude-haiku-4-5";
 
+const normalizeStoragePlace = (raw: string): string => {
+	const t = raw.trim().toLowerCase();
+	if (!t) return "Fridge";
+	if (/fridge|refrigerat|freezer|chill|cold/.test(t)) return "Fridge";
+	if (/rack|outside|room.?temp|ambient|wooden|pantry|counter|cupboard|cabinet|shelf|dry/.test(t)) {
+		return "Outside wooden racks";
+	}
+	return "Fridge";
+};
+
 const parseAdviceJson = (raw: string): IngredientStorageAdvice[] => {
 	const trimmed = raw.trim();
 	const jsonBlock = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/)?.[1] ?? trimmed;
@@ -17,7 +27,8 @@ const parseAdviceJson = (raw: string): IngredientStorageAdvice[] => {
 			const dishes = item.usedInDishes ?? item.used_in_dishes ?? item.dishes;
 			return {
 				ingredient: String(item.ingredient ?? "").trim(),
-				storagePlace: String(item.storagePlace ?? item.storage_place ?? "").trim(),
+				category: String(item.category ?? item.group ?? "Other").trim() || "Other",
+				storagePlace: normalizeStoragePlace(String(item.storagePlace ?? item.storage_place ?? "").trim()),
 				shelfLife: String(item.shelfLife ?? item.shelf_life ?? "").trim(),
 				simpleHacks: String(item.simpleHacks ?? item.simple_hacks ?? item.hacks ?? "").trim(),
 				usedInDishes: Array.isArray(dishes)
@@ -51,21 +62,23 @@ export async function generateStoragePreservationGuide(
 				role: "user",
 				content: `You are a cloud-kitchen food safety and prep coach for "${restaurantName}" in India.
 
-Scan every menu dish and its ingredients below. Extract UNIQUE raw ingredients (veggies, fruits, dairy, grains, proteins, herbs, etc.).
+Scan every menu dish and its ingredients below. Extract UNIQUE raw ingredients.
 
 For EACH unique ingredient return practical storage guidance:
-- Where: fridge (which zone), counter, pantry, or freezer — be specific and simple
-- Shelf life: realistic days at peak quality
-- Simple hacks: 1–2 short kitchen-friendly tips (wrap, container, wash-dry, etc.)
+- category: ONE of Vegetables, Fruits, Herbs, Dairy, Proteins, Grains & staples, Spices & condiments, Oils & fats, Other
+- storagePlace: ONLY "Fridge" OR "Outside wooden racks" (NO pantry, NO counter)
+- shelfLife: realistic days at peak quality
+- simpleHacks: 1–2 short kitchen-friendly tips
+- usedInDishes: dish names that use it
 
 Rules:
 - Plain English, no jargon, no markdown in values
-- Focus on vegetables, fruits, and perishables; include dairy/proteins when present
-- Merge duplicates (e.g. "tomato" across dishes → one row with all dish names in usedInDishes)
-- Cover every ingredient you can infer from the menu; skip only pure water/ice
+- Merge duplicates across dishes
+- Skip pure water/ice
+- NEVER use pantry/counter/freezer as storagePlace
 - Return ONLY a JSON array, no prose before or after
 
-Each object keys: ingredient, storagePlace, shelfLife, simpleHacks, usedInDishes (string array of dish names)
+Keys: ingredient, category, storagePlace, shelfLife, simpleHacks, usedInDishes
 
 MENU:
 ${JSON.stringify(menuPayload, null, 2)}`,
