@@ -29,8 +29,10 @@ type LineItem = { name: string; quantity: number; unit: PurchaseUnit; amount: nu
 type MenuItemForStorageGuide = { name: string; category: string; ingredients: string };
 type IngredientStorageAdvice = {
 	ingredient: string;
+	category: string;
 	storagePlace: string;
-	shelfLife: string;
+	shelfLifeFridge: string;
+	shelfLifeOutside: string;
 	simpleHacks: string;
 	usedInDishes: string[];
 };
@@ -301,7 +303,12 @@ const coerceAdviceRow = (row: unknown): IngredientStorageAdvice | null => {
 		ingredient: String(item.ingredient ?? "").trim(),
 		category: normalizeAdviceCategory(String(item.category ?? item.group ?? "").trim()),
 		storagePlace: normalizeStoragePlace(String(item.storagePlace ?? item.storage_place ?? "").trim()),
-		shelfLife: String(item.shelfLife ?? item.shelf_life ?? "").trim(),
+		shelfLifeFridge: String(
+			item.shelfLifeFridge ?? item.shelf_life_fridge ?? item.shelfLife ?? item.shelf_life ?? "",
+		).trim(),
+		shelfLifeOutside: String(
+			item.shelfLifeOutside ?? item.shelf_life_outside ?? "",
+		).trim() || "Do not store outside",
 		simpleHacks: simplifyKitchenHacks(
 			String(item.simpleHacks ?? item.simple_hacks ?? item.hacks ?? "").trim(),
 		),
@@ -453,8 +460,9 @@ Scan every menu dish and its ingredients below. Extract UNIQUE raw ingredients.
 
 For EACH unique ingredient return practical storage guidance:
 - category: ONE of Vegetables, Fruits, Herbs, Dairy, Proteins, Grains & staples, Spices & condiments, Oils & fats, Other
-- storagePlace: ONLY "Cold bain marie (under fridge)" OR "Freezer (ice cream)" OR "Outside wooden racks"
-- shelfLife: e.g. "3-4 days"
+- storagePlace: ONLY "Cold bain marie (under fridge)" OR "Freezer (ice cream)" OR "Outside wooden racks" (recommended place)
+- shelfLifeFridge: how long it lasts in the cold bain marie at 1-4C, e.g. "5-7 days". Use "N/A — keep frozen" for ice cream
+- shelfLifeOutside: how long it lasts on outside wooden racks (room temp India kitchen), e.g. "1-2 days" or "2-3 weeks". Use "Do not store outside" for dairy, meat, ice cream, and other perishables that must stay cold
 - simpleHacks: ONE short tip for kitchen staff; use plain words (wrap, container, paper towel). NEVER say "crisper", "crisper drawer", "pantry", or "counter"
 - usedInDishes: dish names that use it
 
@@ -463,12 +471,13 @@ Rules:
 - Keep values short so the JSON stays valid
 - Merge duplicates across dishes
 - Skip pure water/ice
+- ALWAYS give BOTH shelfLifeFridge and shelfLifeOutside so staff can compare fridge vs outside life span
 - Use Freezer (ice cream) ONLY for ice cream / frozen desserts — not for veggies or dairy that belong in the bain marie
 - NEVER say pantry, counter, cupboard, or crisper
 - Return ONLY a valid JSON array — no markdown fences, no prose
 - Escape any double quotes inside string values as \\"
 
-Keys exactly: ingredient, category, storagePlace, shelfLife, simpleHacks, usedInDishes
+Keys exactly: ingredient, category, storagePlace, shelfLifeFridge, shelfLifeOutside, simpleHacks, usedInDishes
 
 MENU:
 ${JSON.stringify(menuPayload)}`,

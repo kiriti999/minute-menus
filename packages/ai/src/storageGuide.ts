@@ -43,7 +43,12 @@ const parseAdviceJson = (raw: string): IngredientStorageAdvice[] => {
 				ingredient: String(item.ingredient ?? "").trim(),
 				category: String(item.category ?? item.group ?? "Other").trim() || "Other",
 				storagePlace: normalizeStoragePlace(String(item.storagePlace ?? item.storage_place ?? "").trim()),
-				shelfLife: String(item.shelfLife ?? item.shelf_life ?? "").trim(),
+				shelfLifeFridge: String(
+					item.shelfLifeFridge ?? item.shelf_life_fridge ?? item.shelfLife ?? item.shelf_life ?? "",
+				).trim(),
+				shelfLifeOutside: String(
+					item.shelfLifeOutside ?? item.shelf_life_outside ?? "",
+				).trim() || "Do not store outside",
 				simpleHacks: simplifyKitchenHacks(
 					String(item.simpleHacks ?? item.simple_hacks ?? item.hacks ?? "").trim(),
 				),
@@ -88,7 +93,8 @@ Scan every menu dish and its ingredients below. Extract UNIQUE raw ingredients.
 For EACH unique ingredient return practical storage guidance:
 - category: ONE of Vegetables, Fruits, Herbs, Dairy, Proteins, Grains & staples, Spices & condiments, Oils & fats, Other
 - storagePlace: ONLY "Cold bain marie (under fridge)" OR "Freezer (ice cream)" OR "Outside wooden racks"
-- shelfLife: realistic days at peak quality
+- shelfLifeFridge: life span in cold bain marie at 1-4C (or "N/A — keep frozen" for ice cream)
+- shelfLifeOutside: life span on outside wooden racks (or "Do not store outside" when cold storage is required)
 - simpleHacks: short tip for kitchen staff; NEVER say crisper, pantry, or counter
 - usedInDishes: dish names that use it
 
@@ -96,11 +102,12 @@ Rules:
 - Plain English, no jargon, no markdown in values
 - Merge duplicates across dishes
 - Skip pure water/ice
+- ALWAYS give BOTH shelfLifeFridge and shelfLifeOutside
 - Use Freezer (ice cream) ONLY for ice cream / frozen desserts
 - NEVER use pantry/counter/crisper
 - Return ONLY a JSON array, no prose before or after
 
-Keys: ingredient, category, storagePlace, shelfLife, simpleHacks, usedInDishes
+Keys: ingredient, category, storagePlace, shelfLifeFridge, shelfLifeOutside, simpleHacks, usedInDishes
 
 MENU:
 ${JSON.stringify(menuPayload, null, 2)}`,

@@ -78,24 +78,33 @@ export async function buildStorageGuideExcel(guide: StorageGuideResult): Promise
 
 	const sheet = workbook.addWorksheet("Storage Guide");
 	sheet.columns = [
+		{ width: 16 },
 		{ width: 18 },
 		{ width: 22 },
-		{ width: 22 },
-		{ width: 16 },
-		{ width: 36 },
+		{ width: 18 },
+		{ width: 18 },
 		{ width: 32 },
+		{ width: 28 },
 	];
-	sheet.mergeCells("A1:F1");
+	sheet.mergeCells("A1:G1");
 	const banner = sheet.getRow(1);
 	banner.getCell(1).value = FRIDGE_TEMP_NOTE;
 	banner.getCell(1).font = { bold: true, size: 11, color: { argb: "FFB71C1C" } };
 	banner.getCell(1).alignment = { wrapText: true, vertical: "middle" };
 	banner.height = 36;
 	sheet.addRow([]);
-	sheet.addRow(["Category", "Ingredient", "Where to store", "Shelf life", "Simple hacks", "Used in dishes"]);
+	sheet.addRow([
+		"Category",
+		"Ingredient",
+		"Where to store",
+		"Life in fridge",
+		"Life outside",
+		"Simple hacks",
+		"Used in dishes",
+	]);
 	const header = sheet.getRow(3);
 	header.font = { bold: true };
-	for (let col = 1; col <= 6; col += 1) {
+	for (let col = 1; col <= 7; col += 1) {
 		header.getCell(col).fill = HEADER_FILL;
 		header.getCell(col).alignment = { vertical: "middle", wrapText: true };
 	}
@@ -106,7 +115,8 @@ export async function buildStorageGuideExcel(guide: StorageGuideResult): Promise
 				group.category,
 				tip.ingredient,
 				tip.storagePlace,
-				tip.shelfLife,
+				tip.shelfLifeFridge,
+				tip.shelfLifeOutside,
 				tip.simpleHacks,
 				tip.usedInDishes.join(", "),
 			]);
@@ -159,7 +169,8 @@ function buildStorageGuideHtml(guide: StorageGuideResult): string {
 							(tip) => `
       <tr>
         <td>${escapeHtml(tip.ingredient)}</td>
-        <td>${escapeHtml(tip.shelfLife)}</td>
+        <td>${escapeHtml(tip.shelfLifeFridge)}</td>
+        <td>${escapeHtml(tip.shelfLifeOutside)}</td>
         <td>${escapeHtml(tip.simpleHacks)}</td>
         <td>${escapeHtml(tip.usedInDishes.join(", "))}</td>
       </tr>`,
@@ -169,7 +180,7 @@ function buildStorageGuideHtml(guide: StorageGuideResult): string {
   <h3>${escapeHtml(place)}</h3>
   <table>
     <thead><tr>
-      <th>Ingredient</th><th>Shelf life</th><th>Simple hacks</th><th>Used in dishes</th>
+      <th>Ingredient</th><th>Life in fridge</th><th>Life outside</th><th>Simple hacks</th><th>Used in dishes</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;

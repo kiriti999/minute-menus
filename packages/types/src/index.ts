@@ -173,7 +173,10 @@ export interface IngredientStorageAdvice {
   category: string;
   /** Cold bain marie, Freezer (ice cream), or Outside wooden racks */
   storagePlace: string;
-  shelfLife: string;
+  /** Life span in cold bain marie / fridge */
+  shelfLifeFridge: string;
+  /** Life span on outside wooden racks */
+  shelfLifeOutside: string;
   simpleHacks: string;
   usedInDishes: string[];
 }
