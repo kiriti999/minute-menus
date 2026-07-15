@@ -9,6 +9,6 @@ alwaysApply: true
 - **Fail fast** at boundaries — clear validation; pair with graceful UX only where product rules say so (e.g. AI fallbacks elsewhere).
 - **Cyclomatic complexity:** functions and **plain .ts** ≤ 6, **TSX** ≤ 11 — split flow or responsibilities before hitting the ceiling; avoid hollow helper extraction.
 - **Change discipline** — minimal scoped diffs; no drive-by refactors or unrelated churn; match existing naming, structure, and Tailwind patterns.
-- **Quality bar** — grep or read targeted sections of large files; honor CLAUDE.md / agents.md hard constraints (destructive menu save, RLS, no service role on client, pinned model, reel cap); toward sub‑2s perceived load where the app already expects it.
+- **Quality bar** — grep or read targeted sections of large files; honor CLAUDE.md / agents.md hard constraints (destructive menu save, RLS, no service role on client, **no AI keys in client bundles**, pinned model, reel cap); toward sub‑2s perceived load where the app already expects it.
 
 Details: `.claude/rules/coding-standards.md`.

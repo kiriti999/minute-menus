@@ -10,7 +10,7 @@ Read **CLAUDE.md** server path, **agents.md** analytics/subscriptions section, a
 
 ## Server-only
 
-Use `lib/supabase-admin` and server env vars (service role, Brevo SMTP, Razorpay secrets, internal API secret). Never import admin client in pages or components.
+Use `lib/supabase-admin` and server env vars (service role, Brevo SMTP, Razorpay secrets, internal API secret, **AI provider keys**). Never import admin client in pages or components. Never put `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` / Replicate tokens behind `VITE_` or Vite `define` — see **ai-api-key-security.mdc**.
 
 ## Workspace packages for API routes
 

@@ -90,8 +90,10 @@ When adding a new AI call:
 
 - Add it to `@minute-menus/ai` (or a submodule there if scope is large).
 - Use the same pinned model unless the user explicitly requests a change.
-- Check for a missing ANTHROPIC_API_KEY before calling the API.
+- Check for a missing ANTHROPIC_API_KEY before calling the API **on the server only**.
 - Use `@minute-menus/logger` on failure; return a safe fallback string — never throw uncaught errors to the UI.
+- **Never** put provider keys in the browser bundle (`vite.config` `define`, `VITE_ANTHROPIC_*`, `dangerouslyAllowBrowser`). See `.cursor/rules/ai-api-key-security.mdc`.
+- Storage guide / costing owner keys: accept in UI → persist to `owner_settings` → call Anthropic from `api/**` with that key; client only learns `hasAnthropicApiKey`.
 
 ---
 

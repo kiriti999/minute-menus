@@ -1,0 +1,29 @@
+---
+description: Never expose AI provider API keys (Anthropic, OpenAI, Gemini, etc.) to browsers or public bundles
+alwaysApply: true
+---
+
+# AI API keys — never expose
+
+Incident reference: baking `ANTHROPIC_API_KEY` into the Vite client via `define` leaked a live key from the public JS bundle and caused unauthorized Opus/Fable usage.
+
+## Hard rules
+
+1. **Never** put AI provider secrets in client bundles or public env:
+   - Forbidden prefixes/names for secrets: `VITE_ANTHROPIC_*`, `VITE_OPENAI_*`, `VITE_GEMINI_*`, `NEXT_PUBLIC_ANTHROPIC_*`, `NEXT_PUBLIC_OPENAI_*`, `NEXT_PUBLIC_GEMINI_*`, or any `VITE_` / `NEXT_PUBLIC_` wrapping a raw API key.
+   - Forbidden: Vite/Next `define` / `env` injection of `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_GEMINI_API_KEY`, `GEMINI_API_KEY`, Replicate tokens, etc. into browser code.
+2. **Never** use `dangerouslyAllowBrowser: true` (Anthropic) or equivalent “run with secret in browser” flags.
+3. **Server-only** for model calls that use platform/system keys: Vercel `api/**`, Express BFF, Lambdas — read `process.env.*` only there.
+4. **Browser AI UX** must either:
+   - Call a server/API route that holds the key, or
+   - Collect the user’s own key in a form, send it to a **server** endpoint over HTTPS, store server-side / encrypted, and **never** echo the raw key back in GET responses (return `configured: true` / `hasApiKey` only).
+5. **Do not log** full API keys (Winston, `console`, Sentry breadcrumbs, error `detail` payloads).
+6. Client settings UIs may show masked hints (`sk-ant-…xxxx`) only if already product behavior — prefer boolean `hasAnthropicApiKey` / `configured`.
+
+## Allowed public env
+
+Public config only (non-secret): e.g. `NEXT_PUBLIC_DEFAULT_AI_PROVIDER`, `NEXT_PUBLIC_DEFAULT_AI_MODEL`, model **names** in UI dropdowns — never the key material.
+
+## When touching build config
+
+Before merging Vite/Next config changes, confirm no secret env is inlined into client assets. Prefer verifying production JS does not contain `sk-ant-`, `sk-`, or `AIza` key prefixes.

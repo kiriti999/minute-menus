@@ -106,7 +106,7 @@ Full map and extension guide: **`.cursor/rules/workspace-packages.mdc`**.
 
 ## AI integration
 
-All AI calls live in `@minute-menus/ai` (Anthropic Claude). The model name is pinned for cost and speed. Missing API keys or failed requests must degrade to friendly fallback text — never break the UI.
+All AI calls that use platform keys must run on the **server** (`api/**`). `@minute-menus/ai` must not embed `ANTHROPIC_API_KEY` in the browser (no Vite `define`, no `VITE_` secret, no `dangerouslyAllowBrowser`). Missing keys or failed requests degrade to friendly fallback text — never break the UI. See `.cursor/rules/ai-api-key-security.mdc`.
 
 ## Do not change without explicit approval
 
@@ -114,6 +114,7 @@ All AI calls live in `@minute-menus/ai` (Anthropic Claude). The model name is pi
 - The pinned Claude model identifier
 - Supabase RLS policies without a deliberate migration and security review
 - Adding net-new Vercel serverless functions beyond **12 total** without consolidation or Pro plan upgrade
+- Re-introducing client-side injection of AI provider API keys
 
 ## Operations note
 

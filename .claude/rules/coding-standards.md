@@ -29,4 +29,4 @@ Ship **minimal, scoped diffs** tied to the task. Avoid drive-by refactors, unrel
 
 ## Quality bar
 
-Prefer grep and targeted reads over loading very large files whole. Respect product and security guardrails documented in CLAUDE.md and agents.md — including destructive menu saves, RLS and keys, pinned AI model, and customer reel caps. Aim for responsive UX and sub-two-second perceived load patterns where the product already establishes that expectation. Prefer self-documenting identifiers and localized comments only for non-obvious domain or integration rules.
+Prefer grep and targeted reads over loading very large files whole. Respect product and security guardrails documented in CLAUDE.md and agents.md — including destructive menu saves, RLS and keys, pinned AI model, and customer reel caps. **Never expose AI provider API keys** in client bundles or public env (see `ai-api-key-security.md`). Aim for responsive UX and sub-two-second perceived load patterns where the product already establishes that expectation. Prefer self-documenting identifiers and localized comments only for non-obvious domain or integration rules.

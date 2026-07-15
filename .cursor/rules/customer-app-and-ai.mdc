@@ -25,6 +25,8 @@ Google OAuth and email/password via Supabase; redirect URL uses VITE_SITE_URL in
 
 `@minute-menus/ai` — Anthropic Claude. Pinned model for cost/speed. `services/geminiService.ts` is a re-export shim only. Missing API key or API failure → friendly fallback string, never uncaught throw to UI.
 
+**Secrets:** Never inject `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` / Replicate tokens into the Vite client (`define`, `VITE_*`). No `dangerouslyAllowBrowser`. Platform keys stay on Vercel `api/**` only. Owner keys are saved via Supabase/`owner_settings` and used server-side; UI exposes `hasAnthropicApiKey` only. See **`ai-api-key-security.mdc`**.
+
 ## Types
 
 Shared interfaces in `@minute-menus/types` — extend there before inline types in pages. Do not recreate a root `types.ts` shim.
