@@ -11,16 +11,24 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getUserFromAccessToken } from "../lib/supabase-admin";
-import { handleStorageGuideRequest } from "../lib/server/storageGuideHandler";
 
-/** Vision on multi-page PDFs can take a while. */
+/** Vision on multi-page PDFs / storage-guide AI can take a while. */
 export const maxDuration = 60;
 
 /** Overridable; defaults to the Claude Haiku model used elsewhere in the org. */
 const CLAUDE_MODEL = process.env.INVOICE_AI_MODEL ?? "claude-haiku-4-5";
+const STORAGE_GUIDE_MODEL = "claude-haiku-4-5";
 
 type PurchaseUnit = "kg" | "g" | "l" | "ml" | "piece";
 type LineItem = { name: string; quantity: number; unit: PurchaseUnit; amount: number };
+type MenuItemForStorageGuide = { name: string; category: string; ingredients: string };
+type IngredientStorageAdvice = {
+	ingredient: string;
+	storagePlace: string;
+	shelfLife: string;
+	simpleHacks: string;
+	usedInDishes: string[];
+};
 
 const VALID_UNITS: PurchaseUnit[] = ["kg", "g", "l", "ml", "piece"];
 const INVOICE_BUCKET = "invoices";
@@ -201,6 +209,170 @@ const uploadInvoiceToStorage = async (
     return urlData.signedUrl;
 };
 
+const parseAdviceJson = (raw: string): IngredientStorageAdvice[] => {
+	const trimmed = raw.trim();
+	const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/)?.[1]?.trim();
+	const candidate = fenced ?? trimmed;
+	const tryParse = (text: string): IngredientStorageAdvice[] => {
+		const parsed = JSON.parse(text) as unknown;
+		if (!Array.isArray(parsed)) return [];
+		return parsed
+			.map((row) => {
+				const item = row as Record<string, unknown>;
+				const dishes = item.usedInDishes ?? item.used_in_dishes ?? item.dishes;
+				return {
+					ingredient: String(item.ingredient ?? "").trim(),
+					storagePlace: String(item.storagePlace ?? item.storage_place ?? "").trim(),
+					shelfLife: String(item.shelfLife ?? item.shelf_life ?? "").trim(),
+					simpleHacks: String(item.simpleHacks ?? item.simple_hacks ?? item.hacks ?? "").trim(),
+					usedInDishes: Array.isArray(dishes)
+						? dishes.map((d) => String(d).trim()).filter(Boolean)
+						: [],
+				};
+			})
+			.filter((row) => row.ingredient.length > 0);
+	};
+	try {
+		return tryParse(candidate);
+	} catch {
+		const start = candidate.indexOf("[");
+		const end = candidate.lastIndexOf("]");
+		if (start === -1 || end === -1) throw new Error("Could not parse AI storage guide — try again");
+		return tryParse(candidate.slice(start, end + 1));
+	}
+};
+
+const fetchOwnerAnthropicKey = async (
+	admin: SupabaseClient,
+	ownerId: string,
+): Promise<{ apiKey: string; model: string } | null> => {
+	const { data, error } = await admin
+		.from("owner_settings")
+		.select("anthropic_api_key, anthropic_model")
+		.eq("owner_id", ownerId)
+		.maybeSingle();
+	if (error) {
+		const message = error.message ?? String(error);
+		if (/relation .*owner_settings.* does not exist|Could not find the table/i.test(message)) {
+			throw new Error(
+				"owner_settings table is missing — run pnpm db:push (or apply supabase/schema.sql) then try again",
+			);
+		}
+		throw error;
+	}
+	const row = data as { anthropic_api_key: string | null; anthropic_model: string | null } | null;
+	const apiKey = row?.anthropic_api_key?.trim();
+	if (!apiKey) return null;
+	return { apiKey, model: row?.anthropic_model?.trim() || STORAGE_GUIDE_MODEL };
+};
+
+const generateStorageGuide = async (
+	apiKey: string,
+	restaurantName: string,
+	menuItems: MenuItemForStorageGuide[],
+	model: string,
+): Promise<IngredientStorageAdvice[]> => {
+	const client = new Anthropic({ apiKey });
+	const menuPayload = menuItems
+		.filter((item) => item.ingredients.trim() || item.name.trim())
+		.map((item) => ({
+			dish: item.name,
+			category: item.category,
+			ingredients: item.ingredients.trim() || "(see dish name)",
+		}));
+
+	const response = await client.messages.create({
+		model: model || STORAGE_GUIDE_MODEL,
+		max_tokens: 4096,
+		messages: [
+			{
+				role: "user",
+				content: `You are a cloud-kitchen food safety and prep coach for "${restaurantName}" in India.
+
+Scan every menu dish and its ingredients below. Extract UNIQUE raw ingredients (veggies, fruits, dairy, grains, proteins, herbs, etc.).
+
+For EACH unique ingredient return practical storage guidance:
+- Where: fridge (which zone), counter, pantry, or freezer — be specific and simple
+- Shelf life: realistic days at peak quality
+- Simple hacks: 1–2 short kitchen-friendly tips (wrap, container, wash-dry, etc.)
+
+Rules:
+- Plain English, no jargon, no markdown in values
+- Focus on vegetables, fruits, and perishables; include dairy/proteins when present
+- Merge duplicates (e.g. "tomato" across dishes → one row with all dish names in usedInDishes)
+- Cover every ingredient you can infer from the menu; skip only pure water/ice
+- Return ONLY a JSON array, no prose before or after
+
+Each object keys: ingredient, storagePlace, shelfLife, simpleHacks, usedInDishes (string array of dish names)
+
+MENU:
+${JSON.stringify(menuPayload, null, 2)}`,
+			},
+		],
+	});
+
+	const block = response.content[0];
+	if (!block || block.type !== "text") throw new Error("Unexpected AI response");
+	const tips = parseAdviceJson(block.text);
+	if (!tips.length) throw new Error("AI returned no storage tips");
+	return tips;
+};
+
+/** Fully inlined — no lib/server imports (Vercel Hobby bundling is unreliable for nested relative deps). */
+const handleStorageGuide = async (req: VercelRequest, res: VercelResponse): Promise<VercelResponse> => {
+	const body = (req.body ?? {}) as {
+		restaurantId?: string;
+		menuItems?: MenuItemForStorageGuide[];
+	};
+	const { restaurantId, menuItems } = body;
+	if (!restaurantId || !Array.isArray(menuItems) || menuItems.length === 0) {
+		return res.status(400).json({ error: "restaurantId and menuItems are required" });
+	}
+
+	const token = getBearerToken(req);
+	if (!token) return res.status(401).json({ error: "Missing authorization token" });
+
+	const admin = requireSupabaseAdmin();
+	const user = await getUserFromAccessToken(admin, token);
+	if (!user) return res.status(401).json({ error: "Invalid or expired session" });
+
+	const { data: owned, error: ownErr } = await admin
+		.from("restaurants")
+		.select("id, name")
+		.eq("id", restaurantId)
+		.eq("owner_id", user.id)
+		.maybeSingle();
+	if (ownErr || !owned) {
+		return res.status(403).json({ error: "Not allowed for this restaurant" });
+	}
+
+	const keyRow = await fetchOwnerAnthropicKey(admin, user.id);
+	if (!keyRow) {
+		return res.status(428).json({
+			error: "missing_api_key",
+			message: "Add your Claude API key to generate a storage guide.",
+		});
+	}
+
+	const sanitized = menuItems
+		.map((item) => ({
+			name: String(item.name ?? "").trim(),
+			category: String(item.category ?? "").trim(),
+			ingredients: String(item.ingredients ?? "").trim(),
+		}))
+		.filter((item) => item.name.length > 0);
+	if (!sanitized.length) {
+		return res.status(400).json({ error: "No menu items with names to scan" });
+	}
+
+	const tips = await generateStorageGuide(keyRow.apiKey, owned.name, sanitized, keyRow.model);
+	return res.status(200).json({
+		generatedAt: new Date().toISOString(),
+		restaurantName: owned.name,
+		tips,
+	});
+};
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "OPTIONS") return res.status(200).end();
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
@@ -208,8 +380,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const action = (req.body as { action?: string } | null)?.action ?? "parse-invoice";
     if (action === "storage-guide") {
         try {
-            // Static import so Vercel NFT bundles Anthropic + lib/server deps (dynamic import was crashing).
-            return await handleStorageGuideRequest(req, res);
+            return await handleStorageGuide(req, res);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             console.error("[parse-invoice] storage-guide failed", message);
