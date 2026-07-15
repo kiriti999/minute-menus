@@ -42,6 +42,7 @@ const storagePlaceSortIndex = (place: string): number => {
 /** Canonical hack groups for kitchen-friendly sorting. */
 const HACK_METHOD_ORDER = [
 	"Wrap in paper towel",
+	"Wrap in plastic wrap",
 	"Keep in airtight container",
 	"Keep whole until use",
 	"Store stem-side down",
@@ -54,6 +55,9 @@ export function classifyHackMethod(hacks: string): string {
 	const t = hacks.trim().toLowerCase();
 	if (!t) return "Other";
 	if (/paper.?towel|damp cloth|kitchen towel/.test(t)) return "Wrap in paper towel";
+	if (/plastic wrap|cling film|clingfilm|saran|food wrap|wrap (tightly )?in plastic/.test(t)) {
+		return "Wrap in plastic wrap";
+	}
 	if (/air.?tight|airtight|sealed container|closed container|ziplock|zip.?lock|box with lid/.test(t)) {
 		return "Keep in airtight container";
 	}

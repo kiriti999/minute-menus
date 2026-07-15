@@ -95,7 +95,7 @@ For EACH unique ingredient return practical storage guidance:
 - storagePlace: ONLY "Cold bain marie (under fridge)" OR "Freezer (ice cream)" OR "Outside wooden racks"
 - shelfLifeFridge: life span in cold bain marie at 1-4C (or "N/A — keep frozen" for ice cream)
 - shelfLifeOutside: life span on outside wooden racks (or "Do not store outside" when cold storage is required)
-- simpleHacks: short tip starting with one of: Wrap in paper towel / Keep in airtight container / Keep whole until use / Store stem-side down / Peel or cut just before use / Store in jar with water; NEVER say crisper, pantry, or counter
+- simpleHacks: short tip starting with one of: Wrap in plastic wrap / Wrap in paper towel / Keep in airtight container / Keep whole until use / Store stem-side down / Peel or cut just before use / Store in jar with water; use EACH method where it fits — paper towel for moisture/crisp greens, plastic wrap to seal cut or drying items; do not replace paper towel with plastic wrap; NEVER say crisper, pantry, or counter
 - usedInDishes: dish names that use it
 
 Rules:
@@ -103,6 +103,7 @@ Rules:
 - Merge duplicates across dishes
 - Skip pure water/ice
 - ALWAYS give BOTH shelfLifeFridge and shelfLifeOutside
+- Plastic wrap and paper towel are both valid — pick the right one, never substitute one for the other
 - Use Freezer (ice cream) ONLY for ice cream / frozen desserts
 - NEVER use pantry/counter/crisper
 - Return ONLY a JSON array, no prose before or after
