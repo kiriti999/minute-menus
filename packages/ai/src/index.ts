@@ -4,11 +4,18 @@ import type { AnalyticsReport } from "@minute-menus/types";
 
 const log = createLogger("ai");
 
-const getClient = (): Anthropic =>
-  new Anthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY,
-    dangerouslyAllowBrowser: true,
-  });
+/** Server-only. Browser builds must never embed ANTHROPIC_API_KEY. */
+const resolveServerApiKey = (): string | null => {
+	if (typeof window !== "undefined") return null;
+	const key = process.env.ANTHROPIC_API_KEY?.trim();
+	return key || null;
+};
+
+const getClient = (): Anthropic | null => {
+	const apiKey = resolveServerApiKey();
+	if (!apiKey) return null;
+	return new Anthropic({ apiKey });
+};
 
 // ─── Fallback report (no API key / network error) ────────────────────────────
 const buildFallbackReport = (r: AnalyticsReport): string => {
@@ -64,10 +71,11 @@ export const generateAnalyticsReport = async (
   report: AnalyticsReport,
   restaurantName = "the restaurant",
 ): Promise<string> => {
-  if (!process.env.ANTHROPIC_API_KEY) return buildFallbackReport(report);
+  const client = getClient();
+  if (!client) return buildFallbackReport(report);
 
   try {
-    const response = await getClient().messages.create({
+    const response = await client.messages.create({
       model: "claude-sonnet-4-5",
       max_tokens: 1024,
       messages: [
@@ -113,10 +121,11 @@ export const generateMarketingCopy = async (
   dishName: string,
   ingredients: string,
 ): Promise<string> => {
-  if (!process.env.ANTHROPIC_API_KEY) return "Delicious and freshly prepared.";
+  const client = getClient();
+  if (!client) return "Delicious and freshly prepared.";
 
   try {
-    const response = await getClient().messages.create({
+    const response = await client.messages.create({
       model: "claude-sonnet-4-5",
       max_tokens: 64,
       messages: [
