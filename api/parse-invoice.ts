@@ -204,6 +204,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "OPTIONS") return res.status(200).end();
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
+    const action = (req.body as { action?: string }).action ?? "parse-invoice";
+    if (action === "storage-guide") {
+        const { handleStorageGuideRequest } = await import("../lib/server/storageGuideHandler");
+        return handleStorageGuideRequest(req, res);
+    }
+
     try {
         const { restaurantId, fileDataUrl } = req.body as {
             restaurantId?: string;

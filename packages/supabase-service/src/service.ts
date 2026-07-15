@@ -1449,4 +1449,18 @@ export class SupabaseService {
         const rid = restaurantId ?? (await this.getRestaurantId());
         return getTodaySalesSummary(this.client, rid);
     }
+
+    async getOwnerAiSettings() {
+        const { data: { user } } = await this.client.auth.getUser();
+        if (!user) throw new Error("Not authenticated");
+        const { getOwnerAiSettings } = await import("./ownerSettings");
+        return getOwnerAiSettings(this.client, user.id);
+    }
+
+    async saveOwnerAnthropicKey(apiKey: string) {
+        const { data: { user } } = await this.client.auth.getUser();
+        if (!user) throw new Error("Not authenticated");
+        const { upsertOwnerAnthropicKey } = await import("./ownerSettings");
+        return upsertOwnerAnthropicKey(this.client, user.id, apiKey);
+    }
 }

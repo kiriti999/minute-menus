@@ -2540,6 +2540,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             <CostingView
               menuItems={menuItems}
               restaurantId={restaurantDetails?.id ?? null}
+              restaurantSlug={restaurantDetails?.slug ?? ""}
               currency={restaurantDetails?.currency ?? "USD"}
               isDarkTheme={isDarkTheme}
               onDishPriceUpdated={(dishId, price) => {

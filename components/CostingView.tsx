@@ -36,6 +36,7 @@ import type React from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { supabaseService } from "../services/supabaseService";
+import { StorageGuidePanel } from "./StorageGuidePanel";
 
 const UNITS: PurchaseUnit[] = ["kg", "g", "l", "ml", "piece"];
 const PAGE_SIZE = 8;
@@ -75,6 +76,7 @@ const EMPTY_OVERHEAD: MonthlyOverhead = {
 export interface CostingViewProps {
   menuItems: Category[];
   restaurantId: string | null;
+  restaurantSlug: string;
   currency: string;
   isDarkTheme: boolean;
   onDishPriceUpdated: (dishId: string, price: number) => void;
@@ -83,6 +85,7 @@ export interface CostingViewProps {
 export const CostingView: React.FC<CostingViewProps> = ({
   menuItems,
   restaurantId,
+  restaurantSlug,
   currency,
   isDarkTheme,
   onDishPriceUpdated,
@@ -111,6 +114,17 @@ export const CostingView: React.FC<CostingViewProps> = ({
     () =>
       menuItems.flatMap((cat) =>
         cat.items.map((dish) => ({ dish, category: cat.title })),
+      ),
+    [menuItems],
+  );
+  const storageMenuItems = useMemo(
+    () =>
+      menuItems.flatMap((cat) =>
+        cat.items.map((dish) => ({
+          name: dish.name,
+          category: cat.title,
+          ingredients: dish.ingredients?.trim() || dish.description?.trim() || "",
+        })),
       ),
     [menuItems],
   );
@@ -497,6 +511,15 @@ export const CostingView: React.FC<CostingViewProps> = ({
         <div className="flex items-center gap-2 text-red-400 text-sm bg-red-950/30 border border-red-900/40 rounded-lg px-4 py-2">
           <AlertTriangle size={16} /> {error}
         </div>
+      )}
+
+      {restaurantId && (
+        <StorageGuidePanel
+          menuItems={storageMenuItems}
+          restaurantId={restaurantId}
+          restaurantSlug={restaurantSlug}
+          isDarkTheme={isDarkTheme}
+        />
       )}
 
       {loading ? (

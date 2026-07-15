@@ -866,8 +866,28 @@ export type Database = {
                 };
                 Relationships: [];
             };
+            owner_settings: {
+                Row: {
+                    owner_id: string;
+                    anthropic_api_key: string | null;
+                    anthropic_model: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    owner_id: string;
+                    anthropic_api_key?: string | null;
+                    anthropic_model?: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    owner_id?: string;
+                    anthropic_api_key?: string | null;
+                    anthropic_model?: string;
+                    updated_at?: string;
+                };
+                Relationships: [];
+            };
         };
-        Views: { [_ in never]?: never };
         Functions: {
             increment_dish_stock: {
                 Args: {

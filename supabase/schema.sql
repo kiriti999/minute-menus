@@ -1242,6 +1242,23 @@ create index if not exists idx_sales_invoices_restaurant on sales_invoices(resta
 create index if not exists idx_sales_invoices_created on sales_invoices(created_at desc);
 create index if not exists idx_sales_invoices_razorpay_order on sales_invoices(razorpay_order_id);
 
+-- ─────────────────────────────────────────────
+-- 21. OWNER SETTINGS (private AI keys per auth user)
+-- ─────────────────────────────────────────────
+create table if not exists owner_settings (
+  owner_id           uuid primary key references auth.users(id) on delete cascade,
+  anthropic_api_key  text,
+  anthropic_model    text not null default 'claude-haiku-4-5',
+  updated_at         timestamptz not null default now()
+);
+
+alter table owner_settings enable row level security;
+
+create policy "Owner manages own settings"
+  on owner_settings for all
+  using (auth.uid() = owner_id)
+  with check (auth.uid() = owner_id);
+
 create or replace function next_sales_invoice_label(p_restaurant_id uuid)
 returns table(invoice_num int, invoice_label text)
 language plpgsql

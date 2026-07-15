@@ -156,6 +156,31 @@ export interface MealPlan {
 
 export type PurchaseUnit = 'kg' | 'g' | 'l' | 'ml' | 'piece';
 
+export interface OwnerAiSettings {
+  hasAnthropicApiKey: boolean;
+  anthropicModel: string;
+}
+
+export interface MenuItemForStorageGuide {
+  name: string;
+  category: string;
+  ingredients: string;
+}
+
+export interface IngredientStorageAdvice {
+  ingredient: string;
+  storagePlace: string;
+  shelfLife: string;
+  simpleHacks: string;
+  usedInDishes: string[];
+}
+
+export interface StorageGuideResult {
+  generatedAt: string;
+  restaurantName: string;
+  tips: IngredientStorageAdvice[];
+}
+
 export interface RestaurantOverhead {
   id?: string;
   restaurantId: string;
