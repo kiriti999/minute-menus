@@ -34,6 +34,51 @@ const storagePlaceSortIndex = (place: string): number => {
 	return 3;
 };
 
+/** Canonical hack groups for kitchen-friendly sorting. */
+const HACK_METHOD_ORDER = [
+	"Wrap in paper towel",
+	"Keep in airtight container",
+	"Keep whole until use",
+	"Store stem-side down",
+	"Peel or cut just before use",
+	"Store in jar with water",
+	"Other",
+] as const;
+
+export function classifyHackMethod(hacks: string): string {
+	const t = hacks.trim().toLowerCase();
+	if (!t) return "Other";
+	if (/paper.?towel|damp cloth|kitchen towel/.test(t)) return "Wrap in paper towel";
+	if (/air.?tight|airtight|sealed container|closed container|ziplock|zip.?lock|box with lid/.test(t)) {
+		return "Keep in airtight container";
+	}
+	if (/keep (head |it )?whole|store whole|do not (cut|slice|wash) until/.test(t)) {
+		return "Keep whole until use";
+	}
+	if (/stem.?side|stem side/.test(t)) return "Store stem-side down";
+	if (/peel (only |just )?|slice just|cut just|just before use|before use/.test(t)) {
+		return "Peel or cut just before use";
+	}
+	if (/jar with water|glass of water|in water/.test(t)) return "Store in jar with water";
+	return "Other";
+}
+
+const hackMethodSortIndex = (hacks: string): number => {
+	const method = classifyHackMethod(hacks);
+	const idx = HACK_METHOD_ORDER.indexOf(method as (typeof HACK_METHOD_ORDER)[number]);
+	return idx === -1 ? HACK_METHOD_ORDER.length : idx;
+};
+
+const methodLabelSortIndex = (method: string): number => {
+	const idx = HACK_METHOD_ORDER.indexOf(method as (typeof HACK_METHOD_ORDER)[number]);
+	return idx === -1 ? HACK_METHOD_ORDER.length : idx;
+};
+
+const compareTips = (x: IngredientStorageAdvice, y: IngredientStorageAdvice): number =>
+	storagePlaceSortIndex(x.storagePlace) - storagePlaceSortIndex(y.storagePlace) ||
+	hackMethodSortIndex(x.simpleHacks) - hackMethodSortIndex(y.simpleHacks) ||
+	x.ingredient.localeCompare(y.ingredient);
+
 export function groupTipsByCategory(
 	tips: IngredientStorageAdvice[],
 ): Array<{ category: string; tips: IngredientStorageAdvice[] }> {
@@ -48,11 +93,7 @@ export function groupTipsByCategory(
 		.sort(([a], [b]) => categorySortIndex(a) - categorySortIndex(b) || a.localeCompare(b))
 		.map(([category, groupTips]) => ({
 			category,
-			tips: groupTips.sort(
-				(x, y) =>
-					storagePlaceSortIndex(x.storagePlace) - storagePlaceSortIndex(y.storagePlace) ||
-					x.ingredient.localeCompare(y.ingredient),
-			),
+			tips: groupTips.sort(compareTips),
 		}));
 }
 
@@ -78,15 +119,16 @@ export async function buildStorageGuideExcel(guide: StorageGuideResult): Promise
 
 	const sheet = workbook.addWorksheet("Storage Guide");
 	sheet.columns = [
+		{ width: 14 },
 		{ width: 16 },
-		{ width: 18 },
-		{ width: 22 },
-		{ width: 18 },
-		{ width: 18 },
-		{ width: 32 },
+		{ width: 20 },
+		{ width: 20 },
+		{ width: 14 },
+		{ width: 14 },
 		{ width: 28 },
+		{ width: 24 },
 	];
-	sheet.mergeCells("A1:G1");
+	sheet.mergeCells("A1:H1");
 	const banner = sheet.getRow(1);
 	banner.getCell(1).value = FRIDGE_TEMP_NOTE;
 	banner.getCell(1).font = { bold: true, size: 11, color: { argb: "FFB71C1C" } };
@@ -97,6 +139,7 @@ export async function buildStorageGuideExcel(guide: StorageGuideResult): Promise
 		"Category",
 		"Ingredient",
 		"Where to store",
+		"Hack method",
 		"Life in fridge",
 		"Life outside",
 		"Simple hacks",
@@ -104,7 +147,7 @@ export async function buildStorageGuideExcel(guide: StorageGuideResult): Promise
 	]);
 	const header = sheet.getRow(3);
 	header.font = { bold: true };
-	for (let col = 1; col <= 7; col += 1) {
+	for (let col = 1; col <= 8; col += 1) {
 		header.getCell(col).fill = HEADER_FILL;
 		header.getCell(col).alignment = { vertical: "middle", wrapText: true };
 	}
@@ -115,6 +158,7 @@ export async function buildStorageGuideExcel(guide: StorageGuideResult): Promise
 				group.category,
 				tip.ingredient,
 				tip.storagePlace,
+				classifyHackMethod(tip.simpleHacks),
 				tip.shelfLifeFridge,
 				tip.shelfLifeOutside,
 				tip.simpleHacks,
@@ -164,9 +208,22 @@ function buildStorageGuideHtml(guide: StorageGuideResult): string {
 			const placeBlocks = [...byPlace.entries()]
 				.sort(([a], [b]) => storagePlaceSortIndex(a) - storagePlaceSortIndex(b))
 				.map(([place, placeTips]) => {
-					const rows = placeTips
-						.map(
-							(tip) => `
+					const byHack = new Map<string, IngredientStorageAdvice[]>();
+					for (const tip of placeTips) {
+						const method = classifyHackMethod(tip.simpleHacks);
+						const list = byHack.get(method) ?? [];
+						list.push(tip);
+						byHack.set(method, list);
+					}
+					const hackBlocks = [...byHack.entries()]
+						.sort(
+							([a], [b]) => methodLabelSortIndex(a) - methodLabelSortIndex(b) || a.localeCompare(b),
+						)
+						.map(([method, methodTips]) => {
+							const rows = methodTips
+								.sort((x, y) => x.ingredient.localeCompare(y.ingredient))
+								.map(
+									(tip) => `
       <tr>
         <td>${escapeHtml(tip.ingredient)}</td>
         <td>${escapeHtml(tip.shelfLifeFridge)}</td>
@@ -174,16 +231,21 @@ function buildStorageGuideHtml(guide: StorageGuideResult): string {
         <td>${escapeHtml(tip.simpleHacks)}</td>
         <td>${escapeHtml(tip.usedInDishes.join(", "))}</td>
       </tr>`,
-						)
-						.join("");
-					return `
-  <h3>${escapeHtml(place)}</h3>
+								)
+								.join("");
+							return `
+  <h4>${escapeHtml(method)}</h4>
   <table>
     <thead><tr>
       <th>Ingredient</th><th>Life in fridge</th><th>Life outside</th><th>Simple hacks</th><th>Used in dishes</th>
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
+						})
+						.join("");
+					return `
+  <h3>${escapeHtml(place)}</h3>
+  ${hackBlocks}`;
 				})
 				.join("");
 			return `
@@ -200,6 +262,7 @@ function buildStorageGuideHtml(guide: StorageGuideResult): string {
   h1 { font-size: 20px; margin: 0 0 4px; }
   h2 { font-size: 13px; margin: 18px 0 6px; padding-bottom: 4px; border-bottom: 2px solid #2e7d32; color: #1b5e20; text-transform: uppercase; letter-spacing: 0.04em; }
   h3 { font-size: 11px; margin: 10px 0 6px; color: #374151; font-weight: 700; }
+  h4 { font-size: 10px; margin: 8px 0 4px; color: #166534; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
   .meta { color: #555; margin-bottom: 12px; font-size: 10px; }
   .temp-note {
     font-weight: 800;

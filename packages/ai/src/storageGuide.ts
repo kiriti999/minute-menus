@@ -95,7 +95,7 @@ For EACH unique ingredient return practical storage guidance:
 - storagePlace: ONLY "Cold bain marie (under fridge)" OR "Freezer (ice cream)" OR "Outside wooden racks"
 - shelfLifeFridge: life span in cold bain marie at 1-4C (or "N/A — keep frozen" for ice cream)
 - shelfLifeOutside: life span on outside wooden racks (or "Do not store outside" when cold storage is required)
-- simpleHacks: short tip for kitchen staff; NEVER say crisper, pantry, or counter
+- simpleHacks: short tip starting with one of: Wrap in paper towel / Keep in airtight container / Keep whole until use / Store stem-side down / Peel or cut just before use / Store in jar with water; NEVER say crisper, pantry, or counter
 - usedInDishes: dish names that use it
 
 Rules:

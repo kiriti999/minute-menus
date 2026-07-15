@@ -463,7 +463,7 @@ For EACH unique ingredient return practical storage guidance:
 - storagePlace: ONLY "Cold bain marie (under fridge)" OR "Freezer (ice cream)" OR "Outside wooden racks" (recommended place)
 - shelfLifeFridge: how long it lasts in the cold bain marie at 1-4C, e.g. "5-7 days". Use "N/A — keep frozen" for ice cream
 - shelfLifeOutside: how long it lasts on outside wooden racks (room temp India kitchen), e.g. "1-2 days" or "2-3 weeks". Use "Do not store outside" for dairy, meat, ice cream, and other perishables that must stay cold
-- simpleHacks: ONE short tip for kitchen staff; use plain words (wrap, container, paper towel). NEVER say "crisper", "crisper drawer", "pantry", or "counter"
+- simpleHacks: ONE short tip. Prefer starting with one of: "Wrap in paper towel", "Keep in airtight container", "Keep whole until use", "Store stem-side down", "Peel or cut just before use", "Store in jar with water". NEVER say "crisper", "crisper drawer", "pantry", or "counter"
 - usedInDishes: dish names that use it
 
 Rules:
