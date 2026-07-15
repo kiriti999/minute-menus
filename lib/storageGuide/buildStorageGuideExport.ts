@@ -1,7 +1,7 @@
 import type { IngredientStorageAdvice, StorageGuideResult } from "@minute-menus/types";
 
 const FRIDGE_TEMP_NOTE =
-	"FRIDGE TEMPERATURE MUST ALWAYS BE BETWEEN 1°C AND 4°C. TEMPERATURE OVER 4°C WILL DAMAGE OR SPOIL THE FOOD.";
+	"COLD BAIN MARIE (UNDER FRIDGE) TEMPERATURE MUST ALWAYS BE BETWEEN 1°C AND 4°C. TEMPERATURE OVER 4°C WILL DAMAGE OR SPOIL THE FOOD.";
 
 const HEADER_FILL = {
 	type: "pattern" as const,
@@ -28,7 +28,7 @@ const categorySortIndex = (category: string): number => {
 
 const storagePlaceSortIndex = (place: string): number => {
 	const t = place.trim().toLowerCase();
-	if (/fridge|refrigerat|freezer|chill|cold/.test(t)) return 0;
+	if (/fridge|refrigerat|freezer|chill|cold|bain|marie/.test(t)) return 0;
 	if (/rack|outside|wooden|counter|pantry|shelf/.test(t)) return 1;
 	return 2;
 };
@@ -70,7 +70,7 @@ export async function buildStorageGuideExcel(guide: StorageGuideResult): Promise
 	summary.addRow(["Restaurant", guide.restaurantName]);
 	summary.addRow(["Generated", new Date(guide.generatedAt).toLocaleString("en-IN")]);
 	summary.addRow(["Ingredients covered", guide.tips.length]);
-	summary.addRow(["Storage options", "Fridge · Outside wooden racks"]);
+	summary.addRow(["Storage options", "Cold bain marie (under fridge) · Outside wooden racks"]);
 
 	const sheet = workbook.addWorksheet("Storage Guide");
 	sheet.columns = [
@@ -142,7 +142,7 @@ function buildStorageGuideHtml(guide: StorageGuideResult): string {
 		.map((group) => {
 			const byPlace = new Map<string, IngredientStorageAdvice[]>();
 			for (const tip of group.tips) {
-				const place = tip.storagePlace?.trim() || "Fridge";
+				const place = tip.storagePlace?.trim() || "Cold bain marie (under fridge)";
 				const list = byPlace.get(place) ?? [];
 				list.push(tip);
 				byPlace.set(place, list);
@@ -204,7 +204,7 @@ function buildStorageGuideHtml(guide: StorageGuideResult): string {
   tr:nth-child(even) td { background: #fafafa; }
 </style></head><body>
   <h1>Storage &amp; Preservation Guide</h1>
-  <p class="meta">${escapeHtml(guide.restaurantName)} · Generated ${escapeHtml(new Date(guide.generatedAt).toLocaleString("en-IN"))} · Fridge or outside wooden racks only</p>
+  <p class="meta">${escapeHtml(guide.restaurantName)} · Generated ${escapeHtml(new Date(guide.generatedAt).toLocaleString("en-IN"))} · Cold bain marie (under fridge) or outside wooden racks only</p>
   <p class="temp-note">${escapeHtml(FRIDGE_TEMP_NOTE)}</p>
   ${sections}
   <script>window.onload = function(){ window.focus(); window.print(); };</script>

@@ -171,7 +171,7 @@ export interface IngredientStorageAdvice {
   ingredient: string;
   /** e.g. Vegetables, Dairy, Herbs */
   category: string;
-  /** Fridge or Outside wooden racks (no pantry) */
+  /** Cold bain marie (under fridge) or Outside wooden racks */
   storagePlace: string;
   shelfLife: string;
   simpleHacks: string;

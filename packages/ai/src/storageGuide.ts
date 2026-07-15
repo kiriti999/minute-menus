@@ -6,15 +6,27 @@ const log = createLogger("ai-storage-guide");
 
 export const STORAGE_GUIDE_MODEL = "claude-haiku-4-5";
 
+const FRIDGE_LABEL = "Cold bain marie (under fridge)";
+const RACK_LABEL = "Outside wooden racks";
+
 const normalizeStoragePlace = (raw: string): string => {
 	const t = raw.trim().toLowerCase();
-	if (!t) return "Fridge";
-	if (/fridge|refrigerat|freezer|chill|cold/.test(t)) return "Fridge";
+	if (!t) return FRIDGE_LABEL;
+	if (/fridge|refrigerat|freezer|chill|cold|bain|marie/.test(t)) return FRIDGE_LABEL;
 	if (/rack|outside|room.?temp|ambient|wooden|pantry|counter|cupboard|cabinet|shelf|dry/.test(t)) {
-		return "Outside wooden racks";
+		return RACK_LABEL;
 	}
-	return "Fridge";
+	return FRIDGE_LABEL;
 };
+
+const simplifyKitchenHacks = (raw: string): string =>
+	raw
+		.replace(/\bcrisper drawers?\b/gi, "cold bain marie")
+		.replace(/\bcrisper\b/gi, "cold bain marie")
+		.replace(/\b(vegetable|veggie) drawer\b/gi, "cold bain marie")
+		.replace(/\bpantry\b/gi, "wooden racks")
+		.replace(/\s{2,}/g, " ")
+		.trim();
 
 const parseAdviceJson = (raw: string): IngredientStorageAdvice[] => {
 	const trimmed = raw.trim();
@@ -30,7 +42,9 @@ const parseAdviceJson = (raw: string): IngredientStorageAdvice[] => {
 				category: String(item.category ?? item.group ?? "Other").trim() || "Other",
 				storagePlace: normalizeStoragePlace(String(item.storagePlace ?? item.storage_place ?? "").trim()),
 				shelfLife: String(item.shelfLife ?? item.shelf_life ?? "").trim(),
-				simpleHacks: String(item.simpleHacks ?? item.simple_hacks ?? item.hacks ?? "").trim(),
+				simpleHacks: simplifyKitchenHacks(
+					String(item.simpleHacks ?? item.simple_hacks ?? item.hacks ?? "").trim(),
+				),
 				usedInDishes: Array.isArray(dishes)
 					? dishes.map((d) => String(d).trim()).filter(Boolean)
 					: [],
@@ -62,20 +76,24 @@ export async function generateStoragePreservationGuide(
 				role: "user",
 				content: `You are a cloud-kitchen food safety and prep coach for "${restaurantName}" in India.
 
+This kitchen stores food in ONLY two places:
+1) Under the cold bain marie fridge (commercial under-counter cold unit) — NOT a home fridge, NO crisper drawer
+2) Outside wooden racks (dry goods like onion, potato, garlic)
+
 Scan every menu dish and its ingredients below. Extract UNIQUE raw ingredients.
 
 For EACH unique ingredient return practical storage guidance:
 - category: ONE of Vegetables, Fruits, Herbs, Dairy, Proteins, Grains & staples, Spices & condiments, Oils & fats, Other
-- storagePlace: ONLY "Fridge" OR "Outside wooden racks" (NO pantry, NO counter)
+- storagePlace: ONLY "Cold bain marie (under fridge)" OR "Outside wooden racks"
 - shelfLife: realistic days at peak quality
-- simpleHacks: 1–2 short kitchen-friendly tips
+- simpleHacks: short tip for kitchen staff; NEVER say crisper, pantry, or counter
 - usedInDishes: dish names that use it
 
 Rules:
 - Plain English, no jargon, no markdown in values
 - Merge duplicates across dishes
 - Skip pure water/ice
-- NEVER use pantry/counter/freezer as storagePlace
+- NEVER use pantry/counter/freezer/crisper
 - Return ONLY a JSON array, no prose before or after
 
 Keys: ingredient, category, storagePlace, shelfLife, simpleHacks, usedInDishes

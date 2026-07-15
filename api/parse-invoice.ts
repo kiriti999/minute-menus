@@ -268,17 +268,28 @@ const normalizeAdviceCategory = (raw: string): string => {
 	return CATEGORY_ALIASES[key] ?? raw.trim().replace(/\b\w/g, (c) => c.toUpperCase());
 };
 
-/** This kitchen has only fridge or outside wooden racks — never pantry/counter. */
+/** Cold bain marie under-fridge, or outside wooden racks — never pantry/crisper. */
+const FRIDGE_LABEL = "Cold bain marie (under fridge)";
+const RACK_LABEL = "Outside wooden racks";
+
 const normalizeStoragePlace = (raw: string): string => {
 	const t = raw.trim().toLowerCase();
-	if (!t) return "Fridge";
-	if (/fridge|refrigerat|freezer|chill|cold/.test(t)) return "Fridge";
+	if (!t) return FRIDGE_LABEL;
+	if (/fridge|refrigerat|freezer|chill|cold|bain|marie/.test(t)) return FRIDGE_LABEL;
 	if (/rack|outside|room.?temp|ambient|wooden|pantry|counter|cupboard|cabinet|shelf|dry/.test(t)) {
-		return "Outside wooden racks";
+		return RACK_LABEL;
 	}
-	// Default perishables → fridge; AI should already choose correctly for staples.
-	return "Fridge";
+	return FRIDGE_LABEL;
 };
+
+const simplifyKitchenHacks = (raw: string): string =>
+	raw
+		.replace(/\bcrisper drawers?\b/gi, "cold bain marie")
+		.replace(/\bcrisper\b/gi, "cold bain marie")
+		.replace(/\b(vegetable|veggie) drawer\b/gi, "cold bain marie")
+		.replace(/\bpantry\b/gi, "wooden racks")
+		.replace(/\s{2,}/g, " ")
+		.trim();
 
 const coerceAdviceRow = (row: unknown): IngredientStorageAdvice | null => {
 	if (!row || typeof row !== "object") return null;
@@ -289,7 +300,9 @@ const coerceAdviceRow = (row: unknown): IngredientStorageAdvice | null => {
 		category: normalizeAdviceCategory(String(item.category ?? item.group ?? "").trim()),
 		storagePlace: normalizeStoragePlace(String(item.storagePlace ?? item.storage_place ?? "").trim()),
 		shelfLife: String(item.shelfLife ?? item.shelf_life ?? "").trim(),
-		simpleHacks: String(item.simpleHacks ?? item.simple_hacks ?? item.hacks ?? "").trim(),
+		simpleHacks: simplifyKitchenHacks(
+			String(item.simpleHacks ?? item.simple_hacks ?? item.hacks ?? "").trim(),
+		),
 		usedInDishes: Array.isArray(dishes)
 			? dishes.map((d) => String(d).trim()).filter(Boolean)
 			: [],
@@ -429,13 +442,17 @@ const generateStorageGuide = async (
 				role: "user",
 				content: `You are a cloud-kitchen food safety and prep coach for "${restaurantName}" in India.
 
+This kitchen stores food in ONLY two places:
+1) Under the cold bain marie fridge (commercial under-counter cold unit) — NOT a home fridge, NO crisper drawer
+2) Outside wooden racks (dry goods like onion, potato, garlic)
+
 Scan every menu dish and its ingredients below. Extract UNIQUE raw ingredients.
 
 For EACH unique ingredient return practical storage guidance:
 - category: ONE of Vegetables, Fruits, Herbs, Dairy, Proteins, Grains & staples, Spices & condiments, Oils & fats, Other
-- storagePlace: ONLY "Fridge" OR "Outside wooden racks" (this kitchen has NO pantry and NO counter storage — dry goods like onion/potato/garlic go on outside wooden racks; perishables go in fridge)
+- storagePlace: ONLY "Cold bain marie (under fridge)" OR "Outside wooden racks"
 - shelfLife: e.g. "3-4 days"
-- simpleHacks: ONE short tip, no quotes inside the string if possible
+- simpleHacks: ONE short tip for kitchen staff; use plain words (wrap, container, paper towel). NEVER say "crisper", "crisper drawer", "pantry", or "counter"
 - usedInDishes: dish names that use it
 
 Rules:
@@ -443,7 +460,7 @@ Rules:
 - Keep values short so the JSON stays valid
 - Merge duplicates across dishes
 - Skip pure water/ice
-- NEVER say pantry, counter, cupboard, or freezer as storagePlace — only Fridge or Outside wooden racks
+- NEVER say pantry, counter, cupboard, freezer, or crisper
 - Return ONLY a valid JSON array — no markdown fences, no prose
 - Escape any double quotes inside string values as \\"
 

@@ -244,11 +244,11 @@ export const StorageGuidePanel: React.FC<StorageGuidePanelProps> = ({
 					</h2>
 					<p className={`text-sm mt-1 max-w-xl ${muted}`}>
 						AI scans all {dishCount} menu item{dishCount !== 1 ? "s" : ""} and ingredients, then builds
-						storage tips by category (veggies, dairy, herbs, etc.) for fridge or outside wooden racks.
+						storage tips by category (veggies, dairy, herbs, etc.) for cold bain marie (under fridge) or outside wooden racks.
 					</p>
 					<p className={`text-[11px] mt-1 ${muted}`}>
 						Uses Claude Haiku · your API key is saved privately to your account
-						{" · "}grouped by veggies / dairy / herbs · fridge or wooden racks only
+						{" · "}grouped by veggies / dairy / herbs · cold bain marie or wooden racks only
 						{aiSettings?.hasAnthropicApiKey ? (
 							<>
 								{" · "}
