@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import type { IngredientStorageAdvice, MenuItemForStorageGuide, StorageGuideResult } from "@minute-menus/types";
-import { requireSupabaseAdminOrThrow, verifyOwnerForRestaurant } from "../verifyOwnerRestaurant";
+import { requireSupabaseAdminOrThrow, verifyOwnerForRestaurant } from "./verifyOwnerRestaurant";
 import { fetchOwnerAnthropicKey } from "./ownerAiKey";
 
 type StorageGuideBody = {
