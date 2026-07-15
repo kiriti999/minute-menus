@@ -227,37 +227,96 @@ const uploadInvoiceToStorage = async (
     return urlData.signedUrl;
 };
 
+const coerceAdviceRow = (row: unknown): IngredientStorageAdvice | null => {
+	if (!row || typeof row !== "object") return null;
+	const item = row as Record<string, unknown>;
+	const dishes = item.usedInDishes ?? item.used_in_dishes ?? item.dishes;
+	const advice: IngredientStorageAdvice = {
+		ingredient: String(item.ingredient ?? "").trim(),
+		storagePlace: String(item.storagePlace ?? item.storage_place ?? "").trim(),
+		shelfLife: String(item.shelfLife ?? item.shelf_life ?? "").trim(),
+		simpleHacks: String(item.simpleHacks ?? item.simple_hacks ?? item.hacks ?? "").trim(),
+		usedInDishes: Array.isArray(dishes)
+			? dishes.map((d) => String(d).trim()).filter(Boolean)
+			: [],
+	};
+	return advice.ingredient.length > 0 ? advice : null;
+};
+
+/** Fix common Claude JSON glitches before JSON.parse. */
+const repairJsonText = (text: string): string =>
+	text
+		.replace(/[\u201C\u201D]/g, '"')
+		.replace(/[\u2018\u2019]/g, "'")
+		.replace(/,\s*([}\]])/g, "$1");
+
+/** Pull complete `{...}` objects from a possibly truncated/broken array. */
+const extractObjectChunks = (text: string): string[] => {
+	const chunks: string[] = [];
+	let depth = 0;
+	let start = -1;
+	let inString = false;
+	let escape = false;
+	for (let i = 0; i < text.length; i++) {
+		const ch = text[i];
+		if (inString) {
+			if (escape) escape = false;
+			else if (ch === "\\") escape = true;
+			else if (ch === '"') inString = false;
+			continue;
+		}
+		if (ch === '"') {
+			inString = true;
+			continue;
+		}
+		if (ch === "{") {
+			if (depth === 0) start = i;
+			depth++;
+		} else if (ch === "}") {
+			depth--;
+			if (depth === 0 && start >= 0) {
+				chunks.push(text.slice(start, i + 1));
+				start = -1;
+			}
+		}
+	}
+	return chunks;
+};
+
 const parseAdviceJson = (raw: string): IngredientStorageAdvice[] => {
 	const trimmed = raw.trim();
 	const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/)?.[1]?.trim();
-	const candidate = fenced ?? trimmed;
-	const tryParse = (text: string): IngredientStorageAdvice[] => {
+	const candidate = repairJsonText(fenced ?? trimmed);
+
+	const fromArray = (text: string): IngredientStorageAdvice[] => {
 		const parsed = JSON.parse(text) as unknown;
 		if (!Array.isArray(parsed)) return [];
-		return parsed
-			.map((row) => {
-				const item = row as Record<string, unknown>;
-				const dishes = item.usedInDishes ?? item.used_in_dishes ?? item.dishes;
-				return {
-					ingredient: String(item.ingredient ?? "").trim(),
-					storagePlace: String(item.storagePlace ?? item.storage_place ?? "").trim(),
-					shelfLife: String(item.shelfLife ?? item.shelf_life ?? "").trim(),
-					simpleHacks: String(item.simpleHacks ?? item.simple_hacks ?? item.hacks ?? "").trim(),
-					usedInDishes: Array.isArray(dishes)
-						? dishes.map((d) => String(d).trim()).filter(Boolean)
-						: [],
-				};
-			})
-			.filter((row) => row.ingredient.length > 0);
+		return parsed.map(coerceAdviceRow).filter((row): row is IngredientStorageAdvice => row !== null);
 	};
+
 	try {
-		return tryParse(candidate);
-	} catch {
 		const start = candidate.indexOf("[");
 		const end = candidate.lastIndexOf("]");
-		if (start === -1 || end === -1) throw new Error("Could not parse AI storage guide — try again");
-		return tryParse(candidate.slice(start, end + 1));
+		const slice = start !== -1 && end !== -1 ? candidate.slice(start, end + 1) : candidate;
+		const tips = fromArray(repairJsonText(slice));
+		if (tips.length) return tips;
+	} catch {
+		// Fall through to per-object recovery (handles truncation / mid-array syntax errors).
 	}
+
+	const recovered: IngredientStorageAdvice[] = [];
+	for (const chunk of extractObjectChunks(candidate)) {
+		try {
+			const row = coerceAdviceRow(JSON.parse(repairJsonText(chunk)));
+			if (row) recovered.push(row);
+		} catch {
+			// skip broken object
+		}
+	}
+	if (!recovered.length) {
+		throw new Error("Could not parse AI storage guide — try Export again");
+	}
+	return recovered;
 };
 
 const fetchOwnerAnthropicKey = async (
@@ -301,7 +360,7 @@ const generateStorageGuide = async (
 
 	const response = await client.messages.create({
 		model: model || STORAGE_GUIDE_MODEL,
-		max_tokens: 4096,
+		max_tokens: 8192,
 		messages: [
 			{
 				role: "user",
@@ -310,27 +369,32 @@ const generateStorageGuide = async (
 Scan every menu dish and its ingredients below. Extract UNIQUE raw ingredients (veggies, fruits, dairy, grains, proteins, herbs, etc.).
 
 For EACH unique ingredient return practical storage guidance:
-- Where: fridge (which zone), counter, pantry, or freezer — be specific and simple
-- Shelf life: realistic days at peak quality
-- Simple hacks: 1–2 short kitchen-friendly tips (wrap, container, wash-dry, etc.)
+- storagePlace: fridge zone / counter / pantry / freezer — short
+- shelfLife: e.g. "3-4 days"
+- simpleHacks: ONE short tip, no quotes inside the string if possible
+- usedInDishes: dish names that use it
 
 Rules:
-- Plain English, no jargon, no markdown in values
-- Focus on vegetables, fruits, and perishables; include dairy/proteins when present
-- Merge duplicates (e.g. "tomato" across dishes → one row with all dish names in usedInDishes)
-- Cover every ingredient you can infer from the menu; skip only pure water/ice
-- Return ONLY a JSON array, no prose before or after
+- Plain ASCII English only (no fancy quotes)
+- Keep values short so the JSON stays valid
+- Merge duplicates across dishes
+- Skip pure water/ice
+- Return ONLY a valid JSON array — no markdown fences, no prose
+- Escape any double quotes inside string values as \\"
 
-Each object keys: ingredient, storagePlace, shelfLife, simpleHacks, usedInDishes (string array of dish names)
+Keys exactly: ingredient, storagePlace, shelfLife, simpleHacks, usedInDishes
 
 MENU:
-${JSON.stringify(menuPayload, null, 2)}`,
+${JSON.stringify(menuPayload)}`,
 			},
 		],
 	});
 
 	const block = response.content[0];
 	if (!block || block.type !== "text") throw new Error("Unexpected AI response");
+	if (response.stop_reason === "max_tokens") {
+		console.warn("[storage-guide] response truncated (max_tokens); recovering partial JSON");
+	}
 	const tips = parseAdviceJson(block.text);
 	if (!tips.length) throw new Error("AI returned no storage tips");
 	return tips;
