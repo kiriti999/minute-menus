@@ -319,6 +319,15 @@ const parseAdviceJson = (raw: string): IngredientStorageAdvice[] => {
 	return recovered;
 };
 
+const isAnthropicAuthError = (message: string): boolean =>
+	/invalid x-api-key|authentication_error|401.*api.?key/i.test(message);
+
+const normalizeAnthropicApiKey = (raw: string): string =>
+	raw
+		.trim()
+		.replace(/^["']+|["']+$/g, "")
+		.replace(/[\u200B-\u200D\uFEFF]/g, "");
+
 const fetchOwnerAnthropicKey = async (
 	admin: SupabaseClient,
 	ownerId: string,
@@ -338,7 +347,7 @@ const fetchOwnerAnthropicKey = async (
 		throw error;
 	}
 	const row = data as { anthropic_api_key: string | null; anthropic_model: string | null } | null;
-	const apiKey = row?.anthropic_api_key?.trim();
+	const apiKey = row?.anthropic_api_key ? normalizeAnthropicApiKey(row.anthropic_api_key) : "";
 	if (!apiKey) return null;
 	return { apiKey, model: row?.anthropic_model?.trim() || STORAGE_GUIDE_MODEL };
 };
@@ -465,6 +474,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             console.error("[parse-invoice] storage-guide failed", message);
+            if (isAnthropicAuthError(message)) {
+                return res.status(401).json({
+                    error: "invalid_api_key",
+                    message:
+                        "Your Claude API key was rejected. Paste a valid key from console.anthropic.com (starts with sk-ant-).",
+                });
+            }
             return res.status(502).json({ error: "Failed to generate storage guide", detail: message });
         }
     }

@@ -25,8 +25,14 @@ export async function upsertOwnerAnthropicKey(
 	apiKey: string,
 	model = DEFAULT_OWNER_AI_MODEL,
 ): Promise<void> {
-	const trimmed = apiKey.trim();
+	const trimmed = apiKey
+		.trim()
+		.replace(/^["']+|["']+$/g, "")
+		.replace(/[\u200B-\u200D\uFEFF]/g, "");
 	if (!trimmed) throw new Error("API key cannot be empty");
+	if (!trimmed.startsWith("sk-ant-")) {
+		throw new Error("Claude API keys start with sk-ant-");
+	}
 	const { error } = await client.from("owner_settings").upsert(
 		{
 			owner_id: ownerId,

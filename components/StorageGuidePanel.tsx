@@ -100,7 +100,13 @@ export const StorageGuidePanel: React.FC<StorageGuidePanelProps> = ({
 			detail?: string;
 		};
 
-		if (res.status === 428) {
+		if (res.status === 428 || asRecord.error === "invalid_api_key") {
+			if (asRecord.error === "invalid_api_key") {
+				setError(
+					asRecord.message ??
+						"Your Claude API key was rejected. Paste a valid key from console.anthropic.com.",
+				);
+			}
 			setShowKeyModal(true);
 			return null;
 		}
@@ -175,11 +181,16 @@ export const StorageGuidePanel: React.FC<StorageGuidePanelProps> = ({
 	};
 
 	const saveApiKey = async () => {
-		if (!apiKeyInput.trim()) return;
+		const trimmed = apiKeyInput.trim().replace(/^["']+|["']+$/g, "");
+		if (!trimmed) return;
+		if (!trimmed.startsWith("sk-ant-")) {
+			setError("Claude keys start with sk-ant-. Get one from console.anthropic.com/settings/keys");
+			return;
+		}
 		setSavingKey(true);
 		setError("");
 		try {
-			await supabaseService.saveOwnerAnthropicKey(apiKeyInput.trim());
+			await supabaseService.saveOwnerAnthropicKey(trimmed);
 			setApiKeyInput("");
 			setShowKeyModal(false);
 			await loadSettings();
@@ -206,6 +217,21 @@ export const StorageGuidePanel: React.FC<StorageGuidePanelProps> = ({
 					</p>
 					<p className={`text-[11px] mt-1 ${muted}`}>
 						Uses Claude Haiku · your API key is saved privately to your account
+						{aiSettings?.hasAnthropicApiKey ? (
+							<>
+								{" · "}
+								<button
+									type="button"
+									onClick={() => {
+										setPendingFormat(null);
+										setShowKeyModal(true);
+									}}
+									className="underline"
+								>
+									Update key
+								</button>
+							</>
+						) : null}
 					</p>
 				</div>
 				<div className="flex flex-wrap gap-2">
@@ -249,7 +275,7 @@ export const StorageGuidePanel: React.FC<StorageGuidePanelProps> = ({
 						className={`w-full max-w-md rounded-xl border p-5 space-y-4 ${isDarkTheme ? "bg-zinc-900 border-zinc-700" : "bg-white border-zinc-200"}`}
 					>
 						<h3 className={`font-semibold flex items-center gap-2 ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
-							<Sparkles size={16} /> Claude API key required
+							<Sparkles size={16} /> {aiSettings?.hasAnthropicApiKey ? "Update Claude API key" : "Claude API key required"}
 						</h3>
 						<p className={`text-sm ${muted}`}>
 							Get a key from{" "}
@@ -261,8 +287,9 @@ export const StorageGuidePanel: React.FC<StorageGuidePanelProps> = ({
 							>
 								console.anthropic.com
 							</a>
-							. We use <strong>Claude Haiku</strong> for fast, low-cost scans. Your key stays in your
-							private account settings — never shared with other restaurants.
+							. Paste the full key (starts with <code className="text-xs">sk-ant-</code>). We use{" "}
+							<strong>Claude Haiku</strong> for fast, low-cost scans. Your key stays in your private
+							account settings — never shared with other restaurants.
 						</p>
 						<input
 							type="password"
