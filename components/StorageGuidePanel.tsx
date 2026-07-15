@@ -83,12 +83,22 @@ export const StorageGuidePanel: React.FC<StorageGuidePanelProps> = ({
 			}),
 		});
 
-		const body = (await res.json()) as StorageGuideResult & { error?: string; message?: string };
+		const raw = await res.text();
+		let body: StorageGuideResult & { error?: string; message?: string; detail?: string };
+		try {
+			body = JSON.parse(raw) as typeof body;
+		} catch {
+			throw new Error(
+				raw.trim().slice(0, 180) || `Server returned a non-JSON response (${res.status})`,
+			);
+		}
 		if (res.status === 428) {
 			setShowKeyModal(true);
 			return null;
 		}
-		if (!res.ok) throw new Error(body.message ?? body.error ?? "Failed to generate guide");
+		if (!res.ok) {
+			throw new Error(body.message ?? body.detail ?? body.error ?? "Failed to generate guide");
+		}
 		return body;
 	};
 

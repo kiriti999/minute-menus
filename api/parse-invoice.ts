@@ -11,6 +11,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getUserFromAccessToken } from "../lib/supabase-admin";
+import { handleStorageGuideRequest } from "../lib/server/storageGuideHandler";
 
 /** Vision on multi-page PDFs can take a while. */
 export const maxDuration = 60;
@@ -204,10 +205,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "OPTIONS") return res.status(200).end();
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-    const action = (req.body as { action?: string }).action ?? "parse-invoice";
+    const action = (req.body as { action?: string } | null)?.action ?? "parse-invoice";
     if (action === "storage-guide") {
-        const { handleStorageGuideRequest } = await import("../lib/server/storageGuideHandler");
-        return handleStorageGuideRequest(req, res);
+        try {
+            // Static import so Vercel NFT bundles Anthropic + lib/server deps (dynamic import was crashing).
+            return await handleStorageGuideRequest(req, res);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error("[parse-invoice] storage-guide failed", message);
+            return res.status(502).json({ error: "Failed to generate storage guide", detail: message });
+        }
     }
 
     try {
