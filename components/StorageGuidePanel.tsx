@@ -7,7 +7,8 @@ import { supabase } from "../lib/supabase";
 import {
 	buildStorageGuideExcel,
 	downloadStorageGuideExcel,
-	openStorageGuidePdf,
+	openStorageGuidePrintWindow,
+	writeStorageGuidePdf,
 } from "../lib/storageGuide/buildStorageGuideExport";
 import { supabaseService } from "../services/supabaseService";
 
@@ -84,22 +85,47 @@ export const StorageGuidePanel: React.FC<StorageGuidePanelProps> = ({
 		});
 
 		const raw = await res.text();
-		let body: StorageGuideResult & { error?: string; message?: string; detail?: string };
+		let body: unknown;
 		try {
-			body = JSON.parse(raw) as typeof body;
+			body = JSON.parse(raw);
 		} catch {
 			throw new Error(
 				raw.trim().slice(0, 180) || `Server returned a non-JSON response (${res.status})`,
 			);
 		}
+
+		const asRecord = body as StorageGuideResult & {
+			error?: string;
+			message?: string;
+			detail?: string;
+		};
+
 		if (res.status === 428) {
 			setShowKeyModal(true);
 			return null;
 		}
 		if (!res.ok) {
-			throw new Error(body.message ?? body.detail ?? body.error ?? "Failed to generate guide");
+			throw new Error(
+				asRecord.message ?? asRecord.detail ?? asRecord.error ?? "Failed to generate guide",
+			);
 		}
-		return body;
+
+		// Normalize: API should return { tips, ... }; tolerate a bare tips array.
+		if (Array.isArray(body)) {
+			return {
+				generatedAt: new Date().toISOString(),
+				restaurantName: restaurantSlug || "Restaurant",
+				tips: body as StorageGuideResult["tips"],
+			};
+		}
+		if (!Array.isArray(asRecord.tips) || asRecord.tips.length === 0) {
+			throw new Error("Storage guide response had no tips");
+		}
+		return {
+			generatedAt: asRecord.generatedAt || new Date().toISOString(),
+			restaurantName: asRecord.restaurantName || restaurantSlug || "Restaurant",
+			tips: asRecord.tips,
+		};
 	};
 
 	const runExport = async (format: "pdf" | "excel") => {
@@ -113,18 +139,34 @@ export const StorageGuidePanel: React.FC<StorageGuidePanelProps> = ({
 			return;
 		}
 
+		// Must open before any await — browsers block window.open after async work.
+		let printWin: Window | null = null;
+		if (format === "pdf") {
+			try {
+				printWin = openStorageGuidePrintWindow();
+			} catch (err) {
+				setError(getErrorMessage(err));
+				return;
+			}
+		}
+
 		setGenerating(true);
 		setError("");
 		try {
-			const guide = await requestGuide();
-			if (!guide) return;
+			const guide = lastGuide ?? (await requestGuide());
+			if (!guide) {
+				printWin?.close();
+				return;
+			}
 			setLastGuide(guide);
-			if (format === "pdf") openStorageGuidePdf(guide);
-			else {
+			if (format === "pdf" && printWin) {
+				writeStorageGuidePdf(printWin, guide);
+			} else {
 				const buffer = await buildStorageGuideExcel(guide);
 				downloadStorageGuideExcel(buffer, restaurantSlug || "restaurant");
 			}
 		} catch (err) {
+			printWin?.close();
 			setError(getErrorMessage(err));
 		} finally {
 			setGenerating(false);

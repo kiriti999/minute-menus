@@ -56,7 +56,10 @@ export function downloadStorageGuideExcel(buffer: ArrayBuffer, slug: string): vo
 	const a = document.createElement("a");
 	a.href = url;
 	a.download = `${slug}-storage-guide.xlsx`;
+	a.rel = "noopener";
+	document.body.appendChild(a);
 	a.click();
+	a.remove();
 	URL.revokeObjectURL(url);
 }
 
@@ -68,10 +71,10 @@ function escapeHtml(text: string): string {
 		.replace(/"/g, "&quot;");
 }
 
-export function openStorageGuidePdf(guide: StorageGuideResult): void {
+function buildStorageGuideHtml(guide: StorageGuideResult): string {
 	const rows = guide.tips
 		.map(
-			(tip) => `
+			(tip: IngredientStorageAdvice) => `
       <tr>
         <td>${escapeHtml(tip.ingredient)}</td>
         <td>${escapeHtml(tip.storagePlace)}</td>
@@ -82,7 +85,7 @@ export function openStorageGuidePdf(guide: StorageGuideResult): void {
 		)
 		.join("");
 
-	const html = `<!DOCTYPE html>
+	return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"/><title>Storage Guide — ${escapeHtml(guide.restaurantName)}</title>
 <style>
   @page { size: A4; margin: 14mm; }
@@ -102,11 +105,32 @@ export function openStorageGuidePdf(guide: StorageGuideResult): void {
     </tr></thead>
     <tbody>${rows}</tbody>
   </table>
-  <script>window.onload = function(){ window.print(); };</script>
+  <script>window.onload = function(){ window.focus(); window.print(); };</script>
 </body></html>`;
+}
 
-	const win = window.open("", "_blank");
-	if (!win) return;
-	win.document.write(html);
+/** Open blank tab immediately (must run in the click handler before any await). */
+export function openStorageGuidePrintWindow(): Window {
+	const win = window.open("about:blank", "_blank");
+	if (!win) {
+		throw new Error("Pop-up blocked — allow pop-ups for this site to export PDF");
+	}
+	win.document.write(
+		"<!DOCTYPE html><html><head><title>Preparing storage guide…</title></head>" +
+			"<body style='font-family:system-ui;padding:24px;color:#444'>Generating storage guide…</body></html>",
+	);
 	win.document.close();
+	return win;
+}
+
+export function writeStorageGuidePdf(win: Window, guide: StorageGuideResult): void {
+	win.document.open();
+	win.document.write(buildStorageGuideHtml(guide));
+	win.document.close();
+}
+
+/** @deprecated Prefer openStorageGuidePrintWindow + writeStorageGuidePdf (popup-safe). */
+export function openStorageGuidePdf(guide: StorageGuideResult): void {
+	const win = openStorageGuidePrintWindow();
+	writeStorageGuidePdf(win, guide);
 }
