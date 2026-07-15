@@ -10,7 +10,12 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getUserFromAccessToken } from "../lib/supabase-admin";
+
+/**
+ * Self-contained (npm imports only). On this Vercel project, any `../lib/*`
+ * relative import crashes the serverless function with FUNCTION_INVOCATION_FAILED.
+ * Proven working pattern: api/create-razorpay-order.ts, api/confirm-payment.ts.
+ */
 
 /** Vision on multi-page PDFs / storage-guide AI can take a while. */
 export const maxDuration = 60;
@@ -47,6 +52,19 @@ const getBearerToken = (req: VercelRequest): string | null => {
     const header = req.headers.authorization;
     if (!header?.startsWith("Bearer ")) return null;
     return header.slice("Bearer ".length).trim() || null;
+};
+
+type AdminUser = { id: string; email?: string | null };
+type AuthUserResult = { data: { user: AdminUser | null }; error: { message: string } | null };
+
+const getUserFromAccessToken = async (
+	client: SupabaseClient,
+	accessToken: string,
+): Promise<AdminUser | null> => {
+	const auth = client.auth as { getUser(jwt?: string): Promise<AuthUserResult> };
+	const { data, error } = await auth.getUser(accessToken);
+	if (error || !data.user) return null;
+	return data.user;
 };
 
 const parseDataUrl = (dataUrl: string): { mimeType: string; base64: string; buffer: Buffer } | null => {
@@ -318,7 +336,6 @@ ${JSON.stringify(menuPayload, null, 2)}`,
 	return tips;
 };
 
-/** Fully inlined — no lib/server imports (Vercel Hobby bundling is unreliable for nested relative deps). */
 const handleStorageGuide = async (req: VercelRequest, res: VercelResponse): Promise<VercelResponse> => {
 	const body = (req.body ?? {}) as {
 		restaurantId?: string;
