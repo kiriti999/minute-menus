@@ -3,6 +3,11 @@ import type { IngredientStorageAdvice, StorageGuideResult } from "@minute-menus/
 const FRIDGE_TEMP_NOTE =
 	"COLD BAIN MARIE (UNDER FRIDGE) TEMPERATURE MUST ALWAYS BE BETWEEN 1°C AND 4°C. TEMPERATURE OVER 4°C WILL DAMAGE OR SPOIL THE FOOD.";
 
+const FREEZER_TEMP_NOTE =
+	"FREEZER TEMPERATURE MUST ALWAYS BE AT LEAST −18°C (MIN −18°C). WARMER THAN −18°C WILL DAMAGE OR SPOIL ICE CREAM AND FROZEN FOOD.";
+
+const TEMP_NOTES = `${FRIDGE_TEMP_NOTE} ${FREEZER_TEMP_NOTE}`;
+
 const HEADER_FILL = {
 	type: "pattern" as const,
 	pattern: "solid" as const,
@@ -104,10 +109,11 @@ export async function buildStorageGuideExcel(guide: StorageGuideResult): Promise
 
 	const summary = workbook.addWorksheet("Summary");
 	summary.columns = [{ width: 22 }, { width: 72 }];
-	const noteRow = summary.addRow(["IMPORTANT", FRIDGE_TEMP_NOTE]);
+	const noteRow = summary.addRow(["IMPORTANT", TEMP_NOTES]);
 	noteRow.font = { bold: true };
 	noteRow.getCell(2).alignment = { wrapText: true };
 	noteRow.getCell(2).font = { bold: true, color: { argb: "FFB71C1C" } };
+	noteRow.height = 48;
 	summary.addRow([]);
 	summary.addRow(["Restaurant", guide.restaurantName]);
 	summary.addRow(["Generated", new Date(guide.generatedAt).toLocaleString("en-IN")]);
@@ -130,10 +136,10 @@ export async function buildStorageGuideExcel(guide: StorageGuideResult): Promise
 	];
 	sheet.mergeCells("A1:H1");
 	const banner = sheet.getRow(1);
-	banner.getCell(1).value = FRIDGE_TEMP_NOTE;
+	banner.getCell(1).value = TEMP_NOTES;
 	banner.getCell(1).font = { bold: true, size: 11, color: { argb: "FFB71C1C" } };
 	banner.getCell(1).alignment = { wrapText: true, vertical: "middle" };
-	banner.height = 36;
+	banner.height = 52;
 	sheet.addRow([]);
 	sheet.addRow([
 		"Category",
@@ -272,7 +278,7 @@ function buildStorageGuideHtml(guide: StorageGuideResult): string {
     border: 2px solid #b71c1c;
     background: #ffebee;
     padding: 10px 12px;
-    margin: 0 0 16px;
+    margin: 0 0 8px;
     font-size: 11px;
     line-height: 1.35;
   }
@@ -284,6 +290,7 @@ function buildStorageGuideHtml(guide: StorageGuideResult): string {
   <h1>Storage &amp; Preservation Guide</h1>
   <p class="meta">${escapeHtml(guide.restaurantName)} · Generated ${escapeHtml(new Date(guide.generatedAt).toLocaleString("en-IN"))} · Cold bain marie, ice cream freezer, or outside wooden racks</p>
   <p class="temp-note">${escapeHtml(FRIDGE_TEMP_NOTE)}</p>
+  <p class="temp-note">${escapeHtml(FREEZER_TEMP_NOTE)}</p>
   ${sections}
   <script>window.onload = function(){ window.focus(); window.print(); };</script>
 </body></html>`;
