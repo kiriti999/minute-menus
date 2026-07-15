@@ -268,14 +268,16 @@ const normalizeAdviceCategory = (raw: string): string => {
 	return CATEGORY_ALIASES[key] ?? raw.trim().replace(/\b\w/g, (c) => c.toUpperCase());
 };
 
-/** Cold bain marie under-fridge, or outside wooden racks — never pantry/crisper. */
+/** Cold bain marie, small freezer (ice cream), or outside wooden racks. */
 const FRIDGE_LABEL = "Cold bain marie (under fridge)";
+const FREEZER_LABEL = "Freezer (ice cream)";
 const RACK_LABEL = "Outside wooden racks";
 
 const normalizeStoragePlace = (raw: string): string => {
 	const t = raw.trim().toLowerCase();
 	if (!t) return FRIDGE_LABEL;
-	if (/fridge|refrigerat|freezer|chill|cold|bain|marie/.test(t)) return FRIDGE_LABEL;
+	if (/freezer|ice.?cream|frozen/.test(t)) return FREEZER_LABEL;
+	if (/fridge|refrigerat|chill|cold|bain|marie/.test(t)) return FRIDGE_LABEL;
 	if (/rack|outside|room.?temp|ambient|wooden|pantry|counter|cupboard|cabinet|shelf|dry/.test(t)) {
 		return RACK_LABEL;
 	}
@@ -442,15 +444,16 @@ const generateStorageGuide = async (
 				role: "user",
 				content: `You are a cloud-kitchen food safety and prep coach for "${restaurantName}" in India.
 
-This kitchen stores food in ONLY two places:
+This kitchen stores food in ONLY three places:
 1) Under the cold bain marie fridge (commercial under-counter cold unit) — NOT a home fridge, NO crisper drawer
-2) Outside wooden racks (dry goods like onion, potato, garlic)
+2) Small freezer — for ice cream and frozen desserts only
+3) Outside wooden racks (dry goods like onion, potato, garlic)
 
 Scan every menu dish and its ingredients below. Extract UNIQUE raw ingredients.
 
 For EACH unique ingredient return practical storage guidance:
 - category: ONE of Vegetables, Fruits, Herbs, Dairy, Proteins, Grains & staples, Spices & condiments, Oils & fats, Other
-- storagePlace: ONLY "Cold bain marie (under fridge)" OR "Outside wooden racks"
+- storagePlace: ONLY "Cold bain marie (under fridge)" OR "Freezer (ice cream)" OR "Outside wooden racks"
 - shelfLife: e.g. "3-4 days"
 - simpleHacks: ONE short tip for kitchen staff; use plain words (wrap, container, paper towel). NEVER say "crisper", "crisper drawer", "pantry", or "counter"
 - usedInDishes: dish names that use it
@@ -460,7 +463,8 @@ Rules:
 - Keep values short so the JSON stays valid
 - Merge duplicates across dishes
 - Skip pure water/ice
-- NEVER say pantry, counter, cupboard, freezer, or crisper
+- Use Freezer (ice cream) ONLY for ice cream / frozen desserts — not for veggies or dairy that belong in the bain marie
+- NEVER say pantry, counter, cupboard, or crisper
 - Return ONLY a valid JSON array — no markdown fences, no prose
 - Escape any double quotes inside string values as \\"
 

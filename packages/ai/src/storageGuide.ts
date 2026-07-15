@@ -7,12 +7,14 @@ const log = createLogger("ai-storage-guide");
 export const STORAGE_GUIDE_MODEL = "claude-haiku-4-5";
 
 const FRIDGE_LABEL = "Cold bain marie (under fridge)";
+const FREEZER_LABEL = "Freezer (ice cream)";
 const RACK_LABEL = "Outside wooden racks";
 
 const normalizeStoragePlace = (raw: string): string => {
 	const t = raw.trim().toLowerCase();
 	if (!t) return FRIDGE_LABEL;
-	if (/fridge|refrigerat|freezer|chill|cold|bain|marie/.test(t)) return FRIDGE_LABEL;
+	if (/freezer|ice.?cream|frozen/.test(t)) return FREEZER_LABEL;
+	if (/fridge|refrigerat|chill|cold|bain|marie/.test(t)) return FRIDGE_LABEL;
 	if (/rack|outside|room.?temp|ambient|wooden|pantry|counter|cupboard|cabinet|shelf|dry/.test(t)) {
 		return RACK_LABEL;
 	}
@@ -76,15 +78,16 @@ export async function generateStoragePreservationGuide(
 				role: "user",
 				content: `You are a cloud-kitchen food safety and prep coach for "${restaurantName}" in India.
 
-This kitchen stores food in ONLY two places:
+This kitchen stores food in ONLY three places:
 1) Under the cold bain marie fridge (commercial under-counter cold unit) — NOT a home fridge, NO crisper drawer
-2) Outside wooden racks (dry goods like onion, potato, garlic)
+2) Small freezer — for ice cream and frozen desserts only
+3) Outside wooden racks (dry goods like onion, potato, garlic)
 
 Scan every menu dish and its ingredients below. Extract UNIQUE raw ingredients.
 
 For EACH unique ingredient return practical storage guidance:
 - category: ONE of Vegetables, Fruits, Herbs, Dairy, Proteins, Grains & staples, Spices & condiments, Oils & fats, Other
-- storagePlace: ONLY "Cold bain marie (under fridge)" OR "Outside wooden racks"
+- storagePlace: ONLY "Cold bain marie (under fridge)" OR "Freezer (ice cream)" OR "Outside wooden racks"
 - shelfLife: realistic days at peak quality
 - simpleHacks: short tip for kitchen staff; NEVER say crisper, pantry, or counter
 - usedInDishes: dish names that use it
@@ -93,7 +96,8 @@ Rules:
 - Plain English, no jargon, no markdown in values
 - Merge duplicates across dishes
 - Skip pure water/ice
-- NEVER use pantry/counter/freezer/crisper
+- Use Freezer (ice cream) ONLY for ice cream / frozen desserts
+- NEVER use pantry/counter/crisper
 - Return ONLY a JSON array, no prose before or after
 
 Keys: ingredient, category, storagePlace, shelfLife, simpleHacks, usedInDishes

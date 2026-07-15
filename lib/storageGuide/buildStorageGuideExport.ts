@@ -28,9 +28,10 @@ const categorySortIndex = (category: string): number => {
 
 const storagePlaceSortIndex = (place: string): number => {
 	const t = place.trim().toLowerCase();
-	if (/fridge|refrigerat|freezer|chill|cold|bain|marie/.test(t)) return 0;
-	if (/rack|outside|wooden|counter|pantry|shelf/.test(t)) return 1;
-	return 2;
+	if (/bain|marie|fridge|refrigerat|chill/.test(t) && !/freezer|ice.?cream/.test(t)) return 0;
+	if (/freezer|ice.?cream|frozen/.test(t)) return 1;
+	if (/rack|outside|wooden|counter|pantry|shelf/.test(t)) return 2;
+	return 3;
 };
 
 export function groupTipsByCategory(
@@ -70,7 +71,10 @@ export async function buildStorageGuideExcel(guide: StorageGuideResult): Promise
 	summary.addRow(["Restaurant", guide.restaurantName]);
 	summary.addRow(["Generated", new Date(guide.generatedAt).toLocaleString("en-IN")]);
 	summary.addRow(["Ingredients covered", guide.tips.length]);
-	summary.addRow(["Storage options", "Cold bain marie (under fridge) · Outside wooden racks"]);
+	summary.addRow([
+		"Storage options",
+		"Cold bain marie (under fridge) · Freezer (ice cream) · Outside wooden racks",
+	]);
 
 	const sheet = workbook.addWorksheet("Storage Guide");
 	sheet.columns = [
@@ -204,7 +208,7 @@ function buildStorageGuideHtml(guide: StorageGuideResult): string {
   tr:nth-child(even) td { background: #fafafa; }
 </style></head><body>
   <h1>Storage &amp; Preservation Guide</h1>
-  <p class="meta">${escapeHtml(guide.restaurantName)} · Generated ${escapeHtml(new Date(guide.generatedAt).toLocaleString("en-IN"))} · Cold bain marie (under fridge) or outside wooden racks only</p>
+  <p class="meta">${escapeHtml(guide.restaurantName)} · Generated ${escapeHtml(new Date(guide.generatedAt).toLocaleString("en-IN"))} · Cold bain marie, ice cream freezer, or outside wooden racks</p>
   <p class="temp-note">${escapeHtml(FRIDGE_TEMP_NOTE)}</p>
   ${sections}
   <script>window.onload = function(){ window.focus(); window.print(); };</script>
