@@ -478,7 +478,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(401).json({
                     error: "invalid_api_key",
                     message:
-                        "Your Claude API key was rejected. Paste a valid key from console.anthropic.com (starts with sk-ant-).",
+                        "Your Claude API key was rejected. Update it with a Console key from console.anthropic.com (starts with sk-ant-api).",
                 });
             }
             return res.status(502).json({ error: "Failed to generate storage guide", detail: message });

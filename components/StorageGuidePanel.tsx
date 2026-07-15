@@ -19,6 +19,19 @@ export interface StorageGuidePanelProps {
 	isDarkTheme: boolean;
 }
 
+function isInvalidApiKeyResponse(res: {
+	status: number;
+	error?: string;
+	message?: string;
+	detail?: string;
+}): boolean {
+	if (res.status === 428 || res.error === "invalid_api_key" || res.error === "missing_api_key") {
+		return true;
+	}
+	const blob = `${res.error ?? ""} ${res.message ?? ""} ${res.detail ?? ""}`;
+	return /invalid_api_key|invalid x-api-key|authentication_error|missing_api_key/i.test(blob);
+}
+
 function menuPayloadFromItems(
 	items: StorageGuidePanelProps["menuItems"],
 ): MenuItemForStorageGuide[] {
@@ -100,13 +113,12 @@ export const StorageGuidePanel: React.FC<StorageGuidePanelProps> = ({
 			detail?: string;
 		};
 
-		if (res.status === 428 || asRecord.error === "invalid_api_key") {
-			if (asRecord.error === "invalid_api_key") {
-				setError(
-					asRecord.message ??
-						"Your Claude API key was rejected. Paste a valid key from console.anthropic.com.",
-				);
-			}
+		if (isInvalidApiKeyResponse({ status: res.status, ...asRecord })) {
+			setLastGuide(null);
+			setError(
+				asRecord.message ??
+					"Your Claude API key was rejected. Paste a valid Console key (sk-ant-api…).",
+			);
 			setShowKeyModal(true);
 			return null;
 		}
@@ -116,7 +128,6 @@ export const StorageGuidePanel: React.FC<StorageGuidePanelProps> = ({
 			);
 		}
 
-		// Normalize: API should return { tips, ... }; tolerate a bare tips array.
 		if (Array.isArray(body)) {
 			return {
 				generatedAt: new Date().toISOString(),
@@ -158,9 +169,13 @@ export const StorageGuidePanel: React.FC<StorageGuidePanelProps> = ({
 
 		setGenerating(true);
 		setError("");
+		let awaitingNewKey = false;
 		try {
 			const guide = lastGuide ?? (await requestGuide());
 			if (!guide) {
+				// Key missing/invalid — keep format so Save & continue retries export.
+				awaitingNewKey = true;
+				setPendingFormat(format);
 				printWin?.close();
 				return;
 			}
@@ -173,10 +188,19 @@ export const StorageGuidePanel: React.FC<StorageGuidePanelProps> = ({
 			}
 		} catch (err) {
 			printWin?.close();
-			setError(getErrorMessage(err));
+			const message = getErrorMessage(err);
+			if (/invalid x-api-key|authentication_error|invalid_api_key/i.test(message)) {
+				awaitingNewKey = true;
+				setLastGuide(null);
+				setPendingFormat(format);
+				setError("Your Claude API key was rejected. Paste a valid Console key (sk-ant-api…).");
+				setShowKeyModal(true);
+			} else {
+				setError(message);
+			}
 		} finally {
 			setGenerating(false);
-			setPendingFormat(null);
+			if (!awaitingNewKey) setPendingFormat(null);
 		}
 	};
 
@@ -199,6 +223,7 @@ export const StorageGuidePanel: React.FC<StorageGuidePanelProps> = ({
 			await supabaseService.saveOwnerAnthropicKey(trimmed);
 			setApiKeyInput("");
 			setShowKeyModal(false);
+			setLastGuide(null);
 			await loadSettings();
 			if (pendingFormat) await runExport(pendingFormat);
 		} catch (err) {
@@ -281,8 +306,10 @@ export const StorageGuidePanel: React.FC<StorageGuidePanelProps> = ({
 						className={`w-full max-w-md rounded-xl border p-5 space-y-4 ${isDarkTheme ? "bg-zinc-900 border-zinc-700" : "bg-white border-zinc-200"}`}
 					>
 						<h3 className={`font-semibold flex items-center gap-2 ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
-							<Sparkles size={16} /> {aiSettings?.hasAnthropicApiKey ? "Update Claude API key" : "Claude API key required"}
+							<Sparkles size={16} />{" "}
+							{aiSettings?.hasAnthropicApiKey ? "Update Claude API key" : "Claude API key required"}
 						</h3>
+						{error ? <p className="text-sm text-red-400">{error}</p> : null}
 						<p className={`text-sm ${muted}`}>
 							Get a key from{" "}
 							<a
@@ -293,7 +320,7 @@ export const StorageGuidePanel: React.FC<StorageGuidePanelProps> = ({
 							>
 								console.anthropic.com
 							</a>
-							. Paste the full key (starts with <code className="text-xs">sk-ant-</code>). We use{" "}
+							. Paste a Console API key starting with <code className="text-xs">sk-ant-api</code>. We use{" "}
 							<strong>Claude Haiku</strong> for fast, low-cost scans. Your key stays in your private
 							account settings — never shared with other restaurants.
 						</p>
@@ -301,7 +328,7 @@ export const StorageGuidePanel: React.FC<StorageGuidePanelProps> = ({
 							type="password"
 							value={apiKeyInput}
 							onChange={(e) => setApiKeyInput(e.target.value)}
-							placeholder="sk-ant-..."
+							placeholder="sk-ant-api..."
 							className={`w-full rounded-lg border px-3 py-2 text-sm ${input}`}
 						/>
 						<div className="flex justify-end gap-2">
