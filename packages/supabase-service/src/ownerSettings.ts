@@ -4,6 +4,7 @@ import type { Database } from "@minute-menus/types/db";
 
 type Client = SupabaseClient<Database>;
 
+/** Display/DB default only — live API calls use Vercel `ANTHROPIC_MODEL` / `INVOICE_AI_MODEL`. */
 export const DEFAULT_OWNER_AI_MODEL = "claude-haiku-4-5";
 
 export async function getOwnerAiSettings(client: Client, ownerId: string): Promise<OwnerAiSettings> {

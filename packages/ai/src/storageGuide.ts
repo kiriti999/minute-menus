@@ -4,6 +4,19 @@ import type { IngredientStorageAdvice, MenuItemForStorageGuide } from "@minute-m
 
 const log = createLogger("ai-storage-guide");
 
+/**
+ * Claude model from Vercel env (swap anytime without a code change).
+ * Prefers ANTHROPIC_MODEL, then INVOICE_AI_MODEL, then Haiku default.
+ */
+export function resolveAnthropicModel(): string {
+	return (
+		process.env.ANTHROPIC_MODEL?.trim() ||
+		process.env.INVOICE_AI_MODEL?.trim() ||
+		"claude-haiku-4-5"
+	);
+}
+
+/** @deprecated Prefer resolveAnthropicModel() — env is read at call time. */
 export const STORAGE_GUIDE_MODEL = "claude-haiku-4-5";
 
 const FRIDGE_LABEL = "Cold bain marie (under fridge)";
@@ -64,7 +77,7 @@ export async function generateStoragePreservationGuide(
 	apiKey: string,
 	restaurantName: string,
 	menuItems: MenuItemForStorageGuide[],
-	model = STORAGE_GUIDE_MODEL,
+	model = resolveAnthropicModel(),
 ): Promise<IngredientStorageAdvice[]> {
 	const client = new Anthropic({ apiKey });
 	const menuPayload = menuItems
@@ -76,7 +89,8 @@ export async function generateStoragePreservationGuide(
 		}));
 
 	const response = await client.messages.create({
-		model,
+		model: model || resolveAnthropicModel(),
+
 		max_tokens: 4096,
 		messages: [
 			{

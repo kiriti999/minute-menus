@@ -20,9 +20,14 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 /** Vision on multi-page PDFs / storage-guide AI can take a while. */
 export const maxDuration = 60;
 
-/** Overridable; defaults to the Claude Haiku model used elsewhere in the org. */
-const CLAUDE_MODEL = process.env.INVOICE_AI_MODEL ?? "claude-haiku-4-5";
-const STORAGE_GUIDE_MODEL = "claude-haiku-4-5";
+/**
+ * Claude model from Vercel env — set ANTHROPIC_MODEL (preferred) or INVOICE_AI_MODEL.
+ * Swap the variant anytime without a code change; falls back to Haiku.
+ */
+const resolveAnthropicModel = (): string =>
+	process.env.ANTHROPIC_MODEL?.trim() ||
+	process.env.INVOICE_AI_MODEL?.trim() ||
+	"claude-haiku-4-5";
 
 type PurchaseUnit = "kg" | "g" | "l" | "ml" | "piece";
 type LineItem = { name: string; quantity: number; unit: PurchaseUnit; amount: number };
@@ -152,7 +157,7 @@ const extractLineItems = async (mimeType: string, base64: string): Promise<LineI
 
     const client = new Anthropic({ apiKey });
     const response = await client.messages.create({
-        model: CLAUDE_MODEL,
+        model: resolveAnthropicModel(),
         max_tokens: 2048,
         messages: [
             {
@@ -425,7 +430,8 @@ const fetchOwnerAnthropicKey = async (
 	const row = data as { anthropic_api_key: string | null; anthropic_model: string | null } | null;
 	const apiKey = row?.anthropic_api_key ? normalizeAnthropicApiKey(row.anthropic_api_key) : "";
 	if (!apiKey) return null;
-	return { apiKey, model: row?.anthropic_model?.trim() || STORAGE_GUIDE_MODEL };
+	// Model always from Vercel env so ops can swap variants without DB/code changes.
+	return { apiKey, model: resolveAnthropicModel() };
 };
 
 const generateStorageGuide = async (
@@ -444,7 +450,7 @@ const generateStorageGuide = async (
 		}));
 
 	const response = await client.messages.create({
-		model: model || STORAGE_GUIDE_MODEL,
+		model: model || resolveAnthropicModel(),
 		max_tokens: 8192,
 		messages: [
 			{

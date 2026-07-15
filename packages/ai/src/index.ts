@@ -115,7 +115,11 @@ Exactly 3 numbered actions the owner should take THIS WEEK. Each must reference 
   }
 };
 
-export { generateStoragePreservationGuide, STORAGE_GUIDE_MODEL } from "./storageGuide";
+export {
+	generateStoragePreservationGuide,
+	resolveAnthropicModel,
+	STORAGE_GUIDE_MODEL,
+} from "./storageGuide";
 
 export const generateMarketingCopy = async (
   dishName: string,
