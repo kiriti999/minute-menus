@@ -183,8 +183,14 @@ export const StorageGuidePanel: React.FC<StorageGuidePanelProps> = ({
 	const saveApiKey = async () => {
 		const trimmed = apiKeyInput.trim().replace(/^["']+|["']+$/g, "");
 		if (!trimmed) return;
-		if (!trimmed.startsWith("sk-ant-")) {
-			setError("Claude keys start with sk-ant-. Get one from console.anthropic.com/settings/keys");
+		if (trimmed.startsWith("sk-ant-oat")) {
+			setError(
+				"That is an OAuth/setup token — it won't work. Create an API key at console.anthropic.com (starts with sk-ant-api).",
+			);
+			return;
+		}
+		if (!trimmed.startsWith("sk-ant-api")) {
+			setError("Paste a Console API key starting with sk-ant-api from console.anthropic.com/settings/keys");
 			return;
 		}
 		setSavingKey(true);

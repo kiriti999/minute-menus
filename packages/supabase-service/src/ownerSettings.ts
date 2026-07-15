@@ -30,8 +30,20 @@ export async function upsertOwnerAnthropicKey(
 		.replace(/^["']+|["']+$/g, "")
 		.replace(/[\u200B-\u200D\uFEFF]/g, "");
 	if (!trimmed) throw new Error("API key cannot be empty");
-	if (!trimmed.startsWith("sk-ant-")) {
-		throw new Error("Claude API keys start with sk-ant-");
+	if (trimmed.startsWith("sk-ant-oat")) {
+		throw new Error(
+			"That looks like a Claude OAuth/setup token — it won't work here. Create an API key at console.anthropic.com/settings/keys (starts with sk-ant-api).",
+		);
+	}
+	if (trimmed.startsWith("sk-ant-admin")) {
+		throw new Error(
+			"Admin keys can't call Claude models. Create a normal API key at console.anthropic.com/settings/keys (starts with sk-ant-api).",
+		);
+	}
+	if (!trimmed.startsWith("sk-ant-api")) {
+		throw new Error(
+			"Use a Console API key starting with sk-ant-api (from console.anthropic.com/settings/keys), not a Claude.ai chat login token.",
+		);
 	}
 	const { error } = await client.from("owner_settings").upsert(
 		{
