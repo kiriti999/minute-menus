@@ -84,7 +84,8 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
   const hfs = scaledHeadingFsWall(widthPx, heightPx, customization);
   const dfs = scaledDescFsWall(widthPx, heightPx, customization);
   const align = logoAlign(logoPosition);
-  const bandH = isLandscape ? Math.round(heightPx * 0.14) : Math.round(heightPx * 0.12);
+  const ultraWide = widthPx > heightPx * 2.2;
+  const bandH = isLandscape ? Math.round(heightPx * (ultraWide ? 0.1 : 0.14)) : Math.round(heightPx * 0.12);
   const headerGap = Math.round(Math.min(widthPx, heightPx) * 0.015);
   const displayName = formatPrintDisplayName(branding.name, customization.typography.textTransform);
   const titleFont = titleFontFamily(customization);
@@ -131,14 +132,16 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
     );
   }
 
+  const headerAlign = ultraWide || align === 'center' ? 'center' : 'left';
   return (
     <div style={{
       borderBottom: `3px solid ${colors.primary}`, paddingBottom: Math.round(Math.min(widthPx, heightPx) * 0.01),
       marginBottom: headerGap, display: 'flex', alignItems: 'center',
-      justifyContent: align === 'center' ? 'center' : 'flex-start', gap: 12,
-      flexDirection: isLandscape ? 'row' : 'column', textAlign: align === 'center' ? 'center' : 'left',
+      justifyContent: headerAlign === 'center' ? 'center' : 'flex-start', gap: 12,
+      flexDirection: ultraWide ? 'column' : (isLandscape ? 'row' : 'column'),
+      textAlign: headerAlign,
     }}>
-      {logoUrl && <Logo url={logoUrl} height={Math.round(hfs * 1.2)} />}
+      {logoUrl && <Logo url={logoUrl} height={Math.round(hfs * (ultraWide ? 0.85 : 1.2))} />}
       <div>
         <div style={{ fontFamily: titleFont, fontSize: hfs, fontWeight: headingWeight(customization), color: colors.primary, ...titleExtras, textTransform: titleExtras.textTransform ?? textTransformCss(customization) }}>{displayName}</div>
         {showTagline && branding.tagline && <div style={{ fontSize: dfs, color: colors.textMuted }}>{branding.tagline}</div>}

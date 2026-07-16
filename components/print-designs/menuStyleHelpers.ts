@@ -33,6 +33,21 @@ export function scaledHeadingFs(widthPx: number, customization: DesignCustomizat
   return Math.round(base * HEADING_SIZE_SCALE[customization.typography.headingSize]);
 }
 
+/** Ultra-wide strips (e.g. 72×23") — width must not drive font size or titles explode. */
+export function isUltraWideWall(widthPx: number, heightPx: number): boolean {
+  return widthPx > heightPx * 2.2;
+}
+
+/**
+ * Reference length for wall-board type sizing.
+ * Normal boards blend width + height; ultra-wide boards use the short side only.
+ */
+export function wallBoardRefPx(widthPx: number, heightPx: number): number {
+  const shortSide = Math.min(widthPx, heightPx);
+  if (isUltraWideWall(widthPx, heightPx)) return shortSide;
+  return Math.round((widthPx + shortSide) / 2);
+}
+
 /** Scale from printable height — landscape boards are width-rich but height-constrained. */
 export function wallBoardFontScale(widthPx: number, heightPx: number): number {
   const h = Math.min(widthPx, heightPx);
@@ -57,7 +72,8 @@ export function wallBoardContentHeight(
   showQR: boolean,
   hasFooterSocial: boolean,
 ): number {
-  const headerBand = isLandscape ? heightPx * 0.14 : heightPx * 0.12;
+  const ultra = isUltraWideWall(widthPx, heightPx);
+  const headerBand = isLandscape ? heightPx * (ultra ? 0.1 : 0.14) : heightPx * 0.12;
   const headerGap = Math.min(widthPx, heightPx) * 0.015;
   const footerGap = heightPx * 0.01;
   let footerBlock = 24;
@@ -112,22 +128,32 @@ export function wallBoardColumnFontScale(widthPx: number, cols: number): number 
 }
 
 export function scaledBodyFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
-  const base = Math.round(scaledBodyFs(widthPx, customization) * wallBoardFontScale(widthPx, heightPx) * 1.2);
+  const ref = wallBoardRefPx(widthPx, heightPx);
+  const wideBoost = isUltraWideWall(widthPx, heightPx) ? 1.25 : 1;
+  const base = Math.round(scaledBodyFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.2 * wideBoost);
   return Math.max(14, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
 }
 
 export function scaledDescFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
-  const base = Math.round(scaledDescFs(widthPx, customization) * wallBoardFontScale(widthPx, heightPx) * 1.15);
+  const ref = wallBoardRefPx(widthPx, heightPx);
+  const wideBoost = isUltraWideWall(widthPx, heightPx) ? 1.2 : 1;
+  const base = Math.round(scaledDescFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.15 * wideBoost);
   return Math.max(12, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
 }
 
 export function scaledCatFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
-  const base = Math.round(scaledCatFs(widthPx, customization) * wallBoardFontScale(widthPx, heightPx) * 1.15);
+  const ref = wallBoardRefPx(widthPx, heightPx);
+  const wideBoost = isUltraWideWall(widthPx, heightPx) ? 1.2 : 1;
+  const base = Math.round(scaledCatFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.15 * wideBoost);
   return Math.max(16, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
 }
 
 export function scaledHeadingFsWall(widthPx: number, heightPx: number, customization: DesignCustomization): number {
-  return Math.round(scaledHeadingFs(widthPx, customization) * wallBoardFontScale(widthPx, heightPx));
+  const ref = wallBoardRefPx(widthPx, heightPx);
+  const raw = Math.round(scaledHeadingFs(ref, customization) * wallBoardFontScale(widthPx, heightPx));
+  // Cap title so ultra-wide boards keep most of the height for menu columns.
+  const cap = Math.round(heightPx * (isUltraWideWall(widthPx, heightPx) ? 0.08 : 0.12));
+  return Math.max(18, Math.min(raw, cap));
 }
 
 export function headingWeight(customization: DesignCustomization): number {

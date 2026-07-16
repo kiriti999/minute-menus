@@ -208,7 +208,10 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     ? `${import.meta.env.VITE_SITE_URL ?? 'https://minutemenus.com'}/${branding.slug}`
     : import.meta.env.VITE_SITE_URL ?? 'https://minutemenus.com';
 
-  const previewScale = PREVIEW_CSS_WIDTH / fmt.widthPx;
+  // Ultra-wide wall strips need a wider preview box so type stays legible on screen.
+  const previewAspect = fmt.widthPx / Math.max(1, fmt.heightPx);
+  const previewBoxWidth = previewAspect > 2.2 ? Math.min(560, PREVIEW_CSS_WIDTH * 1.45) : PREVIEW_CSS_WIDTH;
+  const previewScale = previewBoxWidth / fmt.widthPx;
   const previewCssHeight = fmt.heightPx * previewScale;
 
   const handleDesignTypeChange = useCallback((t: PrintDesignType) => {
@@ -1026,7 +1029,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
               </div>
 
               <div
-                style={{ width: PREVIEW_CSS_WIDTH, height: Math.round(previewCssHeight) }}
+                style={{ width: previewBoxWidth, height: Math.round(previewCssHeight), maxWidth: '100%' }}
                 className={`relative overflow-hidden rounded border ${isDarkTheme ? 'border-zinc-700' : 'border-zinc-300'} mx-auto`}
               >
                 <div style={{ transform: `scale(${previewScale})`, transformOrigin: 'top left', width: fmt.widthPx, height: fmt.heightPx, pointerEvents: 'none', position: 'relative' }}>
