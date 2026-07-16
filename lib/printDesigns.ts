@@ -89,6 +89,8 @@ export const FORMATS: Record<PrintFormat, FormatInfo> = {
   'a0-landscape':  fmt('a0-landscape',    'A0 Landscape',       1189, 841, 'wall-board',  5),
   '36x24':         fmt('36x24',           '36×24" Landscape',   914, 610,  'wall-board',  5),
   '48x36':         fmt('48x36',           '48×36" Landscape',   1219, 914, 'wall-board',  5),
+  // Shop-measured above-counter strip (72" wide × 23" tall)
+  '72x23':         fmt('72x23',           '72×23" Landscape',   1829, 584,  'wall-board',  5),
   'square-24':     fmt('square-24',       '24×24" Square',      610, 610,  'wall-board',  5),
   dl:              fmt('dl',              'DL (1/3 A4)',        99,  210,  'pamphlet',    3),
   a5:              fmt('a5',              'A5',                 148, 210,  'pamphlet',    3),
@@ -104,7 +106,7 @@ export const FORMATS: Record<PrintFormat, FormatInfo> = {
 };
 
 export const WALL_BOARD_FORMAT_GROUPS: { label: string; formats: PrintFormat[] }[] = [
-  { label: 'Landscape (wide wall)', formats: ['a2-landscape', 'a1-landscape', 'a0-landscape', '36x24', '48x36'] },
+  { label: 'Landscape (wide wall)', formats: ['72x23', 'a2-landscape', 'a1-landscape', 'a0-landscape', '36x24', '48x36'] },
   { label: 'Portrait (tall wall)', formats: ['a2', 'a1', 'a0', '24x36', '18x24', '36x48'] },
   { label: 'Square', formats: ['square-24'] },
 ];
@@ -119,7 +121,7 @@ export const DESIGN_TYPE_FORMATS: Record<PrintDesignType, PrintFormat[]> = {
 };
 
 export const DEFAULT_FORMAT: Record<PrintDesignType, PrintFormat> = {
-  'menu-card': 'a4', 'wall-board': 'a2-landscape', 'pamphlet': 'a5',
+  'menu-card': 'a4', 'wall-board': '72x23', 'pamphlet': 'a5',
   'pocket-card': 'business-card', 'sticker': 'circle-75', 'job-flyer': 'a5',
 };
 

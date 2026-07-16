@@ -74,6 +74,7 @@ const FORMAT_OVERRIDES: Partial<Record<PrintFormat, Partial<MaterialRecommendati
   '36x24': { material: '5mm PVC', costRange: '₹650–1100', notes: 'Wide landscape — ideal above service counter.' },
   '36x48': { material: '5mm PVC', costRange: '₹900–1600', notes: 'Extra tall portrait feature wall.' },
   '48x36': { material: '5mm PVC', costRange: '₹950–1700', notes: 'Extra wide landscape back-wall.' },
+  '72x23': { material: '5mm PVC foam board', costRange: '₹1100–2000', notes: 'Shop-measured above-counter strip — 72" wide × 23" tall for max menu clarity.' },
   'square-24': { material: '5mm PVC or acrylic', costRange: '₹500–900', notes: 'Square accent board or pillar wrap.' },
 };
 
