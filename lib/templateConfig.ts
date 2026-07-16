@@ -37,7 +37,7 @@ export const TEMPLATE_VISUALS: Record<TemplateStyle, TemplateVisualConfig> = {
   'ethnic-traditional':  { header: 'ethnic-pattern', category: 'gold-rule',      footer: 'center', outerBorder: 'decorative',  showOrnaments: true,  headerGradient: false },
   'salad-bowl-fresh':    { header: 'left-rule',      category: 'left-accent',    footer: 'split',  outerBorder: 'simple',      showOrnaments: false, headerGradient: false },
   'south-indian-mess':   { header: 'ethnic-pattern', category: 'gold-rule',      footer: 'center', outerBorder: 'decorative',  showOrnaments: true,  headerGradient: false },
-  'name-board-yellow':   { header: 'name-board',     category: 'underline',      footer: 'split',  outerBorder: 'none',        showOrnaments: false, headerGradient: false, wallBlocks: false },
+  'name-board-yellow':   { header: 'name-board',     category: 'underline',      footer: 'split',  outerBorder: 'none',        showOrnaments: false, headerGradient: false, wallBlocks: true },
 };
 
 export const HEADING_SIZE_SCALE = { small: 0.85, medium: 1, large: 1.2 } as const;

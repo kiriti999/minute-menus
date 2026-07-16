@@ -181,6 +181,9 @@ export const COLOR_SCHEMES: Record<ColorSchemeKey, DesignColors & { label: strin
   'wall-yellow':      { label: 'Wall Yellow',       primary: '#111111', secondary: '#2A2A2A', background: '#FFD200', text: '#111111', textMuted: '#3D3D3D', accent: '#111111', border: '#111111' },
 };
 
+/** Soft yellow column panels for wall-yellow boards — keeps equal column shapes with black ink. */
+export const WALL_YELLOW_COLUMN_COLORS = ['#FFF3B0', '#FFE566', '#FFD200', '#F5C400', '#FFE566'];
+
 // ─── Font pairings (15) ───────────────────────────────────────────────────────
 
 export const FONT_PAIRINGS: Record<FontPairingKey, DesignFonts & { label: string; googleFonts: string[] }> = {
@@ -306,7 +309,7 @@ export function defaultCustomization(style: TemplateStyle, designType?: PrintDes
     },
     effects: { ...DEFAULT_EFFECTS },
     layout: {
-      columns: isWall ? 4 : 2,
+      columns: isWall ? 5 : 2,
       spacing: 'normal',
       alignment: isNameBoardYellow ? 'center' : 'left',
       categoryStyle: 'heading',
@@ -321,5 +324,6 @@ export function defaultCustomization(style: TemplateStyle, designType?: PrintDes
     backgroundGradient: GRADIENT_PRESETS[0].value,
     logoUrl: undefined, logoPosition: isNameBoardYellow ? 'center' : 'left',
     colorMode: 'rgb', showBleedGuides: false, includeCropMarks: false,
+    ...(isNameBoardYellow ? { columnColors: [...WALL_YELLOW_COLUMN_COLORS] } : {}),
   };
 }

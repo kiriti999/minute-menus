@@ -2,7 +2,7 @@
  * Pure style builders for MenuTemplate — keeps TSX cyclomatic complexity low.
  */
 import type { BackgroundPattern, DesignColors, DesignCustomization, DesignFonts, RestaurantBranding, TitleStyle } from "@minute-menus/types";
-import { resolveFonts } from "../../lib/printDesigns";
+import { resolveFonts, WALL_YELLOW_COLUMN_COLORS } from "../../lib/printDesigns";
 import {
   BODY_SIZE_SCALE,
   CORNER_RADIUS_MAP,
@@ -89,26 +89,16 @@ export function wallBoardDensityScale(
 /** Category columns for wall boards — uses user selection, with sensible defaults per orientation. */
 export function wallBoardColumns(widthPx: number, heightPx: number, userCols: number): number {
   const landscape = widthPx > heightPx;
-  const defaultCols = landscape ? 4 : (heightPx > widthPx * 1.3 ? 2 : 3);
+  const defaultCols = landscape ? 5 : (heightPx > widthPx * 1.3 ? 2 : 3);
   return userCols >= 2 ? userCols : defaultCols;
 }
 
 /**
- * Actual grid column count — never exceeds category count, and prefers a count that
- * leaves fewer empty cells in the last row (avoids sparse landscape boards).
+ * Actual grid column count — honors the user's Columns control, but never
+ * creates empty tracks beyond the category count (e.g. 5 cols with 5 cats).
  */
-export function optimalWallColumns(categoryCount: number, maxCols: number): number {
-  const n = Math.max(1, categoryCount);
-  const cap = Math.max(1, Math.min(maxCols, n));
-  if (n <= cap) return n;
-  const waste = (cols: number) => {
-    const rem = n % cols;
-    return rem === 0 ? 0 : cols - rem;
-  };
-  const wasteAtCap = waste(cap);
-  if (cap <= 2) return cap;
-  const wasteLower = waste(cap - 1);
-  return wasteLower < wasteAtCap ? cap - 1 : cap;
+export function resolveWallColumns(categoryCount: number, userCols: number): number {
+  return Math.max(1, Math.min(userCols, Math.max(1, categoryCount)));
 }
 
 export function wallBoardColumnFontScale(widthPx: number, cols: number): number {
@@ -370,9 +360,17 @@ export function defaultColumnPalette(colors: DesignColors): string[] {
   ];
 }
 
+/** Soft yellow panels with black ink — keeps equal column shapes on wall-yellow boards. */
+export { WALL_YELLOW_COLUMN_COLORS };
+
 /** Returns custom column colors if provided, otherwise generates from color scheme. */
 export function wallColumnPalette(colors: DesignColors, customColors?: string[]): string[] {
   if (customColors && customColors.length > 0) return customColors;
+  // Near-black schemes would otherwise paint every panel black and hide the yellow field.
+  const isWallYellow =
+    colors.background.toLowerCase() === '#ffd200'
+    && colors.primary.toLowerCase() === '#111111';
+  if (isWallYellow) return [...WALL_YELLOW_COLUMN_COLORS];
   return defaultColumnPalette(colors);
 }
 

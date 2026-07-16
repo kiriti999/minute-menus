@@ -52,6 +52,7 @@ import {
   TEMPLATES,
   usesBrandColors,
   WALL_BOARD_FORMAT_GROUPS,
+  WALL_YELLOW_COLUMN_COLORS,
 } from "../lib/printDesigns";
 import { colorModeLabel, colorsToCmykSummary, cmykSimulationFilter } from "../lib/printColorUtils";
 import { exportPrintDesignToPdf } from "../lib/exportPrintPdf";
@@ -222,7 +223,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     if (t === 'wall-board') {
       setCustom((prev) => ({
         ...prev,
-        layout: { ...prev.layout, columns: 4 },
+        layout: { ...prev.layout, columns: 5 },
         showQR: false,
         showDescriptions: false,
       }));
@@ -237,7 +238,14 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
 
   const handleTemplateChange = useCallback((s: TemplateStyle) => {
     setTemplateStyle(s);
-    setCustom(defaultCustomization(s, designType));
+    setCustom((prev) => {
+      const next = defaultCustomization(s, designType);
+      // Keep wall-board column count stable — colors/templates must not reshape the grid.
+      if (designType === 'wall-board') {
+        next.layout = { ...next.layout, columns: prev.layout.columns >= 2 ? prev.layout.columns : 5 };
+      }
+      return next;
+    });
   }, [designType]);
 
   const handleColorScheme = useCallback((key: ColorSchemeKey) => {
@@ -245,7 +253,18 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     setCustom((prev) => ({
       ...prev,
       colorScheme: key,
-      colors: { primary: scheme.primary, secondary: scheme.secondary, background: scheme.background, text: scheme.text, textMuted: scheme.textMuted, accent: scheme.accent, border: scheme.border },
+      colors: {
+        primary: scheme.primary,
+        secondary: scheme.secondary,
+        background: scheme.background,
+        text: scheme.text,
+        textMuted: scheme.textMuted,
+        accent: scheme.accent,
+        border: scheme.border,
+      },
+      // Drop custom column colours so the scheme (or wall-yellow defaults) drives panel fills —
+      // never touch layout.columns here.
+      columnColors: key === 'wall-yellow' ? [...WALL_YELLOW_COLUMN_COLORS] : undefined,
     }));
   }, []);
 

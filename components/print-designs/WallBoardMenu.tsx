@@ -16,7 +16,7 @@ import {
   headingWeight,
   hexToRgba,
   logoAlign,
-  optimalWallColumns,
+  resolveWallColumns,
   outerBorderCss,
   patternOverlay,
   scaledBodyFsWall,
@@ -199,26 +199,25 @@ function WallFooter({ style, customization, branding, siteUrl, widthPx, heightPx
   );
 }
 
-function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols, densityScale, plain, showDivider }: {
-  cat: Category; customization: DesignCustomization; widthPx: number; heightPx: number; blockColor: string; cols: number; densityScale: number; plain: boolean; showDivider: boolean;
+function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols, densityScale }: {
+  cat: Category; customization: DesignCustomization; widthPx: number; heightPx: number; blockColor: string; cols: number; densityScale: number;
 }) {
   const fonts = effectiveFonts(customization);
-  const { showPrices, colors } = customization;
+  const { showPrices } = customization;
   const bfs = Math.max(7, Math.round(scaledBodyFsWall(widthPx, heightPx, customization, cols) * densityScale));
   const cfs = Math.max(8, Math.round(scaledCatFsWall(widthPx, heightPx, customization, cols) * densityScale));
   const itemGap = Math.max(2, Math.round(bfs * (densityScale < 0.88 ? 0.28 : 0.36)));
   const lineHeight = densityScale < 0.88 ? 1.1 : 1.15;
-  const text = plain ? colors.text : contrastTextColor(blockColor);
-  const ruleColor = plain ? colors.primary : hexToRgba(text === '#FFFFFF' ? '#FFFFFF' : '#000000', 0.28);
+  const text = contrastTextColor(blockColor);
+  const ruleColor = hexToRgba(text === '#FFFFFF' ? '#FFFFFF' : '#000000', 0.28);
   const pad = Math.round(Math.min(widthPx, heightPx) * 0.016);
 
   return (
     <div style={{
-      breakInside: 'avoid', background: plain ? 'transparent' : blockColor, color: text, boxSizing: 'border-box',
+      breakInside: 'avoid', background: blockColor, color: text, boxSizing: 'border-box',
       width: '100%', height: '100%', minWidth: 0, minHeight: 0,
       overflow: 'hidden', display: 'flex', flexDirection: 'column',
-      borderRadius: plain ? 0 : Math.max(4, Math.round(widthPx * 0.006)), padding: pad,
-      borderRight: showDivider ? `1px solid ${hexToRgba(colors.primary, 0.2)}` : undefined,
+      borderRadius: Math.max(4, Math.round(widthPx * 0.006)), padding: pad,
     }}>
       <div style={{
         fontFamily: fonts.heading, fontSize: cfs, fontWeight: 700, color: text,
@@ -262,9 +261,8 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
   const pad = Math.round(Math.min(widthPx, heightPx) * 0.04);
   const border = outerBorderCss(visual, customization);
   const maxCols = wallBoardColumns(widthPx, heightPx, customization.layout.columns);
-  const cols = optimalWallColumns(menuItems.length, maxCols);
+  const cols = resolveWallColumns(menuItems.length, maxCols);
   const palette = wallColumnPalette(customization.colors, customization.columnColors);
-  const plain = visual.wallBlocks === false;
   const isLandscape = fmt.orientation === 'landscape';
   const hasFooterSocial = Boolean(branding.phone || branding.instagram);
   const contentHeight = wallBoardContentHeight(heightPx, widthPx, pad, isLandscape, customization.showQR, hasFooterSocial);
@@ -318,8 +316,6 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
             blockColor={palette[i % palette.length]}
             cols={cols}
             densityScale={densityScale}
-            plain={plain}
-            showDivider={plain && (i + 1) % cols !== 0}
           />
         ))}
       </div>
