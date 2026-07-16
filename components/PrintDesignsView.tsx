@@ -915,28 +915,63 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
               {designType === 'wall-board' && (
                 <div className="mb-4">
                   <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Column Colours</p>
-                  <div className="flex flex-wrap gap-2">
-                    {Array.from({ length: custom.layout.columns }).map((_, i) => {
-                      const currentColors = custom.columnColors ?? defaultColumnPalette(custom.colors);
-                      const color = currentColors[i] ?? currentColors[i % currentColors.length];
-                      return (
-                        <label key={i} className="flex flex-col items-center gap-1">
-                          <input
-                            type="color"
-                            value={color}
-                            onChange={(e) => {
-                              const updated = [...(custom.columnColors ?? defaultColumnPalette(custom.colors))];
-                              while (updated.length < custom.layout.columns) updated.push(updated[updated.length - 1] ?? '#888888');
-                              updated[i] = e.target.value;
-                              patchCustom('columnColors', updated);
+                  {(() => {
+                    const currentColors = custom.columnColors ?? defaultColumnPalette(custom.colors);
+                    const firstColor = currentColors[0] ?? '#888888';
+                    const allSame = Array.from({ length: custom.layout.columns }).every((_, i) =>
+                      (currentColors[i] ?? currentColors[i % currentColors.length]) === firstColor,
+                    );
+                    return (
+                      <>
+                        <div className="flex flex-wrap items-end gap-3 mb-3">
+                          <label className="flex flex-col items-center gap-1">
+                            <input
+                              type="color"
+                              value={firstColor}
+                              onChange={(e) => {
+                                const n = custom.layout.columns;
+                                patchCustom('columnColors', Array.from({ length: n }, () => e.target.value));
+                              }}
+                              className="w-9 h-9 rounded cursor-pointer border-0 p-0"
+                              title="Apply one colour to every column"
+                            />
+                            <span className={`text-[9px] ${muted}`}>All</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const n = custom.layout.columns;
+                              patchCustom('columnColors', Array.from({ length: n }, () => firstColor));
                             }}
-                            className="w-9 h-9 rounded cursor-pointer border-0 p-0"
-                          />
-                          <span className={`text-[9px] ${muted}`}>{i + 1}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
+                            className={`px-3 py-1.5 rounded-full text-[10px] border transition-all ${allSame ? isDarkTheme ? 'border-white bg-zinc-800 text-white' : 'border-zinc-900 bg-zinc-100 text-zinc-900' : isDarkTheme ? 'border-zinc-700 text-zinc-400 hover:border-zinc-500' : 'border-zinc-200 text-zinc-500 hover:border-zinc-400'}`}
+                          >
+                            Same colour for all
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {Array.from({ length: custom.layout.columns }).map((_, i) => {
+                            const color = currentColors[i] ?? currentColors[i % currentColors.length];
+                            return (
+                              <label key={i} className="flex flex-col items-center gap-1">
+                                <input
+                                  type="color"
+                                  value={color}
+                                  onChange={(e) => {
+                                    const updated = [...(custom.columnColors ?? defaultColumnPalette(custom.colors))];
+                                    while (updated.length < custom.layout.columns) updated.push(updated[updated.length - 1] ?? '#888888');
+                                    updated[i] = e.target.value;
+                                    patchCustom('columnColors', updated);
+                                  }}
+                                  className="w-9 h-9 rounded cursor-pointer border-0 p-0"
+                                />
+                                <span className={`text-[9px] ${muted}`}>{i + 1}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </>
+                    );
+                  })()}
                   <button
                     onClick={() => patchCustom('columnColors', undefined)}
                     className={`mt-2 text-[10px] ${isDarkTheme ? 'text-zinc-500 hover:text-zinc-300' : 'text-zinc-400 hover:text-zinc-600'}`}
