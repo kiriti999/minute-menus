@@ -74,9 +74,9 @@ export function wallBoardContentHeight(
   hasLogo = false,
 ): number {
   const ultra = isUltraWideWall(widthPx, heightPx);
-  // Logo headers are compact; text title bands need more reserved height.
+  // Logo headers reserve a bit more than text titles on ultra-wide boards.
   const headerBand = hasLogo
-    ? heightPx * (ultra ? 0.09 : 0.1)
+    ? heightPx * (ultra ? 0.16 : 0.14)
     : isLandscape ? heightPx * (ultra ? 0.1 : 0.14) : heightPx * 0.12;
   const headerGap = Math.min(widthPx, heightPx) * (hasLogo ? 0.008 : 0.015);
   const footerGap = heightPx * 0.01;

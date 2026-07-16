@@ -55,7 +55,7 @@ function Logo({ url, height }: { url?: string; height: number }) {
         height,
         maxHeight: height,
         width: 'auto',
-        maxWidth: '42%',
+        maxWidth: '70%',
         objectFit: 'contain',
         objectPosition: 'center',
         display: 'block',
@@ -107,8 +107,8 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
   const titleFont = titleFontFamily(customization);
   const titleExtras = titleStyleExtras(customization);
   const tagline = showTagline && branding.tagline ? branding.tagline : null;
-  // Compact logo band on ultra-wide boards so columns keep vertical room.
-  const logoH = Math.round(Math.min(heightPx * (ultraWide ? 0.08 : 0.09), widthPx * 0.055));
+  // Readable logo without eating the column band on ultra-wide boards.
+  const logoH = Math.round(Math.min(heightPx * (ultraWide ? 0.14 : 0.12), widthPx * 0.1));
 
   if (visual.header === 'name-board') {
     return (
