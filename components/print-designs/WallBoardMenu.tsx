@@ -250,7 +250,7 @@ function PriceLeader({ style, color, fontSize }: {
         style={{
           flex: '1 1 auto', minWidth: 8, overflow: 'hidden', whiteSpace: 'nowrap',
           color, fontSize: Math.max(8, Math.round(fontSize * 0.85)), letterSpacing: '0.02em',
-          lineHeight: 1, alignSelf: 'flex-end', margin: '0 4px 2px',
+          lineHeight: 1, alignSelf: 'center', margin: '0 4px',
         }}
       >
         {'- '.repeat(48)}
@@ -262,8 +262,8 @@ function PriceLeader({ style, color, fontSize }: {
     <span
       aria-hidden
       style={{
-        flex: '1 1 auto', minWidth: 8, height: 0, alignSelf: 'flex-end',
-        margin: '0 6px 4px', borderBottom: `1.5px ${borderStyle} ${color}`,
+        flex: '1 1 auto', minWidth: 8, height: 0, alignSelf: 'center',
+        margin: '0 6px', borderBottom: `1.5px ${borderStyle} ${color}`,
       }}
     />
   );
@@ -311,7 +311,8 @@ function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols,
           <div
             key={dish.id}
             style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: useLeader ? 'flex-end' : 'flex-start',
+              display: 'flex', justifyContent: 'space-between',
+              alignItems: useLeader ? 'center' : 'flex-start',
               gap: useLeader ? 0 : 6, flexShrink: 0, minWidth: 0,
             }}
           >
