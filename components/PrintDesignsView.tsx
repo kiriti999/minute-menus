@@ -222,7 +222,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     if (t === 'wall-board') {
       setCustom((prev) => ({
         ...prev,
-        layout: { ...prev.layout, columns: 5 },
+        layout: { ...prev.layout, columns: 4 },
         showQR: false,
         showDescriptions: false,
       }));

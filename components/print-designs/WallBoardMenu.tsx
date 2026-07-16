@@ -12,11 +12,11 @@ import {
   containerShadow,
   contrastTextColor,
   effectiveFonts,
-  footerQrSize,
   formatPrintDisplayName,
   headingWeight,
   hexToRgba,
   logoAlign,
+  optimalWallColumns,
   outerBorderCss,
   patternOverlay,
   scaledBodyFsWall,
@@ -29,6 +29,7 @@ import {
   wallBoardColumns,
   wallBoardContentHeight,
   wallBoardDensityScale,
+  wallBoardQrSize,
   wallColumnPalette,
 } from "./menuStyleHelpers";
 
@@ -48,18 +49,17 @@ function Logo({ url, height }: { url?: string; height: number }) {
   return <img src={url} alt="Logo" style={{ height, width: 'auto', objectFit: 'contain', display: 'block' }} />;
 }
 
-function WallHeader({ style, customization, branding, widthPx, heightPx, isLandscape }: {
+function WallHeader({ style, customization, branding, widthPx, heightPx, isLandscape, pad }: {
   style: TemplateStyle; customization: DesignCustomization; branding: RestaurantBranding;
-  widthPx: number; heightPx: number; isLandscape: boolean;
+  widthPx: number; heightPx: number; isLandscape: boolean; pad: number;
 }) {
   const visual = TEMPLATE_VISUALS[style];
-  const fonts = effectiveFonts(customization);
   const { colors, showTagline, logoUrl, logoPosition } = customization;
   const hfs = scaledHeadingFsWall(widthPx, heightPx, customization);
   const dfs = scaledDescFsWall(widthPx, heightPx, customization);
-  const pad = Math.round(widthPx * 0.04);
   const align = logoAlign(logoPosition);
   const bandH = isLandscape ? Math.round(heightPx * 0.14) : Math.round(heightPx * 0.12);
+  const headerGap = Math.round(Math.min(widthPx, heightPx) * 0.015);
   const displayName = formatPrintDisplayName(branding.name, customization.typography.textTransform);
   const titleFont = titleFontFamily(customization);
   const titleExtras = titleStyleExtras(customization);
@@ -70,7 +70,7 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
         background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`,
         minHeight: bandH, display: 'flex', flexDirection: isLandscape ? 'row' : 'column',
         justifyContent: 'center', alignItems: 'center', gap: isLandscape ? 16 : 4,
-        padding: `0 ${pad}px`, margin: `-${pad}px -${pad}px ${Math.round(widthPx * 0.015)}px`,
+        padding: `0 ${pad}px`, margin: `-${pad}px -${pad}px ${headerGap}px`,
       }}>
         {logoUrl && <Logo url={logoUrl} height={Math.round(bandH * 0.45)} />}
         <div style={{ textAlign: isLandscape ? 'left' : 'center' }}>
@@ -85,8 +85,8 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
 
   return (
     <div style={{
-      borderBottom: `3px solid ${colors.primary}`, paddingBottom: Math.round(widthPx * 0.01),
-      marginBottom: Math.round(widthPx * 0.015), display: 'flex', alignItems: 'center',
+      borderBottom: `3px solid ${colors.primary}`, paddingBottom: Math.round(Math.min(widthPx, heightPx) * 0.01),
+      marginBottom: headerGap, display: 'flex', alignItems: 'center',
       justifyContent: align === 'center' ? 'center' : 'flex-start', gap: 12,
       flexDirection: isLandscape ? 'row' : 'column', textAlign: align === 'center' ? 'center' : 'left',
     }}>
@@ -106,7 +106,7 @@ function WallFooter({ style, customization, branding, siteUrl, widthPx, heightPx
   const fonts = effectiveFonts(customization);
   const { colors, showQR } = customization;
   const dfs = scaledDescFsWall(widthPx, heightPx, customization);
-  const qrSize = footerQrSize(widthPx);
+  const qrSize = wallBoardQrSize(widthPx, heightPx);
   const social = [branding.phone, branding.instagram].filter(Boolean).join(' · ');
   const visual = TEMPLATE_VISUALS[style];
 
@@ -164,7 +164,8 @@ function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols,
   return (
     <div style={{
       breakInside: 'avoid', background: blockColor, color: text, boxSizing: 'border-box',
-      height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column',
+      width: '100%', height: '100%', minWidth: 0, minHeight: 0,
+      overflow: 'hidden', display: 'flex', flexDirection: 'column',
       borderRadius: Math.max(4, Math.round(widthPx * 0.006)), padding: pad,
     }}>
       <div style={{
@@ -208,7 +209,8 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
   const visual = TEMPLATE_VISUALS[style];
   const pad = Math.round(Math.min(widthPx, heightPx) * 0.04);
   const border = outerBorderCss(visual, customization);
-  const cols = wallBoardColumns(widthPx, heightPx, customization.layout.columns);
+  const maxCols = wallBoardColumns(widthPx, heightPx, customization.layout.columns);
+  const cols = optimalWallColumns(menuItems.length, maxCols);
   const palette = wallColumnPalette(customization.colors, customization.columnColors);
   const isLandscape = fmt.orientation === 'landscape';
   const hasFooterSocial = Boolean(branding.phone || branding.instagram);
@@ -220,7 +222,7 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
   );
   const baseBodyFs = scaledBodyFsWall(widthPx, heightPx, customization, cols);
   const gridRows = Math.max(1, Math.ceil(menuItems.length / cols));
-  const gridGap = Math.round(widthPx * 0.014);
+  const gridGap = Math.round(Math.min(widthPx, heightPx) * 0.014);
   const colWidth = (widthPx - pad * 2 - gridGap * (cols - 1)) / cols;
   const densityScale = wallBoardDensityScale(
     maxItems,
@@ -241,15 +243,17 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
         <div style={{ position: 'absolute', inset: 0, ...patternOverlay(customization.backgroundPattern, customization.colors.border), pointerEvents: 'none' }} />
       )}
       <div style={{ flexShrink: 0 }}>
-        <WallHeader style={style} customization={customization} branding={branding} widthPx={widthPx} heightPx={heightPx} isLandscape={isLandscape} />
+        <WallHeader style={style} customization={customization} branding={branding} widthPx={widthPx} heightPx={heightPx} isLandscape={isLandscape} pad={pad} />
       </div>
       <div style={{
-        flex: 1, minHeight: 0, overflow: 'hidden',
+        flex: '1 1 0%', minHeight: 0, overflow: 'hidden',
         display: 'grid',
         gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
         gridTemplateRows: `repeat(${gridRows}, minmax(0, 1fr))`,
         gap: gridGap,
         alignContent: 'stretch',
+        alignItems: 'stretch',
+        justifyItems: 'stretch',
       }}>
         {menuItems.map((cat, i) => (
           <WallCategory

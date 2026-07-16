@@ -43,6 +43,11 @@ export function wallBoardFontScale(widthPx: number, heightPx: number): number {
   return 0.72;
 }
 
+/** QR size for wall boards — keyed to the short side so landscape boards stay balanced. */
+export function wallBoardQrSize(widthPx: number, heightPx: number): number {
+  return Math.max(48, Math.round(Math.min(widthPx, heightPx) * 0.09));
+}
+
 /** Vertical space left for category columns after header/footer. */
 export function wallBoardContentHeight(
   heightPx: number,
@@ -53,10 +58,10 @@ export function wallBoardContentHeight(
   hasFooterSocial: boolean,
 ): number {
   const headerBand = isLandscape ? heightPx * 0.14 : heightPx * 0.12;
-  const headerGap = widthPx * 0.015;
+  const headerGap = Math.min(widthPx, heightPx) * 0.015;
   const footerGap = heightPx * 0.01;
   let footerBlock = 24;
-  if (showQR) footerBlock += footerQrSize(widthPx) + 20;
+  if (showQR) footerBlock += wallBoardQrSize(widthPx, heightPx) + 20;
   else if (hasFooterSocial) footerBlock += 32;
   return Math.max(200, heightPx - pad * 2 - headerBand - headerGap - footerGap - footerBlock);
 }
@@ -84,8 +89,26 @@ export function wallBoardDensityScale(
 /** Category columns for wall boards — uses user selection, with sensible defaults per orientation. */
 export function wallBoardColumns(widthPx: number, heightPx: number, userCols: number): number {
   const landscape = widthPx > heightPx;
-  const defaultCols = landscape ? 5 : (heightPx > widthPx * 1.3 ? 2 : 3);
+  const defaultCols = landscape ? 4 : (heightPx > widthPx * 1.3 ? 2 : 3);
   return userCols >= 2 ? userCols : defaultCols;
+}
+
+/**
+ * Actual grid column count — never exceeds category count, and prefers a count that
+ * leaves fewer empty cells in the last row (avoids sparse landscape boards).
+ */
+export function optimalWallColumns(categoryCount: number, maxCols: number): number {
+  const n = Math.max(1, categoryCount);
+  const cap = Math.max(1, Math.min(maxCols, n));
+  if (n <= cap) return n;
+  const waste = (cols: number) => {
+    const rem = n % cols;
+    return rem === 0 ? 0 : cols - rem;
+  };
+  const wasteAtCap = waste(cap);
+  if (cap <= 2) return cap;
+  const wasteLower = waste(cap - 1);
+  return wasteLower < wasteAtCap ? cap - 1 : cap;
 }
 
 export function wallBoardColumnFontScale(widthPx: number, cols: number): number {
