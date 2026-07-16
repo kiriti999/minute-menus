@@ -726,7 +726,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                 <div className="flex items-center gap-4">
                   <img src={custom.logoUrl} alt="Logo preview" className="h-16 w-auto object-contain bg-transparent" />
                   <div className="space-y-2">
-                    <p className={`text-xs ${muted}`}>Logo replaces the title on stickers. Prefer a PNG with a transparent background.</p>
+                    <p className={`text-xs ${muted}`}>Logo replaces the restaurant title on all designs. Prefer a PNG with a transparent background.</p>
                     <div className="flex gap-2">
                       {(['left', 'center', 'right'] as const).map((pos) => (
                         <button

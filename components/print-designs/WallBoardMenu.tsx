@@ -81,6 +81,7 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
 }) {
   const visual = TEMPLATE_VISUALS[style];
   const { colors, showTagline, logoUrl, logoPosition } = customization;
+  const hasLogo = Boolean(logoUrl);
   const hfs = scaledHeadingFsWall(widthPx, heightPx, customization);
   const dfs = scaledDescFsWall(widthPx, heightPx, customization);
   const align = logoAlign(logoPosition);
@@ -90,6 +91,7 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
   const displayName = formatPrintDisplayName(branding.name, customization.typography.textTransform);
   const titleFont = titleFontFamily(customization);
   const titleExtras = titleStyleExtras(customization);
+  const tagline = showTagline && branding.tagline ? branding.tagline : null;
 
   if (visual.header === 'name-board') {
     return (
@@ -98,16 +100,24 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
         alignItems: 'center', justifyContent: 'center', gap: 8,
         minHeight: Math.round(bandH * 0.9),
       }}>
-        {logoUrl && <Logo url={logoUrl} height={Math.round(hfs * 0.9)} />}
-        <NameBoardTitle
-          name={displayName}
-          tagline={branding.tagline}
-          showTagline={Boolean(showTagline)}
-          color={colors.primary}
-          muted={colors.textMuted}
-          hfs={hfs}
-          dfs={dfs}
-        />
+        {hasLogo ? (
+          <>
+            <Logo url={logoUrl} height={Math.round(hfs * 1.1)} />
+            {tagline && (
+              <div style={{ fontFamily: 'Montserrat', fontSize: dfs, fontWeight: 600, color: colors.textMuted, letterSpacing: '0.18em', textTransform: 'uppercase' }}>{tagline}</div>
+            )}
+          </>
+        ) : (
+          <NameBoardTitle
+            name={displayName}
+            tagline={branding.tagline}
+            showTagline={Boolean(showTagline)}
+            color={colors.primary}
+            muted={colors.textMuted}
+            hfs={hfs}
+            dfs={dfs}
+          />
+        )}
         <div style={{ width: Math.round(Math.min(widthPx, heightPx) * 0.18), height: 2, background: colors.primary, marginTop: 4 }} />
       </div>
     );
@@ -117,35 +127,39 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
     return (
       <div style={{
         background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`,
-        minHeight: bandH, display: 'flex', flexDirection: isLandscape ? 'row' : 'column',
+        minHeight: bandH, display: 'flex', flexDirection: isLandscape && !hasLogo ? 'row' : 'column',
         justifyContent: 'center', alignItems: 'center', gap: isLandscape ? 16 : 4,
         padding: `0 ${pad}px`, margin: `-${pad}px -${pad}px ${headerGap}px`,
       }}>
-        {logoUrl && <Logo url={logoUrl} height={Math.round(bandH * 0.45)} />}
-        <div style={{ textAlign: isLandscape ? 'left' : 'center' }}>
-          <div style={{ fontFamily: titleFont, fontSize: hfs, fontWeight: headingWeight(customization), color: '#FFF', letterSpacing: '0.04em', ...titleExtras, textTransform: titleExtras.textTransform ?? textTransformCss(customization) }}>
-            {displayName}
+        {hasLogo ? (
+          <Logo url={logoUrl} height={Math.round(bandH * 0.55)} />
+        ) : (
+          <div style={{ textAlign: isLandscape ? 'left' : 'center' }}>
+            <div style={{ fontFamily: titleFont, fontSize: hfs, fontWeight: headingWeight(customization), color: '#FFF', letterSpacing: '0.04em', ...titleExtras, textTransform: titleExtras.textTransform ?? textTransformCss(customization) }}>
+              {displayName}
+            </div>
           </div>
-          {showTagline && branding.tagline && <div style={{ fontSize: dfs, color: 'rgba(255,255,255,0.85)' }}>{branding.tagline}</div>}
-        </div>
+        )}
+        {tagline && <div style={{ fontSize: dfs, color: 'rgba(255,255,255,0.85)' }}>{tagline}</div>}
       </div>
     );
   }
 
-  const headerAlign = ultraWide || align === 'center' ? 'center' : 'left';
+  const headerAlign = hasLogo || ultraWide || align === 'center' ? 'center' : 'left';
   return (
     <div style={{
       borderBottom: `3px solid ${colors.primary}`, paddingBottom: Math.round(Math.min(widthPx, heightPx) * 0.01),
       marginBottom: headerGap, display: 'flex', alignItems: 'center',
       justifyContent: headerAlign === 'center' ? 'center' : 'flex-start', gap: 12,
-      flexDirection: ultraWide ? 'column' : (isLandscape ? 'row' : 'column'),
+      flexDirection: hasLogo || ultraWide ? 'column' : (isLandscape ? 'row' : 'column'),
       textAlign: headerAlign,
     }}>
-      {logoUrl && <Logo url={logoUrl} height={Math.round(hfs * (ultraWide ? 0.85 : 1.2))} />}
-      <div>
+      {hasLogo ? (
+        <Logo url={logoUrl} height={Math.round(hfs * (ultraWide ? 1 : 1.35))} />
+      ) : (
         <div style={{ fontFamily: titleFont, fontSize: hfs, fontWeight: headingWeight(customization), color: colors.primary, ...titleExtras, textTransform: titleExtras.textTransform ?? textTransformCss(customization) }}>{displayName}</div>
-        {showTagline && branding.tagline && <div style={{ fontSize: dfs, color: colors.textMuted }}>{branding.tagline}</div>}
-      </div>
+      )}
+      {tagline && <div style={{ fontSize: dfs, color: colors.textMuted }}>{tagline}</div>}
     </div>
   );
 }
