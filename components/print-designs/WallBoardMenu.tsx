@@ -47,7 +47,22 @@ export interface WallBoardMenuProps {
 
 function Logo({ url, height }: { url?: string; height: number }) {
   if (!url) return null;
-  return <img src={url} alt="Logo" style={{ height, width: 'auto', objectFit: 'contain', display: 'block' }} />;
+  return (
+    <img
+      src={url}
+      alt="Logo"
+      style={{
+        height,
+        maxHeight: height,
+        width: 'auto',
+        maxWidth: '42%',
+        objectFit: 'contain',
+        objectPosition: 'center',
+        display: 'block',
+        flexShrink: 0,
+      }}
+    />
+  );
 }
 
 function NameBoardTitle({ name, tagline, showTagline, color, muted, hfs, dfs }: {
@@ -87,20 +102,20 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
   const align = logoAlign(logoPosition);
   const ultraWide = widthPx > heightPx * 2.2;
   const bandH = isLandscape ? Math.round(heightPx * (ultraWide ? 0.1 : 0.14)) : Math.round(heightPx * 0.12);
-  const headerGap = Math.round(Math.min(widthPx, heightPx) * 0.015);
+  const headerGap = Math.round(Math.min(widthPx, heightPx) * (hasLogo ? 0.008 : 0.015));
   const displayName = formatPrintDisplayName(branding.name, customization.typography.textTransform);
   const titleFont = titleFontFamily(customization);
   const titleExtras = titleStyleExtras(customization);
   const tagline = showTagline && branding.tagline ? branding.tagline : null;
-  // Logo replaces title — size from board height so ultra-wide strips stay readable.
-  const logoH = Math.round(Math.min(heightPx * (ultraWide ? 0.18 : 0.14), widthPx * 0.12));
+  // Compact logo band on ultra-wide boards so columns keep vertical room.
+  const logoH = Math.round(Math.min(heightPx * (ultraWide ? 0.08 : 0.09), widthPx * 0.055));
 
   if (visual.header === 'name-board') {
     return (
       <div style={{
         marginBottom: headerGap, display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', gap: 8,
-        minHeight: Math.round(bandH * (hasLogo ? 1.05 : 0.9)),
+        alignItems: 'center', justifyContent: 'center', gap: hasLogo ? 2 : 6,
+        ...(hasLogo ? {} : { minHeight: Math.round(bandH * 0.9) }),
       }}>
         {hasLogo ? (
           <>
@@ -120,7 +135,9 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
             dfs={dfs}
           />
         )}
-        <div style={{ width: Math.round(Math.min(widthPx, heightPx) * 0.18), height: 2, background: colors.primary, marginTop: 4 }} />
+        {!hasLogo && (
+          <div style={{ width: Math.round(Math.min(widthPx, heightPx) * 0.18), height: 2, background: colors.primary, marginTop: 4 }} />
+        )}
       </div>
     );
   }
@@ -282,7 +299,9 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
   const palette = wallColumnPalette(customization.colors, customization.columnColors);
   const isLandscape = fmt.orientation === 'landscape';
   const hasFooterSocial = Boolean(branding.phone || branding.instagram);
-  const contentHeight = wallBoardContentHeight(heightPx, widthPx, pad, isLandscape, customization.showQR, hasFooterSocial);
+  const contentHeight = wallBoardContentHeight(
+    heightPx, widthPx, pad, isLandscape, customization.showQR, hasFooterSocial, Boolean(customization.logoUrl),
+  );
   const maxItems = Math.max(1, ...menuItems.map((c) => c.items.length));
   const maxTitleChars = Math.max(
     1,
