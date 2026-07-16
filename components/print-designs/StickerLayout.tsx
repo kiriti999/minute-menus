@@ -13,7 +13,6 @@ import CompactMenuLayout from "./CompactMenuLayout";
 import {
 	effectiveFonts,
 	formatPrintDisplayName,
-	hexToRgba,
 	titleFontFamily,
 	titleStyleExtras,
 } from "./menuStyleHelpers";
@@ -74,15 +73,15 @@ function CircleSticker({
 	const fonts = effectiveFonts(customization);
 	const { colors, showQR, showTagline, logoUrl } = customization;
 	const size = widthPx;
-	const ring = Math.max(4, Math.round(size * 0.024));
 	const hasLogo = Boolean(logoUrl);
-	const qrSize = Math.round(size * (hasLogo ? 0.32 : 0.36));
+	const qrSize = Math.round(size * (hasLogo ? 0.3 : 0.34));
 	const nameFs = Math.max(7, Math.round(size * 0.072));
-	const innerPad = Math.round(size * 0.07);
+	const padX = Math.round(size * 0.14);
+	const padTop = Math.round(size * 0.1);
+	const padBottom = Math.round(size * 0.15);
 	const displayName = formatPrintDisplayName(branding.name, customization.typography.textTransform);
 	const titleFont = titleFontFamily(customization);
 	const titleExtras = titleStyleExtras(customization);
-	const innerBg = customization.backgroundType === "gradient" ? "#FFFFFF" : colors.background;
 	const qrBorderWidth = customization.qrBorderWidth ?? DEFAULT_QR_BORDER_WIDTH;
 	const qrBorderColor = customization.qrBorderColor ?? DEFAULT_QR_BORDER_COLOR;
 
@@ -93,55 +92,35 @@ function CircleSticker({
 				height: size,
 				borderRadius: "50%",
 				boxSizing: "border-box",
-				background: `linear-gradient(145deg, ${colors.primary}, ${colors.secondary}, ${colors.accent})`,
-				padding: ring,
-				boxShadow: `0 4px 18px ${hexToRgba(colors.primary, 0.22)}`,
+				background: "#FFFFFF",
+				overflow: "hidden",
+				position: "relative",
+				display: "flex",
+				flexDirection: "column",
+				alignItems: "center",
+				justifyContent: "flex-start",
+				padding: `${padTop}px ${padX}px ${padBottom}px`,
+				fontFamily: fonts.body,
+				gap: Math.round(size * 0.012),
 			}}
 		>
-			<div
-				style={{
-					width: "100%",
-					height: "100%",
-					borderRadius: "50%",
-					overflow: "hidden",
-					position: "relative",
-					background: innerBg,
-					display: "flex",
-					flexDirection: "column",
-					alignItems: "center",
-					justifyContent: "center",
-					padding: innerPad,
-					boxSizing: "border-box",
-					fontFamily: fonts.body,
-					gap: Math.round(size * 0.02),
-				}}
-			>
-				<div
-					aria-hidden
-					style={{
-						position: "absolute",
-						inset: Math.round(size * 0.045),
-						borderRadius: "50%",
-						border: `1px dashed ${hexToRgba(colors.accent, 0.4)}`,
-						pointerEvents: "none",
-					}}
-				/>
-
 				{hasLogo && (
-					<div style={{ flexShrink: 0, lineHeight: 0 }}>
+					<div style={{ flexShrink: 0, lineHeight: 0, marginBottom: Math.round(size * 0.004) }}>
 						<Logo url={logoUrl} height={Math.round(size * 0.24)} />
 					</div>
 				)}
 
 				{showQR && (
-					<CircleQrBadge
-						siteUrl={siteUrl}
-						qrSize={qrSize}
-						colors={colors}
-						size={size}
-						borderWidth={qrBorderWidth}
-						borderColor={qrBorderColor}
-					/>
+					<div style={{ flexShrink: 0, marginTop: Math.round(size * 0.004) }}>
+						<CircleQrBadge
+							siteUrl={siteUrl}
+							qrSize={qrSize}
+							colors={colors}
+							size={size}
+							borderWidth={qrBorderWidth}
+							borderColor={qrBorderColor}
+						/>
+					</div>
 				)}
 
 				{!hasLogo && (
@@ -175,22 +154,27 @@ function CircleSticker({
 
 				<div
 					style={{
-						marginTop: Math.round(size * 0.01),
-						padding: `${Math.max(3, Math.round(size * 0.012))}px ${Math.round(size * 0.038)}px`,
+						marginTop: Math.round(size * 0.02),
+						maxWidth: "72%",
+						boxSizing: "border-box",
+						padding: `${Math.max(2, Math.round(size * 0.01))}px ${Math.round(size * 0.028)}px`,
 						borderRadius: 999,
 						background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})`,
 						color: "#FFF",
-						fontSize: Math.max(5, Math.round(size * 0.045)),
+						fontSize: Math.max(5, Math.round(size * 0.036)),
 						fontWeight: 600,
-						letterSpacing: "0.14em",
+						letterSpacing: "0.06em",
 						textTransform: "uppercase",
+						textAlign: "center",
+						lineHeight: 1.2,
 						flexShrink: 0,
 						zIndex: 1,
+						whiteSpace: "nowrap",
+						overflow: "hidden",
 					}}
 				>
 					Scan to order
 				</div>
-			</div>
 		</div>
 	);
 }
