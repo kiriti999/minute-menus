@@ -23,6 +23,7 @@ export const CustomerAddressLocate: React.FC<CustomerAddressLocateProps> = ({
   const [query, setQuery] = useState("");
   const [preds, setPreds] = useState<Array<{ description: string; placeId: string }>>([]);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchHint, setSearchHint] = useState("");
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [loadingPlace, setLoadingPlace] = useState(false);
   const [loadingCurrent, setLoadingCurrent] = useState(false);
@@ -45,16 +46,24 @@ export const CustomerAddressLocate: React.FC<CustomerAddressLocateProps> = ({
     const q = query.trim();
     if (q.length < 3) {
       setPreds([]);
+      setSearchHint("");
       return;
     }
     debounceRef.current = setTimeout(() => {
       setLoadingSearch(true);
+      setSearchHint("");
       void searchPlacePredictions(q)
         .then((list) => {
           setPreds(list);
-          setSearchOpen(true);
+          setSearchOpen(list.length > 0);
+          setSearchHint(list.length === 0 ? "No places found — try a different search" : "");
         })
-        .catch((e) => onErrorRef.current?.(e instanceof Error ? e.message : "Place search failed"))
+        .catch((e) => {
+          setPreds([]);
+          const msg = e instanceof Error ? e.message : "Place search failed";
+          setSearchHint(msg);
+          onErrorRef.current?.(msg);
+        })
         .finally(() => setLoadingSearch(false));
     }, 280);
     return () => {
@@ -66,6 +75,7 @@ export const CustomerAddressLocate: React.FC<CustomerAddressLocateProps> = ({
     setLoadingPlace(true);
     setSearchOpen(false);
     setQuery(description);
+    setSearchHint("");
     try {
       const address = await fetchPlaceDetails(placeId);
       onResolved(address);
@@ -77,12 +87,17 @@ export const CustomerAddressLocate: React.FC<CustomerAddressLocateProps> = ({
   };
 
   const useCurrent = async () => {
+    if (!configured) {
+      onError?.("Google Maps is not configured. Restart the app after setting VITE_GOOGLE_MAPS_API_KEY.");
+      return;
+    }
     setLoadingCurrent(true);
     try {
       const { lat, lng } = await getCurrentPosition();
       const address = await reverseGeocode(lat, lng);
       onResolved(address);
       if (address.formattedAddress) setQuery(address.formattedAddress);
+      setSearchHint("");
     } catch (e) {
       onError?.(e instanceof Error ? e.message : "Could not use current location");
     } finally {
@@ -90,61 +105,71 @@ export const CustomerAddressLocate: React.FC<CustomerAddressLocateProps> = ({
     }
   };
 
-  if (!configured) {
-    return (
-      <p className="text-[11px] text-zinc-500 leading-snug mb-3">
-        Google location search is not configured. Enter the address manually, or set{" "}
-        <span className="font-mono text-zinc-400">VITE_GOOGLE_MAPS_API_KEY</span>.
-      </p>
-    );
-  }
-
   const busy = loadingPlace || loadingCurrent;
 
   return (
-    <div className="space-y-2 mb-3" ref={wrapRef}>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => void useCurrent()}
-          className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-zinc-600 text-[11px] font-bold uppercase tracking-wider text-white hover:bg-zinc-900 disabled:opacity-50"
-        >
-          {loadingCurrent ? <Loader2 size={13} className="animate-spin" /> : <LocateFixed size={13} />}
-          Current location
-        </button>
-      </div>
-      <div className="relative">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
-        <input
-          type="search"
-          value={query}
-          disabled={busy}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => preds.length > 0 && setSearchOpen(true)}
-          placeholder="Locate by Google — search area / building"
-          className="w-full bg-zinc-900 border border-zinc-700 text-white pl-9 pr-9 py-2.5 rounded text-sm outline-none focus:border-zinc-500 transition-colors disabled:opacity-50"
-          autoComplete="off"
-        />
-        {(loadingSearch || loadingPlace) && (
-          <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 animate-spin" />
+    <div className="space-y-3 mb-4" ref={wrapRef}>
+      {!configured && (
+        <p className="text-[11px] text-amber-400/90 leading-snug">
+          Google location needs a restart after setting{" "}
+          <span className="font-mono text-amber-300">VITE_GOOGLE_MAPS_API_KEY</span> in{" "}
+          <span className="font-mono">.env</span>.
+        </p>
+      )}
+
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void useCurrent()}
+        className="w-full inline-flex items-center justify-center gap-2 px-3 py-3 rounded-lg border border-emerald-700/80 bg-emerald-950/40 text-[12px] font-bold uppercase tracking-wider text-emerald-100 hover:bg-emerald-950/70 disabled:opacity-50"
+      >
+        {loadingCurrent ? <Loader2 size={15} className="animate-spin" /> : <LocateFixed size={15} />}
+        Use current location
+      </button>
+
+      <div>
+        <label className="block text-[10px] font-bold uppercase tracking-widest text-zinc-400 mb-1.5">
+          Search on Google
+        </label>
+        <div className="relative">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+          <input
+            type="search"
+            value={query}
+            disabled={busy || !configured}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => preds.length > 0 && setSearchOpen(true)}
+            placeholder="Type area, building, or landmark…"
+            className="w-full bg-zinc-900 border border-zinc-700 text-white pl-9 pr-9 py-2.5 rounded text-sm outline-none focus:border-zinc-500 transition-colors disabled:opacity-50"
+            autoComplete="off"
+          />
+          {(loadingSearch || loadingPlace) && (
+            <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 animate-spin" />
+          )}
+          {searchOpen && preds.length > 0 && (
+            <ul className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-950 shadow-xl">
+              {preds.map((p) => (
+                <li key={p.placeId}>
+                  <button
+                    type="button"
+                    onClick={() => void pickPlace(p.placeId, p.description)}
+                    className="w-full text-left px-3 py-2.5 text-xs text-zinc-200 hover:bg-zinc-900 border-b border-zinc-800 last:border-0"
+                  >
+                    {p.description}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        {searchHint && (
+          <p className="mt-1.5 text-[11px] text-zinc-500 leading-snug">{searchHint}</p>
         )}
-        {searchOpen && preds.length > 0 && (
-          <ul className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-950 shadow-xl">
-            {preds.map((p) => (
-              <li key={p.placeId}>
-                <button
-                  type="button"
-                  onClick={() => void pickPlace(p.placeId, p.description)}
-                  className="w-full text-left px-3 py-2.5 text-xs text-zinc-200 hover:bg-zinc-900 border-b border-zinc-800 last:border-0"
-                >
-                  {p.description}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
+
+      <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 pt-1">
+        Or enter address manually
+      </p>
     </div>
   );
 };

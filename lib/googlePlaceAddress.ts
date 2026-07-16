@@ -64,15 +64,23 @@ export async function searchPlacePredictions(input: string): Promise<Array<{ des
   if (q.length < 3) return [];
   const maps = await loadGoogleMaps();
   const service = new maps.places.AutocompleteService();
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     service.getPlacePredictions(
       { input: q, componentRestrictions: { country: "in" } },
       (preds, status) => {
-        if (status !== maps.places.PlacesServiceStatus.OK || !preds) {
+        if (status === maps.places.PlacesServiceStatus.OK && preds) {
+          resolve(preds.map((p) => ({ description: p.description, placeId: p.place_id })));
+          return;
+        }
+        if (status === "ZERO_RESULTS") {
           resolve([]);
           return;
         }
-        resolve(preds.map((p) => ({ description: p.description, placeId: p.place_id })));
+        if (status === "REQUEST_DENIED") {
+          reject(new Error("Google Places denied this key. Enable Places API and check key restrictions."));
+          return;
+        }
+        reject(new Error(`Place search failed (${status}). Try again or enter manually.`));
       },
     );
   });
