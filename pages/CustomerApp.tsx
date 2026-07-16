@@ -56,6 +56,22 @@ interface CustomerAppProps {
   currency?: string;
 }
 
+function formatDeliveryAddress(profile: CustomerProfile): string {
+  if (profile.formattedAddress?.trim()) return profile.formattedAddress.trim();
+  return [
+    profile.addressLine1,
+    profile.addressLine2,
+    profile.street,
+    profile.area,
+    profile.landmark ? `Near ${profile.landmark}` : undefined,
+    [profile.city, profile.state].filter(Boolean).join(", "),
+    profile.pincode,
+  ]
+    .map((p) => p?.trim())
+    .filter(Boolean)
+    .join(", ");
+}
+
 export const CustomerApp: React.FC<CustomerAppProps> = ({
   onNavigateToDashboard,
   isDarkTheme,
@@ -111,6 +127,8 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const [detailsCity, setDetailsCity] = useState("");
   const [detailsState, setDetailsState] = useState("");
   const [detailsPincode, setDetailsPincode] = useState("");
+  /** `edit` = change address from cart (no payment); `checkout` = fill then pay. */
+  const [detailsPurpose, setDetailsPurpose] = useState<"checkout" | "edit">("checkout");
   // ──────────────────────────────────────────────────────────────────────────
 
   // ── Subscription state ──────────────────────────────────────────────
@@ -420,20 +438,39 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     );
   };
 
+  const fillDetailsFromProfile = (profile: CustomerProfile) => {
+    setDetailsName(profile.name ?? "");
+    setDetailsPhone(profile.phone ?? "");
+    setDetailsAddressLine1(profile.addressLine1 ?? "");
+    setDetailsAddressLine2(profile.addressLine2 ?? "");
+    setDetailsStreet(profile.street ?? "");
+    setDetailsArea(profile.area ?? "");
+    setDetailsLandmark(profile.landmark ?? "");
+    setDetailsCity(profile.city ?? "");
+    setDetailsState(profile.state ?? "");
+    setDetailsPincode(profile.pincode ?? "");
+  };
+
+  const openDeliveryDetails = (purpose: "checkout" | "edit", profile?: CustomerProfile | null) => {
+    setDetailsPurpose(purpose);
+    if (profile) fillDetailsFromProfile(profile);
+    setAuthStep("details");
+    setAuthError("");
+    setIsAuthModalOpen(true);
+  };
+
   const handleConfirmOrder = async () => {
     // Check if profile is complete for checkout
     if (!customerProfile) {
       // Not logged in — start at auth step
+      setDetailsPurpose("checkout");
       setAuthStep("auth");
       setAuthError("");
       setIsAuthModalOpen(true);
       return;
     }
     if (!supabaseService.isProfileComplete(customerProfile)) {
-      // Logged in but missing required fields — go to details step
-      setAuthStep("details");
-      setAuthError("");
-      setIsAuthModalOpen(true);
+      openDeliveryDetails("checkout", customerProfile);
       return;
     }
     // Profile complete — proceed to payment
@@ -453,22 +490,12 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       } else {
         const { profile } = await supabaseService.customerSignIn(authEmail.trim(), authPassword);
         setCustomerProfile(profile);
-        if (profile) {
-          setDetailsName(profile.name ?? "");
-          setDetailsPhone(profile.phone ?? "");
-          setDetailsAddressLine1(profile.addressLine1 ?? "");
-          setDetailsAddressLine2(profile.addressLine2 ?? "");
-          setDetailsStreet(profile.street ?? "");
-          setDetailsArea(profile.area ?? "");
-          setDetailsLandmark(profile.landmark ?? "");
-          setDetailsCity(profile.city ?? "");
-          setDetailsState(profile.state ?? "");
-          setDetailsPincode(profile.pincode ?? "");
-        }
+        if (profile) fillDetailsFromProfile(profile);
         if (profile && supabaseService.isProfileComplete(profile)) {
           setIsAuthModalOpen(false);
           await processOrderPayment(profile);
         } else {
+          setDetailsPurpose("checkout");
           setAuthStep("details");
         }
       }
@@ -557,6 +584,10 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       const updatedProfile = await supabaseService.getCustomerProfile(customer.userId);
       setCustomerProfile(updatedProfile);
       setIsAuthModalOpen(false);
+      if (detailsPurpose === "edit") {
+        setDetailsPurpose("checkout");
+        return;
+      }
       if (updatedProfile) {
         await processOrderPayment(updatedProfile);
       }
@@ -717,6 +748,10 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     for (const item of cart) map[item.dishId] = item.quantity;
     return map;
   }, [cart]);
+  const deliveryAddressSummary = useMemo(() => {
+    if (!customerProfile || !supabaseService.isProfileComplete(customerProfile)) return null;
+    return formatDeliveryAddress(customerProfile);
+  }, [customerProfile]);
   const displayRestaurantName = useMemo(
     () => (restaurantName ? formatDisplayName(restaurantName) : null),
     [restaurantName],
@@ -1247,7 +1282,14 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
             <div className="p-6 border-b border-zinc-800 flex items-center gap-3">
               {authStep !== "auth" && (
                 <button
-                  onClick={() => setAuthStep(authStep === "details" && !customerProfile?.emailVerified ? "otp" : "auth")}
+                  onClick={() => {
+                    if (authStep === "details" && detailsPurpose === "edit") {
+                      setIsAuthModalOpen(false);
+                      setDetailsPurpose("checkout");
+                      return;
+                    }
+                    setAuthStep(authStep === "details" && !customerProfile?.emailVerified ? "otp" : "auth");
+                  }}
                   className="p-1.5 hover:bg-zinc-900 rounded-full transition-colors"
                 >
                   <ChevronLeft size={20} className="text-zinc-400" />
@@ -1257,15 +1299,23 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                 <h2 className="text-xl font-light tracking-tight text-white">
                   {authStep === "auth" && (isSignUp ? "Create Account" : "Welcome Back")}
                   {authStep === "otp" && "Verify Email"}
-                  {authStep === "details" && "Delivery Details"}
+                  {authStep === "details" && (detailsPurpose === "edit" ? "Edit Address" : "Delivery Details")}
                 </h2>
                 <p className="text-zinc-500 text-sm mt-0.5">
                   {authStep === "auth" && "Sign up or log in to complete your order"}
                   {authStep === "otp" && `Enter the code sent to ${authEmail}`}
-                  {authStep === "details" && "We need your details for delivery"}
+                  {authStep === "details" && (detailsPurpose === "edit"
+                    ? "Update where we should deliver this order"
+                    : "We need your details for delivery")}
                 </p>
               </div>
-              <button onClick={() => setIsAuthModalOpen(false)} className="p-2 hover:bg-zinc-900 rounded-full transition-colors">
+              <button
+                onClick={() => {
+                  setIsAuthModalOpen(false);
+                  setDetailsPurpose("checkout");
+                }}
+                className="p-2 hover:bg-zinc-900 rounded-full transition-colors"
+              >
                 <X size={24} strokeWidth={1} className="text-zinc-400" />
               </button>
             </div>
@@ -1487,7 +1537,9 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                     disabled={authLoading}
                     className="w-full py-3.5 bg-white text-black rounded font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 mt-4"
                   >
-                    <ButtonSpinner loading={authLoading} spinnerSize="sm">PROCEED TO PAY</ButtonSpinner>
+                    <ButtonSpinner loading={authLoading} spinnerSize="sm">
+                      {detailsPurpose === "edit" ? "SAVE ADDRESS" : "PROCEED TO PAY"}
+                    </ButtonSpinner>
                   </button>
                 </div>
               )}
@@ -2067,6 +2119,53 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
             </div>
 
             <div className="p-4 sm:p-8 border-t border-zinc-900 bg-zinc-950">
+              {cart.length > 0 && (
+                <div className="mb-4 rounded-xl border border-zinc-800 bg-zinc-900/70 px-3.5 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex items-start gap-2">
+                      <MapPin size={14} className="mt-0.5 shrink-0 text-zinc-500" />
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-1">
+                          Delivering to
+                        </p>
+                        {deliveryAddressSummary ? (
+                          <>
+                            {customerProfile?.name && (
+                              <p className="text-sm text-white font-medium truncate">{customerProfile.name}</p>
+                            )}
+                            <p className="text-xs text-zinc-400 leading-snug mt-0.5 line-clamp-3">
+                              {deliveryAddressSummary}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-xs text-zinc-400 leading-snug">
+                            Add a delivery address before you pay.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!customerProfile) {
+                          setDetailsPurpose("checkout");
+                          setAuthStep("auth");
+                          setAuthError("");
+                          setIsAuthModalOpen(true);
+                          return;
+                        }
+                        openDeliveryDetails(
+                          supabaseService.isProfileComplete(customerProfile) ? "edit" : "checkout",
+                          customerProfile,
+                        );
+                      }}
+                      className="shrink-0 text-[11px] font-bold uppercase tracking-wider text-white underline underline-offset-2 hover:text-zinc-300"
+                    >
+                      {deliveryAddressSummary ? "Edit" : "Add"}
+                    </button>
+                  </div>
+                </div>
+              )}
               {showGst && cart.length > 0 && (
                 <div className="space-y-2 mb-4 text-sm">
                   <div className="flex justify-between text-zinc-400">
