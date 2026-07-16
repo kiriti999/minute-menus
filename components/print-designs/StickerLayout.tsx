@@ -13,6 +13,7 @@ import CompactMenuLayout from "./CompactMenuLayout";
 import {
 	effectiveFonts,
 	formatPrintDisplayName,
+	hexToRgba,
 	titleFontFamily,
 	titleStyleExtras,
 } from "./menuStyleHelpers";
@@ -73,13 +74,16 @@ function CircleSticker({
 	const fonts = effectiveFonts(customization);
 	const { colors, showQR, showTagline, logoUrl } = customization;
 	const size = widthPx;
-	const hasLogo = Boolean(logoUrl);
-	const qrSize = Math.round(size * (hasLogo ? 0.3 : 0.34));
-	const nameFs = Math.max(7, Math.round(size * 0.072));
+	const hasLogo = Boolean(logoUrl?.trim());
+	const qrSize = Math.round(size * (hasLogo ? 0.3 : 0.28));
+	const nameFs = Math.max(8, Math.round(size * 0.078));
 	const padX = Math.round(size * 0.14);
 	const padTop = Math.round(size * 0.1);
 	const padBottom = Math.round(size * 0.15);
-	const displayName = formatPrintDisplayName(branding.name, customization.typography.textTransform);
+	const displayName = formatPrintDisplayName(
+		branding.name?.trim() || "Restaurant",
+		customization.typography.textTransform,
+	);
 	const titleFont = titleFontFamily(customization);
 	const titleExtras = titleStyleExtras(customization);
 	const qrBorderWidth = customization.qrBorderWidth ?? DEFAULT_QR_BORDER_WIDTH;
@@ -104,77 +108,86 @@ function CircleSticker({
 				gap: Math.round(size * 0.012),
 			}}
 		>
-				{hasLogo && (
-					<div style={{ flexShrink: 0, lineHeight: 0, marginBottom: Math.round(size * 0.004) }}>
-						<Logo url={logoUrl} height={Math.round(size * 0.24)} />
-					</div>
-				)}
+			<div
+				aria-hidden
+				style={{
+					position: "absolute",
+					inset: Math.round(size * 0.045),
+					borderRadius: "50%",
+					border: `1px dashed ${hexToRgba(colors.accent, 0.45)}`,
+					pointerEvents: "none",
+				}}
+			/>
 
-				{showQR && (
-					<div style={{ flexShrink: 0, marginTop: Math.round(size * 0.004) }}>
-						<CircleQrBadge
-							siteUrl={siteUrl}
-							qrSize={qrSize}
-							colors={colors}
-							size={size}
-							borderWidth={qrBorderWidth}
-							borderColor={qrBorderColor}
-						/>
+			{hasLogo ? (
+				<div style={{ flexShrink: 0, lineHeight: 0, zIndex: 1 }}>
+					<Logo url={logoUrl} height={Math.round(size * 0.24)} />
+				</div>
+			) : (
+				<div style={{ textAlign: "center", maxWidth: "86%", zIndex: 1, flexShrink: 0 }}>
+					<div
+						style={{
+							fontFamily: titleFont,
+							fontSize: nameFs,
+							fontWeight: 700,
+							color: colors.primary,
+							lineHeight: 1.15,
+							...titleExtras,
+						}}
+					>
+						{displayName}
 					</div>
-				)}
-
-				{!hasLogo && (
-					<div style={{ textAlign: "center", maxWidth: "86%", zIndex: 1, flexShrink: 0 }}>
+					{showTagline && branding.tagline && (
 						<div
 							style={{
-								fontFamily: titleFont,
-								fontSize: nameFs,
-								fontWeight: 700,
-								color: colors.primary,
-								lineHeight: 1.15,
-								...titleExtras,
+								fontSize: Math.max(5, nameFs - 2),
+								color: colors.textMuted,
+								marginTop: 2,
+								lineHeight: 1.2,
 							}}
 						>
-							{displayName}
+							{branding.tagline}
 						</div>
-						{showTagline && branding.tagline && (
-							<div
-								style={{
-									fontSize: Math.max(5, nameFs - 2),
-									color: colors.textMuted,
-									marginTop: 2,
-									lineHeight: 1.2,
-								}}
-							>
-								{branding.tagline}
-							</div>
-						)}
-					</div>
-				)}
-
-				<div
-					style={{
-						marginTop: Math.round(size * 0.02),
-						maxWidth: "72%",
-						boxSizing: "border-box",
-						padding: `${Math.max(2, Math.round(size * 0.01))}px ${Math.round(size * 0.028)}px`,
-						borderRadius: 999,
-						background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})`,
-						color: "#FFF",
-						fontSize: Math.max(5, Math.round(size * 0.036)),
-						fontWeight: 600,
-						letterSpacing: "0.06em",
-						textTransform: "uppercase",
-						textAlign: "center",
-						lineHeight: 1.2,
-						flexShrink: 0,
-						zIndex: 1,
-						whiteSpace: "nowrap",
-						overflow: "hidden",
-					}}
-				>
-					Scan to order
+					)}
 				</div>
+			)}
+
+			{showQR && (
+				<div style={{ flexShrink: 0, zIndex: 1 }}>
+					<CircleQrBadge
+						siteUrl={siteUrl}
+						qrSize={qrSize}
+						colors={colors}
+						size={size}
+						borderWidth={qrBorderWidth}
+						borderColor={qrBorderColor}
+					/>
+				</div>
+			)}
+
+			<div
+				style={{
+					marginTop: Math.round(size * 0.01),
+					maxWidth: "72%",
+					boxSizing: "border-box",
+					padding: `${Math.max(2, Math.round(size * 0.01))}px ${Math.round(size * 0.028)}px`,
+					borderRadius: 999,
+					background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})`,
+					color: "#FFF",
+					fontSize: Math.max(5, Math.round(size * 0.036)),
+					fontWeight: 600,
+					letterSpacing: "0.06em",
+					textTransform: "uppercase",
+					textAlign: "center",
+					lineHeight: 1.2,
+					flexShrink: 0,
+					zIndex: 1,
+					whiteSpace: "nowrap",
+					overflow: "hidden",
+				}}
+			>
+				Scan to order
+			</div>
 		</div>
 	);
 }
