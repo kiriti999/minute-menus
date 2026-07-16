@@ -30,7 +30,13 @@ export interface StickerLayoutProps {
 
 function Logo({ url, height }: { url?: string; height: number }) {
 	if (!url) return null;
-	return <img src={url} alt="Logo" style={{ height, width: "auto", objectFit: "contain", display: "block" }} />;
+	return (
+		<img
+			src={url}
+			alt="Logo"
+			style={{ height, maxHeight: height, width: "auto", maxWidth: "100%", objectFit: "contain", display: "block" }}
+		/>
+	);
 }
 
 function CircleQrBadge({
@@ -65,6 +71,29 @@ function CircleQrBadge({
 	);
 }
 
+/** Vertical budget so logo + QR + CTA never spill past the circle (html2canvas clips overflow). */
+function circleStickerSizes(size: number, hasLogo: boolean, showQR: boolean, qrBorderWidth: number) {
+	const padX = Math.round(size * 0.14);
+	const padTop = Math.round(size * 0.08);
+	const padBottom = Math.round(size * 0.14);
+	const gap = Math.max(4, Math.round(size * 0.018));
+	const ctaFs = Math.max(6, Math.round(size * 0.034));
+	const ctaPadY = Math.max(4, Math.round(size * 0.016));
+	const ctaH = Math.ceil(ctaFs * 1.35) + ctaPadY * 2;
+	const stroke = Math.max(0, qrBorderWidth);
+	const qrChrome = 2 * Math.max(1, Math.round(stroke + 1));
+	const slots = 2 + (showQR ? 1 : 0); // header + optional QR + CTA
+	const free = size - padTop - padBottom - ctaH - gap * (slots - 1);
+	const nameFs = Math.max(8, Math.round(size * 0.07));
+	const logoH = hasLogo ? Math.round(Math.min(size * 0.2, free * 0.36)) : 0;
+	const headerH = hasLogo ? logoH : Math.ceil(nameFs * 1.15) + 4;
+	const qrOuterMax = showQR ? Math.max(24, free - headerH) : 0;
+	const qrSize = showQR
+		? Math.round(Math.min(size * (hasLogo ? 0.28 : 0.3), qrOuterMax - qrChrome))
+		: 0;
+	return { padX, padTop, padBottom, gap, ctaFs, ctaPadY, logoH, nameFs, qrSize };
+}
+
 function CircleSticker({
 	customization,
 	branding,
@@ -75,19 +104,15 @@ function CircleSticker({
 	const { colors, showQR, showTagline, logoUrl } = customization;
 	const size = widthPx;
 	const hasLogo = Boolean(logoUrl?.trim());
-	const qrSize = Math.round(size * (hasLogo ? 0.3 : 0.28));
-	const nameFs = Math.max(8, Math.round(size * 0.078));
-	const padX = Math.round(size * 0.14);
-	const padTop = Math.round(size * 0.1);
-	const padBottom = Math.round(size * 0.15);
+	const qrBorderWidth = customization.qrBorderWidth ?? DEFAULT_QR_BORDER_WIDTH;
+	const qrBorderColor = customization.qrBorderColor ?? DEFAULT_QR_BORDER_COLOR;
+	const s = circleStickerSizes(size, hasLogo, Boolean(showQR), qrBorderWidth);
 	const displayName = formatPrintDisplayName(
 		branding.name?.trim() || "Restaurant",
 		customization.typography.textTransform,
 	);
 	const titleFont = titleFontFamily(customization);
 	const titleExtras = titleStyleExtras(customization);
-	const qrBorderWidth = customization.qrBorderWidth ?? DEFAULT_QR_BORDER_WIDTH;
-	const qrBorderColor = customization.qrBorderColor ?? DEFAULT_QR_BORDER_COLOR;
 
 	return (
 		<div
@@ -102,10 +127,10 @@ function CircleSticker({
 				display: "flex",
 				flexDirection: "column",
 				alignItems: "center",
-				justifyContent: "flex-start",
-				padding: `${padTop}px ${padX}px ${padBottom}px`,
+				justifyContent: "center",
+				padding: `${s.padTop}px ${s.padX}px ${s.padBottom}px`,
 				fontFamily: fonts.body,
-				gap: Math.round(size * 0.012),
+				gap: s.gap,
 			}}
 		>
 			<div
@@ -120,15 +145,15 @@ function CircleSticker({
 			/>
 
 			{hasLogo ? (
-				<div style={{ flexShrink: 0, lineHeight: 0, zIndex: 1 }}>
-					<Logo url={logoUrl} height={Math.round(size * 0.24)} />
+				<div style={{ flexShrink: 0, lineHeight: 0, zIndex: 1, maxHeight: s.logoH }}>
+					<Logo url={logoUrl} height={s.logoH} />
 				</div>
 			) : (
 				<div style={{ textAlign: "center", maxWidth: "86%", zIndex: 1, flexShrink: 0 }}>
 					<div
 						style={{
 							fontFamily: titleFont,
-							fontSize: nameFs,
+							fontSize: s.nameFs,
 							fontWeight: 700,
 							color: colors.primary,
 							lineHeight: 1.15,
@@ -140,7 +165,7 @@ function CircleSticker({
 					{showTagline && branding.tagline && (
 						<div
 							style={{
-								fontSize: Math.max(5, nameFs - 2),
+								fontSize: Math.max(5, s.nameFs - 2),
 								color: colors.textMuted,
 								marginTop: 2,
 								lineHeight: 1.2,
@@ -156,7 +181,7 @@ function CircleSticker({
 				<div style={{ flexShrink: 0, zIndex: 1 }}>
 					<CircleQrBadge
 						siteUrl={siteUrl}
-						qrSize={qrSize}
+						qrSize={s.qrSize}
 						colors={colors}
 						size={size}
 						borderWidth={qrBorderWidth}
@@ -167,23 +192,24 @@ function CircleSticker({
 
 			<div
 				style={{
-					marginTop: Math.round(size * 0.01),
-					maxWidth: "72%",
+					maxWidth: "78%",
 					boxSizing: "border-box",
-					padding: `${Math.max(2, Math.round(size * 0.01))}px ${Math.round(size * 0.028)}px`,
+					padding: `${s.ctaPadY}px ${Math.round(size * 0.032)}px`,
 					borderRadius: 999,
 					background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})`,
 					color: "#FFF",
-					fontSize: Math.max(5, Math.round(size * 0.036)),
+					fontSize: s.ctaFs,
 					fontWeight: 600,
 					letterSpacing: "0.06em",
 					textTransform: "uppercase",
 					textAlign: "center",
-					lineHeight: 1.2,
+					lineHeight: 1.35,
 					flexShrink: 0,
 					zIndex: 1,
 					whiteSpace: "nowrap",
-					overflow: "hidden",
+					display: "flex",
+					alignItems: "center",
+					justifyContent: "center",
 				}}
 			>
 				Scan to order
