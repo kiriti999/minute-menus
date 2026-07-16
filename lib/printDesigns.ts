@@ -15,7 +15,7 @@ import type {
   StickerShape,
   TemplateCategory,
   TemplateStyle,
-  type JobFlyerContent,
+  JobFlyerContent,
 } from "@minute-menus/types";
 import { GRADIENT_PRESETS } from "./printDesignsGradients";
 
@@ -141,10 +141,20 @@ export const DEFAULT_JOB_FLYER_CONTENT: JobFlyerContent = {
 
 // ─── Colour schemes ───────────────────────────────────────────────────────────
 // Curated for print menus: high contrast text, distinct roles
-// (primary = headers, secondary = bands/gradients, accent = prices),
-// warm paper tones, no Material-default neon stacks.
+// (primary = headers, secondary = bands/gradients, accent = prices).
+// Brand lead: Fresh & Fusion name-board teal (stickers / flyers / pamphlets).
+
+/** Name-board brand palette — default for stickers, pamphlets, job flyers. */
+export const BRAND_COLOR_SCHEME: ColorSchemeKey = 'teal-calm';
+
+export function usesBrandColors(designType: PrintDesignType): boolean {
+  return designType === 'pamphlet' || designType === 'sticker'
+    || designType === 'job-flyer' || designType === 'pocket-card';
+}
 
 export const COLOR_SCHEMES: Record<ColorSchemeKey, DesignColors & { label: string }> = {
+  // Lead with brand (Fresh & Fusion name board: deep teal · white · soft gold)
+  'teal-calm':        { label: 'Fresh Teal',        primary: '#0B4A42', secondary: '#146B5E', background: '#FFFFFF', text: '#1A2E2A', textMuted: '#5A7A74', accent: '#C4A574', border: '#D5E5E0' },
   'classic-black':    { label: 'Ink & Brass',       primary: '#141414', secondary: '#3A3A3A', background: '#FAFAF8', text: '#1F1F1F', textMuted: '#6E6E6E', accent: '#A68B5B', border: '#E4E2DC' },
   'warm-sunset':      { label: 'Terracotta Glow',   primary: '#C23B22', secondary: '#E07A3D', background: '#FFF7F0', text: '#241612', textMuted: '#8A5A45', accent: '#E9A45A', border: '#EED4C0' },
   'ocean-blue':       { label: 'Coastal Slate',     primary: '#1B3A4B', secondary: '#3D6B7C', background: '#F4F7F8', text: '#15252E', textMuted: '#5A7380', accent: '#C4A35A', border: '#D0DCE2' },
@@ -164,7 +174,6 @@ export const COLOR_SCHEMES: Record<ColorSchemeKey, DesignColors & { label: strin
   'cherry-red':       { label: 'Ketchup Mustard',   primary: '#C8102E', secondary: '#E8A317', background: '#FFFFFF', text: '#1A1A1A', textMuted: '#666666', accent: '#E31837', border: '#E8C8C8' },
   'slate-modern':     { label: 'Graphite Cool',     primary: '#2F3A40', secondary: '#5A6B73', background: '#F2F4F5', text: '#1A2226', textMuted: '#6A7A82', accent: '#8A9AA2', border: '#D0D6DA' },
   'peach-cream':      { label: 'Blush Apricot',     primary: '#C45C3A', secondary: '#E08A6A', background: '#FFFAF5', text: '#2A1810', textMuted: '#8A6050', accent: '#E8B090', border: '#F0D8C8' },
-  'teal-calm':        { label: 'Deep Teal',         primary: '#0F4C4A', secondary: '#2A7A74', background: '#F2F8F7', text: '#0F2A28', textMuted: '#4A706C', accent: '#C4A574', border: '#C4D8D4' },
   'citrus-punch':     { label: 'Mango Lime',        primary: '#E85D04', secondary: '#2D8A4E', background: '#FFFEF7', text: '#1A2410', textMuted: '#5A6B40', accent: '#F4B942', border: '#E8E0C0' },
   'garden-fresh':     { label: 'Garden Herb',       primary: '#2D5A27', secondary: '#5A8F3D', background: '#F5F9F0', text: '#1A2E14', textMuted: '#5A7550', accent: '#E07A3D', border: '#D0E0C0' },
   'banana-leaf':      { label: 'Banana Leaf',       primary: '#5C1D1D', secondary: '#3D6B2F', background: '#FFF9E8', text: '#2A1810', textMuted: '#6B5344', accent: '#D4A017', border: '#E8D4A8' },
@@ -267,14 +276,25 @@ export function googleFontsForCustomization(customization: DesignCustomization):
   return [...pairing, ...extra, ...titleFonts.filter((f) => !pairing.some((p) => p.startsWith(f.split(':')[0])))];
 }
 
-export function defaultCustomization(style: TemplateStyle): DesignCustomization {
+function colorsFromScheme(key: ColorSchemeKey): DesignColors {
+  const s = COLOR_SCHEMES[key];
+  return {
+    primary: s.primary, secondary: s.secondary, background: s.background,
+    text: s.text, textMuted: s.textMuted, accent: s.accent, border: s.border,
+  };
+}
+
+/** Default template for brand print formats (name-board aligned). */
+export const BRAND_TEMPLATE_STYLE: TemplateStyle = 'modern-minimal';
+
+export function defaultCustomization(style: TemplateStyle, designType?: PrintDesignType): DesignCustomization {
   const tmpl = TEMPLATES.find((t) => t.key === style) ?? TEMPLATES[0];
-  const colors = COLOR_SCHEMES[tmpl.defaultColors];
+  const colorKey = designType && usesBrandColors(designType) ? BRAND_COLOR_SCHEME : tmpl.defaultColors;
   const fonts = FONT_PAIRINGS[tmpl.defaultFonts];
   return {
-    colorScheme: tmpl.defaultColors,
+    colorScheme: colorKey,
     fontPairing: tmpl.defaultFonts,
-    colors: { primary: colors.primary, secondary: colors.secondary, background: colors.background, text: colors.text, textMuted: colors.textMuted, accent: colors.accent, border: colors.border },
+    colors: colorsFromScheme(colorKey),
     fonts: { heading: fonts.heading, body: fonts.body, price: fonts.price },
     typography: { ...DEFAULT_TYPOGRAPHY },
     effects: { ...DEFAULT_EFFECTS },

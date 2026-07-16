@@ -36,6 +36,8 @@ import {
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  BRAND_COLOR_SCHEME,
+  BRAND_TEMPLATE_STYLE,
   COLOR_SCHEMES,
   defaultCustomization,
   DESIGN_TYPE_FORMATS,
@@ -48,13 +50,13 @@ import {
   GRADIENT_PRESETS,
   TEMPLATE_CATEGORIES,
   TEMPLATES,
+  usesBrandColors,
   WALL_BOARD_FORMAT_GROUPS,
 } from "../lib/printDesigns";
 import { colorModeLabel, colorsToCmykSummary, cmykSimulationFilter } from "../lib/printColorUtils";
 import { exportPrintDesignToPdf } from "../lib/exportPrintPdf";
 import { getMaterialRecommendation } from "../lib/printMaterials";
 import { normalizeWhatsAppPhone } from "../lib/whatsappLink";
-import { supabaseService } from "../services/supabaseService";
 import { supabaseService } from "../services/supabaseService";
 import MenuTemplate from "./print-designs/MenuTemplate";
 import { PrintGuidesOverlay } from "./print-designs/PrintGuidesOverlay";
@@ -210,6 +212,13 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   const handleDesignTypeChange = useCallback((t: PrintDesignType) => {
     setDesignType(t);
     setFormat(DEFAULT_FORMAT[t]);
+    if (usesBrandColors(t)) {
+      setTemplateStyle(BRAND_TEMPLATE_STYLE);
+      const next = defaultCustomization(BRAND_TEMPLATE_STYLE, t);
+      if (t === 'job-flyer') next.layout = { ...next.layout, columns: 1 };
+      setCustom(next);
+      return;
+    }
     if (t === 'wall-board') {
       setCustom((prev) => ({
         ...prev,
@@ -217,10 +226,8 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
         showQR: false,
         showDescriptions: false,
       }));
-    } else if (t === 'menu-card' || t === 'pamphlet') {
+    } else if (t === 'menu-card') {
       setCustom((prev) => ({ ...prev, layout: { ...prev.layout, columns: 2 }, showQR: true }));
-    } else if (t === 'job-flyer') {
-      setCustom((prev) => ({ ...prev, layout: { ...prev.layout, columns: 1 }, showQR: true }));
     }
   }, []);
 
@@ -230,8 +237,8 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
 
   const handleTemplateChange = useCallback((s: TemplateStyle) => {
     setTemplateStyle(s);
-    setCustom(defaultCustomization(s));
-  }, []);
+    setCustom(defaultCustomization(s, designType));
+  }, [designType]);
 
   const handleColorScheme = useCallback((key: ColorSchemeKey) => {
     const scheme = COLOR_SCHEMES[key];
@@ -648,21 +655,32 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
             <section className={`border rounded-xl p-5 ${card}`}>
               <h2 className={`text-xs font-bold uppercase tracking-widest mb-4 ${muted}`}>5. Customise</h2>
 
-              {/* Colour scheme */}
+              {/* Colour scheme — Fresh Teal leads for stickers / flyers / pamphlets */}
               <div className="mb-4">
                 <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Colour Scheme</p>
+                {usesBrandColors(designType) && (
+                  <p className={`text-[10px] mb-2 ${muted}`}>
+                    Primary: Fresh Teal (name board). Other schemes below are optional.
+                  </p>
+                )}
                 <div className="flex flex-wrap gap-2">
-                  {(Object.entries(COLOR_SCHEMES) as [ColorSchemeKey, typeof COLOR_SCHEMES[ColorSchemeKey]][]).map(([key, scheme]) => (
-                    <button
-                      key={key}
-                      onClick={() => handleColorScheme(key)}
-                      title={scheme.label}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border transition-all ${custom.colorScheme === key ? isDarkTheme ? 'border-white' : 'border-zinc-900' : isDarkTheme ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-200 hover:border-zinc-400'}`}
-                    >
-                      <span className="w-3 h-3 rounded-full inline-block border border-zinc-300" style={{ background: scheme.primary }} />
-                      <span className={isDarkTheme ? 'text-zinc-300' : 'text-zinc-700'}>{scheme.label}</span>
-                    </button>
-                  ))}
+                  {(Object.entries(COLOR_SCHEMES) as [ColorSchemeKey, typeof COLOR_SCHEMES[ColorSchemeKey]][]).map(([key, scheme]) => {
+                    const isBrand = key === BRAND_COLOR_SCHEME;
+                    const selected = custom.colorScheme === key;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => handleColorScheme(key)}
+                        title={scheme.label}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border transition-all ${selected ? isDarkTheme ? 'border-white' : 'border-zinc-900' : isDarkTheme ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-200 hover:border-zinc-400'} ${isBrand && usesBrandColors(designType) ? 'ring-1 ring-[#0B4A42]/40' : ''}`}
+                      >
+                        <span className="w-3 h-3 rounded-full inline-block border border-zinc-300" style={{ background: scheme.primary }} />
+                        <span className={isDarkTheme ? 'text-zinc-300' : 'text-zinc-700'}>
+                          {isBrand ? 'Fresh Teal · Brand' : scheme.label}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
