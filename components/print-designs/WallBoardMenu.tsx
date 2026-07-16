@@ -237,21 +237,55 @@ function WallFooter({ style, customization, branding, siteUrl, widthPx, heightPx
   );
 }
 
+function PriceLeader({ style, color, fontSize }: {
+  style: NonNullable<DesignCustomization['priceLeaderStyle']>;
+  color: string;
+  fontSize: number;
+}) {
+  if (style === 'none') return null;
+  if (style === 'hyphens') {
+    return (
+      <span
+        aria-hidden
+        style={{
+          flex: '1 1 auto', minWidth: 8, overflow: 'hidden', whiteSpace: 'nowrap',
+          color, fontSize: Math.max(8, Math.round(fontSize * 0.85)), letterSpacing: '0.02em',
+          lineHeight: 1, alignSelf: 'flex-end', margin: '0 4px 2px',
+        }}
+      >
+        {'- '.repeat(48)}
+      </span>
+    );
+  }
+  const borderStyle = style === 'dots' ? 'dotted' : style === 'dashes' ? 'dashed' : 'solid';
+  return (
+    <span
+      aria-hidden
+      style={{
+        flex: '1 1 auto', minWidth: 8, height: 0, alignSelf: 'flex-end',
+        margin: '0 6px 4px', borderBottom: `1.5px ${borderStyle} ${color}`,
+      }}
+    />
+  );
+}
+
 function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols, densityScale }: {
   cat: Category; customization: DesignCustomization; widthPx: number; heightPx: number; blockColor: string; cols: number; densityScale: number;
 }) {
   const fonts = effectiveFonts(customization);
-  const { showPrices, showColumnBorders, columnBorderColor, colors } = customization;
+  const { showPrices, showColumnBorders, columnBorderColor, colors, priceLeaderStyle = 'none' } = customization;
   const bfs = Math.max(12, Math.round(scaledBodyFsWall(widthPx, heightPx, customization, cols) * densityScale));
   const cfs = Math.max(14, Math.round(scaledCatFsWall(widthPx, heightPx, customization, cols) * densityScale));
   const itemGap = Math.max(3, Math.round(bfs * (densityScale < 0.88 ? 0.22 : 0.3)));
   const lineHeight = densityScale < 0.88 ? 1.08 : 1.12;
   const text = contrastTextColor(blockColor);
   const ruleColor = hexToRgba(text === '#FFFFFF' ? '#FFFFFF' : '#000000', 0.28);
+  const leaderColor = hexToRgba(text === '#FFFFFF' ? '#FFFFFF' : '#000000', 0.35);
   const pad = Math.round(Math.min(widthPx, heightPx) * 0.016);
   const colBorder = showColumnBorders
     ? `${Math.max(1, Math.round(Math.min(widthPx, heightPx) * 0.0025))}px solid ${columnBorderColor ?? colors.border}`
     : undefined;
+  const useLeader = showPrices && priceLeaderStyle !== 'none';
 
   return (
     <div style={{
@@ -274,22 +308,30 @@ function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols,
         justifyContent: 'space-evenly', gap: itemGap, overflow: 'hidden',
       }}>
         {cat.items.map((dish) => (
-          <div key={dish.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 6, flexShrink: 0 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{
-                fontFamily: fonts.body, fontSize: bfs, fontWeight: 600, color: text,
-                lineHeight, wordBreak: 'break-word', hyphens: 'auto',
-              }}>
-                {wallBoardDisplayName(dish.name, cat.title)}
-              </div>
+          <div
+            key={dish.id}
+            style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: useLeader ? 'flex-end' : 'flex-start',
+              gap: useLeader ? 0 : 6, flexShrink: 0, minWidth: 0,
+            }}
+          >
+            <div style={{
+              fontFamily: fonts.body, fontSize: bfs, fontWeight: 600, color: text,
+              lineHeight, wordBreak: 'break-word', hyphens: 'auto',
+              flex: useLeader ? '0 1 auto' : 1, minWidth: 0, maxWidth: useLeader ? '62%' : undefined,
+            }}>
+              {wallBoardDisplayName(dish.name, cat.title)}
             </div>
             {showPrices && dish.price != null && (
-              <div style={{
-                fontFamily: fonts.price, fontSize: bfs, fontWeight: 700, color: text,
-                flexShrink: 0, whiteSpace: 'nowrap', lineHeight: 1.25,
-              }}>
-                ₹{dish.price}
-              </div>
+              <>
+                <PriceLeader style={priceLeaderStyle} color={leaderColor} fontSize={bfs} />
+                <div style={{
+                  fontFamily: fonts.price, fontSize: bfs, fontWeight: 700, color: text,
+                  flexShrink: 0, whiteSpace: 'nowrap', lineHeight: 1.25,
+                }}>
+                  ₹{dish.price}
+                </div>
+              </>
             )}
           </div>
         ))}

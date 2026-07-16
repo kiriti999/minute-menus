@@ -494,6 +494,9 @@ export interface DesignFonts {
   price: string;
 }
 
+/** Dotted / dashed / hyphen leaders from item name to price. */
+export type PriceLeaderStyle = 'none' | 'dots' | 'dashes' | 'hyphens' | 'solid';
+
 export interface DesignCustomization {
   colorScheme: ColorSchemeKey;
   fontPairing: FontPairingKey;
@@ -530,6 +533,8 @@ export interface DesignCustomization {
   showColumnBorders?: boolean;
   /** Stroke colour for column borders (falls back to colors.border). */
   columnBorderColor?: string;
+  /** Leader between dish name and price on wall boards. */
+  priceLeaderStyle?: PriceLeaderStyle;
 }
 
 export interface RestaurantBranding {

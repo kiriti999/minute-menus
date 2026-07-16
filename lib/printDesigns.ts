@@ -239,6 +239,12 @@ export const COLOR_SCHEMES: Record<ColorSchemeKey, DesignColors & { label: strin
 /** Soft yellow column panels for wall-yellow boards — keeps equal column shapes with black ink. */
 export const WALL_YELLOW_COLUMN_COLORS = ['#FFF3B0', '#FFE566', '#FFD200', '#F5C400', '#FFE566'];
 
+/** Alternating pale / bright yellow rhythm for N wall columns. */
+export function yellowColumnPattern(columns: number): string[] {
+  const n = Math.max(1, columns);
+  return Array.from({ length: n }, (_, i) => WALL_YELLOW_COLUMN_COLORS[i % WALL_YELLOW_COLUMN_COLORS.length]);
+}
+
 // ─── Font pairings (15) ───────────────────────────────────────────────────────
 
 export const FONT_PAIRINGS: Record<FontPairingKey, DesignFonts & { label: string; googleFonts: string[] }> = {
@@ -391,6 +397,7 @@ export function defaultCustomization(
     colorMode: 'rgb', showBleedGuides: false, includeCropMarks: false,
     showColumnBorders: false,
     columnBorderColor: undefined,
-    ...(isNameBoardYellow ? { columnColors: [...WALL_YELLOW_COLUMN_COLORS] } : {}),
+    priceLeaderStyle: 'none',
+    ...(isNameBoardYellow ? { columnColors: yellowColumnPattern(isWall ? 5 : 2) } : {}),
   };
 }

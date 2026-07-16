@@ -11,6 +11,7 @@ import type {
   FontPairingKey,
   JobEmploymentType,
   JobFlyerContent,
+  PriceLeaderStyle,
   PrintDesignType,
   PrintFormat,
   RestaurantBranding,
@@ -56,6 +57,7 @@ import {
   usesBrandColors,
   WALL_BOARD_FORMAT_GROUPS,
   WALL_YELLOW_COLUMN_COLORS,
+  yellowColumnPattern,
 } from "../lib/printDesigns";
 import { colorModeLabel, colorsToCmykSummary, cmykSimulationFilter } from "../lib/printColorUtils";
 import { exportPrintDesignToPdf } from "../lib/exportPrintPdf";
@@ -1026,6 +1028,13 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                           >
                             Same colour for all
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => patchCustom('columnColors', yellowColumnPattern(custom.layout.columns))}
+                            className={`px-3 py-1.5 rounded-full text-[10px] border transition-all ${isDarkTheme ? 'border-zinc-700 text-zinc-400 hover:border-zinc-500' : 'border-zinc-200 text-zinc-500 hover:border-zinc-400'}`}
+                          >
+                            Yellow column pattern
+                          </button>
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {Array.from({ length: custom.layout.columns }).map((_, i) => {
@@ -1078,6 +1087,27 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                         <span className={`text-xs ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>Border colour</span>
                       </label>
                     )}
+                  </div>
+                  <div className="mt-4">
+                    <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Price leader line</p>
+                    <div className="flex flex-wrap gap-2">
+                      {([
+                        ['none', 'Off'],
+                        ['dots', 'Dots'],
+                        ['dashes', 'Dashes'],
+                        ['hyphens', 'Hyphens'],
+                        ['solid', 'Solid'],
+                      ] as const satisfies ReadonlyArray<readonly [PriceLeaderStyle, string]>).map(([key, label]) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => patchCustom('priceLeaderStyle', key)}
+                          className={`px-3 py-1.5 rounded-full text-[10px] border transition-all ${(custom.priceLeaderStyle ?? 'none') === key ? isDarkTheme ? 'border-white bg-zinc-800 text-white' : 'border-zinc-900 bg-zinc-100 text-zinc-900' : isDarkTheme ? 'border-zinc-700 text-zinc-400' : 'border-zinc-200 text-zinc-500'}`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
