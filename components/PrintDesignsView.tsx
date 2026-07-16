@@ -56,6 +56,8 @@ import {
   TEMPLATES,
   usesBrandColors,
   DEFAULT_COLUMN_BORDER_COLOR,
+  DEFAULT_QR_BORDER_COLOR,
+  DEFAULT_QR_BORDER_WIDTH,
   WALL_BOARD_FORMAT_GROUPS,
   WALL_YELLOW_COLUMN_COLORS,
   yellowColumnPattern,
@@ -1144,6 +1146,37 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                   </label>
                 ))}
               </div>
+
+              {designType === 'sticker' && custom.showQR && (
+                <div className={`mb-4 p-3 rounded-lg border space-y-3 ${isDarkTheme ? 'border-zinc-800 bg-zinc-900/40' : 'border-zinc-200 bg-zinc-50'}`}>
+                  <p className={`text-[10px] font-semibold uppercase tracking-wider ${muted}`}>QR border</p>
+                  <div className="flex flex-wrap items-center gap-4">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={custom.qrBorderColor ?? DEFAULT_QR_BORDER_COLOR}
+                        onChange={(e) => patchCustom('qrBorderColor', e.target.value)}
+                        className="w-8 h-8 rounded cursor-pointer border-0 p-0"
+                      />
+                      <span className={`text-xs ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>Colour</span>
+                    </label>
+                    <label className="flex items-center gap-2 flex-1 min-w-[140px]">
+                      <span className={`text-xs whitespace-nowrap ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                        Thickness {(custom.qrBorderWidth ?? DEFAULT_QR_BORDER_WIDTH)}px
+                      </span>
+                      <input
+                        type="range"
+                        min={0}
+                        max={8}
+                        step={1}
+                        value={custom.qrBorderWidth ?? DEFAULT_QR_BORDER_WIDTH}
+                        onChange={(e) => patchCustom('qrBorderWidth', Number(e.target.value))}
+                        className="flex-1 accent-emerald-600"
+                      />
+                    </label>
+                  </div>
+                </div>
+              )}
 
               {/* Advanced options */}
               <button

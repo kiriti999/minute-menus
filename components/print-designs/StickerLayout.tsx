@@ -4,7 +4,11 @@
 import type { Category, DesignCustomization, RestaurantBranding } from "@minute-menus/types";
 import { QRCodeSVG } from "qrcode.react";
 import type React from "react";
-import type { FormatInfo } from "../../lib/printDesigns";
+import {
+	DEFAULT_QR_BORDER_COLOR,
+	DEFAULT_QR_BORDER_WIDTH,
+	type FormatInfo,
+} from "../../lib/printDesigns";
 import CompactMenuLayout from "./CompactMenuLayout";
 import {
 	effectiveFonts,
@@ -34,21 +38,26 @@ function CircleQrBadge({
 	qrSize,
 	colors,
 	size,
+	borderWidth,
+	borderColor,
 }: {
 	siteUrl: string;
 	qrSize: number;
 	colors: DesignCustomization["colors"];
 	size: number;
+	borderWidth: number;
+	borderColor: string;
 }) {
-	const pad = Math.max(3, Math.round(size * 0.018));
+	const stroke = Math.max(0, borderWidth);
+	const pad = Math.max(1, Math.round(stroke + 1));
 	return (
 		<div
 			style={{
 				padding: pad,
-				borderRadius: Math.round(size * 0.035),
+				borderRadius: Math.round(size * 0.028),
 				background: "#FFF",
-				border: `2px solid ${hexToRgba(colors.accent, 0.45)}`,
-				boxShadow: `0 2px 10px ${hexToRgba(colors.primary, 0.14)}`,
+				border: stroke > 0 ? `${stroke}px solid ${borderColor}` : "none",
+				boxSizing: "border-box",
 			}}
 		>
 			<QRCodeSVG value={siteUrl} size={qrSize} fgColor={colors.primary} bgColor="#FFFFFF" level="H" />
@@ -74,6 +83,8 @@ function CircleSticker({
 	const titleFont = titleFontFamily(customization);
 	const titleExtras = titleStyleExtras(customization);
 	const innerBg = customization.backgroundType === "gradient" ? "#FFFFFF" : colors.background;
+	const qrBorderWidth = customization.qrBorderWidth ?? DEFAULT_QR_BORDER_WIDTH;
+	const qrBorderColor = customization.qrBorderColor ?? DEFAULT_QR_BORDER_COLOR;
 
 	return (
 		<div
@@ -123,7 +134,14 @@ function CircleSticker({
 				)}
 
 				{showQR && (
-					<CircleQrBadge siteUrl={siteUrl} qrSize={qrSize} colors={colors} size={size} />
+					<CircleQrBadge
+						siteUrl={siteUrl}
+						qrSize={qrSize}
+						colors={colors}
+						size={size}
+						borderWidth={qrBorderWidth}
+						borderColor={qrBorderColor}
+					/>
 				)}
 
 				{!hasLogo && (

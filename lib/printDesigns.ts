@@ -248,6 +248,10 @@ export function yellowColumnPattern(columns: number): string[] {
 /** Default wall-board column border — mid grey (RGB 82,82,82). */
 export const DEFAULT_COLUMN_BORDER_COLOR = '#525252';
 
+/** Default sticker QR frame — thin mid grey. */
+export const DEFAULT_QR_BORDER_COLOR = '#A3A3A3';
+export const DEFAULT_QR_BORDER_WIDTH = 1;
+
 // ─── Font pairings (15) ───────────────────────────────────────────────────────
 
 export const FONT_PAIRINGS: Record<FontPairingKey, DesignFonts & { label: string; googleFonts: string[] }> = {
@@ -401,6 +405,8 @@ export function defaultCustomization(
     showColumnBorders: false,
     columnBorderColor: DEFAULT_COLUMN_BORDER_COLOR,
     priceLeaderStyle: 'none',
+    qrBorderWidth: DEFAULT_QR_BORDER_WIDTH,
+    qrBorderColor: DEFAULT_QR_BORDER_COLOR,
     ...(isNameBoardYellow ? { columnColors: yellowColumnPattern(isWall ? 5 : 2) } : {}),
   };
 }

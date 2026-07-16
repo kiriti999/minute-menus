@@ -535,6 +535,10 @@ export interface DesignCustomization {
   columnBorderColor?: string;
   /** Leader between dish name and price on wall boards. */
   priceLeaderStyle?: PriceLeaderStyle;
+  /** Sticker QR frame stroke width in px (0 = no border). */
+  qrBorderWidth?: number;
+  /** Sticker QR frame stroke colour. */
+  qrBorderColor?: string;
 }
 
 export interface RestaurantBranding {
