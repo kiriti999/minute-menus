@@ -1162,6 +1162,9 @@ export class SupabaseService {
             profile.phone &&
             profile.name &&
             profile.addressLine1 &&
+            profile.addressLine2 &&
+            profile.street &&
+            profile.area &&
             profile.city &&
             profile.pincode
         );

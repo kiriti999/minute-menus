@@ -76,6 +76,32 @@ function formatDeliveryAddress(profile: CustomerProfile): string {
 /** Delivery is Hyderabad-area only — state is fixed in the address form. */
 const DEFAULT_DELIVERY_STATE = "Telangana";
 
+function deliveryDetailsError(fields: {
+  name: string;
+  phone: string;
+  addressLine1: string;
+  addressLine2: string;
+  street: string;
+  area: string;
+  city: string;
+  pincode: string;
+}): string | null {
+  const checks: Array<[string, string]> = [
+    [fields.name, "Please enter your name."],
+    [fields.phone, "Please enter your phone number."],
+    [fields.addressLine1, "Please enter your building/house name."],
+    [fields.addressLine2, "Please enter your flat/plot number."],
+    [fields.street, "Please enter your street."],
+    [fields.area, "Please enter your area / locality."],
+    [fields.city, "Please enter your city."],
+    [fields.pincode, "Please enter your pincode."],
+  ];
+  for (const [value, message] of checks) {
+    if (!value.trim()) return message;
+  }
+  return null;
+}
+
 export const CustomerApp: React.FC<CustomerAppProps> = ({
   onNavigateToDashboard,
   isDarkTheme,
@@ -461,18 +487,13 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     setDetailsFormattedAddress(profile.formattedAddress ?? "");
   };
 
+  /** Google locate only fills area + pincode; building/flat/street stay manual. */
   const applyLocatedAddress = (address: CustomerAddress) => {
-    if (address.addressLine1) setDetailsAddressLine1(address.addressLine1);
-    if (address.addressLine2) setDetailsAddressLine2(address.addressLine2);
-    if (address.street) setDetailsStreet(address.street);
     if (address.area) setDetailsArea(address.area);
-    if (address.landmark) setDetailsLandmark(address.landmark);
-    if (address.city) setDetailsCity(address.city);
-    setDetailsState(DEFAULT_DELIVERY_STATE);
     if (address.pincode) setDetailsPincode(address.pincode);
+    setDetailsState(DEFAULT_DELIVERY_STATE);
     setDetailsLat(address.lat);
     setDetailsLng(address.lng);
-    setDetailsFormattedAddress(address.formattedAddress ?? "");
     setAuthError("");
   };
 
@@ -581,11 +602,17 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
 
   // Details step: phone + address
   const handleDetailsSubmit = async () => {
-    if (!detailsName.trim()) { setAuthError("Please enter your name."); return; }
-    if (!detailsPhone.trim()) { setAuthError("Please enter your phone number."); return; }
-    if (!detailsAddressLine1.trim()) { setAuthError("Please enter your building/house name."); return; }
-    if (!detailsCity.trim()) { setAuthError("Please enter your city."); return; }
-    if (!detailsPincode.trim()) { setAuthError("Please enter your pincode."); return; }
+    const detailsErr = deliveryDetailsError({
+      name: detailsName,
+      phone: detailsPhone,
+      addressLine1: detailsAddressLine1,
+      addressLine2: detailsAddressLine2,
+      street: detailsStreet,
+      area: detailsArea,
+      city: detailsCity,
+      pincode: detailsPincode,
+    });
+    if (detailsErr) { setAuthError(detailsErr); return; }
 
     setAuthLoading(true);
     setAuthError("");
@@ -597,9 +624,9 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         name: detailsName.trim(),
         phone: detailsPhone.trim(),
         addressLine1: detailsAddressLine1.trim(),
-        addressLine2: detailsAddressLine2.trim() || undefined,
-        street: detailsStreet.trim() || undefined,
-        area: detailsArea.trim() || undefined,
+        addressLine2: detailsAddressLine2.trim(),
+        street: detailsStreet.trim(),
+        area: detailsArea.trim(),
         landmark: detailsLandmark.trim() || undefined,
         city: detailsCity.trim(),
         state: DEFAULT_DELIVERY_STATE,
@@ -1516,14 +1543,14 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                         type="text"
                         value={detailsAddressLine2}
                         onChange={(e) => setDetailsAddressLine2(e.target.value)}
-                        placeholder="Flat / Plot number"
+                        placeholder="Flat / Plot number *"
                         className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-2.5 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
                       />
                       <input
                         type="text"
                         value={detailsStreet}
                         onChange={(e) => setDetailsStreet(e.target.value)}
-                        placeholder="Street"
+                        placeholder="Street *"
                         className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-2.5 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
                       />
                       <div className="grid grid-cols-2 gap-3">
@@ -1531,14 +1558,14 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                           type="text"
                           value={detailsArea}
                           onChange={(e) => setDetailsArea(e.target.value)}
-                          placeholder="Area / Locality"
+                          placeholder="Area / Locality *"
                           className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-2.5 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
                         />
                         <input
                           type="text"
                           value={detailsLandmark}
                           onChange={(e) => setDetailsLandmark(e.target.value)}
-                          placeholder="Landmark"
+                          placeholder="Landmark (optional)"
                           className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-2.5 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
                         />
                       </div>
