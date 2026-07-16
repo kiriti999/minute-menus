@@ -431,12 +431,10 @@ export type TemplateStyle =
   | 'bold-colorful'
   | 'rustic-vintage'
   | 'luxury-premium'
-  | 'street-food-vibes'
   | 'cafe-cozy'
   | 'fine-dining-minimal'
   | 'fast-food-pop'
   | 'ethnic-traditional'
-  | 'juice-bar-fresh'
   | 'salad-bowl-fresh'
   | 'south-indian-mess';
 

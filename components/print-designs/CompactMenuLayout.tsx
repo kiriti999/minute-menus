@@ -13,9 +13,11 @@ import {
   containerShadow,
   effectiveFonts,
   formatPrintDisplayName,
+  priceColor,
   scaledBodyFs,
   scaledCatFs,
   scaledHeadingFs,
+  scaledPriceFs,
   titleFontFamily,
   titleStyleExtras,
 } from "./menuStyleHelpers";
@@ -42,6 +44,7 @@ function CompactCategory({
   cat,
   maxItems,
   bfs,
+  pfs,
   cfs,
   colors,
   fonts,
@@ -50,12 +53,14 @@ function CompactCategory({
   cat: Category;
   maxItems: number;
   bfs: number;
+  pfs: number;
   cfs: number;
   colors: DesignCustomization['colors'];
   fonts: ReturnType<typeof effectiveFonts>;
   showPrices: boolean;
 }) {
   const items = cat.items.slice(0, maxItems);
+  const priceInk = priceColor(colors);
   return (
     <div style={{ breakInside: 'avoid', marginBottom: Math.round(cfs * 0.4) }}>
       <div style={{
@@ -75,7 +80,7 @@ function CompactCategory({
               {dish.name}
             </span>
             {showPrices && dish.price != null && (
-              <span style={{ fontFamily: fonts.price, fontSize: bfs, fontWeight: 600, color: colors.accent, flexShrink: 0 }}>
+              <span style={{ fontFamily: fonts.price, fontSize: pfs, fontWeight: 700, color: priceInk, flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
                 ₹{dish.price}
               </span>
             )}
@@ -102,6 +107,7 @@ const CompactMenuLayout: React.FC<CompactMenuLayoutProps> = ({
   const { colors, showQR, showPrices, logoUrl } = customization;
   const scale = compactMenuScale(widthPx, heightPx);
   const bfs = Math.max(5, Math.round(scaledBodyFs(widthPx, customization) * scale));
+  const pfs = Math.max(bfs + 1, Math.round(scaledPriceFs(widthPx, bfs) * scale));
   const cfs = Math.max(6, Math.round(scaledCatFs(widthPx, customization) * scale));
   const hfs = Math.max(7, Math.round(scaledHeadingFs(widthPx, customization) * scale * 0.65));
   const pad = Math.round(Math.min(widthPx, heightPx) * 0.05);
@@ -155,6 +161,7 @@ const CompactMenuLayout: React.FC<CompactMenuLayoutProps> = ({
               cat={cat}
               maxItems={maxItems}
               bfs={bfs}
+              pfs={pfs}
               cfs={cfs}
               colors={colors}
               fonts={fonts}

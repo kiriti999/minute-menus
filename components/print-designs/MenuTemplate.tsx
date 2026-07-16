@@ -30,10 +30,12 @@ import {
   MENU_QR_LABEL,
   menuQrLabelFs,
   outerBorderCss,
+  priceColor,
   scaledBodyFs,
   scaledCatFs,
   scaledDescFs,
   scaledHeadingFs,
+  scaledPriceFs,
   textTransformCss,
   titleFontFamily,
   titleStyleExtras,
@@ -76,10 +78,12 @@ function DishList({ cat, style, customization, widthPx, pageColumns }: { cat: Ca
   const { colors, layout, showPrices, showDescriptions } = customization;
   const colWidth = menuColumnWidth(widthPx, pageColumns);
   const bfs = scaledBodyFs(colWidth, customization);
+  const pfs = scaledPriceFs(widthPx, bfs);
   const dfs = scaledDescFs(colWidth, customization);
   const cfs = scaledCatFs(colWidth, customization);
   const gap = layout.spacing === 'compact' ? Math.round(colWidth * 0.008) : Math.round(colWidth * 0.016);
   const dishCols = pageColumns > 1 ? 1 : (layout.columns === 2 ? 2 : 1);
+  const priceInk = priceColor(colors);
 
   return (
     <div style={{ marginBottom: Math.round(colWidth * 0.04), breakInside: 'avoid', minWidth: 0, width: '100%' }}>
@@ -98,7 +102,7 @@ function DishList({ cat, style, customization, widthPx, pageColumns }: { cat: Ca
               )}
             </div>
             {showPrices && dish.price != null && (
-              <div style={{ fontFamily: fonts.price, fontSize: bfs, fontWeight: 600, color: colors.accent, flexShrink: 0, whiteSpace: 'nowrap' }}>
+              <div style={{ fontFamily: fonts.price, fontSize: pfs, fontWeight: 700, color: priceInk, flexShrink: 0, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                 ₹{dish.price}
               </div>
             )}

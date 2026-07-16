@@ -29,12 +29,10 @@ export const TEMPLATE_VISUALS: Record<TemplateStyle, TemplateVisualConfig> = {
   'bold-colorful':       { header: 'gradient-band',  category: 'filled-banner',  footer: 'strip',  outerBorder: 'none',        showOrnaments: false, headerGradient: true  },
   'rustic-vintage':      { header: 'rustic-box',     category: 'dashed-rustic',  footer: 'split',  outerBorder: 'dashed',      showOrnaments: false, headerGradient: false },
   'luxury-premium':      { header: 'luxury-center',  category: 'gold-rule',      footer: 'center', outerBorder: 'decorative',  showOrnaments: true,  headerGradient: false },
-  'street-food-vibes':   { header: 'street-playful', category: 'pill',           footer: 'strip',  outerBorder: 'none',        showOrnaments: false, headerGradient: true  },
   'cafe-cozy':           { header: 'cafe-warm',      category: 'left-accent',    footer: 'center', outerBorder: 'simple',      showOrnaments: false, headerGradient: false },
   'fine-dining-minimal': { header: 'fine-sparse',    category: 'underline',      footer: 'split',  outerBorder: 'none',        showOrnaments: false, headerGradient: false },
   'fast-food-pop':       { header: 'fast-bold',      category: 'filled-banner',  footer: 'strip',  outerBorder: 'simple',      showOrnaments: false, headerGradient: true  },
   'ethnic-traditional':  { header: 'ethnic-pattern', category: 'gold-rule',      footer: 'center', outerBorder: 'decorative',  showOrnaments: true,  headerGradient: false },
-  'juice-bar-fresh':     { header: 'gradient-band',  category: 'pill',           footer: 'strip',  outerBorder: 'none',        showOrnaments: false, headerGradient: true  },
   'salad-bowl-fresh':    { header: 'left-rule',      category: 'left-accent',    footer: 'split',  outerBorder: 'simple',      showOrnaments: false, headerGradient: false },
   'south-indian-mess':   { header: 'ethnic-pattern', category: 'gold-rule',      footer: 'center', outerBorder: 'decorative',  showOrnaments: true,  headerGradient: false },
 };

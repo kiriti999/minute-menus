@@ -295,6 +295,37 @@ export function contrastTextColor(bgHex: string): string {
   return luminance > 0.55 ? '#1A1A1A' : '#FFFFFF';
 }
 
+function relativeLuminance(hex: string): number {
+  const channel = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  const [r, g, b] = hexToRgb(hex);
+  return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b);
+}
+
+function contrastRatio(fg: string, bg: string): number {
+  const a = relativeLuminance(fg);
+  const b = relativeLuminance(bg);
+  const lighter = Math.max(a, b);
+  const darker = Math.min(a, b);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+/** High-contrast price ink — never washed gold/pastel accents on light paper. */
+export function priceColor(colors: DesignColors): string {
+  const bg = colors.background;
+  for (const candidate of [colors.primary, colors.text, '#1A1A1A']) {
+    if (contrastRatio(candidate, bg) >= 4.5) return candidate;
+  }
+  return contrastTextColor(bg);
+}
+
+/** Slightly larger than body so prices stay legible in multi-column layouts. */
+export function scaledPriceFs(widthPx: number, bodyFs: number): number {
+  return Math.max(bodyFs + 1, Math.round(widthPx * 0.016), 10);
+}
+
 /** Default 5-color rotation for wall-board category blocks, driven by the active color scheme. */
 export function defaultColumnPalette(colors: DesignColors): string[] {
   return [
