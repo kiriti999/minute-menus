@@ -712,6 +712,11 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     () => cart.reduce((acc, item) => acc + item.quantity, 0),
     [cart],
   );
+  const cartQtyByDish = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const item of cart) map[item.dishId] = item.quantity;
+    return map;
+  }, [cart]);
   const displayRestaurantName = useMemo(
     () => (restaurantName ? formatDisplayName(restaurantName) : null),
     [restaurantName],
@@ -1209,6 +1214,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                         isSoldOut={renderDishSoldOut(dish)}
                         onAdd={handleAddToOrder}
                         isDarkTheme={isDarkTheme}
+                        quantity={cartQtyByDish[dish.id] ?? 0}
                       />
                     ))}
                   </div>
@@ -1222,6 +1228,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                         isSoldOut={renderDishSoldOut(dish)}
                         onAdd={handleAddToOrder}
                         isDarkTheme={isDarkTheme}
+                        quantity={cartQtyByDish[dish.id] ?? 0}
                       />
                     ))}
                   </div>

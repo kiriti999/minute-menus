@@ -1,6 +1,5 @@
 import { Check, Flame, Leaf, Plus, Sparkles } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
 import { formatPriceCompactInCurrency } from "@minute-menus/currency";
 import type { Dish } from "@minute-menus/types";
 import { ExpandableText } from "./ExpandableText";
@@ -16,6 +15,8 @@ interface MenuGridCardProps {
     isSoldOut?: boolean;
     onAdd: (dish: Dish) => void;
     isDarkTheme?: boolean;
+    /** Units already in the cart for this dish. */
+    quantity?: number;
 }
 
 const NutritionRow: React.FC<{
@@ -53,17 +54,16 @@ export const MenuGridCard: React.FC<MenuGridCardProps> = ({
     isSoldOut = false,
     onAdd,
     isDarkTheme = true,
+    quantity = 0,
 }) => {
-    const [added, setAdded] = useState(false);
     const ingredients = dishIngredientLine(dish);
     const benefits = dishBenefitLine(dish);
     const calories = dishCalorieLabel(dish);
+    const inCart = quantity > 0;
 
     const handleAdd = () => {
         if (isSoldOut) return;
         onAdd(dish);
-        setAdded(true);
-        setTimeout(() => setAdded(false), 1200);
     };
 
     return (
@@ -146,21 +146,21 @@ export const MenuGridCard: React.FC<MenuGridCardProps> = ({
                     type="button"
                     disabled={isSoldOut}
                     onClick={handleAdd}
-                    className={`mt-auto w-full rounded-lg py-2 text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors ${
+                    className={`mt-auto w-full rounded-lg py-2 text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors active:scale-[0.98] ${
                         isSoldOut
                             ? isDarkTheme
                                 ? "bg-zinc-800 text-zinc-500"
                                 : "bg-zinc-100 text-zinc-400"
-                            : added
+                            : inCart
                               ? "bg-emerald-400 text-black"
                               : isDarkTheme
                                 ? "bg-white text-black hover:bg-zinc-200"
                                 : "bg-zinc-900 text-white hover:bg-zinc-800"
                     }`}
                 >
-                    {added ? (
+                    {inCart ? (
                         <>
-                            <Check size={14} /> Added
+                            <Check size={14} /> Added · {quantity}
                         </>
                     ) : (
                         <>

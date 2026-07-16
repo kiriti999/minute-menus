@@ -1,4 +1,4 @@
-import { Flame, Leaf, Plus, Sparkles } from "lucide-react";
+import { Check, Flame, Leaf, Plus, Sparkles } from "lucide-react";
 import type React from "react";
 import { formatPriceCompactInCurrency } from "@minute-menus/currency";
 import type { Dish } from "@minute-menus/types";
@@ -15,6 +15,8 @@ interface MenuListCardProps {
     isSoldOut?: boolean;
     onAdd: (dish: Dish) => void;
     isDarkTheme?: boolean;
+    /** Units already in the cart for this dish. */
+    quantity?: number;
 }
 
 export const MenuListCard: React.FC<MenuListCardProps> = ({
@@ -23,10 +25,12 @@ export const MenuListCard: React.FC<MenuListCardProps> = ({
     isSoldOut = false,
     onAdd,
     isDarkTheme = true,
+    quantity = 0,
 }) => {
     const ingredients = dishIngredientLine(dish);
     const benefits = dishBenefitLine(dish);
     const calories = dishCalorieLabel(dish);
+    const inCart = quantity > 0;
 
     return (
         <article
@@ -107,19 +111,32 @@ export const MenuListCard: React.FC<MenuListCardProps> = ({
                     <button
                         type="button"
                         disabled={isSoldOut}
-                        onClick={() => onAdd(dish)}
-                        className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wide transition-colors ${
+                        onClick={() => {
+                            if (!isSoldOut) onAdd(dish);
+                        }}
+                        className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wide transition-colors active:scale-[0.98] ${
                             isSoldOut
                                 ? isDarkTheme
                                     ? "bg-zinc-800 text-zinc-500"
                                     : "bg-zinc-100 text-zinc-400"
-                                : isDarkTheme
-                                  ? "bg-white text-black hover:bg-zinc-200"
-                                  : "bg-zinc-900 text-white hover:bg-zinc-800"
+                                : inCart
+                                  ? "bg-emerald-400 text-black"
+                                  : isDarkTheme
+                                    ? "bg-white text-black hover:bg-zinc-200"
+                                    : "bg-zinc-900 text-white hover:bg-zinc-800"
                         }`}
                     >
-                        <Plus size={13} />
-                        Add
+                        {inCart ? (
+                            <>
+                                <Check size={13} />
+                                Added · {quantity}
+                            </>
+                        ) : (
+                            <>
+                                <Plus size={13} />
+                                Add
+                            </>
+                        )}
                     </button>
                 </div>
             </div>
