@@ -54,23 +54,20 @@ function NameBoardTitle({ name, tagline, showTagline, color, muted, hfs, dfs }: 
   name: string; tagline?: string; showTagline: boolean; color: string; muted: string; hfs: number; dfs: number;
 }) {
   const parts = splitNameBoardTitle(name);
-  if (!parts) {
-    return (
-      <div style={{ textAlign: 'center' }}>
-        <div style={{ fontFamily: 'Playfair Display', fontSize: hfs, fontWeight: 700, color, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{name}</div>
-        {showTagline && tagline && (
-          <div style={{ fontFamily: 'Montserrat', fontSize: dfs, fontWeight: 600, color: muted, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: Math.round(dfs * 0.6) }}>{tagline}</div>
-        )}
-      </div>
-    );
-  }
   return (
     <div style={{ textAlign: 'center' }}>
-      <div style={{ fontFamily: 'Playfair Display', fontSize: Math.round(hfs * 0.72), fontWeight: 700, color, letterSpacing: '0.12em', lineHeight: 1 }}>{parts.lead}</div>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: Math.round(hfs * 0.12), marginTop: Math.round(hfs * -0.05) }}>
-        <span style={{ fontFamily: 'Playfair Display', fontSize: Math.round(hfs * 0.45), fontWeight: 700, color }}>&</span>
-        <span style={{ fontFamily: 'Great Vibes', fontSize: Math.round(hfs * 1.05), fontWeight: 400, color, lineHeight: 1.05 }}>{parts.script}</span>
-      </div>
+      {parts ? (
+        <div style={{
+          display: 'flex', flexWrap: 'nowrap', alignItems: 'baseline', justifyContent: 'center',
+          gap: Math.round(hfs * 0.14), whiteSpace: 'nowrap', lineHeight: 1,
+        }}>
+          <span style={{ fontFamily: 'Playfair Display', fontSize: Math.round(hfs * 0.78), fontWeight: 700, color, letterSpacing: '0.1em' }}>{parts.lead}</span>
+          <span style={{ fontFamily: 'Playfair Display', fontSize: Math.round(hfs * 0.55), fontWeight: 700, color }}>&</span>
+          <span style={{ fontFamily: 'Great Vibes', fontSize: Math.round(hfs * 1.05), fontWeight: 400, color }}>{parts.script}</span>
+        </div>
+      ) : (
+        <div style={{ fontFamily: 'Playfair Display', fontSize: hfs, fontWeight: 700, color, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{name}</div>
+      )}
       {showTagline && tagline && (
         <div style={{ fontFamily: 'Montserrat', fontSize: dfs, fontWeight: 600, color: muted, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: Math.round(dfs * 0.7) }}>{tagline}</div>
       )}
@@ -204,10 +201,10 @@ function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols,
 }) {
   const fonts = effectiveFonts(customization);
   const { showPrices } = customization;
-  const bfs = Math.max(7, Math.round(scaledBodyFsWall(widthPx, heightPx, customization, cols) * densityScale));
-  const cfs = Math.max(8, Math.round(scaledCatFsWall(widthPx, heightPx, customization, cols) * densityScale));
-  const itemGap = Math.max(2, Math.round(bfs * (densityScale < 0.88 ? 0.28 : 0.36)));
-  const lineHeight = densityScale < 0.88 ? 1.1 : 1.15;
+  const bfs = Math.max(12, Math.round(scaledBodyFsWall(widthPx, heightPx, customization, cols) * densityScale));
+  const cfs = Math.max(14, Math.round(scaledCatFsWall(widthPx, heightPx, customization, cols) * densityScale));
+  const itemGap = Math.max(3, Math.round(bfs * (densityScale < 0.88 ? 0.22 : 0.3)));
+  const lineHeight = densityScale < 0.88 ? 1.08 : 1.12;
   const text = contrastTextColor(blockColor);
   const ruleColor = hexToRgba(text === '#FFFFFF' ? '#FFFFFF' : '#000000', 0.28);
   const pad = Math.round(Math.min(widthPx, heightPx) * 0.016);

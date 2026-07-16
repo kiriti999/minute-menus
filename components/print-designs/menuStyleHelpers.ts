@@ -36,11 +36,11 @@ export function scaledHeadingFs(widthPx: number, customization: DesignCustomizat
 /** Scale from printable height — landscape boards are width-rich but height-constrained. */
 export function wallBoardFontScale(widthPx: number, heightPx: number): number {
   const h = Math.min(widthPx, heightPx);
-  if (h >= 3200) return 1.3;
-  if (h >= 2400) return 1.1;
-  if (h >= 1700) return 0.92;
-  if (h >= 1200) return 0.8;
-  return 0.72;
+  if (h >= 3200) return 1.55;
+  if (h >= 2400) return 1.35;
+  if (h >= 1700) return 1.15;
+  if (h >= 1200) return 1.0;
+  return 0.9;
 }
 
 /** QR size for wall boards — keyed to the short side so landscape boards stay balanced. */
@@ -77,13 +77,14 @@ export function wallBoardDensityScale(
   if (maxItems <= 0) return 1;
   const catHeaderPx = Math.max(52, baseBodyFs * 2.1);
   const usable = contentHeightPx - catHeaderPx;
-  const gapRatio = 0.36;
-  const lineHeight = 1.15;
-  const charsPerLine = Math.max(10, colWidthPx / (baseBodyFs * 0.55));
-  const avgLines = Math.min(2.4, Math.max(1.1, maxTitleChars / charsPerLine));
+  const gapRatio = 0.28;
+  const lineHeight = 1.12;
+  const charsPerLine = Math.max(10, colWidthPx / (baseBodyFs * 0.52));
+  const avgLines = Math.min(2.2, Math.max(1.05, maxTitleChars / charsPerLine));
   const blockRatio = avgLines * lineHeight + gapRatio;
   const targetFs = usable / (maxItems * blockRatio);
-  return Math.min(1, Math.max(0.48, targetFs / baseBodyFs));
+  // Keep wall text readable at distance — never crush below ~70% of base.
+  return Math.min(1, Math.max(0.7, targetFs / baseBodyFs));
 }
 
 /** Category columns for wall boards — uses user selection, with sensible defaults per orientation. */
@@ -103,26 +104,26 @@ export function resolveWallColumns(categoryCount: number, userCols: number): num
 
 export function wallBoardColumnFontScale(widthPx: number, cols: number): number {
   const colWidth = widthPx / Math.max(cols, 1);
-  if (colWidth < 220) return 0.55;
-  if (colWidth < 300) return 0.68;
-  if (colWidth < 400) return 0.82;
-  if (colWidth < 520) return 0.92;
-  return 1;
+  if (colWidth < 220) return 0.72;
+  if (colWidth < 300) return 0.85;
+  if (colWidth < 400) return 0.95;
+  if (colWidth < 520) return 1.05;
+  return 1.15;
 }
 
 export function scaledBodyFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
-  const base = Math.round(scaledBodyFs(widthPx, customization) * wallBoardFontScale(widthPx, heightPx));
-  return Math.max(8, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
+  const base = Math.round(scaledBodyFs(widthPx, customization) * wallBoardFontScale(widthPx, heightPx) * 1.2);
+  return Math.max(14, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
 }
 
 export function scaledDescFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
-  const base = Math.round(scaledDescFs(widthPx, customization) * wallBoardFontScale(widthPx, heightPx));
-  return Math.max(7, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
+  const base = Math.round(scaledDescFs(widthPx, customization) * wallBoardFontScale(widthPx, heightPx) * 1.15);
+  return Math.max(12, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
 }
 
 export function scaledCatFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
-  const base = Math.round(scaledCatFs(widthPx, customization) * wallBoardFontScale(widthPx, heightPx));
-  return Math.max(9, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
+  const base = Math.round(scaledCatFs(widthPx, customization) * wallBoardFontScale(widthPx, heightPx) * 1.15);
+  return Math.max(16, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
 }
 
 export function scaledHeadingFsWall(widthPx: number, heightPx: number, customization: DesignCustomization): number {

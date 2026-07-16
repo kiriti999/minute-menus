@@ -135,15 +135,16 @@ function MenuHeader({ style, customization, branding, widthPx, heightPx }: Pick<
       <div style={{ textAlign: 'center', marginBottom: Math.round(widthPx * 0.02) }}>
         {logoUrl && <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}><Logo url={logoUrl} height={Math.round(widthPx * 0.07)} /></div>}
         {parts ? (
-          <>
-            <div style={{ fontFamily: 'Playfair Display', fontSize: Math.round(hfs * 0.72), fontWeight: 700, color: colors.primary, letterSpacing: '0.12em' }}>{parts.lead}</div>
-            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: Math.round(hfs * 0.12) }}>
-              <span style={{ fontFamily: 'Playfair Display', fontSize: Math.round(hfs * 0.45), fontWeight: 700, color: colors.primary }}>&</span>
-              <span style={{ fontFamily: 'Great Vibes', fontSize: Math.round(hfs * 1.05), color: colors.primary }}>{parts.script}</span>
-            </div>
-          </>
+          <div style={{
+            display: 'flex', flexWrap: 'nowrap', alignItems: 'baseline', justifyContent: 'center',
+            gap: Math.round(hfs * 0.14), whiteSpace: 'nowrap', lineHeight: 1,
+          }}>
+            <span style={{ fontFamily: 'Playfair Display', fontSize: Math.round(hfs * 0.78), fontWeight: 700, color: colors.primary, letterSpacing: '0.1em' }}>{parts.lead}</span>
+            <span style={{ fontFamily: 'Playfair Display', fontSize: Math.round(hfs * 0.55), fontWeight: 700, color: colors.primary }}>&</span>
+            <span style={{ fontFamily: 'Great Vibes', fontSize: Math.round(hfs * 1.05), color: colors.primary }}>{parts.script}</span>
+          </div>
         ) : (
-          <div style={{ fontFamily: 'Playfair Display', fontSize: hfs, fontWeight: 700, color: colors.primary, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{displayName}</div>
+          <div style={{ fontFamily: 'Playfair Display', fontSize: hfs, fontWeight: 700, color: colors.primary, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{displayName}</div>
         )}
         {showTagline && branding.tagline && (
           <div style={{ fontFamily: 'Montserrat', fontSize: dfs, fontWeight: 600, color: colors.textMuted, letterSpacing: '0.16em', textTransform: 'uppercase', marginTop: 8 }}>{branding.tagline}</div>

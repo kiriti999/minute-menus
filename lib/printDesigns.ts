@@ -39,6 +39,18 @@ export interface FormatInfo {
 /** Convert mm to screen px at 96 DPI. */
 const mmToPx = (mm: number) => Math.round(mm * 96 / 25.4);
 
+const mmToCm = (mm: number) => Math.round((mm / 10) * 10) / 10;
+const mmToIn = (mm: number) => Math.round((mm / 25.4) * 10) / 10;
+
+/** Human-readable size in mm, cm, and inches — for format pickers and print specs. */
+export function formatDimensionsLabel(widthMm: number, heightMm: number): string {
+  const wCm = mmToCm(widthMm);
+  const hCm = mmToCm(heightMm);
+  const wIn = mmToIn(widthMm);
+  const hIn = mmToIn(heightMm);
+  return `${widthMm}×${heightMm}mm · ${wCm}×${hCm}cm · ${wIn}×${hIn}"`;
+}
+
 const fmt = (
   key: PrintFormat,
   label: string,

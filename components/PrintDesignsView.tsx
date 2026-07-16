@@ -45,6 +45,7 @@ import {
   DEFAULT_JOB_FLYER_CONTENT,
   FONT_PAIRINGS,
   FORMATS,
+  formatDimensionsLabel,
   GOOGLE_FONT_OPTIONS,
   googleFontsForCustomization,
   GRADIENT_PRESETS,
@@ -396,9 +397,9 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
           <h1 className={`text-2xl font-light tracking-tight ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>Print Designs</h1>
           <p className={`text-xs mt-0.5 ${muted}`}>Menus, wall boards, pamphlets, hiring flyers, and stickers</p>
         </div>
-        <div className={`flex items-center gap-1 text-[10px] font-bold tracking-widest uppercase ${muted}`}>
+        <div className={`flex items-center gap-1 text-[10px] font-bold tracking-widest ${muted}`}>
           <Printer size={14} />
-          {fmt.widthMm}×{fmt.heightMm}mm
+          <span className="normal-case font-mono">{formatDimensionsLabel(fmt.widthMm, fmt.heightMm)}</span>
         </div>
       </header>
 
@@ -567,9 +568,9 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                               className={`rounded-lg border p-3 text-left flex items-center gap-3 transition-all ${isActive ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100' : isDarkTheme ? 'border-zinc-800 hover:border-zinc-600' : 'border-zinc-200 hover:border-zinc-400'}`}
                             >
                               <FormatThumb w={fi.widthMm} h={fi.heightMm} active={isActive} shape={fi.shape} />
-                              <div>
+                              <div className="min-w-0">
                                 <div className={`text-sm font-semibold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{fi.label}</div>
-                                <div className={`text-[10px] font-mono mt-0.5 ${muted}`}>{fi.widthMm}×{fi.heightMm}mm</div>
+                                <div className={`text-[10px] font-mono mt-0.5 leading-snug ${muted}`}>{formatDimensionsLabel(fi.widthMm, fi.heightMm)}</div>
                               </div>
                             </button>
                           );
@@ -590,9 +591,9 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                         className={`rounded-lg border p-3 text-left flex items-center gap-3 transition-all ${isActive ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100' : isDarkTheme ? 'border-zinc-800 hover:border-zinc-600' : 'border-zinc-200 hover:border-zinc-400'}`}
                       >
                         <FormatThumb w={fi.widthMm} h={fi.heightMm} active={isActive} shape={fi.shape} />
-                        <div>
+                        <div className="min-w-0">
                           <div className={`text-sm font-semibold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{fi.label}</div>
-                          <div className={`text-[10px] font-mono mt-0.5 ${muted}`}>{fi.widthMm}×{fi.heightMm}mm</div>
+                          <div className={`text-[10px] font-mono mt-0.5 leading-snug ${muted}`}>{formatDimensionsLabel(fi.widthMm, fi.heightMm)}</div>
                         </div>
                       </button>
                     );
@@ -1048,7 +1049,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
               </div>
 
               <p className={`text-[10px] text-center mt-2 ${muted}`}>
-                Preview is scaled — export at full {fmt.widthMm}×{fmt.heightMm}mm
+                Preview is scaled — export at full {formatDimensionsLabel(fmt.widthMm, fmt.heightMm)}
               </p>
             </section>
 
@@ -1119,7 +1120,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
 
               <div className={`mt-4 rounded-lg p-3 text-[10px] space-y-1 ${isDarkTheme ? 'bg-zinc-900 text-zinc-500' : 'bg-zinc-50 text-zinc-500'}`}>
                 <div className="font-semibold uppercase tracking-wider">Print Specs</div>
-                <div>Format: {fmt.label} ({fmt.widthMm}×{fmt.heightMm}mm{fmt.shape === 'circle' ? ', die-cut circle' : ''})</div>
+                <div>Format: {fmt.label} ({formatDimensionsLabel(fmt.widthMm, fmt.heightMm)}{fmt.shape === 'circle' ? ', die-cut circle' : ''})</div>
                 <div>Colour: {colorModeLabel(custom.colorMode)}</div>
                 <div>Bleed: {fmt.bleedMm}mm on each side</div>
                 <div>Material: {material.material}</div>
