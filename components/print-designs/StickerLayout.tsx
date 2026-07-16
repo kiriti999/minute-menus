@@ -96,7 +96,7 @@ function CircleSticker({
 				height: size,
 				borderRadius: "50%",
 				boxSizing: "border-box",
-				background: "#FFFFFF",
+				background: colors.background,
 				overflow: "hidden",
 				position: "relative",
 				display: "flex",
@@ -114,7 +114,7 @@ function CircleSticker({
 					position: "absolute",
 					inset: Math.round(size * 0.045),
 					borderRadius: "50%",
-					border: `1px dashed ${hexToRgba(colors.accent, 0.45)}`,
+					border: `1px dashed ${hexToRgba(colors.border || colors.accent, 0.55)}`,
 					pointerEvents: "none",
 				}}
 			/>
