@@ -118,7 +118,7 @@ function CircleSticker({
 
 				{hasLogo && (
 					<div style={{ flexShrink: 0, lineHeight: 0 }}>
-						<Logo url={logoUrl} height={Math.round(size * 0.14)} />
+						<Logo url={logoUrl} height={Math.round(size * 0.18)} />
 					</div>
 				)}
 

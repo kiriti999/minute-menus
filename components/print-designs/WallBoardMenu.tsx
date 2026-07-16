@@ -92,17 +92,19 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
   const titleFont = titleFontFamily(customization);
   const titleExtras = titleStyleExtras(customization);
   const tagline = showTagline && branding.tagline ? branding.tagline : null;
+  // Logo replaces title — size from board height so ultra-wide strips stay readable.
+  const logoH = Math.round(Math.min(heightPx * (ultraWide ? 0.18 : 0.14), widthPx * 0.12));
 
   if (visual.header === 'name-board') {
     return (
       <div style={{
         marginBottom: headerGap, display: 'flex', flexDirection: 'column',
         alignItems: 'center', justifyContent: 'center', gap: 8,
-        minHeight: Math.round(bandH * 0.9),
+        minHeight: Math.round(bandH * (hasLogo ? 1.05 : 0.9)),
       }}>
         {hasLogo ? (
           <>
-            <Logo url={logoUrl} height={Math.round(hfs * 1.1)} />
+            <Logo url={logoUrl} height={logoH} />
             {tagline && (
               <div style={{ fontFamily: 'Montserrat', fontSize: dfs, fontWeight: 600, color: colors.textMuted, letterSpacing: '0.18em', textTransform: 'uppercase' }}>{tagline}</div>
             )}
@@ -127,12 +129,13 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
     return (
       <div style={{
         background: `linear-gradient(135deg, ${colors.primary}, ${colors.secondary})`,
-        minHeight: bandH, display: 'flex', flexDirection: isLandscape && !hasLogo ? 'row' : 'column',
+        minHeight: hasLogo ? Math.max(bandH, logoH + 24) : bandH,
+        display: 'flex', flexDirection: isLandscape && !hasLogo ? 'row' : 'column',
         justifyContent: 'center', alignItems: 'center', gap: isLandscape ? 16 : 4,
         padding: `0 ${pad}px`, margin: `-${pad}px -${pad}px ${headerGap}px`,
       }}>
         {hasLogo ? (
-          <Logo url={logoUrl} height={Math.round(bandH * 0.55)} />
+          <Logo url={logoUrl} height={logoH} />
         ) : (
           <div style={{ textAlign: isLandscape ? 'left' : 'center' }}>
             <div style={{ fontFamily: titleFont, fontSize: hfs, fontWeight: headingWeight(customization), color: '#FFF', letterSpacing: '0.04em', ...titleExtras, textTransform: titleExtras.textTransform ?? textTransformCss(customization) }}>
@@ -155,7 +158,7 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
       textAlign: headerAlign,
     }}>
       {hasLogo ? (
-        <Logo url={logoUrl} height={Math.round(hfs * (ultraWide ? 1 : 1.35))} />
+        <Logo url={logoUrl} height={logoH} />
       ) : (
         <div style={{ fontFamily: titleFont, fontSize: hfs, fontWeight: headingWeight(customization), color: colors.primary, ...titleExtras, textTransform: titleExtras.textTransform ?? textTransformCss(customization) }}>{displayName}</div>
       )}

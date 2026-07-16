@@ -132,7 +132,7 @@ const CompactMenuLayout: React.FC<CompactMenuLayoutProps> = ({
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
         {logoUrl ? (
-          <Logo url={logoUrl} height={Math.round(hfs * 1.6)} />
+          <Logo url={logoUrl} height={Math.round(Math.min(heightPx * 0.14, hfs * 2.4))} />
         ) : (
           <div style={{
             fontFamily: titleFont, fontSize: hfs, fontWeight: 700, color: colors.primary,

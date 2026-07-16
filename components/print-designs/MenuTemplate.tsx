@@ -130,7 +130,7 @@ function MenuHeader({ style, customization, branding, widthPx, heightPx }: Pick<
   const titleExtras = titleStyleExtras(customization);
   const titleTransform = titleExtras.textTransform ?? ttf;
   const tagline = showTagline && branding.tagline ? branding.tagline : null;
-  const logoH = Math.round(widthPx * (hasLogo ? 0.09 : 0.07));
+  const logoH = Math.round(Math.min(heightPx * 0.12, widthPx * (hasLogo ? 0.14 : 0.07)));
 
   if (visual.header === 'name-board') {
     const parts = splitNameBoardTitle(displayName);
