@@ -216,7 +216,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     setFormat(DEFAULT_FORMAT[t]);
     if (usesBrandColors(t)) {
       setTemplateStyle(BRAND_TEMPLATE_STYLE);
-      const next = defaultCustomization(BRAND_TEMPLATE_STYLE, t);
+      const next = defaultCustomization(BRAND_TEMPLATE_STYLE, t, { preferBrandColors: true });
       if (t === 'job-flyer') next.layout = { ...next.layout, columns: 1 };
       setCustom(next);
       return;

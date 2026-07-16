@@ -306,9 +306,19 @@ function colorsFromScheme(key: ColorSchemeKey): DesignColors {
 /** Default template for brand print formats (name-board aligned). */
 export const BRAND_TEMPLATE_STYLE: TemplateStyle = 'modern-minimal';
 
-export function defaultCustomization(style: TemplateStyle, designType?: PrintDesignType): DesignCustomization {
+export type DefaultCustomizationOpts = {
+  /** When true, stickers/flyers/pamphlets start on Fresh Teal. Template picks use the template palette instead. */
+  preferBrandColors?: boolean;
+};
+
+export function defaultCustomization(
+  style: TemplateStyle,
+  designType?: PrintDesignType,
+  opts?: DefaultCustomizationOpts,
+): DesignCustomization {
   const tmpl = TEMPLATES.find((t) => t.key === style) ?? TEMPLATES[0];
-  const colorKey = designType && usesBrandColors(designType) ? BRAND_COLOR_SCHEME : tmpl.defaultColors;
+  const useBrand = Boolean(opts?.preferBrandColors && designType && usesBrandColors(designType));
+  const colorKey = useBrand ? BRAND_COLOR_SCHEME : tmpl.defaultColors;
   const fonts = FONT_PAIRINGS[tmpl.defaultFonts];
   const isNameBoardYellow = style === 'name-board-yellow';
   const isWall = designType === 'wall-board';
