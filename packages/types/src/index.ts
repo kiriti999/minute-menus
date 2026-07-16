@@ -415,7 +415,7 @@ export type PrintFormat =
   | 'square-24'
   | 'dl' | 'a5' | 'a6'
   | 'business-card' | 'mini-card'
-  | 'circle-50' | 'circle-75' | 'circle-100'
+  | 'circle-38' | 'circle-50' | 'circle-75' | 'circle-100'
   | 'square-50' | 'square-75'
   | 'rect-100x50';
 

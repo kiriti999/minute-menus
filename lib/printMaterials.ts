@@ -57,6 +57,7 @@ const BY_TYPE: Record<PrintDesignType, MaterialRecommendation> = {
 };
 
 const FORMAT_OVERRIDES: Partial<Record<PrintFormat, Partial<MaterialRecommendation>>> = {
+  'circle-38': { notes: 'Compact 1.5" badge — cups, lids, or packaging. Keep QR simple.', costRange: '₹1.5–4 per sticker' },
   'circle-50': { notes: 'Packaging / delivery box sticker. Min QR 15mm.', costRange: '₹2–5 per sticker' },
   'circle-75': { notes: 'Table sticker size. Good scan distance 30–50cm.', costRange: '₹3–6 per sticker' },
   'circle-100': { notes: 'Window or door sticker. High visibility.', costRange: '₹5–10 per sticker' },

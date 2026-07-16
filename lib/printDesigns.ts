@@ -137,6 +137,7 @@ export const FORMATS: Record<PrintFormat, FormatInfo> = {
   a6:              fmt('a6',              'A6 Flyer',           105, 148,  'pamphlet',    3),
   'business-card': fmt('business-card',   'Business Card',      90,  50,   'pocket-card', 2),
   'mini-card':     fmt('mini-card',       'Mini Card',          85,  55,   'pocket-card', 2),
+  'circle-38':     fmt('circle-38',       'Circle Ø38mm (1.5")', 38,  38,   'sticker',     2, 'circle'),
   'circle-50':     fmt('circle-50',       'Circle Ø50mm',       50,  50,   'sticker',     2, 'circle'),
   'circle-75':     fmt('circle-75',       'Circle Ø75mm',       75,  75,   'sticker',     2, 'circle'),
   'circle-100':    fmt('circle-100',      'Circle Ø100mm',      100, 100,  'sticker',     2, 'circle'),
@@ -156,7 +157,7 @@ export const DESIGN_TYPE_FORMATS: Record<PrintDesignType, PrintFormat[]> = {
   'wall-board':  WALL_BOARD_FORMAT_GROUPS.flatMap((g) => g.formats),
   'pamphlet':    ['a5', 'dl', 'a6'],
   'pocket-card': ['business-card', 'mini-card'],
-  'sticker':     ['circle-50', 'circle-75', 'circle-100', 'square-50', 'square-75', 'rect-100x50'],
+  'sticker':     ['circle-38', 'circle-50', 'circle-75', 'circle-100', 'square-50', 'square-75', 'rect-100x50'],
   'job-flyer':   ['a5', 'dl', 'a6', 'a4'],
 };
 
