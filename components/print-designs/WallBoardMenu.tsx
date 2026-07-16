@@ -135,6 +135,7 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
             dfs={dfs}
           />
         )}
+        {/* No rule under a logo — only under the text title. */}
         {!hasLogo && (
           <div style={{ width: Math.round(Math.min(widthPx, heightPx) * 0.18), height: 2, background: colors.primary, marginTop: 4 }} />
         )}
@@ -168,7 +169,8 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
   const headerAlign = hasLogo || ultraWide || align === 'center' ? 'center' : 'left';
   return (
     <div style={{
-      borderBottom: `3px solid ${colors.primary}`, paddingBottom: Math.round(Math.min(widthPx, heightPx) * 0.01),
+      borderBottom: hasLogo ? 'none' : `3px solid ${colors.primary}`,
+      paddingBottom: hasLogo ? 0 : Math.round(Math.min(widthPx, heightPx) * 0.01),
       marginBottom: headerGap, display: 'flex', alignItems: 'center',
       justifyContent: headerAlign === 'center' ? 'center' : 'flex-start', gap: 12,
       flexDirection: hasLogo || ultraWide ? 'column' : (isLandscape ? 'row' : 'column'),
@@ -237,7 +239,7 @@ function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols,
   cat: Category; customization: DesignCustomization; widthPx: number; heightPx: number; blockColor: string; cols: number; densityScale: number;
 }) {
   const fonts = effectiveFonts(customization);
-  const { showPrices } = customization;
+  const { showPrices, showColumnBorders, columnBorderColor, colors } = customization;
   const bfs = Math.max(12, Math.round(scaledBodyFsWall(widthPx, heightPx, customization, cols) * densityScale));
   const cfs = Math.max(14, Math.round(scaledCatFsWall(widthPx, heightPx, customization, cols) * densityScale));
   const itemGap = Math.max(3, Math.round(bfs * (densityScale < 0.88 ? 0.22 : 0.3)));
@@ -245,6 +247,9 @@ function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols,
   const text = contrastTextColor(blockColor);
   const ruleColor = hexToRgba(text === '#FFFFFF' ? '#FFFFFF' : '#000000', 0.28);
   const pad = Math.round(Math.min(widthPx, heightPx) * 0.016);
+  const colBorder = showColumnBorders
+    ? `${Math.max(1, Math.round(Math.min(widthPx, heightPx) * 0.0025))}px solid ${columnBorderColor ?? colors.border}`
+    : undefined;
 
   return (
     <div style={{
@@ -252,6 +257,7 @@ function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols,
       width: '100%', height: '100%', minWidth: 0, minHeight: 0,
       overflow: 'hidden', display: 'flex', flexDirection: 'column',
       borderRadius: Math.max(4, Math.round(widthPx * 0.006)), padding: pad,
+      border: colBorder,
     }}>
       <div style={{
         fontFamily: fonts.heading, fontSize: cfs, fontWeight: 700, color: text,

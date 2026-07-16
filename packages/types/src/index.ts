@@ -526,6 +526,10 @@ export interface DesignCustomization {
   includeCropMarks: boolean;
   /** Custom colors for wall board category columns (up to 6). */
   columnColors?: string[];
+  /** Draw a border around each wall-board category column. */
+  showColumnBorders?: boolean;
+  /** Stroke colour for column borders (falls back to colors.border). */
+  columnBorderColor?: string;
 }
 
 export interface RestaurantBranding {

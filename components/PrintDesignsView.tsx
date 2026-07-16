@@ -1062,6 +1062,28 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                   >
                     Reset to scheme colours
                   </button>
+                  <div className="mt-4 flex flex-wrap items-center gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <div
+                        onClick={() => patchCustom('showColumnBorders', !custom.showColumnBorders)}
+                        className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${custom.showColumnBorders ? 'bg-green-500' : isDarkTheme ? 'bg-zinc-700' : 'bg-zinc-300'}`}
+                      >
+                        <div className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-transform ${custom.showColumnBorders ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                      </div>
+                      <span className={`text-xs ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>Column borders</span>
+                    </label>
+                    {custom.showColumnBorders && (
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={custom.columnBorderColor ?? custom.colors.border}
+                          onChange={(e) => patchCustom('columnBorderColor', e.target.value)}
+                          className="w-8 h-8 rounded cursor-pointer border-0 p-0"
+                        />
+                        <span className={`text-xs ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>Border colour</span>
+                      </label>
+                    )}
+                  </div>
                 </div>
               )}
 

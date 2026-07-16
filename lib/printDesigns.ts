@@ -389,6 +389,8 @@ export function defaultCustomization(
     backgroundGradient: GRADIENT_PRESETS[0].value,
     logoUrl: undefined, logoPosition: isNameBoardYellow ? 'center' : 'left',
     colorMode: 'rgb', showBleedGuides: false, includeCropMarks: false,
+    showColumnBorders: false,
+    columnBorderColor: undefined,
     ...(isNameBoardYellow ? { columnColors: [...WALL_YELLOW_COLUMN_COLORS] } : {}),
   };
 }
