@@ -61,30 +61,25 @@ export interface PrintPreviewFit {
 
 /**
  * Fit any print format into a preview viewport (contain), preserving aspect ratio.
- * Ultra-wide strips get a wider box; tall portraits get a taller box.
+ * Pass the available container width so ultra-wide boards can use the full page.
  */
-export function fitPrintPreview(widthPx: number, heightPx: number): PrintPreviewFit {
+export function fitPrintPreview(
+  widthPx: number,
+  heightPx: number,
+  containerMaxWidthCss = 1100,
+  containerMaxHeightCss?: number,
+): PrintPreviewFit {
   const w = Math.max(1, widthPx);
   const h = Math.max(1, heightPx);
   const aspect = w / h;
-  let maxWidthCss = 380;
-  let maxHeightCss = 460;
-  if (aspect > 2.2) {
-    maxWidthCss = 720;
-    maxHeightCss = 240;
-  } else if (aspect > 1.6) {
-    maxWidthCss = 480;
-    maxHeightCss = 340;
-  } else if (aspect < 0.55) {
-    maxWidthCss = 280;
-    maxHeightCss = 520;
-  } else if (aspect < 0.85) {
-    maxWidthCss = 320;
-    maxHeightCss = 500;
-  } else if (Math.abs(aspect - 1) < 0.08) {
-    // Stickers / squares — roomy but not oversized
-    maxWidthCss = 300;
-    maxHeightCss = 300;
+  const maxWidthCss = Math.max(240, containerMaxWidthCss);
+  let maxHeightCss = containerMaxHeightCss ?? 420;
+  if (containerMaxHeightCss == null) {
+    if (aspect > 2.2) maxHeightCss = 280;
+    else if (aspect > 1.55) maxHeightCss = 360;
+    else if (aspect < 0.55) maxHeightCss = 560;
+    else if (aspect < 0.85) maxHeightCss = 500;
+    else if (Math.abs(aspect - 1) < 0.08) maxHeightCss = 360;
   }
   const scale = Math.min(maxWidthCss / w, maxHeightCss / h);
   return {

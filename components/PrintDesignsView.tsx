@@ -28,6 +28,7 @@ import {
   Image as ImageIcon,
   Layers,
   Loader2,
+  Maximize2,
   Palette,
   Printer,
   RefreshCw,
@@ -121,6 +122,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   hasUnsavedMenuChanges = false,
 }) => {
   const exportRef = useRef<HTMLDivElement>(null);
+  const previewHostRef = useRef<HTMLDivElement>(null);
 
   const [designType, setDesignType] = useState<PrintDesignType>('menu-card');
   const [format, setFormat] = useState<PrintFormat>('a4');
@@ -134,6 +136,8 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   const [jobFlyer, setJobFlyer] = useState<JobFlyerContent>(DEFAULT_JOB_FLYER_CONTENT);
   const [printMenu, setPrintMenu] = useState<Category[]>(menuItems);
   const [menuSyncLoading, setMenuSyncLoading] = useState(false);
+  const [previewHostW, setPreviewHostW] = useState(1100);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
 
   const loadPrintMenuFromDb = useCallback(async () => {
     if (!restaurantId) return;
@@ -207,10 +211,28 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     ? `${import.meta.env.VITE_SITE_URL ?? 'https://minutemenus.com'}/${branding.slug}`
     : import.meta.env.VITE_SITE_URL ?? 'https://minutemenus.com';
 
-  const previewFit = fitPrintPreview(fmt.widthPx, fmt.heightPx);
+  useEffect(() => {
+    const el = previewHostRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (width && width > 0) setPreviewHostW(Math.floor(width));
+    });
+    ro.observe(el);
+    setPreviewHostW(Math.floor(el.clientWidth) || 1100);
+    return () => ro.disconnect();
+  }, []);
+
+  const previewFit = fitPrintPreview(fmt.widthPx, fmt.heightPx, Math.max(280, previewHostW - 8));
   const previewScale = previewFit.scale;
   const previewCssWidth = previewFit.cssWidth;
   const previewCssHeight = previewFit.cssHeight;
+  const modalFit = fitPrintPreview(
+    fmt.widthPx,
+    fmt.heightPx,
+    Math.min(typeof window !== 'undefined' ? window.innerWidth * 0.92 : 1200, 1400),
+    typeof window !== 'undefined' ? window.innerHeight * 0.72 : 640,
+  );
 
   const handleDesignTypeChange = useCallback((t: PrintDesignType) => {
     setDesignType(t);
@@ -404,43 +426,104 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
         </div>
       </header>
 
-      <div className="px-4 md:px-6 py-6 max-w-7xl mx-auto">
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
+      <div className="px-4 md:px-6 py-6 max-w-7xl mx-auto space-y-6">
 
+        {/* Step 1: Design type — full width */}
+        <section className={`border rounded-xl p-5 ${card}`}>
+          <h2 className={`text-xs font-bold uppercase tracking-widest mb-3 ${muted}`}>1. Design Type</h2>
+          <div className="flex flex-wrap gap-2">
+            {DESIGN_TYPES.map((dt) => (
+              <button
+                key={dt.key}
+                onClick={() => handleDesignTypeChange(dt.key)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all ${designType === dt.key ? activeTab : inactiveTab} border ${isDarkTheme ? 'border-zinc-700' : 'border-zinc-200'}`}
+              >
+                <span>{dt.icon}</span>
+                {dt.label}
+              </button>
+            ))}
+          </div>
+          {designType === 'job-flyer' && (
+            <p className={`text-[10px] mt-2 ${muted}`}>
+              Hiring pamphlet for part-time or full-time roles — timings, pay, age, qualification, and English level.
+            </p>
+          )}
+          {(designType === 'pocket-card' || designType === 'sticker') && (
+            <p className={`text-[10px] mt-2 ${muted}`}>
+              {designType === 'sticker'
+                ? 'QR-focused sticker layout — circle, square, and rectangle formats with die-cut specs.'
+                : 'Compact QR card — restaurant info only, no dish list.'}
+            </p>
+          )}
+          {designType === 'wall-board' && (
+            <p className={`text-[10px] mt-2 ${muted}`}>Choose landscape (wide above-counter), portrait (tall wall), or square. Fonts and columns adapt to orientation.</p>
+          )}
+        </section>
+
+        {/* Live preview — full width under design type so wide boards are not clipped */}
+        <section className={`border rounded-xl p-5 ${card}`}>
+          <div className="flex items-center justify-between mb-3 gap-2">
+            <h2 className={`text-xs font-bold uppercase tracking-widest ${muted}`}>Live Preview</h2>
+            <div className={`flex items-center gap-2 text-[10px] ${muted}`}>
+              {needsMenu && (
+                <button
+                  type="button"
+                  onClick={() => void loadPrintMenuFromDb()}
+                  disabled={menuSyncLoading || hasUnsavedMenuChanges}
+                  title={hasUnsavedMenuChanges ? 'Save menu in editor to sync from database' : 'Refresh menu from database'}
+                  className={`inline-flex items-center gap-1 ${hasUnsavedMenuChanges ? 'opacity-50 cursor-not-allowed' : isDarkTheme ? 'hover:text-white' : 'hover:text-zinc-900'}`}
+                >
+                  <RefreshCw size={11} className={menuSyncLoading ? 'animate-spin' : ''} />
+                  {hasUnsavedMenuChanges ? 'Unsaved editor' : 'From menu'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setPreviewExpanded(true)}
+                className={`inline-flex items-center gap-1 ${isDarkTheme ? 'hover:text-white' : 'hover:text-zinc-900'}`}
+                title="Expand preview"
+              >
+                <Maximize2 size={11} />
+                Expand
+              </button>
+              <span className="inline-flex items-center gap-1">
+                <Layers size={11} />
+                {fmt.label}
+              </span>
+            </div>
+          </div>
+          <div ref={previewHostRef} className="w-full flex justify-center">
+            <div
+              style={{ width: previewCssWidth, height: previewCssHeight }}
+              className={`relative overflow-hidden rounded border shrink-0 ${isDarkTheme ? 'border-zinc-700' : 'border-zinc-300'}`}
+            >
+              <div style={{ transform: `scale(${previewScale})`, transformOrigin: 'top left', width: fmt.widthPx, height: fmt.heightPx, pointerEvents: 'none', position: 'relative' }}>
+                <MenuTemplate
+                  style={templateStyle}
+                  designType={designType}
+                  format={format}
+                  customization={custom}
+                  branding={branding}
+                  menuItems={printMenu}
+                  widthPx={fmt.widthPx}
+                  heightPx={fmt.heightPx}
+                  siteUrl={siteUrl}
+                  jobFlyer={isJobFlyer ? jobFlyer : undefined}
+                />
+                {custom.showBleedGuides && (
+                  <PrintGuidesOverlay fmt={fmt} widthPx={fmt.widthPx} heightPx={fmt.heightPx} showBleed showCropMarks={false} />
+                )}
+              </div>
+            </div>
+          </div>
+          <p className={`text-[10px] text-center mt-2 ${muted}`}>
+            Preview is scaled to fit — export at full {formatDimensionsLabel(fmt.widthMm, fmt.heightMm)}
+          </p>
+        </section>
+
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
           {/* ── Left: Controls ── */}
           <div className="space-y-5 min-w-0">
-
-            {/* Step 1: Design type */}
-            <section className={`border rounded-xl p-5 ${card}`}>
-              <h2 className={`text-xs font-bold uppercase tracking-widest mb-3 ${muted}`}>1. Design Type</h2>
-              <div className="flex flex-wrap gap-2">
-                {DESIGN_TYPES.map((dt) => (
-                  <button
-                    key={dt.key}
-                    onClick={() => handleDesignTypeChange(dt.key)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all ${designType === dt.key ? activeTab : inactiveTab} border ${isDarkTheme ? 'border-zinc-700' : 'border-zinc-200'}`}
-                  >
-                    <span>{dt.icon}</span>
-                    {dt.label}
-                  </button>
-                ))}
-              </div>
-              {designType === 'job-flyer' && (
-                <p className={`text-[10px] mt-2 ${muted}`}>
-                  Hiring pamphlet for part-time or full-time roles — timings, pay, age, qualification, and English level.
-                </p>
-              )}
-              {(designType === 'pocket-card' || designType === 'sticker') && (
-                <p className={`text-[10px] mt-2 ${muted}`}>
-                  {designType === 'sticker'
-                    ? 'QR-focused sticker layout — circle, square, and rectangle formats with die-cut specs.'
-                    : 'Compact QR card — restaurant info only, no dish list.'}
-                </p>
-              )}
-              {designType === 'wall-board' && (
-                <p className={`text-[10px] mt-2 ${muted}`}>Choose landscape (wide above-counter), portrait (tall wall), or square. Fonts and columns adapt to orientation.</p>
-              )}
-            </section>
 
             {isJobFlyer && (
               <section className={`border rounded-xl p-5 ${card}`}>
@@ -1001,64 +1084,8 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
             </section>
           </div>
 
-          {/* ── Right: Live Preview + Export — column grows with fitted preview */}
-          <div
-            className="space-y-5 w-full max-w-full"
-            style={{ width: Math.min(720, Math.max(360, previewCssWidth + 48)) }}
-          >
-            <section className={`border rounded-xl p-5 ${card}`}>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className={`text-xs font-bold uppercase tracking-widest ${muted}`}>Live Preview</h2>
-                <div className={`flex items-center gap-2 text-[10px] ${muted}`}>
-                  {needsMenu && (
-                    <button
-                      type="button"
-                      onClick={() => void loadPrintMenuFromDb()}
-                      disabled={menuSyncLoading || hasUnsavedMenuChanges}
-                      title={hasUnsavedMenuChanges ? 'Save menu in editor to sync from database' : 'Refresh menu from database'}
-                      className={`inline-flex items-center gap-1 ${hasUnsavedMenuChanges ? 'opacity-50 cursor-not-allowed' : isDarkTheme ? 'hover:text-white' : 'hover:text-zinc-900'}`}
-                    >
-                      <RefreshCw size={11} className={menuSyncLoading ? 'animate-spin' : ''} />
-                      {hasUnsavedMenuChanges ? 'Unsaved editor' : 'From menu'}
-                    </button>
-                  )}
-                  <span className="inline-flex items-center gap-1">
-                    <Layers size={11} />
-                    {fmt.label}
-                  </span>
-                </div>
-              </div>
-
-              <div className="w-full flex justify-center overflow-x-auto">
-                <div
-                  style={{ width: previewCssWidth, height: previewCssHeight }}
-                  className={`relative overflow-hidden rounded border shrink-0 ${isDarkTheme ? 'border-zinc-700' : 'border-zinc-300'}`}
-                >
-                  <div style={{ transform: `scale(${previewScale})`, transformOrigin: 'top left', width: fmt.widthPx, height: fmt.heightPx, pointerEvents: 'none', position: 'relative' }}>
-                    <MenuTemplate
-                      style={templateStyle}
-                      designType={designType}
-                      format={format}
-                      customization={custom}
-                      branding={branding}
-                      menuItems={printMenu}
-                      widthPx={fmt.widthPx}
-                      heightPx={fmt.heightPx}
-                      siteUrl={siteUrl}
-                      jobFlyer={isJobFlyer ? jobFlyer : undefined}
-                    />
-                    {custom.showBleedGuides && (
-                      <PrintGuidesOverlay fmt={fmt} widthPx={fmt.widthPx} heightPx={fmt.heightPx} showBleed showCropMarks={false} />
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <p className={`text-[10px] text-center mt-2 ${muted}`}>
-                Preview is scaled to fit — export at full {formatDimensionsLabel(fmt.widthMm, fmt.heightMm)}
-              </p>
-            </section>
-
+          {/* ── Right: Export palette ── */}
+          <div className="space-y-5 w-full lg:sticky lg:top-24 lg:self-start">
             {/* Export */}
             <section className={`border rounded-xl p-5 ${card}`}>
               <h2 className={`text-xs font-bold uppercase tracking-widest mb-3 ${muted}`}>Export & Download</h2>
@@ -1153,6 +1180,57 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
           </div>
         </div>
       </div>
+
+      {previewExpanded && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8 bg-black/70 backdrop-blur-sm"
+          onClick={() => setPreviewExpanded(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Expanded print preview"
+        >
+          <div
+            className={`relative w-full max-w-[1400px] max-h-[90vh] overflow-auto rounded-xl border p-4 md:p-6 ${isDarkTheme ? 'bg-zinc-950 border-zinc-700' : 'bg-white border-zinc-200'}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4 gap-3">
+              <div>
+                <h2 className={`text-sm font-bold uppercase tracking-widest ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>Preview</h2>
+                <p className={`text-[10px] mt-0.5 ${muted}`}>{fmt.label} · {formatDimensionsLabel(fmt.widthMm, fmt.heightMm)}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewExpanded(false)}
+                className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs border ${isDarkTheme ? 'border-zinc-600 text-zinc-300 hover:bg-zinc-800' : 'border-zinc-300 text-zinc-700 hover:bg-zinc-100'}`}
+              >
+                <X size={12} />
+                Close
+              </button>
+            </div>
+            <div className="w-full flex justify-center">
+              <div
+                style={{ width: modalFit.cssWidth, height: modalFit.cssHeight }}
+                className={`relative overflow-hidden rounded border shrink-0 ${isDarkTheme ? 'border-zinc-700' : 'border-zinc-300'}`}
+              >
+                <div style={{ transform: `scale(${modalFit.scale})`, transformOrigin: 'top left', width: fmt.widthPx, height: fmt.heightPx, pointerEvents: 'none', position: 'relative' }}>
+                  <MenuTemplate
+                    style={templateStyle}
+                    designType={designType}
+                    format={format}
+                    customization={custom}
+                    branding={branding}
+                    menuItems={printMenu}
+                    widthPx={fmt.widthPx}
+                    heightPx={fmt.heightPx}
+                    siteUrl={siteUrl}
+                    jobFlyer={isJobFlyer ? jobFlyer : undefined}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Off-screen full-resolution render target for html2canvas */}
       <div style={{ position: 'fixed', top: -99999, left: -99999, width: fmt.widthPx, height: fmt.heightPx, pointerEvents: 'none', zIndex: -1 }}>
