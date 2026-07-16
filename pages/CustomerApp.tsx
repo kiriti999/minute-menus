@@ -73,6 +73,9 @@ function formatDeliveryAddress(profile: CustomerProfile): string {
     .join(", ");
 }
 
+/** Delivery is Hyderabad-area only — state is fixed in the address form. */
+const DEFAULT_DELIVERY_STATE = "Telangana";
+
 export const CustomerApp: React.FC<CustomerAppProps> = ({
   onNavigateToDashboard,
   isDarkTheme,
@@ -126,7 +129,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const [detailsArea, setDetailsArea] = useState("");
   const [detailsLandmark, setDetailsLandmark] = useState("");
   const [detailsCity, setDetailsCity] = useState("");
-  const [detailsState, setDetailsState] = useState("");
+  const [detailsState, setDetailsState] = useState(DEFAULT_DELIVERY_STATE);
   const [detailsPincode, setDetailsPincode] = useState("");
   const [detailsLat, setDetailsLat] = useState<number | undefined>();
   const [detailsLng, setDetailsLng] = useState<number | undefined>();
@@ -211,7 +214,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         setDetailsArea(profile.area ?? "");
         setDetailsLandmark(profile.landmark ?? "");
         setDetailsCity(profile.city ?? "");
-        setDetailsState(profile.state ?? "");
+        setDetailsState(DEFAULT_DELIVERY_STATE);
         setDetailsPincode(profile.pincode ?? "");
         // If profile incomplete and auth modal is not open, open it at details step
         if (!supabaseService.isProfileComplete(profile) && isAuthModalOpen) {
@@ -451,7 +454,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     setDetailsArea(profile.area ?? "");
     setDetailsLandmark(profile.landmark ?? "");
     setDetailsCity(profile.city ?? "");
-    setDetailsState(profile.state ?? "");
+    setDetailsState(DEFAULT_DELIVERY_STATE);
     setDetailsPincode(profile.pincode ?? "");
     setDetailsLat(profile.lat);
     setDetailsLng(profile.lng);
@@ -465,7 +468,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     if (address.area) setDetailsArea(address.area);
     if (address.landmark) setDetailsLandmark(address.landmark);
     if (address.city) setDetailsCity(address.city);
-    if (address.state) setDetailsState(address.state);
+    setDetailsState(DEFAULT_DELIVERY_STATE);
     if (address.pincode) setDetailsPincode(address.pincode);
     setDetailsLat(address.lat);
     setDetailsLng(address.lng);
@@ -599,7 +602,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         area: detailsArea.trim() || undefined,
         landmark: detailsLandmark.trim() || undefined,
         city: detailsCity.trim(),
-        state: detailsState.trim() || undefined,
+        state: DEFAULT_DELIVERY_STATE,
         pincode: detailsPincode.trim(),
         lat: detailsLat,
         lng: detailsLng,
@@ -637,7 +640,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     setDetailsArea("");
     setDetailsLandmark("");
     setDetailsCity("");
-    setDetailsState("");
+    setDetailsState(DEFAULT_DELIVERY_STATE);
     setDetailsPincode("");
     setDetailsLat(undefined);
     setDetailsLng(undefined);
@@ -1550,9 +1553,11 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                         <input
                           type="text"
                           value={detailsState}
-                          onChange={(e) => setDetailsState(e.target.value)}
+                          readOnly
+                          tabIndex={-1}
+                          aria-readonly="true"
                           placeholder="State"
-                          className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-2.5 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
+                          className="w-full bg-zinc-900/60 border border-zinc-700 text-zinc-400 px-4 py-2.5 rounded text-sm outline-none cursor-default"
                         />
                         <input
                           type="text"
