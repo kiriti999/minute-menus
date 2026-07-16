@@ -45,6 +45,7 @@ import {
   DEFAULT_JOB_FLYER_CONTENT,
   FONT_PAIRINGS,
   FORMATS,
+  fitPrintPreview,
   formatDimensionsLabel,
   GOOGLE_FONT_OPTIONS,
   googleFontsForCustomization,
@@ -86,8 +87,6 @@ const ENGLISH_SKILL_OPTIONS: { key: EnglishSkillLevel; label: string }[] = [
   { key: 'preferred', label: 'Preferred' },
   { key: 'not-required', label: 'Not required' },
 ];
-
-const PREVIEW_CSS_WIDTH = 380;
 
 const TITLE_STYLE_OPTIONS: { key: TitleStyle; label: string; sample: string }[] = [
   { key: 'classic', label: 'Classic', sample: 'Serif / pairing font' },
@@ -208,11 +207,10 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     ? `${import.meta.env.VITE_SITE_URL ?? 'https://minutemenus.com'}/${branding.slug}`
     : import.meta.env.VITE_SITE_URL ?? 'https://minutemenus.com';
 
-  // Ultra-wide wall strips need a wider preview box so type stays legible on screen.
-  const previewAspect = fmt.widthPx / Math.max(1, fmt.heightPx);
-  const previewBoxWidth = previewAspect > 2.2 ? Math.min(560, PREVIEW_CSS_WIDTH * 1.45) : PREVIEW_CSS_WIDTH;
-  const previewScale = previewBoxWidth / fmt.widthPx;
-  const previewCssHeight = fmt.heightPx * previewScale;
+  const previewFit = fitPrintPreview(fmt.widthPx, fmt.heightPx);
+  const previewScale = previewFit.scale;
+  const previewCssWidth = previewFit.cssWidth;
+  const previewCssHeight = previewFit.cssHeight;
 
   const handleDesignTypeChange = useCallback((t: PrintDesignType) => {
     setDesignType(t);
@@ -407,10 +405,10 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
       </header>
 
       <div className="px-4 md:px-6 py-6 max-w-7xl mx-auto">
-        <div className="grid lg:grid-cols-[1fr_400px] gap-6">
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
 
           {/* ── Left: Controls ── */}
-          <div className="space-y-5">
+          <div className="space-y-5 min-w-0">
 
             {/* Step 1: Design type */}
             <section className={`border rounded-xl p-5 ${card}`}>
@@ -1003,8 +1001,11 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
             </section>
           </div>
 
-          {/* ── Right: Live Preview + Export ── */}
-          <div className="space-y-5">
+          {/* ── Right: Live Preview + Export — column grows with fitted preview */}
+          <div
+            className="space-y-5 w-full max-w-full"
+            style={{ width: Math.min(720, Math.max(360, previewCssWidth + 48)) }}
+          >
             <section className={`border rounded-xl p-5 ${card}`}>
               <div className="flex items-center justify-between mb-3">
                 <h2 className={`text-xs font-bold uppercase tracking-widest ${muted}`}>Live Preview</h2>
@@ -1028,31 +1029,33 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                 </div>
               </div>
 
-              <div
-                style={{ width: previewBoxWidth, height: Math.round(previewCssHeight), maxWidth: '100%' }}
-                className={`relative overflow-hidden rounded border ${isDarkTheme ? 'border-zinc-700' : 'border-zinc-300'} mx-auto`}
-              >
-                <div style={{ transform: `scale(${previewScale})`, transformOrigin: 'top left', width: fmt.widthPx, height: fmt.heightPx, pointerEvents: 'none', position: 'relative' }}>
-                  <MenuTemplate
-                    style={templateStyle}
-                    designType={designType}
-                    format={format}
-                    customization={custom}
-                    branding={branding}
-                    menuItems={printMenu}
-                    widthPx={fmt.widthPx}
-                    heightPx={fmt.heightPx}
-                    siteUrl={siteUrl}
-                    jobFlyer={isJobFlyer ? jobFlyer : undefined}
-                  />
-                  {custom.showBleedGuides && (
-                    <PrintGuidesOverlay fmt={fmt} widthPx={fmt.widthPx} heightPx={fmt.heightPx} showBleed showCropMarks={false} />
-                  )}
+              <div className="w-full flex justify-center overflow-x-auto">
+                <div
+                  style={{ width: previewCssWidth, height: previewCssHeight }}
+                  className={`relative overflow-hidden rounded border shrink-0 ${isDarkTheme ? 'border-zinc-700' : 'border-zinc-300'}`}
+                >
+                  <div style={{ transform: `scale(${previewScale})`, transformOrigin: 'top left', width: fmt.widthPx, height: fmt.heightPx, pointerEvents: 'none', position: 'relative' }}>
+                    <MenuTemplate
+                      style={templateStyle}
+                      designType={designType}
+                      format={format}
+                      customization={custom}
+                      branding={branding}
+                      menuItems={printMenu}
+                      widthPx={fmt.widthPx}
+                      heightPx={fmt.heightPx}
+                      siteUrl={siteUrl}
+                      jobFlyer={isJobFlyer ? jobFlyer : undefined}
+                    />
+                    {custom.showBleedGuides && (
+                      <PrintGuidesOverlay fmt={fmt} widthPx={fmt.widthPx} heightPx={fmt.heightPx} showBleed showCropMarks={false} />
+                    )}
+                  </div>
                 </div>
               </div>
 
               <p className={`text-[10px] text-center mt-2 ${muted}`}>
-                Preview is scaled — export at full {formatDimensionsLabel(fmt.widthMm, fmt.heightMm)}
+                Preview is scaled to fit — export at full {formatDimensionsLabel(fmt.widthMm, fmt.heightMm)}
               </p>
             </section>
 

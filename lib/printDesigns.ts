@@ -51,6 +51,51 @@ export function formatDimensionsLabel(widthMm: number, heightMm: number): string
   return `${widthMm}×${heightMm}mm · ${wCm}×${hCm}cm · ${wIn}×${hIn}"`;
 }
 
+export interface PrintPreviewFit {
+  scale: number;
+  cssWidth: number;
+  cssHeight: number;
+  maxWidthCss: number;
+  maxHeightCss: number;
+}
+
+/**
+ * Fit any print format into a preview viewport (contain), preserving aspect ratio.
+ * Ultra-wide strips get a wider box; tall portraits get a taller box.
+ */
+export function fitPrintPreview(widthPx: number, heightPx: number): PrintPreviewFit {
+  const w = Math.max(1, widthPx);
+  const h = Math.max(1, heightPx);
+  const aspect = w / h;
+  let maxWidthCss = 380;
+  let maxHeightCss = 460;
+  if (aspect > 2.2) {
+    maxWidthCss = 720;
+    maxHeightCss = 240;
+  } else if (aspect > 1.6) {
+    maxWidthCss = 480;
+    maxHeightCss = 340;
+  } else if (aspect < 0.55) {
+    maxWidthCss = 280;
+    maxHeightCss = 520;
+  } else if (aspect < 0.85) {
+    maxWidthCss = 320;
+    maxHeightCss = 500;
+  } else if (Math.abs(aspect - 1) < 0.08) {
+    // Stickers / squares — roomy but not oversized
+    maxWidthCss = 300;
+    maxHeightCss = 300;
+  }
+  const scale = Math.min(maxWidthCss / w, maxHeightCss / h);
+  return {
+    scale,
+    cssWidth: Math.max(1, Math.round(w * scale)),
+    cssHeight: Math.max(1, Math.round(h * scale)),
+    maxWidthCss,
+    maxHeightCss,
+  };
+}
+
 const fmt = (
   key: PrintFormat,
   label: string,
