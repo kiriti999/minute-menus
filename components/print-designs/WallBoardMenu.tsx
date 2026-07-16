@@ -248,7 +248,7 @@ function PriceLeader({ style, color, fontSize }: {
       <span
         aria-hidden
         style={{
-          flex: '1 1 auto', minWidth: 8, overflow: 'hidden', whiteSpace: 'nowrap',
+          flex: '1 1 0%', minWidth: 10, overflow: 'hidden', whiteSpace: 'nowrap',
           color, fontSize: Math.max(8, Math.round(fontSize * 0.85)), letterSpacing: '0.02em',
           lineHeight: 1, alignSelf: 'center', margin: '0 4px',
         }}
@@ -262,7 +262,7 @@ function PriceLeader({ style, color, fontSize }: {
     <span
       aria-hidden
       style={{
-        flex: '1 1 auto', minWidth: 8, height: 0, alignSelf: 'center',
+        flex: '1 1 0%', minWidth: 10, height: 0, alignSelf: 'center',
         margin: '0 6px', borderBottom: `1.5px ${borderStyle} ${color}`,
       }}
     />
@@ -313,13 +313,15 @@ function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols,
             style={{
               display: 'flex', justifyContent: 'space-between',
               alignItems: useLeader ? 'center' : 'flex-start',
-              gap: useLeader ? 0 : 6, flexShrink: 0, minWidth: 0,
+              gap: useLeader ? 0 : 6, flexShrink: 0, minWidth: 0, width: '100%',
             }}
           >
             <div style={{
               fontFamily: fonts.body, fontSize: bfs, fontWeight: 600, color: text,
-              lineHeight, wordBreak: 'break-word', hyphens: 'auto',
-              flex: useLeader ? '0 1 auto' : 1, minWidth: 0, maxWidth: useLeader ? '62%' : undefined,
+              lineHeight, overflowWrap: 'break-word', wordBreak: 'normal',
+              // Name keeps natural width; leader flexes. Avoid maxWidth so lines don't force wraps.
+              flex: useLeader ? '0 1 auto' : '1 1 auto',
+              minWidth: 0,
             }}>
               {wallBoardDisplayName(dish.name, cat.title)}
             </div>
@@ -328,7 +330,7 @@ function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols,
                 <PriceLeader style={priceLeaderStyle} color={leaderColor} fontSize={bfs} />
                 <div style={{
                   fontFamily: fonts.price, fontSize: bfs, fontWeight: 700, color: text,
-                  flexShrink: 0, whiteSpace: 'nowrap', lineHeight: 1.25,
+                  flex: '0 0 auto', whiteSpace: 'nowrap', lineHeight: 1.25, marginLeft: useLeader ? 0 : undefined,
                 }}>
                   ₹{dish.price}
                 </div>
