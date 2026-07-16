@@ -641,9 +641,9 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
               <h2 className={`text-xs font-bold uppercase tracking-widest mb-3 ${muted}`}>4. Logo <span className={`font-normal normal-case ${muted}`}>(optional)</span></h2>
               {custom.logoUrl ? (
                 <div className="flex items-center gap-4">
-                  <img src={custom.logoUrl} alt="Logo preview" className="h-16 w-auto object-contain rounded border" style={{ borderColor: isDarkTheme ? '#3f3f46' : '#e4e4e7' }} />
+                  <img src={custom.logoUrl} alt="Logo preview" className="h-16 w-auto object-contain bg-transparent" />
                   <div className="space-y-2">
-                    <p className={`text-xs ${muted}`}>Logo appears in the design header.</p>
+                    <p className={`text-xs ${muted}`}>Logo replaces the title on stickers. Prefer a PNG with a transparent background.</p>
                     <div className="flex gap-2">
                       {(['left', 'center', 'right'] as const).map((pos) => (
                         <button

@@ -117,16 +117,8 @@ function CircleSticker({
 				/>
 
 				{hasLogo && (
-					<div
-						style={{
-							padding: Math.round(size * 0.014),
-							borderRadius: "50%",
-							border: `1.5px solid ${hexToRgba(colors.primary, 0.25)}`,
-							background: hexToRgba(colors.primary, 0.06),
-							flexShrink: 0,
-						}}
-					>
-						<Logo url={logoUrl} height={Math.round(size * 0.09)} />
+					<div style={{ flexShrink: 0, lineHeight: 0 }}>
+						<Logo url={logoUrl} height={Math.round(size * 0.14)} />
 					</div>
 				)}
 
@@ -134,32 +126,34 @@ function CircleSticker({
 					<CircleQrBadge siteUrl={siteUrl} qrSize={qrSize} colors={colors} size={size} />
 				)}
 
-				<div style={{ textAlign: "center", maxWidth: "86%", zIndex: 1, flexShrink: 0 }}>
-					<div
-						style={{
-							fontFamily: titleFont,
-							fontSize: nameFs,
-							fontWeight: 700,
-							color: colors.primary,
-							lineHeight: 1.15,
-							...titleExtras,
-						}}
-					>
-						{displayName}
-					</div>
-					{showTagline && branding.tagline && (
+				{!hasLogo && (
+					<div style={{ textAlign: "center", maxWidth: "86%", zIndex: 1, flexShrink: 0 }}>
 						<div
 							style={{
-								fontSize: Math.max(5, nameFs - 2),
-								color: colors.textMuted,
-								marginTop: 2,
-								lineHeight: 1.2,
+								fontFamily: titleFont,
+								fontSize: nameFs,
+								fontWeight: 700,
+								color: colors.primary,
+								lineHeight: 1.15,
+								...titleExtras,
 							}}
 						>
-							{branding.tagline}
+							{displayName}
 						</div>
-					)}
-				</div>
+						{showTagline && branding.tagline && (
+							<div
+								style={{
+									fontSize: Math.max(5, nameFs - 2),
+									color: colors.textMuted,
+									marginTop: 2,
+									lineHeight: 1.2,
+								}}
+							>
+								{branding.tagline}
+							</div>
+						)}
+					</div>
+				)}
 
 				<div
 					style={{

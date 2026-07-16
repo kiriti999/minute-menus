@@ -131,14 +131,17 @@ const CompactMenuLayout: React.FC<CompactMenuLayoutProps> = ({
       padding: pad, fontFamily: fonts.body, display: 'flex', flexDirection: 'column', gap: Math.round(pad * 0.4),
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-        {logoUrl && <Logo url={logoUrl} height={Math.round(hfs * 1.4)} />}
-        <div style={{
-          fontFamily: titleFont, fontSize: hfs, fontWeight: 700, color: colors.primary,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
-          ...titleExtras,
-        }}>
-          {displayName || 'Restaurant'}
-        </div>
+        {logoUrl ? (
+          <Logo url={logoUrl} height={Math.round(hfs * 1.6)} />
+        ) : (
+          <div style={{
+            fontFamily: titleFont, fontSize: hfs, fontWeight: 700, color: colors.primary,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
+            ...titleExtras,
+          }}>
+            {displayName || 'Restaurant'}
+          </div>
+        )}
       </div>
 
       <div style={{
