@@ -2120,25 +2120,25 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
 
             <div className="p-4 sm:p-8 border-t border-zinc-900 bg-zinc-950">
               {cart.length > 0 && (
-                <div className="mb-4 rounded-xl border border-zinc-800 bg-zinc-900/70 px-3.5 py-3">
+                <div className="mb-4 rounded-xl border border-zinc-600 bg-zinc-900 px-3.5 py-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex items-start gap-2">
-                      <MapPin size={14} className="mt-0.5 shrink-0 text-zinc-500" />
+                      <MapPin size={14} className="mt-0.5 shrink-0 text-white" />
                       <div className="min-w-0">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-1">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-white mb-1">
                           Delivering to
                         </p>
                         {deliveryAddressSummary ? (
                           <>
                             {customerProfile?.name && (
-                              <p className="text-sm text-white font-medium truncate">{customerProfile.name}</p>
+                              <p className="text-sm text-white font-semibold truncate">{customerProfile.name}</p>
                             )}
-                            <p className="text-xs text-zinc-400 leading-snug mt-0.5 line-clamp-3">
+                            <p className="text-xs text-zinc-200 leading-snug mt-0.5 line-clamp-3">
                               {deliveryAddressSummary}
                             </p>
                           </>
                         ) : (
-                          <p className="text-xs text-zinc-400 leading-snug">
+                          <p className="text-xs text-zinc-200 leading-snug">
                             Add a delivery address before you pay.
                           </p>
                         )}
