@@ -139,32 +139,35 @@ export const DEFAULT_JOB_FLYER_CONTENT: JobFlyerContent = {
   extraNotes: 'Reliable & punctual. Local candidates preferred. Safe commute home at 11 PM required.',
 };
 
-// ─── Colour schemes (20) ──────────────────────────────────────────────────────
+// ─── Colour schemes ───────────────────────────────────────────────────────────
+// Curated for print menus: high contrast text, distinct roles
+// (primary = headers, secondary = bands/gradients, accent = prices),
+// warm paper tones, no Material-default neon stacks.
 
 export const COLOR_SCHEMES: Record<ColorSchemeKey, DesignColors & { label: string }> = {
-  'classic-black':    { label: 'Classic Black',    primary: '#000000', secondary: '#FFD700', background: '#FFFFFF', text: '#333333', textMuted: '#666666', accent: '#C9A961', border: '#CCCCCC' },
-  'warm-sunset':      { label: 'Warm Sunset',      primary: '#FF6B35', secondary: '#F7931E', background: '#FFF5E1', text: '#2C3E50', textMuted: '#7F8C8D', accent: '#FFB266', border: '#F5CBA7' },
-  'ocean-blue':       { label: 'Ocean Blue',       primary: '#0077BE', secondary: '#00A8E8', background: '#F0F8FF', text: '#1A1A1A', textMuted: '#546E7A', accent: '#6DD5FA', border: '#BBDEFB' },
-  'forest-green':     { label: 'Forest Green',     primary: '#2D5016', secondary: '#87A96B', background: '#F5F5DC', text: '#1C1C1C', textMuted: '#5D6D4E', accent: '#A4C639', border: '#C5E1A5' },
-  'royal-purple':     { label: 'Royal Purple',     primary: '#4A148C', secondary: '#7B1FA2', background: '#F3E5F5', text: '#212121', textMuted: '#6A1B9A', accent: '#BA68C8', border: '#E1BEE7' },
-  'spice-red':        { label: 'Spice Red',        primary: '#B71C1C', secondary: '#FF5722', background: '#FFEBEE', text: '#000000', textMuted: '#8D6E63', accent: '#FF8A65', border: '#FFCDD2' },
-  'minimalist-gray':  { label: 'Minimalist Gray',  primary: '#424242', secondary: '#757575', background: '#FAFAFA', text: '#212121', textMuted: '#9E9E9E', accent: '#BDBDBD', border: '#E0E0E0' },
-  'vintage-brown':    { label: 'Vintage Brown',    primary: '#5D4037', secondary: '#8D6E63', background: '#EFEBE9', text: '#3E2723', textMuted: '#795548', accent: '#A1887F', border: '#D7CCC8' },
-  'indian-saffron':   { label: 'Indian Saffron',   primary: '#FF9933', secondary: '#138808', background: '#FFFFFF', text: '#000080', textMuted: '#5D4037', accent: '#FFB366', border: '#FFE0B2' },
-  'cafe-latte':       { label: 'Cafe Latte',       primary: '#6F4E37', secondary: '#A0826D', background: '#F5F5DC', text: '#3E2723', textMuted: '#8D6E63', accent: '#C9A689', border: '#D7CCC8' },
-  'luxury-gold':      { label: 'Luxury Gold',      primary: '#1C1C1C', secondary: '#D4AF37', background: '#FFFFFF', text: '#000000', textMuted: '#6B6B6B', accent: '#FFD700', border: '#E8D5A3' },
-  'fresh-mint':       { label: 'Fresh Mint',       primary: '#00BFA5', secondary: '#1DE9B6', background: '#E0F2F1', text: '#004D40', textMuted: '#00796B', accent: '#64FFDA', border: '#B2DFDB' },
-  'berry-blast':      { label: 'Berry Blast',      primary: '#C2185B', secondary: '#E91E63', background: '#FCE4EC', text: '#880E4F', textMuted: '#AD1457', accent: '#F06292', border: '#F8BBD9' },
-  'sunset-orange':    { label: 'Sunset Orange',    primary: '#E65100', secondary: '#FF6F00', background: '#FFF3E0', text: '#BF360C', textMuted: '#E64A19', accent: '#FF9800', border: '#FFE0B2' },
-  'deep-navy':        { label: 'Deep Navy',        primary: '#0D47A1', secondary: '#1976D2', background: '#E3F2FD', text: '#01579B', textMuted: '#1565C0', accent: '#42A5F5', border: '#BBDEFB' },
-  'earthy-olive':     { label: 'Earthy Olive',     primary: '#827717', secondary: '#9E9D24', background: '#F9FBE7', text: '#33691E', textMuted: '#689F38', accent: '#C0CA33', border: '#DCEDC8' },
-  'cherry-red':       { label: 'Cherry Red',       primary: '#D32F2F', secondary: '#F44336', background: '#FFEBEE', text: '#B71C1C', textMuted: '#C62828', accent: '#EF5350', border: '#FFCDD2' },
-  'slate-modern':     { label: 'Slate Modern',     primary: '#37474F', secondary: '#546E7A', background: '#ECEFF1', text: '#263238', textMuted: '#607D8B', accent: '#78909C', border: '#CFD8DC' },
-  'peach-cream':      { label: 'Peach Cream',      primary: '#FF6E40', secondary: '#FFAB91', background: '#FFFAF0', text: '#BF360C', textMuted: '#E64A19', accent: '#FFCCBC', border: '#FFCCBC' },
-  'teal-calm':        { label: 'Teal Calm',        primary: '#00796B', secondary: '#26A69A', background: '#E0F2F1', text: '#004D40', textMuted: '#00695C', accent: '#4DB6AC', border: '#B2DFDB' },
-  'citrus-punch':     { label: 'Citrus Punch',     primary: '#FF6F00', secondary: '#C0CA33', background: '#FFFDE7', text: '#33260D', textMuted: '#8D6E00', accent: '#E91E63', border: '#FFF176' },
-  'garden-fresh':     { label: 'Garden Fresh',     primary: '#33691E', secondary: '#7CB342', background: '#F1F8E9', text: '#1B5E20', textMuted: '#558B2F', accent: '#FF7043', border: '#C5E1A5' },
-  'banana-leaf':      { label: 'Banana Leaf',      primary: '#6D1B1B', secondary: '#2E7D32', background: '#FFF8E1', text: '#3E1F1F', textMuted: '#795241', accent: '#C9A227', border: '#E6C79C' },
+  'classic-black':    { label: 'Ink & Brass',       primary: '#141414', secondary: '#3A3A3A', background: '#FAFAF8', text: '#1F1F1F', textMuted: '#6E6E6E', accent: '#A68B5B', border: '#E4E2DC' },
+  'warm-sunset':      { label: 'Terracotta Glow',   primary: '#C23B22', secondary: '#E07A3D', background: '#FFF7F0', text: '#241612', textMuted: '#8A5A45', accent: '#E9A45A', border: '#EED4C0' },
+  'ocean-blue':       { label: 'Coastal Slate',     primary: '#1B3A4B', secondary: '#3D6B7C', background: '#F4F7F8', text: '#15252E', textMuted: '#5A7380', accent: '#C4A35A', border: '#D0DCE2' },
+  'forest-green':     { label: 'Moss & Cream',      primary: '#2F4A2B', secondary: '#6B8F5A', background: '#F6F3EA', text: '#1A2418', textMuted: '#5E6E56', accent: '#B8956C', border: '#D8D4C4' },
+  'royal-purple':     { label: 'Jewel Indigo',      primary: '#3D1F5C', secondary: '#B33A3A', background: '#FFFBF5', text: '#1A1020', textMuted: '#6B5470', accent: '#C9A227', border: '#E8D8C4' },
+  'spice-red':        { label: 'Burgundy Luxe',     primary: '#5C1A1B', secondary: '#8B3E3F', background: '#FBF7F2', text: '#2A1515', textMuted: '#7A5C5C', accent: '#C4A574', border: '#E6D5C6' },
+  'minimalist-gray':  { label: 'Stone Minimal',     primary: '#2C3134', secondary: '#6A7075', background: '#F7F6F4', text: '#1C1E1F', textMuted: '#8A8F93', accent: '#9B9FA2', border: '#DDDCDA' },
+  'vintage-brown':    { label: 'Walnut Parchment',  primary: '#4A3428', secondary: '#8B6F47', background: '#F7F0E6', text: '#2C2118', textMuted: '#7A6555', accent: '#A67C52', border: '#DDD0C0' },
+  'indian-saffron':   { label: 'Masala Street',     primary: '#D9480F', secondary: '#E67700', background: '#FFF9F2', text: '#1A100A', textMuted: '#7A4E2E', accent: '#F08C00', border: '#F0D4B0' },
+  'cafe-latte':       { label: 'Espresso Cream',    primary: '#4A3228', secondary: '#8B6B52', background: '#FDF6EE', text: '#2A1A12', textMuted: '#8B7355', accent: '#C4A484', border: '#E8D9C8' },
+  'luxury-gold':      { label: 'Noir Champagne',    primary: '#0F0F0F', secondary: '#C9A84C', background: '#FAF8F2', text: '#141414', textMuted: '#6B6560', accent: '#D4AF6A', border: '#E5D9C0' },
+  'fresh-mint':       { label: 'Sage Mist',         primary: '#2A5A4E', secondary: '#5B9A86', background: '#F3F8F6', text: '#16332C', textMuted: '#5A7A70', accent: '#C4A574', border: '#C8DDD4' },
+  'berry-blast':      { label: 'Berry Wine',        primary: '#6B1F3A', secondary: '#A63D5C', background: '#FFF5F7', text: '#2A121C', textMuted: '#7A4A58', accent: '#D4A017', border: '#E8CDD4' },
+  'sunset-orange':    { label: 'Amber Flame',       primary: '#C2410C', secondary: '#EA580C', background: '#FFF7ED', text: '#27150A', textMuted: '#9A5A30', accent: '#F59E0B', border: '#F0D4B0' },
+  'deep-navy':        { label: 'Midnight Navy',     primary: '#14213D', secondary: '#1D3557', background: '#F7F8FA', text: '#0F172A', textMuted: '#5A6A80', accent: '#C9A84C', border: '#D0D6E0' },
+  'earthy-olive':     { label: 'Olive Grove',       primary: '#4A5C28', secondary: '#7A8F45', background: '#F7F6EC', text: '#242810', textMuted: '#6A7050', accent: '#B8956C', border: '#D8D6C0' },
+  'cherry-red':       { label: 'Ketchup Mustard',   primary: '#C8102E', secondary: '#E8A317', background: '#FFFFFF', text: '#1A1A1A', textMuted: '#666666', accent: '#E31837', border: '#E8C8C8' },
+  'slate-modern':     { label: 'Graphite Cool',     primary: '#2F3A40', secondary: '#5A6B73', background: '#F2F4F5', text: '#1A2226', textMuted: '#6A7A82', accent: '#8A9AA2', border: '#D0D6DA' },
+  'peach-cream':      { label: 'Blush Apricot',     primary: '#C45C3A', secondary: '#E08A6A', background: '#FFFAF5', text: '#2A1810', textMuted: '#8A6050', accent: '#E8B090', border: '#F0D8C8' },
+  'teal-calm':        { label: 'Deep Teal',         primary: '#0F4C4A', secondary: '#2A7A74', background: '#F2F8F7', text: '#0F2A28', textMuted: '#4A706C', accent: '#C4A574', border: '#C4D8D4' },
+  'citrus-punch':     { label: 'Mango Lime',        primary: '#E85D04', secondary: '#2D8A4E', background: '#FFFEF7', text: '#1A2410', textMuted: '#5A6B40', accent: '#F4B942', border: '#E8E0C0' },
+  'garden-fresh':     { label: 'Garden Herb',       primary: '#2D5A27', secondary: '#5A8F3D', background: '#F5F9F0', text: '#1A2E14', textMuted: '#5A7550', accent: '#E07A3D', border: '#D0E0C0' },
+  'banana-leaf':      { label: 'Banana Leaf',       primary: '#5C1D1D', secondary: '#3D6B2F', background: '#FFF9E8', text: '#2A1810', textMuted: '#6B5344', accent: '#D4A017', border: '#E8D4A8' },
 };
 
 // ─── Font pairings (15) ───────────────────────────────────────────────────────
@@ -220,19 +223,19 @@ export const TEMPLATE_CATEGORIES: { key: TemplateCategory; label: string }[] = [
 ];
 
 export const TEMPLATES: TemplateInfo[] = [
-  { key: 'modern-minimal',      label: 'Modern Minimal',      description: 'Clean, spacious, white space',       category: 'modern',  defaultColors: 'classic-black',    defaultFonts: 'modern-clean',    previewColors: ['#111', '#fff', '#D4AF37'] },
-  { key: 'classic-elegant',     label: 'Classic Elegant',     description: 'Serif typography, ornate details',   category: 'classic', defaultColors: 'luxury-gold',      defaultFonts: 'classic-serif',   previewColors: ['#1C1C1C', '#FFFFF8', '#D4AF37'] },
-  { key: 'bold-colorful',       label: 'Bold & Colorful',     description: 'Vibrant, eye-catching',            category: 'casual',  defaultColors: 'warm-sunset',      defaultFonts: 'bold-impact',     previewColors: ['#FF6B35', '#FFF5E1', '#F7931E'] },
-  { key: 'rustic-vintage',      label: 'Rustic Vintage',      description: 'Distressed, hand-drawn feel',        category: 'casual',  defaultColors: 'vintage-brown',    defaultFonts: 'rustic-hand',     previewColors: ['#5D4037', '#EFEBE9', '#8D6E63'] },
-  { key: 'luxury-premium',      label: 'Luxury Premium',      description: 'Gold accents, elegant spacing',      category: 'premium', defaultColors: 'luxury-gold',      defaultFonts: 'luxury-display',  previewColors: ['#1C1C1C', '#FFFFFF', '#FFD700'] },
-  { key: 'street-food-vibes',   label: 'Street Food Vibes',   description: 'Casual Indian street food',         category: 'indian',  defaultColors: 'indian-saffron',   defaultFonts: 'street-playful',  previewColors: ['#FF9933', '#FFFFFF', '#138808'] },
-  { key: 'cafe-cozy',           label: 'Cafe Cozy',           description: 'Warm tones, handwritten feel',     category: 'casual',  defaultColors: 'cafe-latte',       defaultFonts: 'cafe-script',     previewColors: ['#6F4E37', '#F5F5DC', '#A0826D'] },
-  { key: 'fine-dining-minimal', label: 'Fine Dining Minimal',  description: 'Ultra-minimal, high-end',           category: 'premium', defaultColors: 'minimalist-gray',  defaultFonts: 'fine-dining',     previewColors: ['#424242', '#FAFAFA', '#BDBDBD'] },
-  { key: 'fast-food-pop',       label: 'Fast Food Pop',       description: 'Bold, quick-read layout',          category: 'casual',  defaultColors: 'cherry-red',       defaultFonts: 'fast-condensed',  previewColors: ['#D32F2F', '#FFEBEE', '#F44336'] },
-  { key: 'ethnic-traditional',  label: 'Ethnic Traditional',  description: 'Cultural patterns, regional',      category: 'indian',  defaultColors: 'indian-saffron',   defaultFonts: 'ethnic-hindi',    previewColors: ['#FF9933', '#FFFFF0', '#138808'] },
-  { key: 'juice-bar-fresh',     label: 'Juice Bar Fresh',     description: 'Vibrant citrus, fruit-forward',    category: 'casual',  defaultColors: 'citrus-punch',     defaultFonts: 'street-playful',  previewColors: ['#FF6F00', '#FFFDE7', '#C0CA33'] },
-  { key: 'salad-bowl-fresh',    label: 'Salad Bowl Fresh',    description: 'Clean greens, healthy & crisp',    category: 'modern',  defaultColors: 'garden-fresh',     defaultFonts: 'minimal-sans',    previewColors: ['#33691E', '#F1F8E9', '#FF7043'] },
-  { key: 'south-indian-mess',   label: 'South Indian Mess',   description: 'Udupi-style, banana-leaf palette', category: 'indian',  defaultColors: 'banana-leaf',      defaultFonts: 'heritage',        previewColors: ['#6D1B1B', '#FFF8E1', '#C9A227'] },
+  { key: 'modern-minimal',      label: 'Modern Minimal',       description: 'Ink black, soft brass accents',      category: 'modern',  defaultColors: 'classic-black',    defaultFonts: 'modern-clean',    previewColors: ['#141414', '#FAFAF8', '#A68B5B'] },
+  { key: 'classic-elegant',     label: 'Classic Elegant',      description: 'Burgundy serif, cream paper',       category: 'classic', defaultColors: 'spice-red',        defaultFonts: 'classic-serif',   previewColors: ['#5C1A1B', '#FBF7F2', '#C4A574'] },
+  { key: 'bold-colorful',       label: 'Bold & Colorful',      description: 'Terracotta energy, warm cream',     category: 'casual',  defaultColors: 'warm-sunset',      defaultFonts: 'bold-impact',     previewColors: ['#C23B22', '#FFF7F0', '#E9A45A'] },
+  { key: 'rustic-vintage',      label: 'Rustic Vintage',       description: 'Walnut ink on parchment',          category: 'casual',  defaultColors: 'vintage-brown',    defaultFonts: 'rustic-hand',     previewColors: ['#4A3428', '#F7F0E6', '#A67C52'] },
+  { key: 'luxury-premium',      label: 'Luxury Premium',       description: 'Noir base, champagne gold',        category: 'premium', defaultColors: 'luxury-gold',      defaultFonts: 'luxury-display',  previewColors: ['#0F0F0F', '#FAF8F2', '#C9A84C'] },
+  { key: 'street-food-vibes',   label: 'Street Food Vibes',    description: 'Masala orange, street energy',     category: 'indian',  defaultColors: 'indian-saffron',   defaultFonts: 'street-playful',  previewColors: ['#D9480F', '#FFF9F2', '#F08C00'] },
+  { key: 'cafe-cozy',           label: 'Cafe Cozy',            description: 'Espresso brown, soft cream',       category: 'casual',  defaultColors: 'cafe-latte',       defaultFonts: 'cafe-script',     previewColors: ['#4A3228', '#FDF6EE', '#C4A484'] },
+  { key: 'fine-dining-minimal', label: 'Fine Dining Minimal',  description: 'Cool stone, quiet luxury',         category: 'premium', defaultColors: 'minimalist-gray',  defaultFonts: 'fine-dining',     previewColors: ['#2C3134', '#F7F6F4', '#9B9FA2'] },
+  { key: 'fast-food-pop',       label: 'Fast Food Pop',        description: 'Ketchup red + mustard punch',      category: 'casual',  defaultColors: 'cherry-red',       defaultFonts: 'fast-condensed',  previewColors: ['#C8102E', '#FFFFFF', '#E8A317'] },
+  { key: 'ethnic-traditional',  label: 'Ethnic Traditional',   description: 'Indigo, vermillion & gold',        category: 'indian',  defaultColors: 'royal-purple',     defaultFonts: 'ethnic-hindi',    previewColors: ['#3D1F5C', '#FFFBF5', '#C9A227'] },
+  { key: 'juice-bar-fresh',     label: 'Juice Bar Fresh',      description: 'Mango orange meets lime',          category: 'casual',  defaultColors: 'citrus-punch',     defaultFonts: 'street-playful',  previewColors: ['#E85D04', '#FFFEF7', '#2D8A4E'] },
+  { key: 'salad-bowl-fresh',    label: 'Salad Bowl Fresh',     description: 'Herb green, carrot accent',        category: 'modern',  defaultColors: 'garden-fresh',     defaultFonts: 'minimal-sans',    previewColors: ['#2D5A27', '#F5F9F0', '#E07A3D'] },
+  { key: 'south-indian-mess',   label: 'South Indian Mess',    description: 'Maroon, leaf green, turmeric',     category: 'indian',  defaultColors: 'banana-leaf',      defaultFonts: 'heritage',        previewColors: ['#5C1D1D', '#FFF9E8', '#D4A017'] },
 ];
 
 export const DEFAULT_TYPOGRAPHY: DesignTypography = {
