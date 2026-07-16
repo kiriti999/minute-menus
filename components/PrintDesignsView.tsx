@@ -55,6 +55,7 @@ import {
   TEMPLATE_CATEGORIES,
   TEMPLATES,
   usesBrandColors,
+  DEFAULT_COLUMN_BORDER_COLOR,
   WALL_BOARD_FORMAT_GROUPS,
   WALL_YELLOW_COLUMN_COLORS,
   yellowColumnPattern,
@@ -1080,7 +1081,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                       <label className="flex items-center gap-2">
                         <input
                           type="color"
-                          value={custom.columnBorderColor ?? custom.colors.border}
+                          value={custom.columnBorderColor ?? DEFAULT_COLUMN_BORDER_COLOR}
                           onChange={(e) => patchCustom('columnBorderColor', e.target.value)}
                           className="w-8 h-8 rounded cursor-pointer border-0 p-0"
                         />

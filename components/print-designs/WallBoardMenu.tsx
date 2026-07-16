@@ -3,7 +3,7 @@
  */
 import type { Category, DesignCustomization, RestaurantBranding, TemplateStyle } from "@minute-menus/types";
 import { QRCodeSVG } from "qrcode.react";
-import type { FormatInfo } from "../../lib/printDesigns";
+import { DEFAULT_COLUMN_BORDER_COLOR, type FormatInfo } from "../../lib/printDesigns";
 import { wallBoardDisplayName } from "../../lib/wallBoardDishTitle";
 import { TEMPLATE_VISUALS } from "../../lib/templateConfig";
 import {
@@ -273,7 +273,7 @@ function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols,
   cat: Category; customization: DesignCustomization; widthPx: number; heightPx: number; blockColor: string; cols: number; densityScale: number;
 }) {
   const fonts = effectiveFonts(customization);
-  const { showPrices, showColumnBorders, columnBorderColor, colors, priceLeaderStyle = 'none' } = customization;
+  const { showPrices, showColumnBorders, columnBorderColor, priceLeaderStyle = 'none' } = customization;
   const bfs = Math.max(12, Math.round(scaledBodyFsWall(widthPx, heightPx, customization, cols) * densityScale));
   const cfs = Math.max(14, Math.round(scaledCatFsWall(widthPx, heightPx, customization, cols) * densityScale));
   const itemGap = Math.max(3, Math.round(bfs * (densityScale < 0.88 ? 0.22 : 0.3)));
@@ -283,7 +283,7 @@ function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols,
   const leaderColor = hexToRgba(text === '#FFFFFF' ? '#FFFFFF' : '#000000', 0.35);
   const pad = Math.round(Math.min(widthPx, heightPx) * 0.016);
   const colBorder = showColumnBorders
-    ? `${Math.max(1, Math.round(Math.min(widthPx, heightPx) * 0.0025))}px solid ${columnBorderColor ?? colors.border}`
+    ? `${Math.max(1, Math.round(Math.min(widthPx, heightPx) * 0.0025))}px solid ${columnBorderColor ?? DEFAULT_COLUMN_BORDER_COLOR}`
     : undefined;
   const useLeader = showPrices && priceLeaderStyle !== 'none';
 

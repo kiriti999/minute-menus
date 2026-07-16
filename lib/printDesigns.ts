@@ -245,6 +245,9 @@ export function yellowColumnPattern(columns: number): string[] {
   return Array.from({ length: n }, (_, i) => WALL_YELLOW_COLUMN_COLORS[i % WALL_YELLOW_COLUMN_COLORS.length]);
 }
 
+/** Default wall-board column border — mid grey (RGB 82,82,82). */
+export const DEFAULT_COLUMN_BORDER_COLOR = '#525252';
+
 // ─── Font pairings (15) ───────────────────────────────────────────────────────
 
 export const FONT_PAIRINGS: Record<FontPairingKey, DesignFonts & { label: string; googleFonts: string[] }> = {
@@ -396,7 +399,7 @@ export function defaultCustomization(
     logoUrl: undefined, logoPosition: isNameBoardYellow ? 'center' : 'left',
     colorMode: 'rgb', showBleedGuides: false, includeCropMarks: false,
     showColumnBorders: false,
-    columnBorderColor: undefined,
+    columnBorderColor: DEFAULT_COLUMN_BORDER_COLOR,
     priceLeaderStyle: 'none',
     ...(isNameBoardYellow ? { columnColors: yellowColumnPattern(isWall ? 5 : 2) } : {}),
   };
