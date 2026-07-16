@@ -108,13 +108,13 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
   const titleExtras = titleStyleExtras(customization);
   const tagline = showTagline && branding.tagline ? branding.tagline : null;
   // Readable logo without eating the column band on ultra-wide boards.
-  const logoH = Math.round(Math.min(heightPx * (ultraWide ? 0.14 : 0.12), widthPx * 0.1));
+  const logoH = Math.round(Math.min(heightPx * (ultraWide ? 0.16 : 0.13), widthPx * 0.12));
 
   if (visual.header === 'name-board') {
     return (
       <div style={{
         marginBottom: headerGap, display: 'flex', flexDirection: 'column',
-        alignItems: 'center', justifyContent: 'center', gap: hasLogo ? 2 : 6,
+        alignItems: 'center', justifyContent: hasLogo ? 'flex-start' : 'center', gap: hasLogo ? 2 : 6,
         ...(hasLogo ? {} : { minHeight: Math.round(bandH * 0.9) }),
       }}>
         {hasLogo ? (
@@ -299,6 +299,7 @@ function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols,
 export function WallBoardMenu({ style, customization, branding, menuItems, fmt, widthPx, heightPx, siteUrl }: WallBoardMenuProps) {
   const visual = TEMPLATE_VISUALS[style];
   const pad = Math.round(Math.min(widthPx, heightPx) * 0.04);
+  const topPad = customization.logoUrl ? Math.round(pad * 0.4) : pad;
   const border = outerBorderCss(visual, customization);
   const maxCols = wallBoardColumns(widthPx, heightPx, customization.layout.columns);
   const cols = resolveWallColumns(menuItems.length, maxCols);
@@ -307,7 +308,7 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
   const hasFooterSocial = Boolean(branding.phone || branding.instagram);
   const contentHeight = wallBoardContentHeight(
     heightPx, widthPx, pad, isLandscape, customization.showQR, hasFooterSocial, Boolean(customization.logoUrl),
-  );
+  ) + (pad - topPad);
   const maxItems = Math.max(1, ...menuItems.map((c) => c.items.length));
   const maxTitleChars = Math.max(
     1,
@@ -328,7 +329,7 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
   return (
     <div style={{
       width: widthPx, height: heightPx, position: 'relative', boxSizing: 'border-box', overflow: 'hidden',
-      padding: pad, fontFamily: effectiveFonts(customization).body, border,
+      padding: `${topPad}px ${pad}px ${pad}px`, fontFamily: effectiveFonts(customization).body, border,
       borderRadius: containerRadius(customization), boxShadow: containerShadow(customization),
       background: baseBackground(customization), display: 'flex', flexDirection: 'column',
     }}>

@@ -164,10 +164,10 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   const exportRef = useRef<HTMLDivElement>(null);
   const previewHostRef = useRef<HTMLDivElement>(null);
 
-  const [designType, setDesignType] = useState<PrintDesignType>('menu-card');
-  const [format, setFormat] = useState<PrintFormat>('a4');
-  const [templateStyle, setTemplateStyle] = useState<TemplateStyle>('modern-minimal');
-  const [custom, setCustom] = useState<DesignCustomization>(defaultCustomization('modern-minimal'));
+  const [designType, setDesignType] = useState<PrintDesignType>('wall-board');
+  const [format, setFormat] = useState<PrintFormat>(DEFAULT_FORMAT['wall-board']);
+  const [templateStyle, setTemplateStyle] = useState<TemplateStyle>('name-board-yellow');
+  const [custom, setCustom] = useState<DesignCustomization>(defaultCustomization('name-board-yellow', 'wall-board'));
   const [branding, setBranding] = useState<RestaurantBranding>({ name: '', tagline: '', address: '', phone: '', slug: '' });
   const [exporting, setExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState('');
@@ -178,13 +178,13 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   const [menuSyncLoading, setMenuSyncLoading] = useState(false);
   const [previewHostW, setPreviewHostW] = useState(1100);
   const [previewExpanded, setPreviewExpanded] = useState(false);
-  /** Tall pickers start collapsed; customise stays open. */
+  /** All control boxes start collapsed. */
   const [openSections, setOpenSections] = useState<Record<ControlSectionKey, boolean>>({
-    job: true,
+    job: false,
     format: false,
     template: false,
     logo: false,
-    customise: true,
+    customise: false,
     details: false,
   });
 
@@ -290,7 +290,6 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   const handleDesignTypeChange = useCallback((t: PrintDesignType) => {
     setDesignType(t);
     setFormat(DEFAULT_FORMAT[t]);
-    setOpenSections((prev) => ({ ...prev, format: true, template: true }));
     if (usesBrandColors(t)) {
       setTemplateStyle(BRAND_TEMPLATE_STYLE);
       const next = defaultCustomization(BRAND_TEMPLATE_STYLE, t, { preferBrandColors: true });
@@ -299,12 +298,8 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
       return;
     }
     if (t === 'wall-board') {
-      setCustom((prev) => ({
-        ...prev,
-        layout: { ...prev.layout, columns: 5 },
-        showQR: false,
-        showDescriptions: false,
-      }));
+      setTemplateStyle('name-board-yellow');
+      setCustom(defaultCustomization('name-board-yellow', 'wall-board'));
     } else if (t === 'menu-card') {
       setCustom((prev) => ({ ...prev, layout: { ...prev.layout, columns: 2 }, showQR: true }));
     }
