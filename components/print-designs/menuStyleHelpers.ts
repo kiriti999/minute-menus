@@ -79,11 +79,10 @@ export function wallBoardContentHeight(
     ? heightPx * (ultra ? 0.16 : 0.14)
     : isLandscape ? heightPx * (ultra ? 0.1 : 0.14) : heightPx * 0.12;
   const headerGap = Math.min(widthPx, heightPx) * (hasLogo ? 0.008 : 0.015);
-  const footerGap = heightPx * 0.01;
-  let footerBlock = 24;
-  if (showQR) footerBlock += wallBoardQrSize(widthPx, heightPx) + 20;
-  else if (hasFooterSocial) footerBlock += 32;
-  return Math.max(200, heightPx - pad * 2 - headerBand - headerGap - footerGap - footerBlock);
+  let footerBlock = 0;
+  if (showQR) footerBlock = wallBoardQrSize(widthPx, heightPx) + 20 + heightPx * 0.01;
+  else if (hasFooterSocial) footerBlock = 32 + heightPx * 0.01;
+  return Math.max(200, heightPx - pad * 2 - headerBand - headerGap - footerBlock);
 }
 
 /** Shrink fonts when the busiest column has many items for the available height. */

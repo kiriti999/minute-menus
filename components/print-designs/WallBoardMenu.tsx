@@ -197,6 +197,8 @@ function WallFooter({ style, customization, branding, siteUrl, widthPx, heightPx
   const social = [branding.phone, branding.instagram].filter(Boolean).join(' · ');
   const visual = TEMPLATE_VISUALS[style];
 
+  if (!showQR && !social) return null;
+
   if (visual.footer === 'strip') {
     return (
       <div style={{
@@ -213,24 +215,24 @@ function WallFooter({ style, customization, branding, siteUrl, widthPx, heightPx
   return (
     <div style={{ flexShrink: 0, marginTop: Math.round(heightPx * 0.01) }}>
       {showQR && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: social ? 10 : 0 }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
             <QRCodeSVG value={siteUrl} size={qrSize} fgColor={colors.primary} bgColor="transparent" level="H" />
             <div style={{ fontSize: dfs, color: colors.textMuted, fontFamily: fonts.body }}>Scan to order</div>
           </div>
         </div>
       )}
-      <div style={{
-        borderTop: `2px solid ${colors.border}`,
-        paddingTop: 10,
-        display: 'flex',
-        justifyContent: social ? 'flex-start' : 'flex-end',
-        alignItems: 'center',
-      }}>
-        {social && (
+      {social && (
+        <div style={{
+          borderTop: showQR ? `2px solid ${colors.border}` : 'none',
+          paddingTop: showQR ? 10 : 0,
+          display: 'flex',
+          justifyContent: 'flex-start',
+          alignItems: 'center',
+        }}>
           <div style={{ fontSize: dfs, color: colors.textMuted, fontFamily: fonts.body }}>{social}</div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
