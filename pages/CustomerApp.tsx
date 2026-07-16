@@ -42,8 +42,9 @@ import { formatDisplayName } from "../lib/formatDisplayName";
 import { openRazorpayCheckout } from "../lib/loadRazorpayCheckout";
 import { PAYMENT_API_PATHS } from "../lib/api/paymentRouteRewrites";
 import { ButtonSpinner } from "@minute-menus/ui";
-import type { Category, CustomerProfile, CustomerSubscription, DailyOrder, Dish, MealPlan, OrderItem, SubDeliveryType, DeliveryFeeMode, TicketReason, TimeSlot } from "@minute-menus/types";
+import type { Category, CustomerAddress, CustomerProfile, CustomerSubscription, DailyOrder, Dish, MealPlan, OrderItem, SubDeliveryType, DeliveryFeeMode, TicketReason, TimeSlot } from "@minute-menus/types";
 import { TICKET_REASON_LABELS, TIME_SLOT_LABELS } from "@minute-menus/types";
+import { CustomerAddressLocate } from "../components/CustomerAddressLocate";
 
 interface CustomerAppProps {
   onNavigateToDashboard: () => void;
@@ -127,6 +128,9 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const [detailsCity, setDetailsCity] = useState("");
   const [detailsState, setDetailsState] = useState("");
   const [detailsPincode, setDetailsPincode] = useState("");
+  const [detailsLat, setDetailsLat] = useState<number | undefined>();
+  const [detailsLng, setDetailsLng] = useState<number | undefined>();
+  const [detailsFormattedAddress, setDetailsFormattedAddress] = useState("");
   /** `edit` = change address from cart (no payment); `checkout` = fill then pay. */
   const [detailsPurpose, setDetailsPurpose] = useState<"checkout" | "edit">("checkout");
   // ──────────────────────────────────────────────────────────────────────────
@@ -449,6 +453,24 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     setDetailsCity(profile.city ?? "");
     setDetailsState(profile.state ?? "");
     setDetailsPincode(profile.pincode ?? "");
+    setDetailsLat(profile.lat);
+    setDetailsLng(profile.lng);
+    setDetailsFormattedAddress(profile.formattedAddress ?? "");
+  };
+
+  const applyLocatedAddress = (address: CustomerAddress) => {
+    if (address.addressLine1) setDetailsAddressLine1(address.addressLine1);
+    if (address.addressLine2) setDetailsAddressLine2(address.addressLine2);
+    if (address.street) setDetailsStreet(address.street);
+    if (address.area) setDetailsArea(address.area);
+    if (address.landmark) setDetailsLandmark(address.landmark);
+    if (address.city) setDetailsCity(address.city);
+    if (address.state) setDetailsState(address.state);
+    if (address.pincode) setDetailsPincode(address.pincode);
+    setDetailsLat(address.lat);
+    setDetailsLng(address.lng);
+    setDetailsFormattedAddress(address.formattedAddress ?? "");
+    setAuthError("");
   };
 
   const openDeliveryDetails = (purpose: "checkout" | "edit", profile?: CustomerProfile | null) => {
@@ -579,6 +601,9 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         city: detailsCity.trim(),
         state: detailsState.trim() || undefined,
         pincode: detailsPincode.trim(),
+        lat: detailsLat,
+        lng: detailsLng,
+        formattedAddress: detailsFormattedAddress.trim() || undefined,
       });
 
       const updatedProfile = await supabaseService.getCustomerProfile(customer.userId);
@@ -614,6 +639,9 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     setDetailsCity("");
     setDetailsState("");
     setDetailsPincode("");
+    setDetailsLat(undefined);
+    setDetailsLng(undefined);
+    setDetailsFormattedAddress("");
   };
 
   const processOrderPayment = async (profile: CustomerProfile) => {
@@ -1464,9 +1492,14 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
 
                   <div className="pt-2 border-t border-zinc-800">
                     <div className="flex items-center gap-2 mb-3">
-                      <MapPin size={14} className="text-zinc-500" />
-                      <span className="text-xs font-bold uppercase tracking-widest text-zinc-500">Delivery Address</span>
+                      <MapPin size={14} className="text-white" />
+                      <span className="text-xs font-bold uppercase tracking-widest text-white">Delivery Address</span>
                     </div>
+
+                    <CustomerAddressLocate
+                      onResolved={applyLocatedAddress}
+                      onError={(message) => setAuthError(message)}
+                    />
 
                     <div className="space-y-3">
                       <input
