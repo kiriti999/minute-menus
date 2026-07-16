@@ -113,6 +113,46 @@ function FormatThumb({ w, h, active, shape }: { w: number; h: number; active: bo
   );
 }
 
+function CollapsibleSection({
+  title,
+  summary,
+  open,
+  onToggle,
+  cardClass,
+  mutedClass,
+  children,
+}: {
+  title: React.ReactNode;
+  summary?: string;
+  open: boolean;
+  onToggle: () => void;
+  cardClass: string;
+  mutedClass: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className={`border rounded-xl ${cardClass}`}>
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="w-full flex items-center justify-between gap-3 p-5 text-left"
+      >
+        <div className="min-w-0">
+          <h2 className={`text-xs font-bold uppercase tracking-widest ${mutedClass}`}>{title}</h2>
+          {!open && summary ? (
+            <p className={`text-[11px] mt-1 truncate ${mutedClass}`}>{summary}</p>
+          ) : null}
+        </div>
+        {open ? <ChevronUp size={14} className={`shrink-0 ${mutedClass}`} /> : <ChevronDown size={14} className={`shrink-0 ${mutedClass}`} />}
+      </button>
+      {open ? <div className="px-5 pb-5">{children}</div> : null}
+    </section>
+  );
+}
+
+type ControlSectionKey = 'job' | 'format' | 'template' | 'logo' | 'customise' | 'details';
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
@@ -138,6 +178,19 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   const [menuSyncLoading, setMenuSyncLoading] = useState(false);
   const [previewHostW, setPreviewHostW] = useState(1100);
   const [previewExpanded, setPreviewExpanded] = useState(false);
+  /** Tall pickers start collapsed; customise stays open. */
+  const [openSections, setOpenSections] = useState<Record<ControlSectionKey, boolean>>({
+    job: true,
+    format: false,
+    template: false,
+    logo: false,
+    customise: true,
+    details: false,
+  });
+
+  const toggleSection = useCallback((key: ControlSectionKey) => {
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+  }, []);
 
   const loadPrintMenuFromDb = useCallback(async () => {
     if (!restaurantId) return;
@@ -237,6 +290,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   const handleDesignTypeChange = useCallback((t: PrintDesignType) => {
     setDesignType(t);
     setFormat(DEFAULT_FORMAT[t]);
+    setOpenSections((prev) => ({ ...prev, format: true, template: true }));
     if (usesBrandColors(t)) {
       setTemplateStyle(BRAND_TEMPLATE_STYLE);
       const next = defaultCustomization(BRAND_TEMPLATE_STYLE, t, { preferBrandColors: true });
@@ -350,6 +404,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   }, []);
 
   const filteredTemplates = TEMPLATES.filter((t) => templateCategory === 'all' || t.category === templateCategory);
+  const activeTemplateLabel = TEMPLATES.find((t) => t.key === templateStyle)?.label ?? templateStyle;
   const material = getMaterialRecommendation(designType, format);
   const cmykSummary = colorsToCmykSummary(custom.colors);
   const circleSticker = designType === 'sticker' && fmt.shape === 'circle';
@@ -526,8 +581,14 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
           <div className="space-y-5 min-w-0">
 
             {isJobFlyer && (
-              <section className={`border rounded-xl p-5 ${card}`}>
-                <h2 className={`text-xs font-bold uppercase tracking-widest mb-3 ${muted}`}>Job details</h2>
+              <CollapsibleSection
+                title="Job details"
+                summary={jobFlyer.roleTitle || 'Role, pay, timings'}
+                open={openSections.job}
+                onToggle={() => toggleSection('job')}
+                cardClass={card}
+                mutedClass={muted}
+              >
                 <div className="space-y-3">
                   <div>
                     <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1 ${muted}`}>Role / position</label>
@@ -630,12 +691,18 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                   </div>
                   <p className={`text-[10px] ${muted}`}>Full description prints on the flyer. The QR still opens WhatsApp with apply steps pre-filled.</p>
                 </div>
-              </section>
+              </CollapsibleSection>
             )}
 
             {/* Step 2: Format with visual thumbnails */}
-            <section className={`border rounded-xl p-5 ${card}`}>
-              <h2 className={`text-xs font-bold uppercase tracking-widest mb-3 ${muted}`}>2. Paper Format</h2>
+            <CollapsibleSection
+              title="2. Paper Format"
+              summary={fmt.label}
+              open={openSections.format}
+              onToggle={() => toggleSection('format')}
+              cardClass={card}
+              mutedClass={muted}
+            >
               {designType === 'wall-board' ? (
                 <div className="space-y-4">
                   {WALL_BOARD_FORMAT_GROUPS.map((group) => (
@@ -684,11 +751,17 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                   })}
                 </div>
               )}
-            </section>
+            </CollapsibleSection>
 
             {/* Step 3: Template style with filter + thumbnails */}
-            <section className={`border rounded-xl p-5 ${card}`}>
-              <h2 className={`text-xs font-bold uppercase tracking-widest mb-3 ${muted}`}>3. Template Style</h2>
+            <CollapsibleSection
+              title="3. Template Style"
+              summary={activeTemplateLabel}
+              open={openSections.template}
+              onToggle={() => toggleSection('template')}
+              cardClass={card}
+              mutedClass={muted}
+            >
               <div className="flex flex-wrap gap-2 mb-3">
                 {TEMPLATE_CATEGORIES.map((cat) => (
                   <button
@@ -717,11 +790,17 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                   </button>
                 ))}
               </div>
-            </section>
+            </CollapsibleSection>
 
             {/* Step 4: Logo */}
-            <section className={`border rounded-xl p-5 ${card}`}>
-              <h2 className={`text-xs font-bold uppercase tracking-widest mb-3 ${muted}`}>4. Logo <span className={`font-normal normal-case ${muted}`}>(optional)</span></h2>
+            <CollapsibleSection
+              title={<>4. Logo <span className={`font-normal normal-case ${muted}`}>(optional)</span></>}
+              summary={custom.logoUrl ? 'Logo uploaded' : 'No logo'}
+              open={openSections.logo}
+              onToggle={() => toggleSection('logo')}
+              cardClass={card}
+              mutedClass={muted}
+            >
               {custom.logoUrl ? (
                 <div className="flex items-center gap-4">
                   <img src={custom.logoUrl} alt="Logo preview" className="h-16 w-auto object-contain bg-transparent" />
@@ -753,12 +832,17 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                   <input type="file" accept="image/*" className="sr-only" onChange={handleLogoUpload} />
                 </label>
               )}
-            </section>
+            </CollapsibleSection>
 
             {/* Step 5: Customise */}
-            <section className={`border rounded-xl p-5 ${card}`}>
-              <h2 className={`text-xs font-bold uppercase tracking-widest mb-4 ${muted}`}>5. Customise</h2>
-
+            <CollapsibleSection
+              title="5. Customise"
+              summary={`${COLOR_SCHEMES[custom.colorScheme]?.label ?? custom.colorScheme} · columns ${custom.layout.columns}`}
+              open={openSections.customise}
+              onToggle={() => toggleSection('customise')}
+              cardClass={card}
+              mutedClass={muted}
+            >
               {/* Colour scheme — Fresh Teal leads for stickers / flyers / pamphlets */}
               <div className="mb-4">
                 <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Colour Scheme</p>
@@ -1098,11 +1182,17 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                   </div>
                 </div>
               )}
-            </section>
+            </CollapsibleSection>
 
             {/* Step 6: Restaurant details */}
-            <section className={`border rounded-xl p-5 ${card}`}>
-              <h2 className={`text-xs font-bold uppercase tracking-widest mb-3 ${muted}`}>6. Restaurant Details</h2>
+            <CollapsibleSection
+              title="6. Restaurant Details"
+              summary={branding.name || 'Name, phone, address'}
+              open={openSections.details}
+              onToggle={() => toggleSection('details')}
+              cardClass={card}
+              mutedClass={muted}
+            >
               <div className="space-y-3">
                 {(['name', 'tagline', 'phone', 'address', 'instagram', 'website'] as const).map((field) => (
                   <div key={field}>
@@ -1116,7 +1206,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                   </div>
                 ))}
               </div>
-            </section>
+            </CollapsibleSection>
           </div>
 
           {/* ── Right: Export palette ── */}
