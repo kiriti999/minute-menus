@@ -217,6 +217,16 @@ export function formatPrintDisplayName(name: string, textTransform: DesignCustom
   return cleaned;
 }
 
+/** Split "Fresh & Fusion" / "fresh-and-fusion" into serif lead + script trail for name boards. */
+export function splitNameBoardTitle(name: string): { lead: string; script: string } | null {
+  const cleaned = name.replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!cleaned) return null;
+  const match = cleaned.match(/^(.+?)\s+(?:&|and)\s+(.+)$/i);
+  if (!match) return null;
+  const script = match[2].trim().replace(/\b\w/g, (c) => c.toUpperCase());
+  return { lead: match[1].trim().toUpperCase(), script };
+}
+
 export function titleFontFamily(customization: DesignCustomization): string {
   const style = customization.typography.titleStyle ?? 'classic';
   if (style === 'classic') return effectiveFonts(customization).heading;

@@ -436,7 +436,8 @@ export type TemplateStyle =
   | 'fast-food-pop'
   | 'ethnic-traditional'
   | 'salad-bowl-fresh'
-  | 'south-indian-mess';
+  | 'south-indian-mess'
+  | 'name-board-yellow';
 
 export type TemplateCategory = 'all' | 'modern' | 'classic' | 'casual' | 'premium' | 'indian';
 
@@ -448,14 +449,16 @@ export type ColorSchemeKey =
   | 'fresh-mint' | 'berry-blast' | 'sunset-orange'
   | 'deep-navy' | 'earthy-olive' | 'cherry-red'
   | 'slate-modern' | 'peach-cream' | 'teal-calm'
-  | 'citrus-punch' | 'garden-fresh' | 'banana-leaf';
+  | 'citrus-punch' | 'garden-fresh' | 'banana-leaf'
+  | 'wall-yellow';
 
 export type FontPairingKey =
   | 'modern-clean' | 'classic-serif' | 'bold-impact'
   | 'rustic-hand' | 'luxury-display' | 'street-playful'
   | 'cafe-script' | 'fine-dining' | 'fast-condensed'
   | 'ethnic-hindi' | 'editorial' | 'minimal-sans'
-  | 'warm-serif' | 'pop-display' | 'heritage';
+  | 'warm-serif' | 'pop-display' | 'heritage'
+  | 'name-board';
 
 export type BackgroundPattern = 'dots' | 'lines' | 'geometric';
 

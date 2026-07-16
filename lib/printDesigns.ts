@@ -177,6 +177,8 @@ export const COLOR_SCHEMES: Record<ColorSchemeKey, DesignColors & { label: strin
   'citrus-punch':     { label: 'Mango Lime',        primary: '#E85D04', secondary: '#2D8A4E', background: '#FFFEF7', text: '#1A2410', textMuted: '#5A6B40', accent: '#F4B942', border: '#E8E0C0' },
   'garden-fresh':     { label: 'Garden Herb',       primary: '#2D5A27', secondary: '#5A8F3D', background: '#F5F9F0', text: '#1A2E14', textMuted: '#5A7550', accent: '#E07A3D', border: '#D0E0C0' },
   'banana-leaf':      { label: 'Banana Leaf',       primary: '#5C1D1D', secondary: '#3D6B2F', background: '#FFF9E8', text: '#2A1810', textMuted: '#6B5344', accent: '#D4A017', border: '#E8D4A8' },
+  /** Matches Fresh & Fusion kitchen wall — bright yellow field, black ink for wall boards. */
+  'wall-yellow':      { label: 'Wall Yellow',       primary: '#111111', secondary: '#2A2A2A', background: '#FFD200', text: '#111111', textMuted: '#3D3D3D', accent: '#111111', border: '#111111' },
 };
 
 // ─── Font pairings (15) ───────────────────────────────────────────────────────
@@ -197,6 +199,7 @@ export const FONT_PAIRINGS: Record<FontPairingKey, DesignFonts & { label: string
   'warm-serif':      { label: 'Warm Serif',      heading: 'Libre Baskerville', body: 'Lora', price: 'Libre Baskerville', googleFonts: ['Libre+Baskerville:400,700', 'Lora:400,500'] },
   'pop-display':     { label: 'Pop Display',     heading: 'Anton', body: 'Archivo Black', price: 'Anton', googleFonts: ['Anton:400', 'Archivo+Black:400'] },
   'heritage':        { label: 'Heritage',        heading: 'Tiro Devanagari Hindi', body: 'Mukta', price: 'Tiro Devanagari Hindi', googleFonts: ['Tiro+Devanagari+Hindi:400', 'Mukta:400,600'] },
+  'name-board':      { label: 'Name Board',      heading: 'Playfair Display', body: 'Montserrat', price: 'Montserrat', googleFonts: ['Playfair+Display:400,700', 'Montserrat:400,600,700', 'Great+Vibes:400'] },
 };
 
 /** Individual Google Fonts available for custom per-element selection. */
@@ -243,6 +246,7 @@ export const TEMPLATES: TemplateInfo[] = [
   { key: 'ethnic-traditional',  label: 'Ethnic Traditional',   description: 'Indigo, vermillion & gold',        category: 'indian',  defaultColors: 'royal-purple',     defaultFonts: 'ethnic-hindi',    previewColors: ['#3D1F5C', '#FFFBF5', '#C9A227'] },
   { key: 'salad-bowl-fresh',    label: 'Salad Bowl Fresh',     description: 'Herb green, carrot accent',        category: 'modern',  defaultColors: 'garden-fresh',     defaultFonts: 'minimal-sans',    previewColors: ['#2D5A27', '#F5F9F0', '#E07A3D'] },
   { key: 'south-indian-mess',   label: 'South Indian Mess',    description: 'Maroon, leaf green, turmeric',     category: 'indian',  defaultColors: 'banana-leaf',      defaultFonts: 'heritage',        previewColors: ['#5C1D1D', '#FFF9E8', '#D4A017'] },
+  { key: 'name-board-yellow',   label: 'Name Board Yellow',    description: 'Wall yellow, black ink title',     category: 'casual',  defaultColors: 'wall-yellow',      defaultFonts: 'name-board',      previewColors: ['#111111', '#FFD200', '#111111'] },
 ];
 
 export const DEFAULT_TYPOGRAPHY: DesignTypography = {
@@ -289,19 +293,33 @@ export function defaultCustomization(style: TemplateStyle, designType?: PrintDes
   const tmpl = TEMPLATES.find((t) => t.key === style) ?? TEMPLATES[0];
   const colorKey = designType && usesBrandColors(designType) ? BRAND_COLOR_SCHEME : tmpl.defaultColors;
   const fonts = FONT_PAIRINGS[tmpl.defaultFonts];
+  const isNameBoardYellow = style === 'name-board-yellow';
+  const isWall = designType === 'wall-board';
   return {
-    colorScheme: colorKey,
+    colorScheme: isNameBoardYellow ? 'wall-yellow' : colorKey,
     fontPairing: tmpl.defaultFonts,
-    colors: colorsFromScheme(colorKey),
+    colors: colorsFromScheme(isNameBoardYellow ? 'wall-yellow' : colorKey),
     fonts: { heading: fonts.heading, body: fonts.body, price: fonts.price },
-    typography: { ...DEFAULT_TYPOGRAPHY },
+    typography: {
+      ...DEFAULT_TYPOGRAPHY,
+      ...(isNameBoardYellow ? { textTransform: 'none' as const, titleStyle: 'elegant' as const, headingWeight: 'bold' as const } : {}),
+    },
     effects: { ...DEFAULT_EFFECTS },
-    layout: { columns: 2, spacing: 'normal', alignment: 'left', categoryStyle: 'heading' },
-    showPrices: true, showDescriptions: true, showImages: false,
-    showQR: true, showTagline: true, borderStyle: 'simple',
+    layout: {
+      columns: isWall ? 4 : 2,
+      spacing: 'normal',
+      alignment: isNameBoardYellow ? 'center' : 'left',
+      categoryStyle: 'heading',
+    },
+    showPrices: true,
+    showDescriptions: !isWall && !isNameBoardYellow,
+    showImages: false,
+    showQR: !isWall,
+    showTagline: true,
+    borderStyle: isNameBoardYellow ? 'none' : 'simple',
     backgroundType: 'solid',
     backgroundGradient: GRADIENT_PRESETS[0].value,
-    logoUrl: undefined, logoPosition: 'left',
+    logoUrl: undefined, logoPosition: isNameBoardYellow ? 'center' : 'left',
     colorMode: 'rgb', showBleedGuides: false, includeCropMarks: false,
   };
 }

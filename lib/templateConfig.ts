@@ -6,7 +6,7 @@ import type { TemplateStyle } from "@minute-menus/types";
 export type HeaderVariant =
   | 'left-rule' | 'center-ornate' | 'gradient-band' | 'rustic-box'
   | 'luxury-center' | 'street-playful' | 'cafe-warm' | 'fine-sparse'
-  | 'fast-bold' | 'ethnic-pattern';
+  | 'fast-bold' | 'ethnic-pattern' | 'name-board';
 
 export type CategoryVariant =
   | 'underline' | 'left-accent' | 'filled-banner' | 'dashed-rustic'
@@ -21,6 +21,8 @@ export interface TemplateVisualConfig {
   outerBorder: 'none' | 'simple' | 'double' | 'dashed' | 'decorative';
   showOrnaments: boolean;
   headerGradient: boolean;
+  /** Wall boards: filled colour panels vs plain ink on background. */
+  wallBlocks?: boolean;
 }
 
 export const TEMPLATE_VISUALS: Record<TemplateStyle, TemplateVisualConfig> = {
@@ -35,6 +37,7 @@ export const TEMPLATE_VISUALS: Record<TemplateStyle, TemplateVisualConfig> = {
   'ethnic-traditional':  { header: 'ethnic-pattern', category: 'gold-rule',      footer: 'center', outerBorder: 'decorative',  showOrnaments: true,  headerGradient: false },
   'salad-bowl-fresh':    { header: 'left-rule',      category: 'left-accent',    footer: 'split',  outerBorder: 'simple',      showOrnaments: false, headerGradient: false },
   'south-indian-mess':   { header: 'ethnic-pattern', category: 'gold-rule',      footer: 'center', outerBorder: 'decorative',  showOrnaments: true,  headerGradient: false },
+  'name-board-yellow':   { header: 'name-board',     category: 'underline',      footer: 'split',  outerBorder: 'none',        showOrnaments: false, headerGradient: false, wallBlocks: false },
 };
 
 export const HEADING_SIZE_SCALE = { small: 0.85, medium: 1, large: 1.2 } as const;

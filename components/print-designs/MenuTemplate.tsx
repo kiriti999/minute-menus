@@ -1,5 +1,5 @@
 /**
- * MenuTemplate — config-driven renderer for all 10 template styles.
+ * MenuTemplate — config-driven renderer for all template styles.
  */
 import type {
   Category,
@@ -36,6 +36,7 @@ import {
   scaledDescFs,
   scaledHeadingFs,
   scaledPriceFs,
+  splitNameBoardTitle,
   textTransformCss,
   titleFontFamily,
   titleStyleExtras,
@@ -127,6 +128,30 @@ function MenuHeader({ style, customization, branding, widthPx, heightPx }: Pick<
   const titleFont = titleFontFamily(customization);
   const titleExtras = titleStyleExtras(customization);
   const titleTransform = titleExtras.textTransform ?? ttf;
+
+  if (visual.header === 'name-board') {
+    const parts = splitNameBoardTitle(displayName);
+    return (
+      <div style={{ textAlign: 'center', marginBottom: Math.round(widthPx * 0.02) }}>
+        {logoUrl && <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 6 }}><Logo url={logoUrl} height={Math.round(widthPx * 0.07)} /></div>}
+        {parts ? (
+          <>
+            <div style={{ fontFamily: 'Playfair Display', fontSize: Math.round(hfs * 0.72), fontWeight: 700, color: colors.primary, letterSpacing: '0.12em' }}>{parts.lead}</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: Math.round(hfs * 0.12) }}>
+              <span style={{ fontFamily: 'Playfair Display', fontSize: Math.round(hfs * 0.45), fontWeight: 700, color: colors.primary }}>&</span>
+              <span style={{ fontFamily: 'Great Vibes', fontSize: Math.round(hfs * 1.05), color: colors.primary }}>{parts.script}</span>
+            </div>
+          </>
+        ) : (
+          <div style={{ fontFamily: 'Playfair Display', fontSize: hfs, fontWeight: 700, color: colors.primary, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{displayName}</div>
+        )}
+        {showTagline && branding.tagline && (
+          <div style={{ fontFamily: 'Montserrat', fontSize: dfs, fontWeight: 600, color: colors.textMuted, letterSpacing: '0.16em', textTransform: 'uppercase', marginTop: 8 }}>{branding.tagline}</div>
+        )}
+        <div style={{ width: 48, height: 2, background: colors.primary, margin: '10px auto 0' }} />
+      </div>
+    );
+  }
 
   if (visual.header === 'gradient-band' || visual.header === 'fast-bold' || (visual.headerGradient && visual.header === 'street-playful')) {
     const bandH = Math.round(heightPx * 0.17);
