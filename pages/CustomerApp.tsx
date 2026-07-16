@@ -487,9 +487,10 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     setDetailsFormattedAddress(profile.formattedAddress ?? "");
   };
 
-  /** Google locate only fills area + pincode; building/flat/street stay manual. */
+  /** Google locate fills area, city, pincode; building/flat/street stay manual. */
   const applyLocatedAddress = (address: CustomerAddress) => {
     if (address.area) setDetailsArea(address.area);
+    if (address.city) setDetailsCity(address.city);
     if (address.pincode) setDetailsPincode(address.pincode);
     setDetailsState(DEFAULT_DELIVERY_STATE);
     setDetailsLat(address.lat);
