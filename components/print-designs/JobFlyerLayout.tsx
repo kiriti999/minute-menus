@@ -312,23 +312,26 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 							src={customization.logoUrl}
 							alt={displayName || "Logo"}
 							style={{
-								height: Math.round(Math.min(heightPx * 0.1, widthPx * 0.22)),
+								height: Math.round(Math.min(heightPx * 0.12, widthPx * 0.28)),
 								width: "auto",
-								maxWidth: "70%",
+								maxWidth: "75%",
 								objectFit: "contain",
 								display: "block",
-								margin: "0 auto 6px",
+								margin: "0 auto 8px",
 							}}
 						/>
 					) : (
 						displayName && (
 							<p
 								style={{
-									margin: "0 0 4px",
-									fontSize: smallFs,
-									fontWeight: 600,
-									color: colors.textMuted,
+									margin: "0 0 6px",
+									fontSize: Math.max(14, Math.round(headingFs * 0.48)),
+									fontFamily: titleFont,
+									fontWeight: hw,
+									color: colors.primary,
+									lineHeight: 1.2,
 									textTransform: nameTransform,
+									...titleExtras,
 								}}
 							>
 								{displayName}
