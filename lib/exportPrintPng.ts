@@ -90,6 +90,16 @@ function normalizeCloneTransforms(cloned: HTMLElement): void {
       node.style.justifyContent = "center";
     }
   });
+  // html2canvas paints text slightly low in padded pills — nudge up for export only.
+  cloned.querySelectorAll<HTMLElement>("[data-mm-sticker-cta]").forEach((node) => {
+    const fs = Number.parseFloat(node.style.fontSize) || 10;
+    const padY = Number.parseFloat(node.style.paddingTop) || 3;
+    node.style.lineHeight = "1";
+    node.style.display = "block";
+    node.style.paddingTop = `${Math.max(1, padY - 1)}px`;
+    node.style.paddingBottom = `${padY + 1}px`;
+    node.style.height = `${fs + padY * 2}px`;
+  });
 }
 
 export async function exportPrintDesignToPng(

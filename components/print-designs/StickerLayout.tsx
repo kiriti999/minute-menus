@@ -75,22 +75,23 @@ function CircleQrBadge({
  * Avoids flex space-evenly, which reflows when print/html2canvas font metrics differ.
  */
 function circleStickerLayout(size: number, hasLogo: boolean, showQR: boolean, qrBorderWidth: number) {
-	const pad = Math.round(size * 0.10);
+	const pad = Math.round(size * 0.1);
 	const innerH = size - 2 * pad;
-	const freeForGaps = Math.round(innerH * 0.22);
+	const freeForGaps = Math.round(innerH * 0.2);
 	const contentBudget = innerH - freeForGaps;
 	const ctaFs = Math.max(6, Math.round(size * 0.034));
-	const ctaPadY = Math.max(4, Math.round(size * 0.016));
-	const ctaH = Math.ceil(ctaFs * 1.35) + ctaPadY * 2;
+	const ctaPadY = Math.max(3, Math.round(size * 0.014));
+	// line-height:1 box — html2canvas mis-centers flex + loose line-height text.
+	const ctaH = ctaFs + ctaPadY * 2;
 	const stroke = Math.max(0, qrBorderWidth);
 	const qrPad = Math.max(1, Math.round(stroke + 1));
 	const qrChrome = 2 * qrPad + (stroke > 0 ? 2 * stroke : 0);
 	const nameFs = Math.max(7, Math.round(size * 0.062));
 	const textHeaderH = Math.ceil(nameFs * 1.2) + 2;
-	const logoH = hasLogo ? Math.round(Math.min(size * 0.22, contentBudget * 0.4)) : 0;
+	const logoH = hasLogo ? Math.round(Math.min(size * 0.24, contentBudget * 0.42)) : 0;
 	const headerH = hasLogo ? logoH : textHeaderH;
 	const qrRoom = Math.max(20, contentBudget - ctaH - headerH - qrChrome);
-	const qrCap = Math.round(size * (hasLogo ? 0.24 : 0.26));
+	const qrCap = Math.round(size * (hasLogo ? 0.22 : 0.26));
 	const qrSize = showQR ? Math.min(qrCap, qrRoom) : 0;
 	const qrOuterH = showQR ? qrSize + qrChrome : 0;
 	const blocks = 2 + (showQR ? 1 : 0);
@@ -100,7 +101,7 @@ function circleStickerLayout(size: number, hasLogo: boolean, showQR: boolean, qr
 	const headerTop = pad + gap;
 	const qrTop = headerTop + headerH + gap;
 	const ctaTop = showQR ? qrTop + qrOuterH + gap : headerTop + headerH + gap;
-	return { pad, ctaFs, ctaPadY, logoH, nameFs, qrSize, headerTop, qrTop, ctaTop };
+	return { pad, ctaFs, ctaPadY, ctaH, logoH, nameFs, qrSize, headerTop, qrTop, ctaTop };
 }
 
 function CircleSticker({
@@ -161,10 +162,8 @@ function CircleSticker({
 			/>
 
 			{hasLogo ? (
-				<div style={{ ...band(s.headerTop), lineHeight: 0 }}>
-					<div style={{ maxHeight: s.logoH, lineHeight: 0 }}>
-						<Logo url={logoUrl} height={s.logoH} />
-					</div>
+				<div style={{ ...band(s.headerTop), height: s.logoH, alignItems: "center", lineHeight: 0 }}>
+					<Logo url={logoUrl} height={s.logoH} />
 				</div>
 			) : (
 				<div style={band(s.headerTop)}>
@@ -212,7 +211,9 @@ function CircleSticker({
 
 			<div style={band(s.ctaTop)}>
 				<div
+					data-mm-sticker-cta=""
 					style={{
+						height: s.ctaH,
 						maxWidth: "78%",
 						boxSizing: "border-box",
 						padding: `${s.ctaPadY}px ${Math.round(size * 0.032)}px`,
@@ -221,14 +222,12 @@ function CircleSticker({
 						color: "#FFF",
 						fontSize: s.ctaFs,
 						fontWeight: 600,
-						letterSpacing: "0.06em",
+						letterSpacing: "0.04em",
 						textTransform: "uppercase",
 						textAlign: "center",
-						lineHeight: 1.35,
+						lineHeight: 1,
 						whiteSpace: "nowrap",
-						display: "flex",
-						alignItems: "center",
-						justifyContent: "center",
+						overflow: "hidden",
 					}}
 				>
 					Scan to order
