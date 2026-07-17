@@ -673,9 +673,51 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                       inputMode="tel"
                       className={`w-full px-3 py-2 rounded-lg border text-sm outline-none ${inputCls}`}
                     />
-                    {custom.showQR && !normalizeWhatsAppPhone(branding.phone) && (
+                    {custom.showQR && !normalizeWhatsAppPhone(branding.phone) && !jobFlyer.whatsAppQrImageUrl && (
                       <p className="text-[10px] mt-1 text-amber-500">Enter a valid 10-digit mobile number for the WhatsApp QR.</p>
                     )}
+                  </div>
+                  <div>
+                    <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1 ${muted}`}>
+                      WhatsApp QR image (recommended)
+                    </label>
+                    {jobFlyer.whatsAppQrImageUrl ? (
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={jobFlyer.whatsAppQrImageUrl}
+                          alt="WhatsApp QR"
+                          className="h-20 w-20 object-contain rounded border bg-white"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => patchJobFlyer('whatsAppQrImageUrl', undefined)}
+                          className="text-xs text-red-400 hover:text-red-500"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ) : (
+                      <label className={`flex flex-col items-center justify-center gap-1 px-3 py-4 rounded-lg border border-dashed cursor-pointer text-center ${isDarkTheme ? 'border-zinc-700 hover:border-zinc-500' : 'border-zinc-300 hover:border-zinc-400'}`}>
+                        <span className={`text-xs ${muted}`}>Upload official WhatsApp QR from the app</span>
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              const result = ev.target?.result;
+                              if (typeof result === 'string') patchJobFlyer('whatsAppQrImageUrl', result);
+                            };
+                            reader.readAsDataURL(file);
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
+                    )}
+                    <p className={`text-[10px] mt-1 ${muted}`}>Uses your official WhatsApp QR (with logo) so scans open chat reliably.</p>
                   </div>
                   <div>
                     <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1 ${muted}`}>

@@ -108,6 +108,7 @@ function JobDetailCard({
 function JobFlyerQrPanel({
 	label,
 	url,
+	imageUrl,
 	emptyHint,
 	qrSize,
 	smallFs,
@@ -115,13 +116,15 @@ function JobFlyerQrPanel({
 }: {
 	label: string;
 	url: string | null;
+	imageUrl?: string | null;
 	emptyHint: string;
 	qrSize: number;
 	smallFs: number;
 	colors: DesignCustomization["colors"];
 }) {
 	const labelFs = Math.max(8, Math.round(smallFs * 0.92));
-	if (url) {
+	const customImage = imageUrl?.trim();
+	if (customImage || url) {
 		return (
 			<div
 				style={{
@@ -137,14 +140,30 @@ function JobFlyerQrPanel({
 				<p style={{ margin: "0 0 4px", fontSize: labelFs, fontWeight: 700, color: colors.text, lineHeight: 1.2 }}>
 					{label}
 				</p>
-				<QRCodeSVG
-					value={url}
-					size={qrSize}
-					level="M"
-					bgColor="#FFFFFF"
-					fgColor="#111111"
-					marginSize={2}
-				/>
+				{customImage ? (
+					<img
+						src={customImage}
+						alt={label}
+						width={qrSize}
+						height={qrSize}
+						style={{
+							width: qrSize,
+							height: qrSize,
+							objectFit: "contain",
+							display: "block",
+							margin: "0 auto",
+						}}
+					/>
+				) : (
+					<QRCodeSVG
+						value={url!}
+						size={qrSize}
+						level="M"
+						bgColor="#FFFFFF"
+						fgColor="#111111"
+						marginSize={2}
+					/>
+				)}
 			</div>
 		);
 	}
@@ -460,7 +479,8 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 									<JobFlyerQrPanel
 										label="Scan & Share CV"
 										url={whatsAppUrl}
-										emptyHint="Add WhatsApp number above"
+										imageUrl={jobFlyer.whatsAppQrImageUrl}
+										emptyHint="Add WhatsApp number or upload QR above"
 										qrSize={qrSize}
 										smallFs={smallFs}
 										colors={colors}

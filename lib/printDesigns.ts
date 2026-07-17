@@ -194,6 +194,7 @@ export const DEFAULT_JOB_FLYER_CONTENT: JobFlyerContent = {
   extraNotes: 'Reliable & punctual. Local candidates preferred. Safe commute home at 11 PM required.',
   locationText: '',
   mapsUrl: '',
+  whatsAppQrImageUrl: '/print-assets/whatsapp-qr.png',
 };
 
 // ─── Colour schemes ───────────────────────────────────────────────────────────

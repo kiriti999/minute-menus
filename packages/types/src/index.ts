@@ -574,6 +574,8 @@ export interface JobFlyerContent {
   locationText?: string;
   /** Google Maps pin or share URL; if empty, Maps QR uses locationText as search. */
   mapsUrl?: string;
+  /** Official WhatsApp QR image (data URL or /public path); preferred over generated wa.me QR. */
+  whatsAppQrImageUrl?: string;
 }
 
 export interface CustomerAddress {
