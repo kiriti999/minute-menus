@@ -75,9 +75,9 @@ function CircleQrBadge({
  * Avoids flex space-evenly, which reflows when print/html2canvas font metrics differ.
  */
 function circleStickerLayout(size: number, hasLogo: boolean, showQR: boolean, qrBorderWidth: number) {
-	const pad = Math.round(size * 0.12);
+	const pad = Math.round(size * 0.10);
 	const innerH = size - 2 * pad;
-	const freeForGaps = Math.round(innerH * 0.28);
+	const freeForGaps = Math.round(innerH * 0.22);
 	const contentBudget = innerH - freeForGaps;
 	const ctaFs = Math.max(6, Math.round(size * 0.034));
 	const ctaPadY = Math.max(4, Math.round(size * 0.016));
@@ -87,7 +87,7 @@ function circleStickerLayout(size: number, hasLogo: boolean, showQR: boolean, qr
 	const qrChrome = 2 * qrPad + (stroke > 0 ? 2 * stroke : 0);
 	const nameFs = Math.max(7, Math.round(size * 0.062));
 	const textHeaderH = Math.ceil(nameFs * 1.2) + 2;
-	const logoH = hasLogo ? Math.round(Math.min(size * 0.16, contentBudget * 0.32)) : 0;
+	const logoH = hasLogo ? Math.round(Math.min(size * 0.22, contentBudget * 0.4)) : 0;
 	const headerH = hasLogo ? logoH : textHeaderH;
 	const qrRoom = Math.max(20, contentBudget - ctaH - headerH - qrChrome);
 	const qrCap = Math.round(size * (hasLogo ? 0.24 : 0.26));

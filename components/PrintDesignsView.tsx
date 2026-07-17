@@ -434,14 +434,12 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
 
   const exportPng = useCallback(async () => {
     const el = exportRef.current;
-    const host = exportHostRef.current;
-    if (!el || !host) return;
+    if (!el) return;
     setExporting(true);
     setExportMsg('');
     try {
       const canvas = await exportPrintDesignToPng({
         element: el,
-        host,
         backgroundColor: custom.colors.background,
       });
       const link = document.createElement('a');
@@ -1444,7 +1442,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
         </div>
       )}
 
-      {/* Full-resolution render target for html2canvas (parked off-viewport; PNG export repositions on-screen) */}
+      {/* Full-resolution render target (parked off-viewport; PNG export clones on-screen) */}
       <div
         ref={exportHostRef}
         style={{ position: 'fixed', top: 0, left: '-100vw', width: fmt.widthPx, height: fmt.heightPx, pointerEvents: 'none', zIndex: -1, overflow: 'hidden' }}
