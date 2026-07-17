@@ -1,7 +1,7 @@
 /**
  * Pure style builders for MenuTemplate — keeps TSX cyclomatic complexity low.
  */
-import type { BackgroundPattern, DesignColors, DesignCustomization, DesignFonts, RestaurantBranding, TitleStyle } from "@minute-menus/types";
+import type { BackgroundPattern, Category, DesignColors, DesignCustomization, DesignFonts, RestaurantBranding, TitleStyle } from "@minute-menus/types";
 import { resolveFonts, WALL_YELLOW_COLUMN_COLORS } from "../../lib/printDesigns";
 import {
   BODY_SIZE_SCALE,
@@ -114,11 +114,72 @@ export function wallBoardColumns(widthPx: number, heightPx: number, userCols: nu
 }
 
 /**
- * Actual grid column count — honors the user's Columns control, but never
- * creates empty tracks beyond the category count (e.g. 5 cols with 5 cats).
+ * Actual grid column count — honors the user's Columns control.
+ * Flowing layout may use more columns than categories (items spill across).
  */
 export function resolveWallColumns(categoryCount: number, userCols: number): number {
-  return Math.max(1, Math.min(userCols, Math.max(1, categoryCount)));
+  if (userCols >= 2) return userCols;
+  return Math.max(1, categoryCount);
+}
+
+export type WallBoardColumnSegment = {
+  categoryId: string;
+  title: string;
+  items: Category["items"];
+  continued: boolean;
+};
+
+export type WallBoardColumn = {
+  segments: WallBoardColumnSegment[];
+  itemCount: number;
+};
+
+/**
+ * Pack menu items left→right across columns so each column gets a similar
+ * item count. Long categories spill into the next column (continuation header).
+ */
+export function packWallBoardColumns(
+  categories: Category[],
+  columnCount: number,
+): WallBoardColumn[] {
+  const cols = Math.max(1, columnCount);
+  const columns: WallBoardColumn[] = Array.from({ length: cols }, () => ({
+    segments: [],
+    itemCount: 0,
+  }));
+  const totalItems = categories.reduce((n, cat) => n + cat.items.length, 0);
+  if (totalItems === 0) return columns;
+
+  const base = Math.floor(totalItems / cols);
+  const extra = totalItems % cols;
+  const targets = columns.map((_, i) => base + (i < extra ? 1 : 0));
+
+  let colIdx = 0;
+  for (const cat of categories) {
+    let start = 0;
+    while (start < cat.items.length) {
+      while (colIdx < cols - 1 && columns[colIdx].itemCount >= targets[colIdx]) {
+        colIdx += 1;
+      }
+      const room =
+        colIdx >= cols - 1
+          ? cat.items.length - start
+          : Math.max(1, targets[colIdx] - columns[colIdx].itemCount);
+      const take = Math.min(cat.items.length - start, room);
+      columns[colIdx].segments.push({
+        categoryId: cat.id,
+        title: cat.title,
+        items: cat.items.slice(start, start + take),
+        continued: start > 0,
+      });
+      columns[colIdx].itemCount += take;
+      start += take;
+      if (columns[colIdx].itemCount >= targets[colIdx] && start < cat.items.length && colIdx < cols - 1) {
+        colIdx += 1;
+      }
+    }
+  }
+  return columns.filter((col) => col.itemCount > 0);
 }
 
 export function wallBoardColumnFontScale(widthPx: number, cols: number): number {

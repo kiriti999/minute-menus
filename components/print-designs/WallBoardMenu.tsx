@@ -17,6 +17,7 @@ import {
   hexToRgba,
   logoAlign,
   resolveWallColumns,
+  packWallBoardColumns,
   outerBorderCss,
   patternOverlay,
   scaledBodyFsWall,
@@ -32,6 +33,7 @@ import {
   wallBoardDensityScale,
   wallBoardQrSize,
   wallColumnPalette,
+  type WallBoardColumn,
 } from "./menuStyleHelpers";
 
 export interface WallBoardMenuProps {
@@ -269,76 +271,144 @@ function PriceLeader({ style, color, fontSize }: {
   );
 }
 
-function WallCategory({ cat, customization, widthPx, heightPx, blockColor, cols, densityScale }: {
-  cat: Category; customization: DesignCustomization; widthPx: number; heightPx: number; blockColor: string; cols: number; densityScale: number;
+function WallColumn({
+  column,
+  customization,
+  widthPx,
+  heightPx,
+  blockColor,
+  cols,
+  densityScale,
+}: {
+  column: WallBoardColumn;
+  customization: DesignCustomization;
+  widthPx: number;
+  heightPx: number;
+  blockColor: string;
+  cols: number;
+  densityScale: number;
 }) {
   const fonts = effectiveFonts(customization);
-  const { showPrices, showColumnBorders, columnBorderColor, priceLeaderStyle = 'none' } = customization;
+  const { showPrices, showColumnBorders, columnBorderColor, priceLeaderStyle = "none" } = customization;
   const bfs = Math.max(12, Math.round(scaledBodyFsWall(widthPx, heightPx, customization, cols) * densityScale));
   const cfs = Math.max(14, Math.round(scaledCatFsWall(widthPx, heightPx, customization, cols) * densityScale));
   const itemGap = Math.max(3, Math.round(bfs * (densityScale < 0.88 ? 0.22 : 0.3)));
   const lineHeight = densityScale < 0.88 ? 1.08 : 1.12;
   const text = contrastTextColor(blockColor);
-  const ruleColor = hexToRgba(text === '#FFFFFF' ? '#FFFFFF' : '#000000', 0.28);
-  const leaderColor = hexToRgba(text === '#FFFFFF' ? '#FFFFFF' : '#000000', 0.35);
+  const ruleColor = hexToRgba(text === "#FFFFFF" ? "#FFFFFF" : "#000000", 0.28);
+  const leaderColor = hexToRgba(text === "#FFFFFF" ? "#FFFFFF" : "#000000", 0.35);
   const pad = Math.round(Math.min(widthPx, heightPx) * 0.016);
   const colBorder = showColumnBorders
     ? `${Math.max(1, Math.round(Math.min(widthPx, heightPx) * 0.0025))}px solid ${columnBorderColor ?? DEFAULT_COLUMN_BORDER_COLOR}`
     : undefined;
-  const useLeader = showPrices && priceLeaderStyle !== 'none';
+  const useLeader = showPrices && priceLeaderStyle !== "none";
 
   return (
-    <div style={{
-      breakInside: 'avoid', background: blockColor, color: text, boxSizing: 'border-box',
-      width: '100%', height: '100%', minWidth: 0, minHeight: 0,
-      overflow: 'hidden', display: 'flex', flexDirection: 'column',
-      borderRadius: Math.max(4, Math.round(widthPx * 0.006)), padding: pad,
-      border: colBorder,
-    }}>
-      <div style={{
-        fontFamily: fonts.heading, fontSize: cfs, fontWeight: 700, color: text,
-        textTransform: 'uppercase', letterSpacing: '0.06em', lineHeight: 1.15,
-        borderBottom: `2px solid ${ruleColor}`, paddingBottom: Math.round(cfs * 0.35),
-        marginBottom: Math.round(cfs * 0.5), wordBreak: 'break-word',
-      }}>
-        {cat.title}
-      </div>
-      <div style={{
-        flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column',
-        justifyContent: 'space-evenly', gap: itemGap, overflow: 'hidden',
-      }}>
-        {cat.items.map((dish) => (
+    <div
+      style={{
+        breakInside: "avoid",
+        background: blockColor,
+        color: text,
+        boxSizing: "border-box",
+        width: "100%",
+        height: "100%",
+        minWidth: 0,
+        minHeight: 0,
+        overflow: "hidden",
+        display: "flex",
+        flexDirection: "column",
+        borderRadius: Math.max(4, Math.round(widthPx * 0.006)),
+        padding: pad,
+        border: colBorder,
+        gap: Math.round(cfs * 0.55),
+      }}
+    >
+      {column.segments.map((segment) => (
+        <div
+          key={`${segment.categoryId}-${segment.continued ? "cont" : "start"}-${segment.items[0]?.id ?? "empty"}`}
+          style={{ display: "flex", flexDirection: "column", minHeight: 0, flex: "1 1 0%" }}
+        >
           <div
-            key={dish.id}
             style={{
-              display: 'flex', justifyContent: 'space-between',
-              alignItems: useLeader ? 'center' : 'flex-start',
-              gap: useLeader ? 0 : 6, flexShrink: 0, minWidth: 0, width: '100%',
+              fontFamily: fonts.heading,
+              fontSize: cfs,
+              fontWeight: 700,
+              color: text,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              lineHeight: 1.15,
+              borderBottom: `2px solid ${ruleColor}`,
+              paddingBottom: Math.round(cfs * 0.35),
+              marginBottom: Math.round(cfs * 0.45),
+              wordBreak: "break-word",
             }}
           >
-            <div style={{
-              fontFamily: fonts.body, fontSize: bfs, fontWeight: 600, color: text,
-              lineHeight, overflowWrap: 'break-word', wordBreak: 'normal',
-              // Name keeps natural width; leader flexes. Avoid maxWidth so lines don't force wraps.
-              flex: useLeader ? '0 1 auto' : '1 1 auto',
-              minWidth: 0,
-            }}>
-              {wallBoardDisplayName(dish.name, cat.title)}
-            </div>
-            {showPrices && dish.price != null && (
-              <>
-                <PriceLeader style={priceLeaderStyle} color={leaderColor} fontSize={bfs} />
-                <div style={{
-                  fontFamily: fonts.price, fontSize: bfs, fontWeight: 700, color: text,
-                  flex: '0 0 auto', whiteSpace: 'nowrap', lineHeight: 1.25, marginLeft: useLeader ? 0 : undefined,
-                }}>
-                  ₹{dish.price}
-                </div>
-              </>
-            )}
+            {segment.title}
+            {segment.continued ? " (cont.)" : ""}
           </div>
-        ))}
-      </div>
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-evenly",
+              gap: itemGap,
+              overflow: "hidden",
+            }}
+          >
+            {segment.items.map((dish) => (
+              <div
+                key={dish.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: useLeader ? "center" : "flex-start",
+                  gap: useLeader ? 0 : 6,
+                  flexShrink: 0,
+                  minWidth: 0,
+                  width: "100%",
+                }}
+              >
+                <div
+                  style={{
+                    fontFamily: fonts.body,
+                    fontSize: bfs,
+                    fontWeight: 600,
+                    color: text,
+                    lineHeight,
+                    overflowWrap: "break-word",
+                    wordBreak: "normal",
+                    flex: useLeader ? "0 1 auto" : "1 1 auto",
+                    minWidth: 0,
+                  }}
+                >
+                  {wallBoardDisplayName(dish.name, segment.title)}
+                </div>
+                {showPrices && dish.price != null && (
+                  <>
+                    <PriceLeader style={priceLeaderStyle} color={leaderColor} fontSize={bfs} />
+                    <div
+                      style={{
+                        fontFamily: fonts.price,
+                        fontSize: bfs,
+                        fontWeight: 700,
+                        color: text,
+                        flex: "0 0 auto",
+                        whiteSpace: "nowrap",
+                        lineHeight: 1.25,
+                        marginLeft: useLeader ? 0 : undefined,
+                      }}
+                    >
+                      ₹{dish.price}
+                    </div>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -350,66 +420,106 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
   const border = outerBorderCss(visual, customization);
   const maxCols = wallBoardColumns(widthPx, heightPx, customization.layout.columns);
   const cols = resolveWallColumns(menuItems.length, maxCols);
+  const packed = packWallBoardColumns(menuItems, cols);
+  const gridCols = packed.length;
   const palette = wallColumnPalette(customization.colors, customization.columnColors);
-  const isLandscape = fmt.orientation === 'landscape';
+  const isLandscape = fmt.orientation === "landscape";
   const hasFooterSocial = Boolean(branding.phone || branding.instagram);
-  const contentHeight = wallBoardContentHeight(
-    heightPx, widthPx, pad, isLandscape, customization.showQR, hasFooterSocial, Boolean(customization.logoUrl),
-  ) + (pad - topPad);
-  const maxItems = Math.max(1, ...menuItems.map((c) => c.items.length));
+  const contentHeight =
+    wallBoardContentHeight(
+      heightPx,
+      widthPx,
+      pad,
+      isLandscape,
+      customization.showQR,
+      hasFooterSocial,
+      Boolean(customization.logoUrl),
+    ) + (pad - topPad);
+  const maxItems = Math.max(1, ...packed.map((col) => col.itemCount));
   const maxTitleChars = Math.max(
     1,
     ...menuItems.flatMap((c) => c.items.map((d) => wallBoardDisplayName(d.name, c.title).length)),
   );
-  const baseBodyFs = scaledBodyFsWall(widthPx, heightPx, customization, cols);
-  const gridRows = Math.max(1, Math.ceil(menuItems.length / cols));
+  const baseBodyFs = scaledBodyFsWall(widthPx, heightPx, customization, gridCols);
   const gridGap = Math.round(Math.min(widthPx, heightPx) * 0.014);
-  const colWidth = (widthPx - pad * 2 - gridGap * (cols - 1)) / cols;
-  const densityScale = wallBoardDensityScale(
-    maxItems,
-    contentHeight / gridRows,
-    baseBodyFs,
-    maxTitleChars,
-    colWidth,
-  );
+  const colWidth = (widthPx - pad * 2 - gridGap * Math.max(0, gridCols - 1)) / Math.max(1, gridCols);
+  const densityScale = wallBoardDensityScale(maxItems, contentHeight, baseBodyFs, maxTitleChars, colWidth);
 
   return (
-    <div style={{
-      width: widthPx, height: heightPx, position: 'relative', boxSizing: 'border-box', overflow: 'hidden',
-      padding: `${topPad}px ${pad}px ${pad}px`, fontFamily: effectiveFonts(customization).body, border,
-      borderRadius: containerRadius(customization), boxShadow: containerShadow(customization),
-      background: baseBackground(customization), display: 'flex', flexDirection: 'column',
-    }}>
-      {customization.backgroundType === 'pattern' && customization.backgroundPattern && (
-        <div style={{ position: 'absolute', inset: 0, ...patternOverlay(customization.backgroundPattern, customization.colors.border), pointerEvents: 'none' }} />
+    <div
+      style={{
+        width: widthPx,
+        height: heightPx,
+        position: "relative",
+        boxSizing: "border-box",
+        overflow: "hidden",
+        padding: `${topPad}px ${pad}px ${pad}px`,
+        fontFamily: effectiveFonts(customization).body,
+        border,
+        borderRadius: containerRadius(customization),
+        boxShadow: containerShadow(customization),
+        background: baseBackground(customization),
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      {customization.backgroundType === "pattern" && customization.backgroundPattern && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            ...patternOverlay(customization.backgroundPattern, customization.colors.border),
+            pointerEvents: "none",
+          }}
+        />
       )}
       <div style={{ flexShrink: 0 }}>
-        <WallHeader style={style} customization={customization} branding={branding} widthPx={widthPx} heightPx={heightPx} isLandscape={isLandscape} pad={pad} />
+        <WallHeader
+          style={style}
+          customization={customization}
+          branding={branding}
+          widthPx={widthPx}
+          heightPx={heightPx}
+          isLandscape={isLandscape}
+          pad={pad}
+        />
       </div>
-      <div style={{
-        flex: '1 1 0%', minHeight: 0, overflow: 'hidden',
-        display: 'grid',
-        gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-        gridTemplateRows: `repeat(${gridRows}, minmax(0, 1fr))`,
-        gap: gridGap,
-        alignContent: 'stretch',
-        alignItems: 'stretch',
-        justifyItems: 'stretch',
-      }}>
-        {menuItems.map((cat, i) => (
-          <WallCategory
-            key={cat.id}
-            cat={cat}
+      <div
+        style={{
+          flex: "1 1 0%",
+          minHeight: 0,
+          overflow: "hidden",
+          display: "grid",
+          gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`,
+          gridTemplateRows: "minmax(0, 1fr)",
+          gap: gridGap,
+          alignContent: "stretch",
+          alignItems: "stretch",
+          justifyItems: "stretch",
+        }}
+      >
+        {packed.map((column, i) => (
+          <WallColumn
+            key={`wall-col-${i}`}
+            column={column}
             customization={customization}
             widthPx={widthPx}
             heightPx={heightPx}
             blockColor={palette[i % palette.length]}
-            cols={cols}
+            cols={gridCols}
             densityScale={densityScale}
           />
         ))}
       </div>
-      <WallFooter style={style} customization={customization} branding={branding} siteUrl={siteUrl} widthPx={widthPx} heightPx={heightPx} pad={pad} />
+      <WallFooter
+        style={style}
+        customization={customization}
+        branding={branding}
+        siteUrl={siteUrl}
+        widthPx={widthPx}
+        heightPx={heightPx}
+        pad={pad}
+      />
     </div>
   );
 }
