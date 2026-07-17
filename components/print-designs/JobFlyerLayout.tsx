@@ -224,7 +224,7 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 		descriptionText,
 		hasNotes,
 		showQr: customization.showQR || Boolean(jobFlyer.locationText?.trim() || jobFlyer.mapsUrl?.trim()),
-		detailCount: branding.phone?.replace(/\D/g, "").length >= 10 ? 7 : 6,
+		detailCount: 6,
 		baseHeadingFs: scaledHeadingFs(widthPx, customization),
 		baseBodyFs: scaledBodyFs(widthPx, customization),
 	});
@@ -260,7 +260,6 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 		{ icon: "👤", label: "Min. age", value: jobFlyer.minAge },
 		{ icon: "🎓", label: "Qualification", value: jobFlyer.qualification },
 		{ icon: "🗣", label: "English", value: ENGLISH_LABELS[jobFlyer.englishSkill] },
-		...(phoneDisplay ? [{ icon: "💬", label: "WhatsApp", value: phoneDisplay }] : []),
 	];
 
 	return (
@@ -323,8 +322,10 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 						textTransform: "uppercase",
 						color: colors.primary,
 						background: colors.background,
-						padding: "3px 10px",
+						padding: "4px 12px",
 						borderRadius: 999,
+						whiteSpace: "nowrap",
+						lineHeight: 1.2,
 					}}
 				>
 					{EMPLOYMENT_LABELS[jobFlyer.employmentType]} position
@@ -467,22 +468,21 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 							</div>
 						)}
 						{phoneDisplay && (
-							<p
+							<div
 								style={{
-									margin: 0,
 									textAlign: "center",
-									fontSize: Math.max(12, Math.round(smallFs * 1.15)),
+									fontSize: Math.max(13, Math.round(smallFs * 1.2)),
 									fontWeight: 700,
-									color: colors.primary,
-									lineHeight: 1.35,
-									padding: "6px 8px",
+									color: "#FFFFFF",
+									lineHeight: 1.25,
+									padding: "10px 14px",
 									borderRadius: 8,
-									background: hexToRgba(colors.primary, 0.08),
-									border: `1px solid ${hexToRgba(colors.primary, 0.2)}`,
+									background: colors.primary,
+									letterSpacing: "0.01em",
 								}}
 							>
 								WhatsApp your details on &quot;{phoneDisplay}&quot;
-							</p>
+							</div>
 						)}
 						{(customization.showQR || showMapsQr) && (
 							<div

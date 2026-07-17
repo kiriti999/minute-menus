@@ -66,7 +66,7 @@ export function computeJobFlyerSizing(input: SizingInput): JobFlyerSizing {
 	const bodyFs = Math.round(input.baseBodyFs * typeScale);
 	const smallFs = Math.max(9, Math.round(bodyFs * 0.93));
 	const descLen = input.descriptionText.length;
-	let descFs = Math.max(8, Math.round(smallFs * (input.pamphlet ? 0.98 : 0.96)));
+	let descFs = Math.max(10, Math.round(smallFs * (input.pamphlet ? 1.02 : 1)));
 	if (descLen > 1200) descFs -= 1;
 	if (descLen > 1500) descFs -= 1;
 
@@ -82,7 +82,7 @@ export function computeJobFlyerSizing(input: SizingInput): JobFlyerSizing {
 		gap: input.pamphlet ? Math.max(7, Math.round(8 * fitScale)) : Math.round(pad * 0.5),
 		headingFs: Math.round(input.baseHeadingFs * (input.pamphlet ? 0.92 : 1) * typeScale),
 		smallFs,
-		descFs: Math.max(8, descFs),
+		descFs: Math.max(10, descFs),
 		bannerFs: Math.max(14, Math.round(input.widthPx * 0.048 * typeScale)),
 		qrSize,
 		detailLabelFs: Math.max(7, Math.round(smallFs * 0.86)),
