@@ -113,9 +113,9 @@ export function wallBoardColumns(widthPx: number, heightPx: number, userCols: nu
   return userCols >= 2 ? userCols : defaultCols;
 }
 
-/** Fixed vertical rhythm — matches wall-board proof spacing (~1.35× body size between rows). */
+/** Fixed vertical rhythm — wall-board dish rows (gap between items ≈ 1.55× body size). */
 export const WALL_ITEM_LINE_HEIGHT = 1.2;
-export const WALL_ITEM_GAP_RATIO = 1.35;
+export const WALL_ITEM_GAP_RATIO = 1.55;
 
 export function wallBoardItemGap(bodyFs: number): number {
   return Math.max(8, Math.round(bodyFs * WALL_ITEM_GAP_RATIO));
