@@ -320,7 +320,7 @@ export const TEMPLATES: TemplateInfo[] = [
   { key: 'ethnic-traditional',  label: 'Ethnic Traditional',   description: 'Indigo, vermillion & gold',        category: 'indian',  defaultColors: 'royal-purple',     defaultFonts: 'ethnic-hindi',    previewColors: ['#3D1F5C', '#FFFBF5', '#C9A227'] },
   { key: 'salad-bowl-fresh',    label: 'Salad Bowl Fresh',     description: 'Herb green, carrot accent',        category: 'modern',  defaultColors: 'garden-fresh',     defaultFonts: 'minimal-sans',    previewColors: ['#2D5A27', '#F5F9F0', '#E07A3D'] },
   { key: 'south-indian-mess',   label: 'South Indian Mess',    description: 'Maroon, leaf green, turmeric',     category: 'indian',  defaultColors: 'banana-leaf',      defaultFonts: 'heritage',        previewColors: ['#5C1D1D', '#FFF9E8', '#D4A017'] },
-  { key: 'name-board-yellow',   label: 'Name Board Yellow',    description: 'Wall yellow, black ink title',     category: 'casual',  defaultColors: 'wall-yellow',      defaultFonts: 'name-board',      previewColors: ['#111111', '#FFD200', '#111111'] },
+  { key: 'name-board-yellow',   label: 'Name Board Yellow',    description: 'Wall yellow, black ink title',     category: 'casual',  defaultColors: 'wall-yellow',      defaultFonts: 'modern-clean',    previewColors: ['#111111', '#FFD200', '#111111'] },
 ];
 
 export const DEFAULT_TYPOGRAPHY: DesignTypography = {
