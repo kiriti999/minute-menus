@@ -13,7 +13,6 @@ import CompactMenuLayout from "./CompactMenuLayout";
 import {
 	effectiveFonts,
 	formatPrintDisplayName,
-	hexToRgba,
 	titleFontFamily,
 	titleStyleExtras,
 } from "./menuStyleHelpers";
@@ -71,27 +70,28 @@ function CircleQrBadge({
 	);
 }
 
-/** Vertical budget so logo + QR + CTA never spill past the circle (html2canvas clips overflow). */
+/**
+ * Fit header + QR + CTA inside the safe circle, leaving ~28% height free so
+ * space-evenly can put equal gaps above / between / below (fixes top-heavy clip).
+ */
 function circleStickerSizes(size: number, hasLogo: boolean, showQR: boolean, qrBorderWidth: number) {
-	const padX = Math.round(size * 0.14);
-	const padTop = Math.round(size * 0.08);
-	const padBottom = Math.round(size * 0.14);
-	const gap = Math.max(4, Math.round(size * 0.018));
+	const pad = Math.round(size * 0.12);
+	const innerH = size - 2 * pad;
+	const freeForGaps = Math.round(innerH * 0.28);
+	const contentBudget = innerH - freeForGaps;
 	const ctaFs = Math.max(6, Math.round(size * 0.034));
 	const ctaPadY = Math.max(4, Math.round(size * 0.016));
 	const ctaH = Math.ceil(ctaFs * 1.35) + ctaPadY * 2;
 	const stroke = Math.max(0, qrBorderWidth);
 	const qrChrome = 2 * Math.max(1, Math.round(stroke + 1));
-	const slots = 2 + (showQR ? 1 : 0); // header + optional QR + CTA
-	const free = size - padTop - padBottom - ctaH - gap * (slots - 1);
-	const nameFs = Math.max(8, Math.round(size * 0.07));
-	const logoH = hasLogo ? Math.round(Math.min(size * 0.2, free * 0.36)) : 0;
-	const headerH = hasLogo ? logoH : Math.ceil(nameFs * 1.15) + 4;
-	const qrOuterMax = showQR ? Math.max(24, free - headerH) : 0;
-	const qrSize = showQR
-		? Math.round(Math.min(size * (hasLogo ? 0.28 : 0.3), qrOuterMax - qrChrome))
-		: 0;
-	return { padX, padTop, padBottom, gap, ctaFs, ctaPadY, logoH, nameFs, qrSize };
+	const nameFs = Math.max(7, Math.round(size * 0.062));
+	const textHeaderH = Math.ceil(nameFs * 1.2) + 2;
+	const logoH = hasLogo ? Math.round(Math.min(size * 0.16, contentBudget * 0.32)) : 0;
+	const headerH = hasLogo ? logoH : textHeaderH;
+	const qrRoom = Math.max(20, contentBudget - ctaH - headerH - qrChrome);
+	const qrCap = Math.round(size * (hasLogo ? 0.24 : 0.26));
+	const qrSize = showQR ? Math.min(qrCap, qrRoom) : 0;
+	return { pad, ctaFs, ctaPadY, logoH, nameFs, qrSize };
 }
 
 function CircleSticker({
@@ -127,10 +127,9 @@ function CircleSticker({
 				display: "flex",
 				flexDirection: "column",
 				alignItems: "center",
-				justifyContent: "center",
-				padding: `${s.padTop}px ${s.padX}px ${s.padBottom}px`,
+				justifyContent: "space-evenly",
+				padding: s.pad,
 				fontFamily: fonts.body,
-				gap: s.gap,
 			}}
 		>
 			<div
@@ -139,7 +138,7 @@ function CircleSticker({
 					position: "absolute",
 					inset: Math.round(size * 0.045),
 					borderRadius: "50%",
-					border: `1px dashed ${hexToRgba(colors.border || colors.accent, 0.55)}`,
+					border: "1px dashed #000000",
 					pointerEvents: "none",
 				}}
 			/>
@@ -156,7 +155,7 @@ function CircleSticker({
 							fontSize: s.nameFs,
 							fontWeight: 700,
 							color: colors.primary,
-							lineHeight: 1.15,
+							lineHeight: 1.2,
 							...titleExtras,
 						}}
 					>
