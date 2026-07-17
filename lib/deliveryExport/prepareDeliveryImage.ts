@@ -1,6 +1,6 @@
 import { fileToDataUrl, loadImageSource } from "../imageEditor/canvasResize";
 
-/** Target size per export image — keeps Excel/PDF lean while preserving detail at 1600×1200. */
+/** Target size per export image — keeps Excel/PDF lean while preserving detail at 1024×1024. */
 export const EXPORT_IMAGE_MAX_BYTES = 450 * 1024;
 
 const JPEG_QUALITY_STEPS = [0.88, 0.82, 0.76, 0.7, 0.64, 0.58];
