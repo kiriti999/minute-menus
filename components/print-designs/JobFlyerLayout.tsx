@@ -197,8 +197,8 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 		pamphlet,
 		descriptionText,
 		hasNotes,
-		showQr: customization.showQR,
-		detailCount: 5,
+		showQr: customization.showQR || Boolean(jobFlyer.locationText?.trim() || jobFlyer.mapsUrl?.trim()),
+		detailCount: 6,
 		baseHeadingFs: scaledHeadingFs(widthPx, customization),
 		baseBodyFs: scaledBodyFs(widthPx, customization),
 	});
@@ -212,7 +212,6 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 		qrSize,
 		detailLabelFs,
 		detailValueFs,
-		useCompactQrRow,
 	} = sizing;
 	const displayName = formatPrintDisplayName(branding.name, customization.typography.textTransform);
 	const titleFont = titleFontFamily(customization);
@@ -224,7 +223,6 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 	const mapsTarget = jobFlyerMapsTarget(jobFlyer.locationText, jobFlyer.mapsUrl);
 	const showMapsQr = Boolean(jobFlyer.locationText?.trim() || jobFlyer.mapsUrl?.trim());
 	const bothQrs = customization.showQR && showMapsQr;
-	const mapQrSize = bothQrs ? Math.round(qrSize * 0.9) : qrSize;
 
 	const details: DetailItem[] = [
 		{ icon: "⏰", label: "Timings", value: jobFlyer.timings },
@@ -417,17 +415,14 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 						style={{
 							flexShrink: 0,
 							display: "flex",
-							flexDirection: useCompactQrRow ? "row" : "column",
-							alignItems: useCompactQrRow ? "flex-end" : "stretch",
-							justifyContent: useCompactQrRow ? "space-between" : "flex-start",
-							gap: useCompactQrRow ? 10 : 8,
+							flexDirection: "column",
+							alignItems: "stretch",
+							gap: 14,
 						}}
 					>
 						{descriptionText && (
 							<div
 								style={{
-									flex: useCompactQrRow ? 1 : undefined,
-									minWidth: 0,
 									padding: "10px 12px",
 									borderRadius: 8,
 									background: hexToRgba(colors.background, 0.7),
@@ -446,11 +441,12 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 								style={{
 									flexShrink: 0,
 									display: "flex",
-									flexDirection: "column",
+									flexDirection: "row",
 									flexWrap: "nowrap",
-									justifyContent: "flex-end",
-									alignItems: "center",
-									gap: bothQrs ? 18 : 12,
+									justifyContent: "center",
+									alignItems: "flex-start",
+									gap: bothQrs ? 24 : 10,
+									paddingTop: 2,
 								}}
 							>
 								{customization.showQR && (
@@ -458,7 +454,7 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 										label="Scan & Share CV"
 										url={whatsAppUrl}
 										emptyHint="Add WhatsApp number above"
-										qrSize={mapQrSize}
+										qrSize={qrSize}
 										smallFs={smallFs}
 										colors={colors}
 									/>
@@ -468,7 +464,7 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 										label="Find us on Maps"
 										url={mapsTarget}
 										emptyHint="Add location or Maps link"
-										qrSize={mapQrSize}
+										qrSize={qrSize}
 										smallFs={smallFs}
 										colors={colors}
 									/>

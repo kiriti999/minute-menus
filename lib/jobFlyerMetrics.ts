@@ -47,14 +47,15 @@ function contentFitScale(input: SizingInput, typeScale: number): number {
 	const noteH = input.hasNotes ? 34 * typeScale : 0;
 	const descFs = Math.max(8, Math.round(input.baseBodyFs * typeScale * 0.96));
 	const descLines = Math.max(8, Math.ceil(input.descriptionText.length / 48));
-	const descH = descLines * descFs * 1.4 + 22;
-	const qrRowH = input.showQr ? Math.max(56, input.widthPx * 0.12) + 22 : 0;
-	const sectionGaps = gap * (3 + (input.hasNotes ? 1 : 0) + (input.descriptionText ? 1 : 0));
-	const needed = headerH + pad * 2 + titleBlock + detailH + noteH + Math.max(descH, qrRowH) + sectionGaps;
+	const descH = input.descriptionText ? descLines * descFs * 1.35 + 20 : 0;
+	// QRs sit below the description in a horizontal row.
+	const qrBlock = input.showQr ? Math.round(input.widthPx * 0.22) + 48 : 0;
+	const sectionGaps = gap * (3 + (input.hasNotes ? 1 : 0) + (input.descriptionText ? 1 : 0) + (input.showQr ? 1 : 0));
+	const needed = headerH + pad * 2 + titleBlock + detailH + noteH + descH + qrBlock + sectionGaps;
 	const available = input.heightPx - 4;
 
 	if (needed <= available) return 1;
-	return Math.max(0.84, available / needed);
+	return Math.max(0.8, available / needed);
 }
 
 export function computeJobFlyerSizing(input: SizingInput): JobFlyerSizing {
@@ -69,6 +70,12 @@ export function computeJobFlyerSizing(input: SizingInput): JobFlyerSizing {
 	if (descLen > 1200) descFs -= 1;
 	if (descLen > 1500) descFs -= 1;
 
+	// Phone cameras need ~100px+; size for two QRs side-by-side below the copy.
+	const qrSize = Math.max(
+		100,
+		Math.round(input.widthPx * (input.pamphlet ? 0.22 : 0.2) * Math.min(1, typeScale + 0.02)),
+	);
+
 	return {
 		typeScale,
 		pad,
@@ -77,9 +84,9 @@ export function computeJobFlyerSizing(input: SizingInput): JobFlyerSizing {
 		smallFs,
 		descFs: Math.max(8, descFs),
 		bannerFs: Math.max(14, Math.round(input.widthPx * 0.048 * typeScale)),
-		qrSize: Math.max(54, Math.round(input.widthPx * (input.pamphlet ? 0.12 : 0.13) * Math.min(1, typeScale + 0.05))),
+		qrSize,
 		detailLabelFs: Math.max(7, Math.round(smallFs * 0.86)),
 		detailValueFs: Math.max(9, smallFs),
-		useCompactQrRow: input.pamphlet && input.showQr && Boolean(input.descriptionText),
+		useCompactQrRow: false,
 	};
 }
