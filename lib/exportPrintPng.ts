@@ -14,6 +14,8 @@ export interface ExportPrintPngOptions {
   scale?: number;
   /** Google Fonts css2 URL (or any @font-face stylesheet) to embed. */
   fontCssHref?: string;
+  /** Family tokens from googleFontsForCustomization (e.g. Inter:400,600,700). */
+  fontFamilies?: string[];
 }
 
 /** Browsers often fail past ~16k on an edge or ~268M pixels; stay under. */
@@ -63,6 +65,43 @@ async function waitForFonts(): Promise<void> {
   } catch {
     /* fonts API unavailable */
   }
+}
+
+/** Force-load weights used in print layouts so canvas capture does not fall back to serif. */
+async function preloadExportFonts(families: string[]): Promise<void> {
+  await waitForFonts();
+  if (!families.length || typeof document.fonts?.load !== "function") return;
+  const weights = ["400", "500", "600", "700"];
+  await Promise.all(
+    families.flatMap((family) => {
+      const name = family.replace(/\+/g, " ").split(":")[0]?.trim();
+      if (!name) return [];
+      return weights.map((w) =>
+        document.fonts.load(`${w} 64px "${name}"`).catch(() => undefined),
+      );
+    }),
+  );
+  await waitForFonts();
+}
+
+/** Quote multi-word font names so capture engines resolve the embedded faces. */
+function quoteInlineFontFamilies(root: HTMLElement): void {
+  const fix = (el: HTMLElement) => {
+    const ff = el.style.fontFamily;
+    if (!ff || ff.includes('"') || ff.includes("'")) return;
+    el.style.fontFamily = ff
+      .split(",")
+      .map((part) => {
+        const p = part.trim();
+        if (!p || p === "sans-serif" || p === "serif" || p === "monospace" || p === "system-ui") {
+          return p;
+        }
+        return `"${p.replace(/"/g, "")}"`;
+      })
+      .join(", ");
+  };
+  fix(root);
+  root.querySelectorAll<HTMLElement>("*").forEach(fix);
 }
 
 function waitForImages(root: HTMLElement): Promise<void> {
@@ -171,9 +210,11 @@ async function buildEmbeddedFontCss(href?: string): Promise<string | undefined> 
     if (!res.ok) return undefined;
     let cssText = await res.text();
     const urls = new Set<string>();
-    const re = /url\((['"]?)(https?:\/\/[^)'"]+)\1\)/g;
+    // Google CSS may use https: or protocol-relative //fonts.gstatic.com urls.
+    const re = /url\((['"]?)((?:https?:)?\/\/[^)'"]+)\1\)/g;
     for (let match = re.exec(cssText); match; match = re.exec(cssText)) {
-      urls.add(match[2]);
+      const raw = match[2];
+      urls.add(raw.startsWith("//") ? `https:${raw}` : raw);
     }
     const map = new Map<string, string>();
     await Promise.all(
@@ -183,7 +224,11 @@ async function buildEmbeddedFontCss(href?: string): Promise<string | undefined> 
           if (!fontRes.ok) return;
           const buf = await fontRes.arrayBuffer();
           const mime = fontRes.headers.get("content-type") || "font/woff2";
-          map.set(fontUrl, `url(data:${mime};base64,${arrayBufferToBase64(buf)})`);
+          const dataUrl = `url(data:${mime};base64,${arrayBufferToBase64(buf)})`;
+          map.set(fontUrl, dataUrl);
+          if (fontUrl.startsWith("https://")) {
+            map.set(fontUrl.replace("https:", ""), dataUrl);
+          }
         } catch {
           /* skip failed face */
         }
@@ -243,7 +288,13 @@ function sharpenCloneText(clone: HTMLElement): void {
 export async function exportPrintDesignToPng(
   opts: ExportPrintPngOptions,
 ): Promise<HTMLCanvasElement> {
-  const { element, backgroundColor, scale: requestedScale = 2, fontCssHref } = opts;
+  const {
+    element,
+    backgroundColor,
+    scale: requestedScale = 2,
+    fontCssHref,
+    fontFamilies = [],
+  } = opts;
   const width = Math.max(1, element.offsetWidth || element.clientWidth);
   const height = Math.max(1, element.offsetHeight || element.clientHeight);
   const scale = safePngExportScale(width, height, requestedScale);
@@ -252,17 +303,24 @@ export async function exportPrintDesignToPng(
   stripPrintGuides(clone);
   inlineCanvasesFromSource(element, clone);
   sharpenCloneText(clone);
+  quoteInlineFontFamilies(clone);
   mount.appendChild(clone);
   document.body.appendChild(mount);
 
+  let headFontStyle: HTMLStyleElement | null = null;
   try {
     const fontCssText = await buildEmbeddedFontCss(fontCssHref);
     if (fontCssText) {
-      const style = document.createElement("style");
-      style.textContent = fontCssText;
-      mount.prepend(style);
+      // Register @font-face on document so FontFaceSet + modern-screenshot both see faces.
+      headFontStyle = document.createElement("style");
+      headFontStyle.setAttribute("data-print-export-fonts", "");
+      headFontStyle.textContent = fontCssText;
+      document.head.appendChild(headFontStyle);
+      const mountStyle = document.createElement("style");
+      mountStyle.textContent = fontCssText;
+      mount.prepend(mountStyle);
     }
-    await waitForFonts();
+    await preloadExportFonts(fontFamilies);
     await waitForImages(clone);
     await waitTwoFrames();
     rasterizeStickerCtas(clone, Math.max(1, Math.round(scale)));
@@ -292,6 +350,7 @@ export async function exportPrintDesignToPng(
     }
     return canvas;
   } finally {
+    headFontStyle?.remove();
     mount.remove();
   }
 }

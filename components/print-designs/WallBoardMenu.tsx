@@ -12,6 +12,7 @@ import {
   containerShadow,
   contrastTextColor,
   effectiveFonts,
+  fontFamilyCss,
   formatPrintDisplayName,
   headingWeight,
   hexToRgba,
@@ -79,15 +80,15 @@ function NameBoardTitle({ name, tagline, showTagline, color, muted, hfs, dfs }: 
           display: 'flex', flexWrap: 'nowrap', alignItems: 'baseline', justifyContent: 'center',
           gap: Math.round(hfs * 0.14), whiteSpace: 'nowrap', lineHeight: 1,
         }}>
-          <span style={{ fontFamily: 'Playfair Display', fontSize: Math.round(hfs * 0.78), fontWeight: 700, color, letterSpacing: '0.1em' }}>{parts.lead}</span>
-          <span style={{ fontFamily: 'Playfair Display', fontSize: Math.round(hfs * 0.55), fontWeight: 700, color }}>&</span>
-          <span style={{ fontFamily: 'Great Vibes', fontSize: Math.round(hfs * 1.05), fontWeight: 400, color }}>{parts.script}</span>
+          <span style={{ fontFamily: fontFamilyCss('Playfair Display', 'serif'), fontSize: Math.round(hfs * 0.78), fontWeight: 700, color, letterSpacing: '0.1em' }}>{parts.lead}</span>
+          <span style={{ fontFamily: fontFamilyCss('Playfair Display', 'serif'), fontSize: Math.round(hfs * 0.55), fontWeight: 700, color }}>&</span>
+          <span style={{ fontFamily: fontFamilyCss('Great Vibes', 'cursive'), fontSize: Math.round(hfs * 1.05), fontWeight: 400, color }}>{parts.script}</span>
         </div>
       ) : (
-        <div style={{ fontFamily: 'Playfair Display', fontSize: hfs, fontWeight: 700, color, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{name}</div>
+        <div style={{ fontFamily: fontFamilyCss('Playfair Display', 'serif'), fontSize: hfs, fontWeight: 700, color, letterSpacing: '0.06em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{name}</div>
       )}
       {showTagline && tagline && (
-        <div style={{ fontFamily: 'Montserrat', fontSize: dfs, fontWeight: 600, color: muted, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: Math.round(dfs * 0.7) }}>{tagline}</div>
+        <div style={{ fontFamily: fontFamilyCss('Montserrat'), fontSize: dfs, fontWeight: 600, color: muted, letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: Math.round(dfs * 0.7) }}>{tagline}</div>
       )}
     </div>
   );
@@ -124,7 +125,7 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
           <>
             <Logo url={logoUrl} height={logoH} />
             {tagline && (
-              <div style={{ fontFamily: 'Montserrat', fontSize: dfs, fontWeight: 600, color: colors.textMuted, letterSpacing: '0.18em', textTransform: 'uppercase' }}>{tagline}</div>
+              <div style={{ fontFamily: fontFamilyCss('Montserrat'), fontSize: dfs, fontWeight: 600, color: colors.textMuted, letterSpacing: '0.18em', textTransform: 'uppercase' }}>{tagline}</div>
             )}
           </>
         ) : (
@@ -338,7 +339,7 @@ function WallColumn({
         >
           <div
             style={{
-              fontFamily: fonts.heading,
+              fontFamily: fontFamilyCss(fonts.heading),
               fontSize: cfs,
               fontWeight: 700,
               color: text,
@@ -378,7 +379,7 @@ function WallColumn({
               >
                 <div
                   style={{
-                    fontFamily: fonts.body,
+                    fontFamily: fontFamilyCss(fonts.body),
                     fontSize: bfs,
                     fontWeight: 600,
                     color: text,
@@ -396,7 +397,7 @@ function WallColumn({
                     <PriceLeader style={priceLeaderStyle} color={leaderColor} fontSize={bfs} />
                     <div
                       style={{
-                        fontFamily: fonts.price,
+                        fontFamily: fontFamilyCss(fonts.price),
                         fontSize: bfs,
                         fontWeight: 700,
                         color: text,

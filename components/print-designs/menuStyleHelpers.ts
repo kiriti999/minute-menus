@@ -324,6 +324,12 @@ export function effectiveFonts(customization: DesignCustomization): DesignFonts 
   return resolveFonts(customization);
 }
 
+/** Quoted font-family for inline styles — avoids canvas export falling back to Times. */
+export function fontFamilyCss(family: string, fallback: "sans-serif" | "serif" | "cursive" = "sans-serif"): string {
+  const name = family.replace(/^["']|["']$/g, "").split(",")[0]?.trim() || family;
+  return `"${name}", ${fallback}`;
+}
+
 export function baseBackground(customization: DesignCustomization): string {
   if (customization.backgroundType === 'gradient' && customization.backgroundGradient) {
     return customization.backgroundGradient;
@@ -333,8 +339,6 @@ export function baseBackground(customization: DesignCustomization): string {
   }
   return customization.colors.background;
 }
-
-type CSS = Record<string, string | number | undefined>;
 
 export function patternOverlay(pattern: BackgroundPattern, borderColor: string): CSS {
   if (pattern === 'dots') {

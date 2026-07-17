@@ -262,21 +262,21 @@ export const DEFAULT_QR_BORDER_WIDTH = 1;
 // ─── Font pairings (15) ───────────────────────────────────────────────────────
 
 export const FONT_PAIRINGS: Record<FontPairingKey, DesignFonts & { label: string; googleFonts: string[] }> = {
-  'modern-clean':    { label: 'Modern Clean',    heading: 'Poppins', body: 'Inter', price: 'Poppins', googleFonts: ['Poppins:300,400,600,700', 'Inter:400,500'] },
-  'classic-serif':   { label: 'Classic Serif',   heading: 'Playfair Display', body: 'Lora', price: 'Cormorant Garamond', googleFonts: ['Playfair+Display:400,700', 'Lora:400,500', 'Cormorant+Garamond:400,600'] },
-  'bold-impact':     { label: 'Bold Impact',     heading: 'Oswald', body: 'Roboto', price: 'Oswald', googleFonts: ['Oswald:400,600,700', 'Roboto:400,500'] },
+  'modern-clean':    { label: 'Modern Clean',    heading: 'Poppins', body: 'Inter', price: 'Poppins', googleFonts: ['Poppins:300,400,500,600,700', 'Inter:400,500,600,700'] },
+  'classic-serif':   { label: 'Classic Serif',   heading: 'Playfair Display', body: 'Lora', price: 'Cormorant Garamond', googleFonts: ['Playfair+Display:400,700', 'Lora:400,500,600,700', 'Cormorant+Garamond:400,600,700'] },
+  'bold-impact':     { label: 'Bold Impact',     heading: 'Oswald', body: 'Roboto', price: 'Oswald', googleFonts: ['Oswald:400,600,700', 'Roboto:400,500,600,700'] },
   'rustic-hand':     { label: 'Rustic Hand',     heading: 'Bebas Neue', body: 'Amatic SC', price: 'Bebas Neue', googleFonts: ['Bebas+Neue:400', 'Amatic+SC:400,700'] },
-  'luxury-display':  { label: 'Luxury Display',  heading: 'Cinzel', body: 'Cormorant Garamond', price: 'Italiana', googleFonts: ['Cinzel:400,700', 'Cormorant+Garamond:400,600', 'Italiana:400'] },
+  'luxury-display':  { label: 'Luxury Display',  heading: 'Cinzel', body: 'Cormorant Garamond', price: 'Italiana', googleFonts: ['Cinzel:400,700', 'Cormorant+Garamond:400,600,700', 'Italiana:400'] },
   'street-playful':  { label: 'Street Playful',  heading: 'Baloo Bhai 2', body: 'Fredoka', price: 'Righteous', googleFonts: ['Baloo+Bhai+2:400,600,700', 'Fredoka:400,600', 'Righteous:400'] },
   'cafe-script':     { label: 'Cafe Script',     heading: 'Dancing Script', body: 'Pacifico', price: 'Satisfy', googleFonts: ['Dancing+Script:400,700', 'Pacifico:400', 'Satisfy:400'] },
-  'fine-dining':     { label: 'Fine Dining',     heading: 'Cormorant', body: 'Crimson Text', price: 'Cormorant', googleFonts: ['Cormorant:400,600,700', 'Crimson+Text:400,600'] },
-  'fast-condensed':  { label: 'Fast Condensed',  heading: 'Roboto Condensed', body: 'Barlow', price: 'Work Sans', googleFonts: ['Roboto+Condensed:400,700', 'Barlow:400,600', 'Work+Sans:400,600'] },
-  'ethnic-hindi':    { label: 'Ethnic Hindi',    heading: 'Hind', body: 'Baloo Bhai 2', price: 'Hind', googleFonts: ['Hind:400,600,700', 'Baloo+Bhai+2:400,600'] },
+  'fine-dining':     { label: 'Fine Dining',     heading: 'Cormorant', body: 'Crimson Text', price: 'Cormorant', googleFonts: ['Cormorant:400,600,700', 'Crimson+Text:400,600,700'] },
+  'fast-condensed':  { label: 'Fast Condensed',  heading: 'Roboto Condensed', body: 'Barlow', price: 'Work Sans', googleFonts: ['Roboto+Condensed:400,700', 'Barlow:400,600,700', 'Work+Sans:400,600,700'] },
+  'ethnic-hindi':    { label: 'Ethnic Hindi',    heading: 'Hind', body: 'Baloo Bhai 2', price: 'Hind', googleFonts: ['Hind:400,600,700', 'Baloo+Bhai+2:400,600,700'] },
   'editorial':       { label: 'Editorial',       heading: 'Merriweather', body: 'Libre Baskerville', price: 'Merriweather', googleFonts: ['Merriweather:400,700', 'Libre+Baskerville:400,700'] },
-  'minimal-sans':    { label: 'Minimal Sans',    heading: 'Montserrat', body: 'Open Sans', price: 'Montserrat', googleFonts: ['Montserrat:300,400,600,700', 'Open+Sans:400,600'] },
-  'warm-serif':      { label: 'Warm Serif',      heading: 'Libre Baskerville', body: 'Lora', price: 'Libre Baskerville', googleFonts: ['Libre+Baskerville:400,700', 'Lora:400,500'] },
+  'minimal-sans':    { label: 'Minimal Sans',    heading: 'Montserrat', body: 'Open Sans', price: 'Montserrat', googleFonts: ['Montserrat:300,400,600,700', 'Open+Sans:400,600,700'] },
+  'warm-serif':      { label: 'Warm Serif',      heading: 'Libre Baskerville', body: 'Lora', price: 'Libre Baskerville', googleFonts: ['Libre+Baskerville:400,700', 'Lora:400,500,600,700'] },
   'pop-display':     { label: 'Pop Display',     heading: 'Anton', body: 'Archivo Black', price: 'Anton', googleFonts: ['Anton:400', 'Archivo+Black:400'] },
-  'heritage':        { label: 'Heritage',        heading: 'Tiro Devanagari Hindi', body: 'Mukta', price: 'Tiro Devanagari Hindi', googleFonts: ['Tiro+Devanagari+Hindi:400', 'Mukta:400,600'] },
+  'heritage':        { label: 'Heritage',        heading: 'Tiro Devanagari Hindi', body: 'Mukta', price: 'Tiro Devanagari Hindi', googleFonts: ['Tiro+Devanagari+Hindi:400', 'Mukta:400,600,700'] },
   'name-board':      { label: 'Name Board',      heading: 'Playfair Display', body: 'Montserrat', price: 'Montserrat', googleFonts: ['Playfair+Display:400,700', 'Montserrat:400,600,700', 'Great+Vibes:400'] },
 };
 
@@ -350,10 +350,19 @@ export function googleFontsForCustomization(customization: DesignCustomization):
   const resolved = resolveFonts(customization);
   const extra = [resolved.heading, resolved.body, resolved.price]
     .filter((f) => !pairing.some((p) => p.startsWith(f.replace(/ /g, '+'))))
-    .map((f) => `${f.replace(/ /g, '+')}:400,600,700`);
+    .map((f) => `${f.replace(/ /g, '+')}:400,500,600,700`);
   const titleStyle = customization.typography.titleStyle ?? 'classic';
-  const titleFonts = titleStyle === 'classic' ? [] : [`${({ cursive: 'Dancing Script', bold: 'Anton', elegant: 'Playfair Display' } as const)[titleStyle].replace(/ /g, '+')}:400,700`];
-  return [...pairing, ...extra, ...titleFonts.filter((f) => !pairing.some((p) => p.startsWith(f.split(':')[0])))];
+  // Name-board header hardcodes Playfair / Great Vibes / Montserrat regardless of pairing.
+  const titleFonts =
+    titleStyle === 'elegant'
+      ? ['Playfair+Display:400,700', 'Great+Vibes:400', 'Montserrat:400,600,700']
+      : titleStyle === 'classic'
+        ? []
+        : [
+            `${({ cursive: 'Dancing Script', bold: 'Anton' } as const)[titleStyle].replace(/ /g, '+')}:400,700`,
+          ];
+  const all = [...pairing, ...extra, ...titleFonts];
+  return all.filter((f, i) => all.findIndex((x) => x.split(':')[0] === f.split(':')[0]) === i);
 }
 
 function colorsFromScheme(key: ColorSchemeKey): DesignColors {

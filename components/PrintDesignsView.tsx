@@ -250,7 +250,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     );
   }, [restaurantId, branding.tagline, branding.phone, branding.address, branding.instagram, branding.website]);
 
-  // Dynamically load Google Fonts for pairing + custom overrides
+  // Dynamically load Google Fonts for pairing + custom overrides + title faces
   useEffect(() => {
     const families = googleFontsForCustomization(custom).join('&family=');
     const href = `https://fonts.googleapis.com/css2?family=${families}&display=swap`;
@@ -262,7 +262,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
       document.head.appendChild(link);
     }
     link.href = href;
-  }, [custom.fontPairing, custom.customFonts, custom.fonts]);
+  }, [custom.fontPairing, custom.customFonts, custom.fonts, custom.typography.titleStyle]);
 
   const fmt = FORMATS[format];
   /** Prefer 300 DPI; large wall boards scale down so canvas stays under browser limits. */
@@ -451,8 +451,8 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     setExporting(true);
     setExportMsg('');
     try {
-      const families = googleFontsForCustomization(custom).join('&family=');
-      const fontCssHref = `https://fonts.googleapis.com/css2?family=${families}&display=swap`;
+      const families = googleFontsForCustomization(custom);
+      const fontCssHref = `https://fonts.googleapis.com/css2?family=${families.join('&family=')}&display=swap`;
       // Large boards already render near max pixels — extra scale blanks the PNG.
       const scale = Math.max(exportW, exportH) > 4000 ? 1 : 2;
       const canvas = await exportPrintDesignToPng({
@@ -460,6 +460,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
         backgroundColor: custom.colors.background,
         scale,
         fontCssHref,
+        fontFamilies: families,
       });
       const dataUrl = canvas.toDataURL('image/png');
       if (!dataUrl.startsWith('data:image/png') || dataUrl.length < 1000) {
