@@ -63,7 +63,7 @@ import {
 } from "../lib/printDesigns";
 import { colorModeLabel, colorsToCmykSummary } from "../lib/printColorUtils";
 import { exportPrintDesignToPdf } from "../lib/exportPrintPdf";
-import { exportPrintDesignToPng } from "../lib/exportPrintPng";
+import { exportDpiForFormat, exportPrintDesignToPng } from "../lib/exportPrintPng";
 import { getMaterialRecommendation } from "../lib/printMaterials";
 import { normalizeWhatsAppPhone } from "../lib/whatsappLink";
 import { supabaseService } from "../services/supabaseService";
@@ -265,9 +265,10 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   }, [custom.fontPairing, custom.customFonts, custom.fonts]);
 
   const fmt = FORMATS[format];
-  /** 300 DPI export canvas — screen preview stays at 96 DPI; upscaling softens glyphs. */
-  const exportW = Math.round((fmt.widthMm * 300) / 25.4);
-  const exportH = Math.round((fmt.heightMm * 300) / 25.4);
+  /** Prefer 300 DPI; large wall boards scale down so canvas stays under browser limits. */
+  const exportDpi = exportDpiForFormat(fmt.widthMm, fmt.heightMm);
+  const exportW = Math.round((fmt.widthMm * exportDpi) / 25.4);
+  const exportH = Math.round((fmt.heightMm * exportDpi) / 25.4);
   const siteUrl = branding.slug
     ? `${import.meta.env.VITE_SITE_URL ?? 'https://minutemenus.com'}/${branding.slug}`
     : import.meta.env.VITE_SITE_URL ?? 'https://minutemenus.com';
@@ -441,24 +442,30 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     try {
       const families = googleFontsForCustomization(custom).join('&family=');
       const fontCssHref = `https://fonts.googleapis.com/css2?family=${families}&display=swap`;
+      // Large boards already render near max pixels — extra scale blanks the PNG.
+      const scale = Math.max(exportW, exportH) > 4000 ? 1 : 2;
       const canvas = await exportPrintDesignToPng({
         element: el,
         backgroundColor: custom.colors.background,
-        scale: 2,
+        scale,
         fontCssHref,
       });
+      const dataUrl = canvas.toDataURL('image/png');
+      if (!dataUrl.startsWith('data:image/png') || dataUrl.length < 1000) {
+        throw new Error('PNG encoding failed (board too large for this browser).');
+      }
       const link = document.createElement('a');
       const suffix = custom.colorMode === 'cmyk' ? '-cmyk' : '';
       link.download = `${isJobFlyer ? jobFlyer.roleTitle.replace(/\s+/g, '-').toLowerCase() || 'hiring' : branding.name || 'menu'}-${format}${suffix}.png`;
-      link.href = canvas.toDataURL('image/png');
+      link.href = dataUrl;
       link.click();
-      setExportMsg('PNG downloaded!');
+      setExportMsg(exportDpi < 300 ? `PNG downloaded (~${exportDpi} DPI — full board size).` : 'PNG downloaded!');
     } catch {
-      setExportMsg('Export failed. Try again.');
+      setExportMsg('Export failed. Try PDF, or a smaller format.');
     } finally {
       setExporting(false);
     }
-  }, [branding.name, custom.colorMode, custom.colors.background, custom.fontPairing, custom.customFonts, custom.fonts, format, isJobFlyer, jobFlyer.roleTitle]);
+  }, [branding.name, custom.colorMode, custom.colors.background, custom.fontPairing, custom.customFonts, custom.fonts, exportDpi, exportH, exportW, format, isJobFlyer, jobFlyer.roleTitle]);
 
   // ─── Style helpers ───────────────────────────────────────────────────────────
   const card = isDarkTheme ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-200';

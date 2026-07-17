@@ -1,16 +1,44 @@
 /**
  * PNG export via modern-screenshot — embeds Google Fonts as data-URLs and
  * captures at high DPR without CSS filters (CMYK preview filters blur type).
+ *
+ * Large wall boards (e.g. 72×23" @ 300 DPI) exceed browser canvas limits and
+ * produce empty/corrupt PNGs — scale is clamped to a safe pixel budget.
  */
 import { domToCanvas } from "modern-screenshot";
 
 export interface ExportPrintPngOptions {
   element: HTMLElement;
   backgroundColor: string;
-  /** Pixel ratio — 4 recommended for print flyers. */
+  /** Pixel ratio — reduced automatically for huge boards. */
   scale?: number;
   /** Google Fonts css2 URL (or any @font-face stylesheet) to embed. */
   fontCssHref?: string;
+}
+
+/** Browsers often fail past ~16k on an edge or ~268M pixels; stay under. */
+const MAX_CANVAS_EDGE = 8192;
+const MAX_CANVAS_PIXELS = 64 * 1024 * 1024; // 64MP
+
+/** Scale that keeps width×scale and height×scale within canvas limits. */
+export function safePngExportScale(
+  widthPx: number,
+  heightPx: number,
+  requestedScale = 2,
+): number {
+  const w = Math.max(1, widthPx);
+  const h = Math.max(1, heightPx);
+  const byEdge = Math.min(MAX_CANVAS_EDGE / w, MAX_CANVAS_EDGE / h);
+  const byArea = Math.sqrt(MAX_CANVAS_PIXELS / (w * h));
+  return Math.max(0.2, Math.min(requestedScale, byEdge, byArea));
+}
+
+/** DPI so the longer edge stays ≤ maxEdge (default 8192px). */
+export function exportDpiForFormat(widthMm: number, heightMm: number, maxEdge = MAX_CANVAS_EDGE): number {
+  const w300 = (widthMm * 300) / 25.4;
+  const h300 = (heightMm * 300) / 25.4;
+  const fit = Math.min(1, maxEdge / Math.max(w300, h300));
+  return Math.max(96, Math.min(300, Math.floor(300 * fit)));
 }
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
@@ -215,9 +243,10 @@ function sharpenCloneText(clone: HTMLElement): void {
 export async function exportPrintDesignToPng(
   opts: ExportPrintPngOptions,
 ): Promise<HTMLCanvasElement> {
-  const { element, backgroundColor, scale = 2, fontCssHref } = opts;
-  const width = Math.max(1, element.offsetWidth);
-  const height = Math.max(1, element.offsetHeight);
+  const { element, backgroundColor, scale: requestedScale = 2, fontCssHref } = opts;
+  const width = Math.max(1, element.offsetWidth || element.clientWidth);
+  const height = Math.max(1, element.offsetHeight || element.clientHeight);
+  const scale = safePngExportScale(width, height, requestedScale);
   const mount = createExportMount(width, height, backgroundColor);
   const clone = element.cloneNode(true) as HTMLElement;
   stripPrintGuides(clone);
@@ -236,11 +265,11 @@ export async function exportPrintDesignToPng(
     await waitForFonts();
     await waitForImages(clone);
     await waitTwoFrames();
-    rasterizeStickerCtas(clone, scale);
+    rasterizeStickerCtas(clone, Math.max(1, Math.round(scale)));
     await waitForImages(clone);
     await waitTwoFrames();
 
-    return await domToCanvas(clone, {
+    const canvas = await domToCanvas(clone, {
       scale,
       backgroundColor,
       width,
@@ -257,6 +286,11 @@ export async function exportPrintDesignToPng(
         bypassingCache: false,
       },
     });
+
+    if (!canvas.width || !canvas.height) {
+      throw new Error("Export canvas was empty — try a smaller format or PDF.");
+    }
+    return canvas;
   } finally {
     mount.remove();
   }
