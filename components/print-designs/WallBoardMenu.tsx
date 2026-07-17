@@ -302,7 +302,7 @@ function WallColumn({
     ? `${Math.max(1, Math.round(Math.min(widthPx, heightPx) * 0.0025))}px solid ${columnBorderColor ?? DEFAULT_COLUMN_BORDER_COLOR}`
     : undefined;
   const useLeader = showPrices && priceLeaderStyle !== "none";
-  const segmentGap = wallBoardSegmentGap(cfs);
+  const categoryBreakGap = wallBoardSegmentGap(cfs, bfs);
 
   return (
     <div
@@ -322,13 +322,17 @@ function WallColumn({
         borderRadius: Math.max(4, Math.round(widthPx * 0.006)),
         padding: pad,
         border: colBorder,
-        gap: segmentGap,
       }}
     >
-      {column.segments.map((segment) => (
+      {column.segments.map((segment, segIndex) => (
         <div
           key={`${segment.categoryId}-${segment.continued ? "cont" : "start"}-${segment.items[0]?.id ?? "empty"}`}
-          style={{ display: "flex", flexDirection: "column", flexShrink: 0 }}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            flexShrink: 0,
+            marginTop: segIndex > 0 ? categoryBreakGap : 0,
+          }}
         >
           <div
             style={{

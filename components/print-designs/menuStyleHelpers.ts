@@ -129,8 +129,10 @@ export function wallBoardHeaderBlock(catFs: number): number {
   return Math.round(catFs * 1.15 + catFs * 0.35 + catFs * 0.45 + 4);
 }
 
-export function wallBoardSegmentGap(catFs: number): number {
-  return Math.max(8, Math.round(catFs * 0.55));
+export function wallBoardSegmentGap(catFs: number, bodyFs = catFs): number {
+  // Extra air above a mid-column category start — clearly larger than item-to-item gap.
+  const itemGap = wallBoardItemGap(bodyFs);
+  return Math.max(itemGap * 2, Math.round(catFs * 1.4));
 }
 
 /**
@@ -141,7 +143,7 @@ export function wallBoardItemsPerColumn(
   bodyFs: number,
   catFs: number,
 ): number {
-  const usable = contentHeightPx - wallBoardHeaderBlock(catFs) - wallBoardSegmentGap(catFs);
+  const usable = contentHeightPx - wallBoardHeaderBlock(catFs) - wallBoardSegmentGap(catFs, bodyFs);
   const pitch = wallBoardRowPitch(bodyFs);
   return Math.max(1, Math.floor(usable / pitch));
 }
@@ -187,7 +189,7 @@ function segmentHeight(
   includeSegmentGap: boolean,
 ): number {
   const itemsH = itemCount * wallBoardRowPitch(bodyFs);
-  const gap = includeSegmentGap ? wallBoardSegmentGap(catFs) : 0;
+  const gap = includeSegmentGap ? wallBoardSegmentGap(catFs, bodyFs) : 0;
   return wallBoardHeaderBlock(catFs) + itemsH + gap;
 }
 
@@ -231,7 +233,7 @@ export function packWallBoardColumns(
     while (start < cat.items.length) {
       const remaining = cat.items.length - start;
       const usedH = columnUsedH(columns[colIdx]);
-      const segGap = columns[colIdx].segments.length > 0 ? wallBoardSegmentGap(catFs) : 0;
+      const segGap = columns[colIdx].segments.length > 0 ? wallBoardSegmentGap(catFs, bodyFs) : 0;
       const headerH = wallBoardHeaderBlock(catFs);
       const pitch = wallBoardRowPitch(bodyFs);
       const roomPx = contentHeightPx - usedH - segGap - headerH;
