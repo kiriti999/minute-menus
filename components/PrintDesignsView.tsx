@@ -19,7 +19,6 @@ import type {
   TemplateStyle,
   TitleStyle,
 } from "@minute-menus/types";
-import html2canvas from "html2canvas";
 import {
   Check,
   ChevronDown,
@@ -64,6 +63,7 @@ import {
 } from "../lib/printDesigns";
 import { colorModeLabel, colorsToCmykSummary, cmykSimulationFilter } from "../lib/printColorUtils";
 import { exportPrintDesignToPdf } from "../lib/exportPrintPdf";
+import { exportPrintDesignToPng } from "../lib/exportPrintPng";
 import { getMaterialRecommendation } from "../lib/printMaterials";
 import { normalizeWhatsAppPhone } from "../lib/whatsappLink";
 import { supabaseService } from "../services/supabaseService";
@@ -167,6 +167,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   hasUnsavedMenuChanges = false,
 }) => {
   const exportRef = useRef<HTMLDivElement>(null);
+  const exportHostRef = useRef<HTMLDivElement>(null);
   const previewHostRef = useRef<HTMLDivElement>(null);
 
   const [designType, setDesignType] = useState<PrintDesignType>('wall-board');
@@ -433,11 +434,16 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
 
   const exportPng = useCallback(async () => {
     const el = exportRef.current;
-    if (!el) return;
+    const host = exportHostRef.current;
+    if (!el || !host) return;
     setExporting(true);
     setExportMsg('');
     try {
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: custom.colors.background, logging: false });
+      const canvas = await exportPrintDesignToPng({
+        element: el,
+        host,
+        backgroundColor: custom.colors.background,
+      });
       const link = document.createElement('a');
       const suffix = custom.colorMode === 'cmyk' ? '-cmyk' : '';
       link.download = `${isJobFlyer ? jobFlyer.roleTitle.replace(/\s+/g, '-').toLowerCase() || 'hiring' : branding.name || 'menu'}-${format}${suffix}.png`;
@@ -1438,8 +1444,11 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
         </div>
       )}
 
-      {/* Off-screen full-resolution render target for html2canvas */}
-      <div style={{ position: 'fixed', top: -99999, left: -99999, width: fmt.widthPx, height: fmt.heightPx, pointerEvents: 'none', zIndex: -1 }}>
+      {/* Full-resolution render target for html2canvas (parked off-viewport; PNG export repositions on-screen) */}
+      <div
+        ref={exportHostRef}
+        style={{ position: 'fixed', top: 0, left: '-100vw', width: fmt.widthPx, height: fmt.heightPx, pointerEvents: 'none', zIndex: -1, overflow: 'hidden' }}
+      >
         <div ref={exportRef} data-print-preview style={{ position: 'relative', width: fmt.widthPx, height: fmt.heightPx, filter: exportFilter }}>
           <MenuTemplate
             style={templateStyle}
