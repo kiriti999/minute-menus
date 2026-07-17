@@ -224,7 +224,7 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 		descriptionText,
 		hasNotes,
 		showQr: customization.showQR || Boolean(jobFlyer.locationText?.trim() || jobFlyer.mapsUrl?.trim()),
-		detailCount: 6,
+		detailCount: branding.phone?.replace(/\D/g, "").length >= 10 ? 7 : 6,
 		baseHeadingFs: scaledHeadingFs(widthPx, customization),
 		baseBodyFs: scaledBodyFs(widthPx, customization),
 	});
@@ -249,6 +249,9 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 	const mapsTarget = jobFlyerMapsTarget(jobFlyer.locationText, jobFlyer.mapsUrl);
 	const showMapsQr = Boolean(jobFlyer.locationText?.trim() || jobFlyer.mapsUrl?.trim());
 	const bothQrs = customization.showQR && showMapsQr;
+	const phoneDigits = branding.phone?.replace(/\D/g, "") ?? "";
+	const phoneDisplay =
+		phoneDigits.length >= 10 ? phoneDigits.slice(-10) : branding.phone?.trim() || "";
 
 	const details: DetailItem[] = [
 		{ icon: "⏰", label: "Timings", value: jobFlyer.timings },
@@ -257,6 +260,7 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 		{ icon: "👤", label: "Min. age", value: jobFlyer.minAge },
 		{ icon: "🎓", label: "Qualification", value: jobFlyer.qualification },
 		{ icon: "🗣", label: "English", value: ENGLISH_LABELS[jobFlyer.englishSkill] },
+		...(phoneDisplay ? [{ icon: "💬", label: "WhatsApp", value: phoneDisplay }] : []),
 	];
 
 	return (
@@ -462,6 +466,24 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 								{descriptionText}
 							</div>
 						)}
+						{phoneDisplay && (
+							<p
+								style={{
+									margin: 0,
+									textAlign: "center",
+									fontSize: Math.max(12, Math.round(smallFs * 1.15)),
+									fontWeight: 700,
+									color: colors.primary,
+									lineHeight: 1.35,
+									padding: "6px 8px",
+									borderRadius: 8,
+									background: hexToRgba(colors.primary, 0.08),
+									border: `1px solid ${hexToRgba(colors.primary, 0.2)}`,
+								}}
+							>
+								WhatsApp your details on &quot;{phoneDisplay}&quot;
+							</p>
+						)}
 						{(customization.showQR || showMapsQr) && (
 							<div
 								style={{
@@ -497,20 +519,6 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 									/>
 								)}
 							</div>
-						)}
-						{branding.phone?.trim() && (
-							<p
-								style={{
-									margin: 0,
-									textAlign: "center",
-									fontSize: Math.max(10, Math.round(smallFs * 1.05)),
-									fontWeight: 700,
-									color: colors.primary,
-									lineHeight: 1.35,
-								}}
-							>
-								WhatsApp your details on &quot;{branding.phone.trim()}&quot;
-							</p>
 						)}
 					</div>
 				)}

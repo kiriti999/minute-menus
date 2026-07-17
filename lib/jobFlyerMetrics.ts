@@ -72,8 +72,8 @@ export function computeJobFlyerSizing(input: SizingInput): JobFlyerSizing {
 
 	// Phone cameras need ~100px+; size for two QRs side-by-side below the copy.
 	const qrSize = Math.max(
-		100,
-		Math.round(input.widthPx * (input.pamphlet ? 0.22 : 0.2) * Math.min(1, typeScale + 0.02)),
+		96,
+		Math.round(input.widthPx * (input.pamphlet ? 0.18 : 0.17) * Math.min(1, typeScale + 0.02)),
 	);
 
 	return {

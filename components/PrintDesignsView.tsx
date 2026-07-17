@@ -266,6 +266,9 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   }, [custom.fontPairing, custom.customFonts, custom.fonts]);
 
   const fmt = FORMATS[format];
+  /** 300 DPI export canvas — screen preview stays at 96 DPI; upscaling softens glyphs. */
+  const exportW = Math.round((fmt.widthMm * 300) / 25.4);
+  const exportH = Math.round((fmt.heightMm * 300) / 25.4);
   const siteUrl = branding.slug
     ? `${import.meta.env.VITE_SITE_URL ?? 'https://minutemenus.com'}/${branding.slug}`
     : import.meta.env.VITE_SITE_URL ?? 'https://minutemenus.com';
