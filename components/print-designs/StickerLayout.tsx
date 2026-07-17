@@ -123,19 +123,27 @@ function CircleSticker({
 	);
 	const titleFont = titleFontFamily(customization);
 	const titleExtras = titleStyleExtras(customization);
-	/** Flex-center band — no translateX(-50%); html2canvas shifts transformed text. */
-	const band = (top: number): React.CSSProperties => ({
+	/** text-align + inline-block — html2canvas mishandles flex justify-center (shifts left). */
+	const band = (top: number, height?: number): React.CSSProperties => ({
 		position: "absolute",
 		top,
 		left: 0,
+		right: 0,
 		width: "100%",
-		display: "flex",
-		justifyContent: "center",
+		height: height ?? "auto",
+		textAlign: "center",
+		lineHeight: height ? `${height}px` : undefined,
 		zIndex: 1,
 		boxSizing: "border-box",
 		paddingLeft: s.pad,
 		paddingRight: s.pad,
+		fontSize: 0,
 	});
+	const bandChild: React.CSSProperties = {
+		display: "inline-block",
+		verticalAlign: "middle",
+		maxWidth: "100%",
+	};
 
 	return (
 		<div
@@ -162,12 +170,14 @@ function CircleSticker({
 			/>
 
 			{hasLogo ? (
-				<div style={{ ...band(s.headerTop), height: s.logoH, alignItems: "center", lineHeight: 0 }}>
-					<Logo url={logoUrl} height={s.logoH} />
+				<div style={band(s.headerTop, s.logoH)}>
+					<span style={{ ...bandChild, lineHeight: 0, fontSize: 0 }}>
+						<Logo url={logoUrl} height={s.logoH} />
+					</span>
 				</div>
 			) : (
 				<div style={band(s.headerTop)}>
-					<div style={{ textAlign: "center", maxWidth: "86%" }}>
+					<div style={{ ...bandChild, textAlign: "center", maxWidth: "86%", fontSize: s.nameFs }}>
 						<div
 							style={{
 								fontFamily: titleFont,
@@ -198,36 +208,41 @@ function CircleSticker({
 
 			{showQR && (
 				<div style={band(s.qrTop)}>
-					<CircleQrBadge
-						siteUrl={siteUrl}
-						qrSize={s.qrSize}
-						colors={colors}
-						size={size}
-						borderWidth={qrBorderWidth}
-						borderColor={qrBorderColor}
-					/>
+					<span style={{ ...bandChild, lineHeight: 0, fontSize: 0 }}>
+						<CircleQrBadge
+							siteUrl={siteUrl}
+							qrSize={s.qrSize}
+							colors={colors}
+							size={size}
+							borderWidth={qrBorderWidth}
+							borderColor={qrBorderColor}
+						/>
+					</span>
 				</div>
 			)}
 
 			<div style={band(s.ctaTop)}>
+				{/* line-height === height centers single-line text; padding-only boxes shift in PNG. */}
 				<div
 					data-mm-sticker-cta=""
 					style={{
+						...bandChild,
 						height: s.ctaH,
-						maxWidth: "78%",
 						boxSizing: "border-box",
-						padding: `${s.ctaPadY}px ${Math.round(size * 0.032)}px`,
+						padding: `0 ${Math.round(size * 0.04)}px`,
 						borderRadius: 999,
-						background: `linear-gradient(90deg, ${colors.primary}, ${colors.secondary})`,
+						background: colors.primary,
 						color: "#FFF",
 						fontSize: s.ctaFs,
-						fontWeight: 600,
-						letterSpacing: "0.04em",
+						fontWeight: 700,
+						letterSpacing: "normal",
 						textTransform: "uppercase",
 						textAlign: "center",
-						lineHeight: 1,
+						lineHeight: `${s.ctaH}px`,
 						whiteSpace: "nowrap",
 						overflow: "hidden",
+						fontFamily: fonts.body,
+						verticalAlign: "middle",
 					}}
 				>
 					Scan to order

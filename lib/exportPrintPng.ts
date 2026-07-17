@@ -1,9 +1,9 @@
 /**
- * PNG export via html2canvas.
- * Clones the target into a near-visible on-screen mount so far off-screen
- * hosts and CSS transforms do not shift text in the bitmap.
+ * PNG export via modern-screenshot.
+ * CTA pills are rasterized with canvas fillText (middle baseline) so "Scan to order"
+ * stays vertically centered — CSS line-box metrics drift in SVG foreignObject capture.
  */
-import html2canvas from "html2canvas";
+import { domToCanvas } from "modern-screenshot";
 
 export interface ExportPrintPngOptions {
   element: HTMLElement;
@@ -62,7 +62,65 @@ function inlineCanvasesFromSource(source: HTMLElement, clone: HTMLElement): void
   });
 }
 
-function createExportMount(width: number, height: number): HTMLDivElement {
+/**
+ * Replace sticker CTA nodes with a canvas-drawn pill so label is truly vertically centered.
+ */
+function rasterizeStickerCtas(root: HTMLElement, pixelRatio = 2): void {
+  root.querySelectorAll<HTMLElement>("[data-mm-sticker-cta]").forEach((el) => {
+    const cs = getComputedStyle(el);
+    const w = Math.max(1, Math.ceil(el.offsetWidth));
+    const h = Math.max(1, Math.ceil(el.offsetHeight));
+    const text = (el.textContent || "").trim();
+    if (!text) return;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(w * pixelRatio);
+    canvas.height = Math.round(h * pixelRatio);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.scale(pixelRatio, pixelRatio);
+    ctx.clearRect(0, 0, w, h);
+
+    const radius = Math.min(h / 2, Number.parseFloat(cs.borderRadius) || h / 2);
+    ctx.fillStyle = cs.backgroundColor || "#000";
+    ctx.beginPath();
+    ctx.moveTo(radius, 0);
+    ctx.arcTo(w, 0, w, h, radius);
+    ctx.arcTo(w, h, 0, h, radius);
+    ctx.arcTo(0, h, 0, 0, radius);
+    ctx.arcTo(0, 0, w, 0, radius);
+    ctx.closePath();
+    ctx.fill();
+
+    const fontSize = Number.parseFloat(cs.fontSize) || 12;
+    const fontWeight = cs.fontWeight || "700";
+    const fontFamily = cs.fontFamily || "sans-serif";
+    ctx.fillStyle = cs.color || "#fff";
+    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    // Optical nudge: uppercase glyphs sit slightly low with middle baseline.
+    ctx.fillText(text.toUpperCase(), w / 2, h / 2 + fontSize * 0.04);
+
+    const img = document.createElement("img");
+    img.src = canvas.toDataURL("image/png");
+    img.alt = text;
+    img.width = w;
+    img.height = h;
+    img.style.cssText = [
+      "display:inline-block",
+      "vertical-align:middle",
+      `width:${w}px`,
+      `height:${h}px`,
+      "max-width:100%",
+      "border-radius:999px",
+    ].join(";");
+    el.replaceWith(img);
+  });
+}
+
+function createExportMount(width: number, height: number, backgroundColor: string): HTMLDivElement {
   const mount = document.createElement("div");
   mount.setAttribute("data-print-export-mount", "");
   Object.assign(mount.style, {
@@ -75,42 +133,21 @@ function createExportMount(width: number, height: number): HTMLDivElement {
     zIndex: "2147483646",
     pointerEvents: "none",
     overflow: "hidden",
+    background: backgroundColor,
   });
   return mount;
-}
-
-function normalizeCloneTransforms(cloned: HTMLElement): void {
-  cloned.style.transform = "none";
-  cloned.querySelectorAll<HTMLElement>("[style*='transform']").forEach((node) => {
-    if (node.style.transform.includes("translateX(-50%)")) {
-      node.style.transform = "none";
-      node.style.left = "0";
-      node.style.width = "100%";
-      node.style.display = "flex";
-      node.style.justifyContent = "center";
-    }
-  });
-  // html2canvas paints text slightly low in padded pills — nudge up for export only.
-  cloned.querySelectorAll<HTMLElement>("[data-mm-sticker-cta]").forEach((node) => {
-    const fs = Number.parseFloat(node.style.fontSize) || 10;
-    const padY = Number.parseFloat(node.style.paddingTop) || 3;
-    node.style.lineHeight = "1";
-    node.style.display = "block";
-    node.style.paddingTop = `${Math.max(1, padY - 1)}px`;
-    node.style.paddingBottom = `${padY + 1}px`;
-    node.style.height = `${fs + padY * 2}px`;
-  });
 }
 
 export async function exportPrintDesignToPng(
   opts: ExportPrintPngOptions,
 ): Promise<HTMLCanvasElement> {
   const { element, backgroundColor, scale = 2 } = opts;
-  const width = element.offsetWidth;
-  const height = element.offsetHeight;
-  const mount = createExportMount(width, height);
+  const width = Math.max(1, element.offsetWidth);
+  const height = Math.max(1, element.offsetHeight);
+  const mount = createExportMount(width, height, backgroundColor);
   const clone = element.cloneNode(true) as HTMLElement;
   clone.style.transform = "none";
+  clone.style.margin = "0";
   inlineCanvasesFromSource(element, clone);
   mount.appendChild(clone);
   document.body.appendChild(mount);
@@ -119,24 +156,16 @@ export async function exportPrintDesignToPng(
     await waitForFonts();
     await waitForImages(clone);
     await waitTwoFrames();
+    rasterizeStickerCtas(clone, scale);
+    await waitForImages(clone);
+    await waitTwoFrames();
 
-    return await html2canvas(clone, {
+    return await domToCanvas(clone, {
       scale,
-      useCORS: true,
-      allowTaint: false,
       backgroundColor,
-      logging: false,
       width,
       height,
-      windowWidth: width,
-      windowHeight: height,
-      x: 0,
-      y: 0,
-      scrollX: -window.scrollX,
-      scrollY: -window.scrollY,
-      onclone: (_doc, cloned) => {
-        normalizeCloneTransforms(cloned);
-      },
+      style: { transform: "none", margin: "0" },
     });
   } finally {
     mount.remove();

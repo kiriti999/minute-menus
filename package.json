@@ -41,6 +41,7 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.554.0",
+    "modern-screenshot": "^4.7.0",
     "nodemailer": "^8.0.5",
     "qrcode.react": "^4.2.0",
     "razorpay": "^2.9.6",
