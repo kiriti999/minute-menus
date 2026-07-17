@@ -1,15 +1,26 @@
 /**
- * PNG export via modern-screenshot with embedded Google Fonts for sharp type.
+ * PNG export via modern-screenshot — embeds Google Fonts as data-URLs and
+ * captures at high DPR without CSS filters (CMYK preview filters blur type).
  */
 import { domToCanvas } from "modern-screenshot";
 
 export interface ExportPrintPngOptions {
   element: HTMLElement;
   backgroundColor: string;
-  /** Pixel ratio — 3 recommended for print flyers. */
+  /** Pixel ratio — 4 recommended for print flyers. */
   scale?: number;
   /** Google Fonts css2 URL (or any @font-face stylesheet) to embed. */
   fontCssHref?: string;
+}
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunk = 0x8000;
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
 }
 
 async function waitTwoFrames(): Promise<void> {
@@ -63,9 +74,6 @@ function inlineCanvasesFromSource(source: HTMLElement, clone: HTMLElement): void
   });
 }
 
-/**
- * Replace sticker CTA nodes with a canvas-drawn pill so label is truly vertically centered.
- */
 function rasterizeStickerCtas(root: HTMLElement, pixelRatio = 2): void {
   root.querySelectorAll<HTMLElement>("[data-mm-sticker-cta]").forEach((el) => {
     const cs = getComputedStyle(el);
@@ -126,14 +134,39 @@ function resolveFontCssHref(explicit?: string): string | undefined {
   return link?.href || undefined;
 }
 
-/** Fetch @font-face CSS so modern-screenshot can embed WOFF files into the PNG. */
-async function fetchFontCssText(href?: string): Promise<string | undefined> {
+/** Fetch CSS and inline every url(...) font file as a data-URL for reliable embed. */
+async function buildEmbeddedFontCss(href?: string): Promise<string | undefined> {
   const url = resolveFontCssHref(href);
   if (!url) return undefined;
   try {
     const res = await fetch(url, { mode: "cors", credentials: "omit" });
     if (!res.ok) return undefined;
-    return await res.text();
+    let cssText = await res.text();
+    const urls = new Set<string>();
+    const re = /url\((['"]?)(https?:\/\/[^)'"]+)\1\)/g;
+    for (let match = re.exec(cssText); match; match = re.exec(cssText)) {
+      urls.add(match[2]);
+    }
+    const map = new Map<string, string>();
+    await Promise.all(
+      [...urls].map(async (fontUrl) => {
+        try {
+          const fontRes = await fetch(fontUrl, { mode: "cors", credentials: "omit" });
+          if (!fontRes.ok) return;
+          const buf = await fontRes.arrayBuffer();
+          const mime = fontRes.headers.get("content-type") || "font/woff2";
+          map.set(fontUrl, `url(data:${mime};base64,${arrayBufferToBase64(buf)})`);
+        } catch {
+          /* skip failed face */
+        }
+      }),
+    );
+    for (const [fontUrl, dataUrl] of map) {
+      cssText = cssText.split(`url(${fontUrl})`).join(dataUrl);
+      cssText = cssText.split(`url('${fontUrl}')`).join(dataUrl);
+      cssText = cssText.split(`url("${fontUrl}")`).join(dataUrl);
+    }
+    return cssText;
   } catch {
     return undefined;
   }
@@ -142,13 +175,14 @@ async function fetchFontCssText(href?: string): Promise<string | undefined> {
 function createExportMount(width: number, height: number, backgroundColor: string): HTMLDivElement {
   const mount = document.createElement("div");
   mount.setAttribute("data-print-export-mount", "");
+  // Full opacity + off-screen — low opacity causes soft/blurry rasterization.
   Object.assign(mount.style, {
     position: "fixed",
-    left: "0",
+    left: "-10000px",
     top: "0",
     width: `${width}px`,
     height: `${height}px`,
-    opacity: "0.02",
+    opacity: "1",
     zIndex: "2147483646",
     pointerEvents: "none",
     overflow: "hidden",
@@ -157,22 +191,40 @@ function createExportMount(width: number, height: number, backgroundColor: strin
   return mount;
 }
 
+function sharpenCloneText(clone: HTMLElement): void {
+  // CMYK preview filters (and any other filter) softens glyphs in raster export.
+  clone.style.filter = "none";
+  clone.style.transform = "none";
+  clone.style.margin = "0";
+  clone.style.textRendering = "geometricPrecision";
+  (clone.style as CSSStyleDeclaration & { webkitFontSmoothing?: string }).webkitFontSmoothing =
+    "antialiased";
+  clone.querySelectorAll<HTMLElement>("*").forEach((node) => {
+    if (node.style.filter) node.style.filter = "none";
+    node.style.textRendering = "geometricPrecision";
+  });
+}
+
 export async function exportPrintDesignToPng(
   opts: ExportPrintPngOptions,
 ): Promise<HTMLCanvasElement> {
-  const { element, backgroundColor, scale = 3, fontCssHref } = opts;
+  const { element, backgroundColor, scale = 4, fontCssHref } = opts;
   const width = Math.max(1, element.offsetWidth);
   const height = Math.max(1, element.offsetHeight);
   const mount = createExportMount(width, height, backgroundColor);
   const clone = element.cloneNode(true) as HTMLElement;
-  clone.style.transform = "none";
-  clone.style.margin = "0";
   inlineCanvasesFromSource(element, clone);
+  sharpenCloneText(clone);
   mount.appendChild(clone);
   document.body.appendChild(mount);
 
   try {
-    const fontCssText = await fetchFontCssText(fontCssHref);
+    const fontCssText = await buildEmbeddedFontCss(fontCssHref);
+    if (fontCssText) {
+      const style = document.createElement("style");
+      style.textContent = fontCssText;
+      mount.prepend(style);
+    }
     await waitForFonts();
     await waitForImages(clone);
     await waitTwoFrames();
@@ -185,8 +237,13 @@ export async function exportPrintDesignToPng(
       backgroundColor,
       width,
       height,
-      style: { transform: "none", margin: "0" },
-      ...(fontCssText ? { font: { cssText: fontCssText } } : {}),
+      style: {
+        transform: "none",
+        margin: "0",
+        filter: "none",
+        textRendering: "geometricPrecision",
+      },
+      ...(fontCssText ? { font: { cssText: fontCssText, preferredFormat: "woff2" } } : {}),
       fetch: {
         requestInit: { mode: "cors", credentials: "omit" },
         bypassingCache: false,

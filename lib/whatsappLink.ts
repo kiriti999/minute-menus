@@ -2,7 +2,8 @@
 export function normalizeWhatsAppPhone(phone: string): string | null {
 	const digits = phone.replace(/\D/g, "");
 	if (digits.length === 10) return `91${digits}`;
-	if (digits.length >= 11) return digits;
+	if (digits.length === 12 && digits.startsWith("91")) return digits;
+	if (digits.length >= 11 && digits.length <= 15) return digits;
 	return null;
 }
 
@@ -12,5 +13,8 @@ export function whatsAppChatUrl(phone: string, message?: string): string | null 
 	if (!normalized) return null;
 	const base = `https://wa.me/${normalized}`;
 	if (!message?.trim()) return base;
-	return `${base}?text=${encodeURIComponent(message.trim())}`;
+	const withText = `${base}?text=${encodeURIComponent(message.trim())}`;
+	// Dense QRs fail to scan — keep payload short.
+	if (withText.length > 400) return base;
+	return withText;
 }

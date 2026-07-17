@@ -1,18 +1,8 @@
 import type { JobFlyerContent } from "@minute-menus/types";
 
-/** Pre-filled WhatsApp message when a candidate scans the job flyer QR. */
+/** Short pre-filled WhatsApp text for job flyer QR (long messages break scanning). */
 export function buildJobFlyerApplyMessage(jobFlyer: JobFlyerContent, restaurantName: string): string {
-	const role = jobFlyer.roleTitle.trim() || "part-time";
+	const role = jobFlyer.roleTitle.trim() || "the open role";
 	const place = restaurantName.trim() || "your restaurant";
-	const schedule = jobFlyer.timings.trim() || "the listed hours";
-	return [
-		`Hi, I'd like to apply for the ${role} role at ${place}.`,
-		"",
-		"Please confirm:",
-		`1. I can work ${schedule}.`,
-		"2. My location: ",
-		"3. I can commute home safely after my shift.",
-		"",
-		"(CV attached if available)",
-	].join("\n");
+	return `Hi, I'd like to apply for ${role} at ${place}. I can share my CV and availability.`;
 }

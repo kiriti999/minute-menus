@@ -443,7 +443,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
       const canvas = await exportPrintDesignToPng({
         element: el,
         backgroundColor: custom.colors.background,
-        scale: 3,
+        scale: 4,
         fontCssHref,
       });
       const link = document.createElement('a');

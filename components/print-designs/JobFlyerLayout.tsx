@@ -9,7 +9,7 @@ import type {
 	RestaurantBranding,
 	TemplateStyle,
 } from "@minute-menus/types";
-import { QRCodeCanvas } from "qrcode.react";
+import { QRCodeSVG } from "qrcode.react";
 import type React from "react";
 import { TEMPLATE_VISUALS } from "../../lib/templateConfig";
 import { buildJobFlyerApplyMessage } from "../../lib/jobFlyerWhatsApp";
@@ -137,7 +137,14 @@ function JobFlyerQrPanel({
 				<p style={{ margin: "0 0 4px", fontSize: labelFs, fontWeight: 700, color: colors.text, lineHeight: 1.2 }}>
 					{label}
 				</p>
-				<QRCodeCanvas value={url} size={qrSize} level="H" bgColor="#FFFFFF" fgColor="#111111" />
+				<QRCodeSVG
+					value={url}
+					size={qrSize}
+					level="M"
+					bgColor="#FFFFFF"
+					fgColor="#111111"
+					marginSize={2}
+				/>
 			</div>
 		);
 	}
@@ -410,7 +417,7 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 					</div>
 				)}
 
-				{(descriptionText || customization.showQR || showMapsQr) && (
+				{(descriptionText || customization.showQR || showMapsQr || branding.phone?.trim()) && (
 					<div
 						style={{
 							flexShrink: 0,
@@ -470,6 +477,20 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 									/>
 								)}
 							</div>
+						)}
+						{branding.phone?.trim() && (
+							<p
+								style={{
+									margin: 0,
+									textAlign: "center",
+									fontSize: Math.max(10, Math.round(smallFs * 1.05)),
+									fontWeight: 700,
+									color: colors.primary,
+									lineHeight: 1.35,
+								}}
+							>
+								WhatsApp your details on &quot;{branding.phone.trim()}&quot;
+							</p>
 						)}
 					</div>
 				)}
