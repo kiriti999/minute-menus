@@ -438,9 +438,13 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     setExporting(true);
     setExportMsg('');
     try {
+      const families = googleFontsForCustomization(custom).join('&family=');
+      const fontCssHref = `https://fonts.googleapis.com/css2?family=${families}&display=swap`;
       const canvas = await exportPrintDesignToPng({
         element: el,
         backgroundColor: custom.colors.background,
+        scale: 3,
+        fontCssHref,
       });
       const link = document.createElement('a');
       const suffix = custom.colorMode === 'cmyk' ? '-cmyk' : '';
@@ -453,7 +457,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     } finally {
       setExporting(false);
     }
-  }, [branding.name, custom.colorMode, custom.colors.background, format, isJobFlyer, jobFlyer.roleTitle]);
+  }, [branding.name, custom.colorMode, custom.colors.background, custom.fontPairing, custom.customFonts, custom.fonts, format, isJobFlyer, jobFlyer.roleTitle]);
 
   // ─── Style helpers ───────────────────────────────────────────────────────────
   const card = isDarkTheme ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-200';

@@ -1,14 +1,15 @@
 /**
- * PNG export via modern-screenshot.
- * CTA pills are rasterized with canvas fillText (middle baseline) so "Scan to order"
- * stays vertically centered — CSS line-box metrics drift in SVG foreignObject capture.
+ * PNG export via modern-screenshot with embedded Google Fonts for sharp type.
  */
 import { domToCanvas } from "modern-screenshot";
 
 export interface ExportPrintPngOptions {
   element: HTMLElement;
   backgroundColor: string;
+  /** Pixel ratio — 3 recommended for print flyers. */
   scale?: number;
+  /** Google Fonts css2 URL (or any @font-face stylesheet) to embed. */
+  fontCssHref?: string;
 }
 
 async function waitTwoFrames(): Promise<void> {
@@ -100,7 +101,6 @@ function rasterizeStickerCtas(root: HTMLElement, pixelRatio = 2): void {
     ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    // Optical nudge: uppercase glyphs sit slightly low with middle baseline.
     ctx.fillText(text.toUpperCase(), w / 2, h / 2 + fontSize * 0.04);
 
     const img = document.createElement("img");
@@ -118,6 +118,25 @@ function rasterizeStickerCtas(root: HTMLElement, pixelRatio = 2): void {
     ].join(";");
     el.replaceWith(img);
   });
+}
+
+function resolveFontCssHref(explicit?: string): string | undefined {
+  if (explicit?.trim()) return explicit.trim();
+  const link = document.getElementById("gf-print-designs") as HTMLLinkElement | null;
+  return link?.href || undefined;
+}
+
+/** Fetch @font-face CSS so modern-screenshot can embed WOFF files into the PNG. */
+async function fetchFontCssText(href?: string): Promise<string | undefined> {
+  const url = resolveFontCssHref(href);
+  if (!url) return undefined;
+  try {
+    const res = await fetch(url, { mode: "cors", credentials: "omit" });
+    if (!res.ok) return undefined;
+    return await res.text();
+  } catch {
+    return undefined;
+  }
 }
 
 function createExportMount(width: number, height: number, backgroundColor: string): HTMLDivElement {
@@ -141,7 +160,7 @@ function createExportMount(width: number, height: number, backgroundColor: strin
 export async function exportPrintDesignToPng(
   opts: ExportPrintPngOptions,
 ): Promise<HTMLCanvasElement> {
-  const { element, backgroundColor, scale = 2 } = opts;
+  const { element, backgroundColor, scale = 3, fontCssHref } = opts;
   const width = Math.max(1, element.offsetWidth);
   const height = Math.max(1, element.offsetHeight);
   const mount = createExportMount(width, height, backgroundColor);
@@ -153,6 +172,7 @@ export async function exportPrintDesignToPng(
   document.body.appendChild(mount);
 
   try {
+    const fontCssText = await fetchFontCssText(fontCssHref);
     await waitForFonts();
     await waitForImages(clone);
     await waitTwoFrames();
@@ -166,6 +186,11 @@ export async function exportPrintDesignToPng(
       width,
       height,
       style: { transform: "none", margin: "0" },
+      ...(fontCssText ? { font: { cssText: fontCssText } } : {}),
+      fetch: {
+        requestInit: { mode: "cors", credentials: "omit" },
+        bypassingCache: false,
+      },
     });
   } finally {
     mount.remove();

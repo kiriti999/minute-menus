@@ -223,7 +223,8 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 	const whatsAppUrl = branding.phone ? whatsAppChatUrl(branding.phone, applyMessage) : null;
 	const mapsTarget = jobFlyerMapsTarget(jobFlyer.locationText, jobFlyer.mapsUrl);
 	const showMapsQr = Boolean(jobFlyer.locationText?.trim() || jobFlyer.mapsUrl?.trim());
-	const mapQrSize = showMapsQr && customization.showQR ? Math.round(qrSize * 0.88) : qrSize;
+	const mapQrSize = showMapsQr && customization.showQR ? Math.round(qrSize * 0.82) : qrSize;
+	const bothQrs = customization.showQR && showMapsQr;
 
 	const details: DetailItem[] = [
 		{ icon: "⏰", label: "Timings", value: jobFlyer.timings },
@@ -445,10 +446,11 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 								style={{
 									flexShrink: 0,
 									display: "flex",
-									flexDirection: customization.showQR && showMapsQr ? "row" : "column",
-									flexWrap: "wrap",
+									flexDirection: bothQrs ? "row" : "column",
+									flexWrap: "nowrap",
 									justifyContent: "flex-end",
-									gap: 8,
+									alignItems: "flex-start",
+									gap: bothQrs ? 28 : 12,
 								}}
 							>
 								{customization.showQR && (
@@ -459,6 +461,19 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 										qrSize={mapQrSize}
 										smallFs={smallFs}
 										colors={colors}
+									/>
+								)}
+								{bothQrs && (
+									<div
+										aria-hidden
+										style={{
+											alignSelf: "stretch",
+											width: 1,
+											marginTop: 18,
+											marginBottom: 6,
+											background: hexToRgba(colors.border, 0.7),
+											flexShrink: 0,
+										}}
 									/>
 								)}
 								{showMapsQr && (
