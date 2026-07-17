@@ -1545,6 +1545,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
             heightPx={exportH}
             siteUrl={siteUrl}
             jobFlyer={isJobFlyer ? jobFlyer : undefined}
+            forExport
           />
           {custom.includeCropMarks && (
             <PrintGuidesOverlay fmt={fmt} widthPx={exportW} heightPx={exportH} showBleed={false} showCropMarks />

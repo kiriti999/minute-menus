@@ -1,4 +1,5 @@
 import { DeliveryMenuExportPanel } from "./DeliveryMenuExportPanel";
+import { PreviewWatermark } from "./image-editor/PreviewWatermark";
 import { getErrorMessage } from "@minute-menus/errors";
 import type { Category } from "@minute-menus/types";
 import { InlineLoader } from "@minute-menus/ui";
@@ -542,6 +543,7 @@ export const ImageEditorView: React.FC<ImageEditorViewProps> = ({
                       Load a photo to preview crop
                     </div>
                   )}
+                  {hasSource && !busy && <PreviewWatermark />}
                   {hasSource && (
                     <div className="absolute bottom-2 left-2 flex items-center gap-1 text-[10px] px-2 py-1 rounded-full bg-black/60 text-white">
                       <Move size={10} />

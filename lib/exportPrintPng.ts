@@ -191,6 +191,11 @@ function createExportMount(width: number, height: number, backgroundColor: strin
   return mount;
 }
 
+/** Strip preview-only guides (die-cut dashed circle, etc.) before capture. */
+function stripPrintGuides(root: HTMLElement): void {
+  root.querySelectorAll("[data-print-guide]").forEach((node) => node.remove());
+}
+
 function sharpenCloneText(clone: HTMLElement): void {
   // CMYK preview filters (and any other filter) softens glyphs in raster export.
   clone.style.filter = "none";
@@ -215,6 +220,7 @@ export async function exportPrintDesignToPng(
   const height = Math.max(1, element.offsetHeight);
   const mount = createExportMount(width, height, backgroundColor);
   const clone = element.cloneNode(true) as HTMLElement;
+  stripPrintGuides(clone);
   inlineCanvasesFromSource(element, clone);
   sharpenCloneText(clone);
   mount.appendChild(clone);

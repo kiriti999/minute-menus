@@ -75,6 +75,7 @@ export async function exportPrintDesignToPdf(opts: ExportPrintPdfOptions): Promi
   if (!printWindow) return;
 
   const clone = preview.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll("[data-print-guide]").forEach((node) => node.remove());
   inlineClonedCanvases(clone, preview);
   clone.style.width = `${widthPx}px`;
   clone.style.height = `${heightPx}px`;

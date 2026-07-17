@@ -50,6 +50,10 @@ export const loadImageSource = async (src: string): Promise<HTMLImageElement> =>
   });
 };
 
+/**
+ * Export crop to a data URL. Watermark-free: draws only the source image —
+ * never the Image Editor preview overlay (`PreviewWatermark`).
+ */
 export const renderCroppedImage = async (
   img: HTMLImageElement,
   outputWidth: number,
@@ -80,6 +84,7 @@ export const renderCroppedImage = async (
   const srcW = previewWidth / coverScale;
   const srcH = previewHeight / coverScale;
 
+  // Source pixels only — do not stamp text, logos, or watermarks.
   ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, outputWidth, outputHeight);
 
   const blob = await new Promise<Blob | null>((resolve) => {

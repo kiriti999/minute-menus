@@ -25,6 +25,8 @@ export interface StickerLayoutProps {
 	widthPx: number;
 	heightPx: number;
 	siteUrl: string;
+	/** Preview-only die-cut dashed circle — hidden on PNG/PDF download. */
+	showDieCutGuide?: boolean;
 }
 
 function Logo({ url, height }: { url?: string; height: number }) {
@@ -109,6 +111,7 @@ function CircleSticker({
 	branding,
 	widthPx,
 	siteUrl,
+	showDieCutGuide = true,
 }: Omit<StickerLayoutProps, "fmt" | "heightPx" | "menuItems">) {
 	const fonts = effectiveFonts(customization);
 	const { colors, showQR, showTagline, logoUrl } = customization;
@@ -158,16 +161,19 @@ function CircleSticker({
 				fontFamily: fonts.body,
 			}}
 		>
-			<div
-				aria-hidden
-				style={{
-					position: "absolute",
-					inset: Math.round(size * 0.045),
-					borderRadius: "50%",
-					border: "1px dashed #000000",
-					pointerEvents: "none",
-				}}
-			/>
+			{showDieCutGuide && (
+				<div
+					aria-hidden
+					data-print-guide="die-cut"
+					style={{
+						position: "absolute",
+						inset: Math.round(size * 0.045),
+						borderRadius: "50%",
+						border: "1px dashed #000000",
+						pointerEvents: "none",
+					}}
+				/>
+			)}
 
 			{hasLogo ? (
 				<div style={band(s.headerTop, s.logoH)}>

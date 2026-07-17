@@ -57,6 +57,8 @@ export interface MenuTemplateProps {
   heightPx: number;
   siteUrl: string;
   jobFlyer?: JobFlyerContent;
+  /** When true, hide preview-only overlays (die-cut guide, etc.). */
+  forExport?: boolean;
 }
 
 function Logo({ url, height }: { url?: string; height: number }) {
@@ -459,6 +461,7 @@ const MenuTemplate: React.FC<MenuTemplateProps> = (props) => {
         widthPx={props.widthPx}
         heightPx={props.heightPx}
         siteUrl={props.siteUrl}
+        showDieCutGuide={!props.forExport}
       />
     );
   }
