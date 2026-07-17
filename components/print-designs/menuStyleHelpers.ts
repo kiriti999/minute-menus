@@ -126,7 +126,8 @@ export function wallBoardRowPitch(bodyFs: number): number {
 }
 
 export function wallBoardHeaderBlock(catFs: number): number {
-  return Math.round(catFs * 1.15 + catFs * 0.35 + catFs * 0.45 + 4);
+  // Includes underline padding + space between category name and first dish.
+  return Math.round(catFs * 1.15 + catFs * 0.35 + catFs * 0.85 + 4);
 }
 
 export function wallBoardSegmentGap(catFs: number, bodyFs = catFs): number {
@@ -241,7 +242,8 @@ export function packWallBoardColumns(
 
       if (roomItems < 1) {
         if (advance()) continue;
-        roomItems = remaining;
+        // Last column is full — stop rather than paint a header with no visible items.
+        break;
       }
 
       // Prefer next column over a 1-item category start at the bottom of a filled column.
@@ -255,7 +257,9 @@ export function packWallBoardColumns(
         continue;
       }
 
-      const take = Math.min(remaining, Math.max(1, roomItems));
+      const take = Math.min(remaining, roomItems);
+      if (take < 1) break;
+
       columns[colIdx].segments.push({
         categoryId: cat.id,
         title: cat.title,
@@ -266,7 +270,12 @@ export function packWallBoardColumns(
       start += take;
     }
   }
-  return columns.filter((col) => col.itemCount > 0);
+  return columns
+    .map((col) => ({
+      ...col,
+      segments: col.segments.filter((seg) => seg.items.length > 0),
+    }))
+    .filter((col) => col.itemCount > 0 && col.segments.length > 0);
 }
 
 export function wallBoardColumnFontScale(widthPx: number, cols: number): number {

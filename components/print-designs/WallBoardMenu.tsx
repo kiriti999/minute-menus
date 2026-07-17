@@ -324,7 +324,9 @@ function WallColumn({
         border: colBorder,
       }}
     >
-      {column.segments.map((segment, segIndex) => (
+      {column.segments
+        .filter((segment) => segment.items.length > 0)
+        .map((segment, segIndex) => (
         <div
           key={`${segment.categoryId}-${segment.continued ? "cont" : "start"}-${segment.items[0]?.id ?? "empty"}`}
           style={{
@@ -345,7 +347,7 @@ function WallColumn({
               lineHeight: 1.15,
               borderBottom: `2px solid ${ruleColor}`,
               paddingBottom: Math.round(cfs * 0.35),
-              marginBottom: Math.round(cfs * 0.45),
+              marginBottom: Math.round(cfs * 0.85),
               wordBreak: "break-word",
             }}
           >
