@@ -1,4 +1,4 @@
-export type PresetId = "reel" | "square" | "banner" | "swiggy" | "custom";
+export type PresetId = "reel" | "square" | "banner" | "swiggy" | "zomato" | "custom";
 
 export type DimensionPreset = {
   id: PresetId;
@@ -46,6 +46,15 @@ export const DIMENSION_PRESETS: DimensionPreset[] = [
     use: "Swiggy dish photo",
     width: 1024,
     height: 1024,
+  },
+  {
+    id: "zomato",
+    label: "Delivery",
+    ratio: "4:3",
+    size: "1600 × 1200",
+    use: "Zomato dish photo",
+    width: 1600,
+    height: 1200,
   },
   {
     id: "custom",
