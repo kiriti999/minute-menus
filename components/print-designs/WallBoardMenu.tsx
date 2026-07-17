@@ -437,16 +437,20 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
       Boolean(customization.logoUrl),
     ) + (pad - topPad);
 
-  // Size type for a ~13.8" column module, then derive how many columns the board needs.
+  // Size type for a ~13.8" column module, then pack into that many columns.
   const moduleColWidth = Math.round(13.8 * 96);
   const probeCols = Math.max(1, Math.round(widthPx / moduleColWidth));
   const bodyFs = scaledBodyFsWall(widthPx, heightPx, customization, probeCols);
   const catFs = scaledCatFsWall(widthPx, heightPx, customization, probeCols);
   const totalItems = menuItems.reduce((n, c) => n + c.items.length, 0);
   const flowCols = wallBoardFlowColumnCount(totalItems, contentHeight, bodyFs, catFs);
-  // Prefer spacing-based columns; never exceed what ~13.8" modules allow on this board.
   const maxByWidth = Math.max(1, Math.floor((widthPx - pad * 2) / (moduleColWidth * 0.85)));
-  const cols = Math.min(maxByWidth, Math.max(1, flowCols));
+  // Honor Columns control when set (e.g. 58.2×23" → 4 cols); else use flow capacity.
+  const userCols = customization.layout.columns;
+  const cols = Math.min(
+    maxByWidth,
+    userCols >= 2 ? userCols : Math.max(1, flowCols),
+  );
   const packed = packWallBoardColumns(menuItems, cols, contentHeight, bodyFs, catFs);
   const gridCols = Math.max(1, packed.length);
   const palette = wallColumnPalette(customization.colors, customization.columnColors);

@@ -76,6 +76,7 @@ const FORMAT_OVERRIDES: Partial<Record<PrintFormat, Partial<MaterialRecommendati
   '36x48': { material: '5mm PVC', costRange: '₹900–1600', notes: 'Extra tall portrait feature wall.' },
   '48x36': { material: '5mm PVC', costRange: '₹950–1700', notes: 'Extra wide landscape back-wall.' },
   '72x23': { material: '5mm PVC foam board', costRange: '₹1100–2000', notes: 'Shop-measured above-counter strip — 72" wide × 23" tall for max menu clarity.' },
+  '58.2x23': { material: '5mm PVC foam board', costRange: '₹900–1600', notes: 'Four-column wall strip — 58.2" × 23" (~13.8" per column including gutters).' },
   '13.8x23': { material: '5mm PVC foam board', costRange: '₹250–450', notes: 'Single ~13.8" column module of the 72×23" wall strip.' },
   'square-24': { material: '5mm PVC or acrylic', costRange: '₹500–900', notes: 'Square accent board or pillar wrap.' },
 };

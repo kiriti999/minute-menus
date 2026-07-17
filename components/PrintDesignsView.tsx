@@ -296,6 +296,17 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     typeof window !== 'undefined' ? window.innerHeight * 0.72 : 640,
   );
 
+  const handleFormatChange = useCallback((f: PrintFormat) => {
+    setFormat(f);
+    if (designType !== 'wall-board') return;
+    // 58.2×23" is the four-column strip; 13.8×23" is a single column panel.
+    if (f === '58.2x23') {
+      setCustom((prev) => ({ ...prev, layout: { ...prev.layout, columns: 4 } }));
+    } else if (f === '13.8x23') {
+      setCustom((prev) => ({ ...prev, layout: { ...prev.layout, columns: 1 } }));
+    }
+  }, [designType]);
+
   const handleDesignTypeChange = useCallback((t: PrintDesignType) => {
     setDesignType(t);
     setFormat(DEFAULT_FORMAT[t]);
@@ -800,7 +811,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                           return (
                             <button
                               key={f}
-                              onClick={() => setFormat(f)}
+                              onClick={() => handleFormatChange(f)}
                               className={`rounded-lg border p-3 text-left flex items-center gap-3 transition-all ${isActive ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100' : isDarkTheme ? 'border-zinc-800 hover:border-zinc-600' : 'border-zinc-200 hover:border-zinc-400'}`}
                             >
                               <FormatThumb w={fi.widthMm} h={fi.heightMm} active={isActive} shape={fi.shape} />

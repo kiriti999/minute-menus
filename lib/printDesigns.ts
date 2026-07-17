@@ -131,7 +131,9 @@ export const FORMATS: Record<PrintFormat, FormatInfo> = {
   '48x36':         fmt('48x36',           '48×36" Landscape',   1219, 914, 'wall-board',  5),
   // Shop-measured above-counter strip (72" wide × 23" tall)
   '72x23':         fmt('72x23',           '72×23" Landscape',   1829, 584,  'wall-board',  5),
-  // One ~13.8" column module of the 72×23" board (13.8" × 23").
+  // Four ~13.8" columns + gutters (4 × 13.8" ≈ 55.2" content → 58.2" board)
+  '58.2x23':       fmt('58.2x23',         '58.2×23" · 4 Col',   1478, 584,  'wall-board',  5),
+  // One ~13.8" column module (13.8" × 23").
   '13.8x23':       fmt('13.8x23',         '13.8×23" Column',    351,  584,  'wall-board',  5),
   'square-24':     fmt('square-24',       '24×24" Square',      610, 610,  'wall-board',  5),
   dl:              fmt('dl',              'DL (1/3 A4)',        99,  210,  'pamphlet',    3),
@@ -149,7 +151,7 @@ export const FORMATS: Record<PrintFormat, FormatInfo> = {
 };
 
 export const WALL_BOARD_FORMAT_GROUPS: { label: string; formats: PrintFormat[] }[] = [
-  { label: 'Landscape (wide wall)', formats: ['72x23', '13.8x23', 'a2-landscape', 'a1-landscape', 'a0-landscape', '36x24', '48x36'] },
+  { label: 'Landscape (wide wall)', formats: ['72x23', '58.2x23', '13.8x23', 'a2-landscape', 'a1-landscape', 'a0-landscape', '36x24', '48x36'] },
   { label: 'Portrait (tall wall)', formats: ['a2', 'a1', 'a0', '24x36', '18x24', '36x48'] },
   { label: 'Square', formats: ['square-24'] },
 ];
