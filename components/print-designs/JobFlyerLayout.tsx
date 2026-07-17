@@ -14,6 +14,7 @@ import type React from "react";
 import { TEMPLATE_VISUALS } from "../../lib/templateConfig";
 import { buildJobFlyerApplyMessage } from "../../lib/jobFlyerWhatsApp";
 import { computeJobFlyerSizing } from "../../lib/jobFlyerMetrics";
+import { jobFlyerMapsTarget } from "../../lib/mapsLink";
 import { whatsAppChatUrl } from "../../lib/whatsappLink";
 import {
 	baseBackground,
@@ -105,21 +106,22 @@ function JobDetailCard({
 }
 
 function JobFlyerQrPanel({
-	show,
-	whatsAppUrl,
+	label,
+	url,
+	emptyHint,
 	qrSize,
 	smallFs,
 	colors,
 }: {
-	show: boolean;
-	whatsAppUrl: string | null;
+	label: string;
+	url: string | null;
+	emptyHint: string;
 	qrSize: number;
 	smallFs: number;
 	colors: DesignCustomization["colors"];
 }) {
-	if (!show) return null;
 	const labelFs = Math.max(8, Math.round(smallFs * 0.92));
-	if (whatsAppUrl) {
+	if (url) {
 		return (
 			<div
 				style={{
@@ -133,9 +135,9 @@ function JobFlyerQrPanel({
 				}}
 			>
 				<p style={{ margin: "0 0 4px", fontSize: labelFs, fontWeight: 700, color: colors.text, lineHeight: 1.2 }}>
-					Scan & Share CV
+					{label}
 				</p>
-				<QRCodeCanvas value={whatsAppUrl} size={qrSize} level="H" bgColor="#FFFFFF" fgColor="#111111" />
+				<QRCodeCanvas value={url} size={qrSize} level="H" bgColor="#FFFFFF" fgColor="#111111" />
 			</div>
 		);
 	}
@@ -154,7 +156,7 @@ function JobFlyerQrPanel({
 				lineHeight: 1.25,
 			}}
 		>
-			Add WhatsApp number above
+			{emptyHint}
 		</div>
 	);
 }
@@ -219,10 +221,14 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 
 	const applyMessage = buildJobFlyerApplyMessage(jobFlyer, branding.name);
 	const whatsAppUrl = branding.phone ? whatsAppChatUrl(branding.phone, applyMessage) : null;
+	const mapsTarget = jobFlyerMapsTarget(jobFlyer.locationText, jobFlyer.mapsUrl);
+	const showMapsQr = Boolean(jobFlyer.locationText?.trim() || jobFlyer.mapsUrl?.trim());
+	const mapQrSize = showMapsQr && customization.showQR ? Math.round(qrSize * 0.88) : qrSize;
 
 	const details: DetailItem[] = [
 		{ icon: "⏰", label: "Timings", value: jobFlyer.timings },
 		{ icon: "💰", label: "Salary", value: jobFlyer.salary },
+		{ icon: "📍", label: "Location", value: jobFlyer.locationText?.trim() || "" },
 		{ icon: "👤", label: "Min. age", value: jobFlyer.minAge },
 		{ icon: "🎓", label: "Qualification", value: jobFlyer.qualification },
 		{ icon: "🗣", label: "English", value: ENGLISH_LABELS[jobFlyer.englishSkill] },
@@ -405,7 +411,7 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 					</div>
 				)}
 
-				{(descriptionText || customization.showQR) && (
+				{(descriptionText || customization.showQR || showMapsQr) && (
 					<div
 						style={{
 							flexShrink: 0,
@@ -434,13 +440,39 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 								{descriptionText}
 							</div>
 						)}
-						<JobFlyerQrPanel
-							show={customization.showQR}
-							whatsAppUrl={whatsAppUrl}
-							qrSize={qrSize}
-							smallFs={smallFs}
-							colors={colors}
-						/>
+						{(customization.showQR || showMapsQr) && (
+							<div
+								style={{
+									flexShrink: 0,
+									display: "flex",
+									flexDirection: customization.showQR && showMapsQr ? "row" : "column",
+									flexWrap: "wrap",
+									justifyContent: "flex-end",
+									gap: 8,
+								}}
+							>
+								{customization.showQR && (
+									<JobFlyerQrPanel
+										label="Scan & Share CV"
+										url={whatsAppUrl}
+										emptyHint="Add WhatsApp number above"
+										qrSize={mapQrSize}
+										smallFs={smallFs}
+										colors={colors}
+									/>
+								)}
+								{showMapsQr && (
+									<JobFlyerQrPanel
+										label="Find us on Maps"
+										url={mapsTarget}
+										emptyHint="Add location or Maps link"
+										qrSize={mapQrSize}
+										smallFs={smallFs}
+										colors={colors}
+									/>
+								)}
+							</div>
+						)}
 					</div>
 				)}
 			</div>

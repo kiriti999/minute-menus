@@ -192,6 +192,8 @@ export const DEFAULT_JOB_FLYER_CONTENT: JobFlyerContent = {
   hookLine: 'Fixed Evening Shifts • Steady Income • Guaranteed Weekly Off',
   jobDescription: DEFAULT_JOB_FLYER_DESCRIPTION,
   extraNotes: 'Reliable & punctual. Local candidates preferred. Safe commute home at 11 PM required.',
+  locationText: '',
+  mapsUrl: '',
 };
 
 // ─── Colour schemes ───────────────────────────────────────────────────────────

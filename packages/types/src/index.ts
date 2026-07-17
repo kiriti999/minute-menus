@@ -570,6 +570,10 @@ export interface JobFlyerContent {
   jobDescription?: string;
   /** Optional extra line (e.g. commute / reliability notes). */
   extraNotes?: string;
+  /** Workplace address / landmark shown on the flyer. */
+  locationText?: string;
+  /** Google Maps pin or share URL; if empty, Maps QR uses locationText as search. */
+  mapsUrl?: string;
 }
 
 export interface CustomerAddress {

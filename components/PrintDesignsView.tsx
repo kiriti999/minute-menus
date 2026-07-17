@@ -674,6 +674,32 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                     )}
                   </div>
                   <div>
+                    <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1 ${muted}`}>
+                      Work location
+                    </label>
+                    <input
+                      value={jobFlyer.locationText ?? ''}
+                      onChange={(e) => patchJobFlyer('locationText', e.target.value)}
+                      placeholder={branding.address?.trim() || 'e.g. Near Metro, Jubilee Hills, Hyderabad'}
+                      className={`w-full px-3 py-2 rounded-lg border text-sm outline-none ${inputCls}`}
+                    />
+                    <p className={`text-[10px] mt-1 ${muted}`}>Shown on the flyer. Used for the Maps QR if no pin link is set.</p>
+                  </div>
+                  <div>
+                    <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1 ${muted}`}>
+                      Google Maps pin / link (optional)
+                    </label>
+                    <input
+                      value={jobFlyer.mapsUrl ?? ''}
+                      onChange={(e) => patchJobFlyer('mapsUrl', e.target.value)}
+                      placeholder="Paste Google Maps share or pin URL"
+                      className={`w-full px-3 py-2 rounded-lg border text-sm outline-none ${inputCls}`}
+                    />
+                    {(jobFlyer.locationText?.trim() || jobFlyer.mapsUrl?.trim()) && (
+                      <p className={`text-[10px] mt-1 ${muted}`}>A “Find us on Maps” QR will print next to the WhatsApp QR.</p>
+                    )}
+                  </div>
+                  <div>
                     <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1 ${muted}`}>Full description</label>
                     <textarea
                       value={jobFlyer.jobDescription ?? ''}
@@ -693,7 +719,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                       className={`w-full px-3 py-2 rounded-lg border text-sm outline-none resize-y ${inputCls}`}
                     />
                   </div>
-                  <p className={`text-[10px] ${muted}`}>Full description prints on the flyer. The QR still opens WhatsApp with apply steps pre-filled.</p>
+                  <p className={`text-[10px] ${muted}`}>Full description prints on the flyer. WhatsApp QR opens apply steps; Maps QR opens the pin or location search.</p>
                 </div>
               </CollapsibleSection>
             )}
