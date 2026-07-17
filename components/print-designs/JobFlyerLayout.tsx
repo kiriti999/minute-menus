@@ -13,7 +13,7 @@ import { QRCodeSVG } from "qrcode.react";
 import type React from "react";
 import { TEMPLATE_VISUALS } from "../../lib/templateConfig";
 import { buildJobFlyerApplyMessage } from "../../lib/jobFlyerWhatsApp";
-import { computeJobFlyerSizing } from "../../lib/jobFlyerMetrics";
+import { computeJobFlyerSizing, isJobFlyerPamphlet } from "../../lib/jobFlyerMetrics";
 import { jobFlyerMapsTarget } from "../../lib/mapsLink";
 import { whatsAppChatUrl } from "../../lib/whatsappLink";
 import {
@@ -25,8 +25,6 @@ import {
 	headingWeight,
 	hexToRgba,
 	outerBorderCss,
-	scaledBodyFs,
-	scaledHeadingFs,
 	textTransformCss,
 	titleFontFamily,
 	titleStyleExtras,
@@ -58,14 +56,17 @@ function JobDetailCard({
 	colors: DesignCustomization["colors"];
 }) {
 	if (!item.value.trim()) return null;
+	const padY = Math.max(6, Math.round(valueFs * 0.55));
+	const padX = Math.max(8, Math.round(valueFs * 0.7));
+	const gap = Math.max(6, Math.round(valueFs * 0.55));
 	return (
 		<div
 			style={{
 				display: "flex",
 				alignItems: "flex-start",
-				gap: 7,
-				padding: "8px 10px",
-				borderRadius: 8,
+				gap,
+				padding: `${padY}px ${padX}px`,
+				borderRadius: Math.max(6, Math.round(valueFs * 0.5)),
 				background: hexToRgba(colors.background, 0.92),
 				border: `1px solid ${hexToRgba(colors.border, 0.85)}`,
 			}}
@@ -214,7 +215,7 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 	const shadow = containerShadow(customization);
 	const hw = headingWeight(customization);
 	const nameTransform = textTransformCss(customization);
-	const pamphlet = heightPx <= 860;
+	const pamphlet = isJobFlyerPamphlet(widthPx, heightPx);
 	const descriptionText = jobFlyer.jobDescription?.trim() ?? "";
 	const hasNotes = Boolean(jobFlyer.extraNotes?.trim());
 	const sizing = computeJobFlyerSizing({
@@ -225,8 +226,8 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 		hasNotes,
 		showQr: customization.showQR || Boolean(jobFlyer.locationText?.trim() || jobFlyer.mapsUrl?.trim()),
 		detailCount: 6,
-		baseHeadingFs: scaledHeadingFs(widthPx, customization),
-		baseBodyFs: scaledBodyFs(widthPx, customization),
+		baseHeadingFs: 18,
+		baseBodyFs: 11,
 	});
 	const {
 		pad,
@@ -444,18 +445,22 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 				{(descriptionText || customization.showQR || showMapsQr || branding.phone?.trim()) && (
 					<div
 						style={{
-							flexShrink: 0,
+							flex: 1,
+							minHeight: 0,
 							display: "flex",
 							flexDirection: "column",
 							alignItems: "stretch",
-							gap: 14,
+							gap: Math.max(10, Math.round(gap * 0.9)),
 						}}
 					>
 						{descriptionText && (
 							<div
 								style={{
-									padding: "10px 12px",
-									borderRadius: 8,
+									flex: 1,
+									minHeight: 0,
+									overflow: "hidden",
+									padding: `${Math.max(8, Math.round(descFs * 0.7))}px ${Math.max(10, Math.round(descFs * 0.85))}px`,
+									borderRadius: Math.max(6, Math.round(descFs * 0.55)),
 									background: hexToRgba(colors.background, 0.7),
 									border: `1px solid ${hexToRgba(colors.border, 0.75)}`,
 									fontSize: descFs,
@@ -470,13 +475,14 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 						{phoneDisplay && (
 							<div
 								style={{
+									flexShrink: 0,
 									textAlign: "center",
-									fontSize: Math.max(13, Math.round(smallFs * 1.2)),
+									fontSize: Math.max(smallFs, Math.round(descFs * 1.05)),
 									fontWeight: 700,
 									color: "#FFFFFF",
 									lineHeight: 1.25,
-									padding: "10px 14px",
-									borderRadius: 8,
+									padding: `${Math.max(8, Math.round(smallFs * 0.55))}px ${Math.max(12, Math.round(smallFs * 0.9))}px`,
+									borderRadius: Math.max(6, Math.round(smallFs * 0.5)),
 									background: colors.primary,
 									letterSpacing: "0.01em",
 								}}
@@ -493,7 +499,7 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 									flexWrap: "nowrap",
 									justifyContent: "center",
 									alignItems: "flex-start",
-									gap: bothQrs ? 24 : 10,
+									gap: bothQrs ? Math.max(16, Math.round(qrSize * 0.12)) : 10,
 									paddingTop: 2,
 								}}
 							>

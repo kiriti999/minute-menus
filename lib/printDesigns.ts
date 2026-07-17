@@ -166,20 +166,20 @@ export const DEFAULT_FORMAT: Record<PrintDesignType, PrintFormat> = {
   'pocket-card': 'business-card', 'sticker': 'circle-75', 'job-flyer': 'a5',
 };
 
-export const DEFAULT_JOB_FLYER_DESCRIPTION = `We are a cloud kitchen looking for dedicated, hard-working individuals to join our operations team. If you want a stable part-time role with predictable hours and reliable pay, we want to hear from you.
+export const DEFAULT_JOB_FLYER_DESCRIPTION = `We are a cloud kitchen looking for dedicated people for our operations team — stable part-time hours and reliable pay.
 
 What you will do:
-• Prep, pack, and hand over evening orders to delivery partners
-• Maintain workspace hygiene and assist with kitchen prep/inventory
-• Work efficiently in a fast-paced environment
+• Prep, pack, and hand over evening orders
+• Keep the workspace clean; help with prep/inventory
+• Work efficiently in a fast-paced kitchen
 
 Who we are looking for:
-• Highly reliable — on time at 4:00 PM is non-negotiable
-• Detail-oriented — you follow instructions and take pride in your work
-• Local candidates preferred — easy late-evening commute
+• On time at 4:00 PM — non-negotiable
+• Follow instructions and take pride in the work
+• Local candidates preferred (easy late-evening commute)
 
 How to apply:
-WhatsApp your details on "6300711966" (or scan the QR code) with your availability, location, and CV. Please do not call directly — candidates who message on WhatsApp are contacted first.`;
+WhatsApp your details on "6300711966" (or scan the QR) with availability, location, and CV. Please do not call — WhatsApp applicants are contacted first.`;
 
 export const DEFAULT_JOB_FLYER_CONTENT: JobFlyerContent = {
   roleTitle: 'Part time — Cloud Kitchen',
