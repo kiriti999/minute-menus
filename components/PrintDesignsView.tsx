@@ -61,7 +61,7 @@ import {
   WALL_YELLOW_COLUMN_COLORS,
   yellowColumnPattern,
 } from "../lib/printDesigns";
-import { colorModeLabel, colorsToCmykSummary, cmykSimulationFilter } from "../lib/printColorUtils";
+import { colorModeLabel, colorsToCmykSummary } from "../lib/printColorUtils";
 import { exportPrintDesignToPdf } from "../lib/exportPrintPdf";
 import { exportPrintDesignToPng } from "../lib/exportPrintPng";
 import { getMaterialRecommendation } from "../lib/printMaterials";
@@ -167,7 +167,6 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   hasUnsavedMenuChanges = false,
 }) => {
   const exportRef = useRef<HTMLDivElement>(null);
-  const exportHostRef = useRef<HTMLDivElement>(null);
   const previewHostRef = useRef<HTMLDivElement>(null);
 
   const [designType, setDesignType] = useState<PrintDesignType>('wall-board');
@@ -415,7 +414,6 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   const isJobFlyer = designType === 'job-flyer';
   const needsMenu = !circleSticker && !isJobFlyer;
   const canExport = !needsMenu || printMenu.length > 0;
-  const exportFilter = custom.colorMode === 'cmyk' ? cmykSimulationFilter() : undefined;
 
   const exportPdf = useCallback(async () => {
     setExporting(true);
@@ -446,7 +444,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
       const canvas = await exportPrintDesignToPng({
         element: el,
         backgroundColor: custom.colors.background,
-        scale: 4,
+        scale: 2,
         fontCssHref,
       });
       const link = document.createElement('a');
@@ -672,10 +670,11 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                     <input
                       value={branding.phone}
                       onChange={(e) => setBranding((b) => ({ ...b, phone: e.target.value }))}
-                      placeholder="e.g. 9876543210"
+                      placeholder="e.g. 6300711966"
                       inputMode="tel"
                       className={`w-full px-3 py-2 rounded-lg border text-sm outline-none ${inputCls}`}
                     />
+                    <p className={`text-[10px] mt-1 ${muted}`}>Shown on the flyer as “WhatsApp your details on …” and used for the QR link.</p>
                     {custom.showQR && !normalizeWhatsAppPhone(branding.phone) && !jobFlyer.whatsAppQrImageUrl && (
                       <p className="text-[10px] mt-1 text-amber-500">Enter a valid 10-digit mobile number for the WhatsApp QR.</p>
                     )}
@@ -1517,12 +1516,24 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
         </div>
       )}
 
-      {/* Full-resolution render target (parked off-viewport; PNG export clones on-screen) */}
+      {/* 300 DPI render target for PNG/PDF — no CMYK filter (softens type). */}
       <div
-        ref={exportHostRef}
-        style={{ position: 'fixed', top: 0, left: '-100vw', width: fmt.widthPx, height: fmt.heightPx, pointerEvents: 'none', zIndex: -1, overflow: 'hidden' }}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: '-100vw',
+          width: exportW,
+          height: exportH,
+          pointerEvents: 'none',
+          zIndex: -1,
+          overflow: 'hidden',
+        }}
       >
-        <div ref={exportRef} data-print-preview style={{ position: 'relative', width: fmt.widthPx, height: fmt.heightPx, filter: exportFilter }}>
+        <div
+          ref={exportRef}
+          data-print-preview
+          style={{ position: 'relative', width: exportW, height: exportH, filter: 'none' }}
+        >
           <MenuTemplate
             style={templateStyle}
             designType={designType}
@@ -1530,13 +1541,13 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
             customization={custom}
             branding={branding}
             menuItems={printMenu}
-            widthPx={fmt.widthPx}
-            heightPx={fmt.heightPx}
+            widthPx={exportW}
+            heightPx={exportH}
             siteUrl={siteUrl}
             jobFlyer={isJobFlyer ? jobFlyer : undefined}
           />
           {custom.includeCropMarks && (
-            <PrintGuidesOverlay fmt={fmt} widthPx={fmt.widthPx} heightPx={fmt.heightPx} showBleed={false} showCropMarks />
+            <PrintGuidesOverlay fmt={fmt} widthPx={exportW} heightPx={exportH} showBleed={false} showCropMarks />
           )}
         </div>
       </div>

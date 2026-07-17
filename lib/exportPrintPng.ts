@@ -198,17 +198,19 @@ function sharpenCloneText(clone: HTMLElement): void {
   clone.style.margin = "0";
   clone.style.textRendering = "geometricPrecision";
   (clone.style as CSSStyleDeclaration & { webkitFontSmoothing?: string }).webkitFontSmoothing =
-    "antialiased";
+    "none";
   clone.querySelectorAll<HTMLElement>("*").forEach((node) => {
     if (node.style.filter) node.style.filter = "none";
     node.style.textRendering = "geometricPrecision";
+    (node.style as CSSStyleDeclaration & { webkitFontSmoothing?: string }).webkitFontSmoothing =
+      "none";
   });
 }
 
 export async function exportPrintDesignToPng(
   opts: ExportPrintPngOptions,
 ): Promise<HTMLCanvasElement> {
-  const { element, backgroundColor, scale = 4, fontCssHref } = opts;
+  const { element, backgroundColor, scale = 2, fontCssHref } = opts;
   const width = Math.max(1, element.offsetWidth);
   const height = Math.max(1, element.offsetHeight);
   const mount = createExportMount(width, height, backgroundColor);
