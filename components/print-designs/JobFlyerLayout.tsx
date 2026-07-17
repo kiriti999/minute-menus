@@ -307,18 +307,33 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 				}}
 			>
 				<div style={{ flexShrink: 0, textAlign: "center" }}>
-					{displayName && (
-						<p
+					{customization.logoUrl?.trim() ? (
+						<img
+							src={customization.logoUrl}
+							alt={displayName || "Logo"}
 							style={{
-								margin: "0 0 4px",
-								fontSize: smallFs,
-								fontWeight: 600,
-								color: colors.textMuted,
-								textTransform: nameTransform,
+								height: Math.round(Math.min(heightPx * 0.1, widthPx * 0.22)),
+								width: "auto",
+								maxWidth: "70%",
+								objectFit: "contain",
+								display: "block",
+								margin: "0 auto 6px",
 							}}
-						>
-							{displayName}
-						</p>
+						/>
+					) : (
+						displayName && (
+							<p
+								style={{
+									margin: "0 0 4px",
+									fontSize: smallFs,
+									fontWeight: 600,
+									color: colors.textMuted,
+									textTransform: nameTransform,
+								}}
+							>
+								{displayName}
+							</p>
+						)
 					)}
 					<h1
 						style={{
