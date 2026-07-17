@@ -384,8 +384,10 @@ function WallColumn({
                     fontWeight: 600,
                     color: text,
                     lineHeight: WALL_ITEM_LINE_HEIGHT,
-                    overflowWrap: "break-word",
-                    wordBreak: "normal",
+                    // Keep names on one line like the preview; leaders absorb leftover width.
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
                     flex: useLeader ? "0 1 auto" : "1 1 auto",
                     minWidth: 0,
                   }}

@@ -267,8 +267,6 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   const fmt = FORMATS[format];
   /** Prefer 300 DPI; large wall boards scale down so canvas stays under browser limits. */
   const exportDpi = exportDpiForFormat(fmt.widthMm, fmt.heightMm);
-  const exportW = Math.round((fmt.widthMm * exportDpi) / 25.4);
-  const exportH = Math.round((fmt.heightMm * exportDpi) / 25.4);
   const siteUrl = branding.slug
     ? `${import.meta.env.VITE_SITE_URL ?? 'https://minutemenus.com'}/${branding.slug}`
     : import.meta.env.VITE_SITE_URL ?? 'https://minutemenus.com';
@@ -453,12 +451,13 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     try {
       const families = googleFontsForCustomization(custom);
       const fontCssHref = `https://fonts.googleapis.com/css2?family=${families.join('&family=')}&display=swap`;
-      // Large boards already render near max pixels — extra scale blanks the PNG.
-      const scale = Math.max(exportW, exportH) > 4000 ? 1 : 2;
+      // Layout matches on-screen preview (96 DPI). Capture scale lifts to export DPI
+      // so type metrics / wrapping stay identical — do not re-layout at exportW×exportH.
+      const layoutScale = exportDpi / 96;
       const canvas = await exportPrintDesignToPng({
         element: el,
         backgroundColor: custom.colors.background,
-        scale,
+        scale: layoutScale,
         fontCssHref,
         fontFamilies: families,
       });
@@ -477,7 +476,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     } finally {
       setExporting(false);
     }
-  }, [branding.name, custom.colorMode, custom.colors.background, custom.fontPairing, custom.customFonts, custom.fonts, exportDpi, exportH, exportW, format, isJobFlyer, jobFlyer.roleTitle]);
+  }, [branding.name, custom.colorMode, custom.colors.background, custom.fontPairing, custom.customFonts, custom.fonts, exportDpi, format, isJobFlyer, jobFlyer.roleTitle]);
 
   // ─── Style helpers ───────────────────────────────────────────────────────────
   const card = isDarkTheme ? 'bg-zinc-950 border-zinc-800' : 'bg-white border-zinc-200';
@@ -1535,14 +1534,14 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
         </div>
       )}
 
-      {/* 300 DPI render target for PNG/PDF — no CMYK filter (softens type). */}
+      {/* Same layout px as live preview — PNG capture scales up to export DPI. */}
       <div
         style={{
           position: 'fixed',
           top: 0,
           left: '-100vw',
-          width: exportW,
-          height: exportH,
+          width: fmt.widthPx,
+          height: fmt.heightPx,
           pointerEvents: 'none',
           zIndex: -1,
           overflow: 'hidden',
@@ -1551,7 +1550,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
         <div
           ref={exportRef}
           data-print-preview
-          style={{ position: 'relative', width: exportW, height: exportH, filter: 'none' }}
+          style={{ position: 'relative', width: fmt.widthPx, height: fmt.heightPx, filter: 'none' }}
         >
           <MenuTemplate
             style={templateStyle}
@@ -1560,14 +1559,14 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
             customization={custom}
             branding={branding}
             menuItems={printMenu}
-            widthPx={exportW}
-            heightPx={exportH}
+            widthPx={fmt.widthPx}
+            heightPx={fmt.heightPx}
             siteUrl={siteUrl}
             jobFlyer={isJobFlyer ? jobFlyer : undefined}
             forExport
           />
           {custom.includeCropMarks && (
-            <PrintGuidesOverlay fmt={fmt} widthPx={exportW} heightPx={exportH} showBleed={false} showCropMarks />
+            <PrintGuidesOverlay fmt={fmt} widthPx={fmt.widthPx} heightPx={fmt.heightPx} showBleed={false} showCropMarks />
           )}
         </div>
       </div>
