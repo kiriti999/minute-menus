@@ -16,7 +16,6 @@ import {
   headingWeight,
   hexToRgba,
   logoAlign,
-  resolveWallColumns,
   packWallBoardColumns,
   outerBorderCss,
   patternOverlay,
@@ -28,11 +27,13 @@ import {
   textTransformCss,
   titleFontFamily,
   titleStyleExtras,
-  wallBoardColumns,
   wallBoardContentHeight,
-  wallBoardDensityScale,
+  wallBoardFlowColumnCount,
+  wallBoardItemGap,
   wallBoardQrSize,
+  wallBoardSegmentGap,
   wallColumnPalette,
+  WALL_ITEM_LINE_HEIGHT,
   type WallBoardColumn,
 } from "./menuStyleHelpers";
 
@@ -277,23 +278,22 @@ function WallColumn({
   widthPx,
   heightPx,
   blockColor,
-  cols,
-  densityScale,
+  bodyFs,
+  catFs,
 }: {
   column: WallBoardColumn;
   customization: DesignCustomization;
   widthPx: number;
   heightPx: number;
   blockColor: string;
-  cols: number;
-  densityScale: number;
+  bodyFs: number;
+  catFs: number;
 }) {
   const fonts = effectiveFonts(customization);
   const { showPrices, showColumnBorders, columnBorderColor, priceLeaderStyle = "none" } = customization;
-  const bfs = Math.max(12, Math.round(scaledBodyFsWall(widthPx, heightPx, customization, cols) * densityScale));
-  const cfs = Math.max(14, Math.round(scaledCatFsWall(widthPx, heightPx, customization, cols) * densityScale));
-  const itemGap = Math.max(3, Math.round(bfs * (densityScale < 0.88 ? 0.22 : 0.3)));
-  const lineHeight = densityScale < 0.88 ? 1.08 : 1.12;
+  const bfs = bodyFs;
+  const cfs = catFs;
+  const itemGap = wallBoardItemGap(bfs);
   const text = contrastTextColor(blockColor);
   const ruleColor = hexToRgba(text === "#FFFFFF" ? "#FFFFFF" : "#000000", 0.28);
   const leaderColor = hexToRgba(text === "#FFFFFF" ? "#FFFFFF" : "#000000", 0.35);
@@ -302,6 +302,7 @@ function WallColumn({
     ? `${Math.max(1, Math.round(Math.min(widthPx, heightPx) * 0.0025))}px solid ${columnBorderColor ?? DEFAULT_COLUMN_BORDER_COLOR}`
     : undefined;
   const useLeader = showPrices && priceLeaderStyle !== "none";
+  const segmentGap = wallBoardSegmentGap(cfs);
 
   return (
     <div
@@ -317,16 +318,17 @@ function WallColumn({
         overflow: "hidden",
         display: "flex",
         flexDirection: "column",
+        justifyContent: "flex-start",
         borderRadius: Math.max(4, Math.round(widthPx * 0.006)),
         padding: pad,
         border: colBorder,
-        gap: Math.round(cfs * 0.55),
+        gap: segmentGap,
       }}
     >
       {column.segments.map((segment) => (
         <div
           key={`${segment.categoryId}-${segment.continued ? "cont" : "start"}-${segment.items[0]?.id ?? "empty"}`}
-          style={{ display: "flex", flexDirection: "column", minHeight: 0, flex: "1 1 0%" }}
+          style={{ display: "flex", flexDirection: "column", flexShrink: 0 }}
         >
           <div
             style={{
@@ -348,13 +350,10 @@ function WallColumn({
           </div>
           <div
             style={{
-              flex: 1,
-              minHeight: 0,
               display: "flex",
               flexDirection: "column",
-              justifyContent: "space-evenly",
+              justifyContent: "flex-start",
               gap: itemGap,
-              overflow: "hidden",
             }}
           >
             {segment.items.map((dish) => (
@@ -368,6 +367,7 @@ function WallColumn({
                   flexShrink: 0,
                   minWidth: 0,
                   width: "100%",
+                  lineHeight: WALL_ITEM_LINE_HEIGHT,
                 }}
               >
                 <div
@@ -376,7 +376,7 @@ function WallColumn({
                     fontSize: bfs,
                     fontWeight: 600,
                     color: text,
-                    lineHeight,
+                    lineHeight: WALL_ITEM_LINE_HEIGHT,
                     overflowWrap: "break-word",
                     wordBreak: "normal",
                     flex: useLeader ? "0 1 auto" : "1 1 auto",
@@ -396,7 +396,7 @@ function WallColumn({
                         color: text,
                         flex: "0 0 auto",
                         whiteSpace: "nowrap",
-                        lineHeight: 1.25,
+                        lineHeight: WALL_ITEM_LINE_HEIGHT,
                         marginLeft: useLeader ? 0 : undefined,
                       }}
                     >
@@ -418,11 +418,6 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
   const pad = Math.round(Math.min(widthPx, heightPx) * 0.04);
   const topPad = customization.logoUrl ? Math.round(pad * 0.4) : pad;
   const border = outerBorderCss(visual, customization);
-  const maxCols = wallBoardColumns(widthPx, heightPx, customization.layout.columns);
-  const cols = resolveWallColumns(menuItems.length, maxCols);
-  const packed = packWallBoardColumns(menuItems, cols);
-  const gridCols = packed.length;
-  const palette = wallColumnPalette(customization.colors, customization.columnColors);
   const isLandscape = fmt.orientation === "landscape";
   const hasFooterSocial = Boolean(branding.phone || branding.instagram);
   const contentHeight =
@@ -435,15 +430,21 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
       hasFooterSocial,
       Boolean(customization.logoUrl),
     ) + (pad - topPad);
-  const maxItems = Math.max(1, ...packed.map((col) => col.itemCount));
-  const maxTitleChars = Math.max(
-    1,
-    ...menuItems.flatMap((c) => c.items.map((d) => wallBoardDisplayName(d.name, c.title).length)),
-  );
-  const baseBodyFs = scaledBodyFsWall(widthPx, heightPx, customization, gridCols);
+
+  // Size type for a ~13.8" column module, then derive how many columns the board needs.
+  const moduleColWidth = Math.round(13.8 * 96);
+  const probeCols = Math.max(1, Math.round(widthPx / moduleColWidth));
+  const bodyFs = scaledBodyFsWall(widthPx, heightPx, customization, probeCols);
+  const catFs = scaledCatFsWall(widthPx, heightPx, customization, probeCols);
+  const totalItems = menuItems.reduce((n, c) => n + c.items.length, 0);
+  const flowCols = wallBoardFlowColumnCount(totalItems, contentHeight, bodyFs, catFs);
+  // Prefer spacing-based columns; never exceed what ~13.8" modules allow on this board.
+  const maxByWidth = Math.max(1, Math.floor((widthPx - pad * 2) / (moduleColWidth * 0.85)));
+  const cols = Math.min(maxByWidth, Math.max(1, flowCols));
+  const packed = packWallBoardColumns(menuItems, cols, contentHeight, bodyFs, catFs);
+  const gridCols = Math.max(1, packed.length);
+  const palette = wallColumnPalette(customization.colors, customization.columnColors);
   const gridGap = Math.round(Math.min(widthPx, heightPx) * 0.014);
-  const colWidth = (widthPx - pad * 2 - gridGap * Math.max(0, gridCols - 1)) / Math.max(1, gridCols);
-  const densityScale = wallBoardDensityScale(maxItems, contentHeight, baseBodyFs, maxTitleChars, colWidth);
 
   return (
     <div
@@ -506,8 +507,8 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
             widthPx={widthPx}
             heightPx={heightPx}
             blockColor={palette[i % palette.length]}
-            cols={gridCols}
-            densityScale={densityScale}
+            bodyFs={bodyFs}
+            catFs={catFs}
           />
         ))}
       </div>

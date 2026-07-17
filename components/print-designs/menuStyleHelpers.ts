@@ -113,9 +113,55 @@ export function wallBoardColumns(widthPx: number, heightPx: number, userCols: nu
   return userCols >= 2 ? userCols : defaultCols;
 }
 
+/** Fixed vertical rhythm — matches wall-board proof spacing (~1.35× body size between rows). */
+export const WALL_ITEM_LINE_HEIGHT = 1.2;
+export const WALL_ITEM_GAP_RATIO = 1.35;
+
+export function wallBoardItemGap(bodyFs: number): number {
+  return Math.max(8, Math.round(bodyFs * WALL_ITEM_GAP_RATIO));
+}
+
+export function wallBoardRowPitch(bodyFs: number): number {
+  return Math.round(bodyFs * WALL_ITEM_LINE_HEIGHT) + wallBoardItemGap(bodyFs);
+}
+
+export function wallBoardHeaderBlock(catFs: number): number {
+  return Math.round(catFs * 1.15 + catFs * 0.35 + catFs * 0.45 + 4);
+}
+
+export function wallBoardSegmentGap(catFs: number): number {
+  return Math.max(8, Math.round(catFs * 0.55));
+}
+
 /**
- * Actual grid column count — honors the user's Columns control.
- * Flowing layout may use more columns than categories (items spill across).
+ * How many dish rows fit in a column at fixed spacing (one category header reserved).
+ */
+export function wallBoardItemsPerColumn(
+  contentHeightPx: number,
+  bodyFs: number,
+  catFs: number,
+): number {
+  const usable = contentHeightPx - wallBoardHeaderBlock(catFs) - wallBoardSegmentGap(catFs);
+  const pitch = wallBoardRowPitch(bodyFs);
+  return Math.max(1, Math.floor(usable / pitch));
+}
+
+/** Column count from fixed spacing capacity (ignores stretched/even gaps). */
+export function wallBoardFlowColumnCount(
+  totalItems: number,
+  contentHeightPx: number,
+  bodyFs: number,
+  catFs: number,
+  maxCols = 12,
+): number {
+  if (totalItems <= 0) return 1;
+  const perCol = wallBoardItemsPerColumn(contentHeightPx, bodyFs, catFs);
+  return Math.min(maxCols, Math.max(1, Math.ceil(totalItems / perCol)));
+}
+
+/**
+ * Actual grid column count — honors the user's Columns control when ≥ 2,
+ * otherwise falls back to category count (legacy).
  */
 export function resolveWallColumns(categoryCount: number, userCols: number): number {
   if (userCols >= 2) return userCols;
@@ -134,13 +180,27 @@ export type WallBoardColumn = {
   itemCount: number;
 };
 
+function segmentHeight(
+  itemCount: number,
+  bodyFs: number,
+  catFs: number,
+  includeSegmentGap: boolean,
+): number {
+  const itemsH = itemCount * wallBoardRowPitch(bodyFs);
+  const gap = includeSegmentGap ? wallBoardSegmentGap(catFs) : 0;
+  return wallBoardHeaderBlock(catFs) + itemsH + gap;
+}
+
 /**
- * Pack menu items left→right across columns so each column gets a similar
- * item count. Long categories spill into the next column (continuation header).
+ * Pack left→right by fixed vertical capacity (not equal item counts).
+ * Avoids orphan category headers with a single dangling item when possible.
  */
 export function packWallBoardColumns(
   categories: Category[],
   columnCount: number,
+  contentHeightPx: number,
+  bodyFs: number,
+  catFs: number,
 ): WallBoardColumn[] {
   const cols = Math.max(1, columnCount);
   const columns: WallBoardColumn[] = Array.from({ length: cols }, () => ({
@@ -150,22 +210,50 @@ export function packWallBoardColumns(
   const totalItems = categories.reduce((n, cat) => n + cat.items.length, 0);
   if (totalItems === 0) return columns;
 
-  const base = Math.floor(totalItems / cols);
-  const extra = totalItems % cols;
-  const targets = columns.map((_, i) => base + (i < extra ? 1 : 0));
-
   let colIdx = 0;
+
+  const columnUsedH = (col: WallBoardColumn): number => {
+    let h = 0;
+    col.segments.forEach((seg, i) => {
+      h += segmentHeight(seg.items.length, bodyFs, catFs, i > 0);
+    });
+    return h;
+  };
+
+  const advance = (): boolean => {
+    if (colIdx >= cols - 1) return false;
+    colIdx += 1;
+    return true;
+  };
+
   for (const cat of categories) {
     let start = 0;
     while (start < cat.items.length) {
-      while (colIdx < cols - 1 && columns[colIdx].itemCount >= targets[colIdx]) {
-        colIdx += 1;
+      const remaining = cat.items.length - start;
+      const usedH = columnUsedH(columns[colIdx]);
+      const segGap = columns[colIdx].segments.length > 0 ? wallBoardSegmentGap(catFs) : 0;
+      const headerH = wallBoardHeaderBlock(catFs);
+      const pitch = wallBoardRowPitch(bodyFs);
+      const roomPx = contentHeightPx - usedH - segGap - headerH;
+      let roomItems = Math.floor(roomPx / pitch);
+
+      if (roomItems < 1) {
+        if (advance()) continue;
+        roomItems = remaining;
       }
-      const room =
-        colIdx >= cols - 1
-          ? cat.items.length - start
-          : Math.max(1, targets[colIdx] - columns[colIdx].itemCount);
-      const take = Math.min(cat.items.length - start, room);
+
+      // Prefer next column over a 1-item category start at the bottom of a filled column.
+      if (
+        start === 0 &&
+        roomItems === 1 &&
+        remaining > 1 &&
+        columns[colIdx].itemCount > 0 &&
+        advance()
+      ) {
+        continue;
+      }
+
+      const take = Math.min(remaining, Math.max(1, roomItems));
       columns[colIdx].segments.push({
         categoryId: cat.id,
         title: cat.title,
@@ -174,9 +262,6 @@ export function packWallBoardColumns(
       });
       columns[colIdx].itemCount += take;
       start += take;
-      if (columns[colIdx].itemCount >= targets[colIdx] && start < cat.items.length && colIdx < cols - 1) {
-        colIdx += 1;
-      }
     }
   }
   return columns.filter((col) => col.itemCount > 0);

@@ -411,7 +411,7 @@ export type PrintFormat =
   | 'a2' | 'a1' | 'a0'
   | 'a2-landscape' | 'a1-landscape' | 'a0-landscape'
   | '24x36' | '18x24' | '36x48'
-  | '36x24' | '48x36' | '72x23'
+  | '36x24' | '48x36' | '72x23' | '13.8x23'
   | 'square-24'
   | 'dl' | 'a5' | 'a6'
   | 'business-card' | 'mini-card'
