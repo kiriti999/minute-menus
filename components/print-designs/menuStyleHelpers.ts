@@ -188,15 +188,21 @@ function segmentHeight(
   bodyFs: number,
   catFs: number,
   includeSegmentGap: boolean,
+  showHeader: boolean,
 ): number {
   const itemsH = itemCount * wallBoardRowPitch(bodyFs);
   const gap = includeSegmentGap ? wallBoardSegmentGap(catFs, bodyFs) : 0;
-  return wallBoardHeaderBlock(catFs) + itemsH + gap;
+  const header = showHeader ? wallBoardHeaderBlock(catFs) : 0;
+  return header + itemsH + gap;
+}
+
+export function wallBoardPackedItemCount(columns: WallBoardColumn[]): number {
+  return columns.reduce((n, col) => n + col.itemCount, 0);
 }
 
 /**
  * Pack left→right by fixed vertical capacity (not equal item counts).
- * Avoids orphan category headers with a single dangling item when possible.
+ * Continuations omit category headers (no "(cont.)" rows) to free space.
  */
 export function packWallBoardColumns(
   categories: Category[],
@@ -214,11 +220,13 @@ export function packWallBoardColumns(
   if (totalItems === 0) return columns;
 
   let colIdx = 0;
+  /** Soft cap so fixed column counts (e.g. 4) fill evenly instead of left-packing into 3. */
+  const softCap = Math.ceil(totalItems / cols);
 
   const columnUsedH = (col: WallBoardColumn): number => {
     let h = 0;
     col.segments.forEach((seg, i) => {
-      h += segmentHeight(seg.items.length, bodyFs, catFs, i > 0);
+      h += segmentHeight(seg.items.length, bodyFs, catFs, i > 0, !seg.continued);
     });
     return h;
   };
@@ -233,12 +241,24 @@ export function packWallBoardColumns(
     let start = 0;
     while (start < cat.items.length) {
       const remaining = cat.items.length - start;
+      const continued = start > 0;
+      // Move on once this column hit its share (keeps later categories visible).
+      if (columns[colIdx].itemCount >= softCap && advance()) continue;
+
       const usedH = columnUsedH(columns[colIdx]);
-      const segGap = columns[colIdx].segments.length > 0 ? wallBoardSegmentGap(catFs, bodyFs) : 0;
-      const headerH = wallBoardHeaderBlock(catFs);
+      // Continuations only need a small gap if the column already has content.
+      const segGap =
+        columns[colIdx].segments.length > 0
+          ? continued
+            ? wallBoardItemGap(bodyFs)
+            : wallBoardSegmentGap(catFs, bodyFs)
+          : 0;
+      const headerH = continued ? 0 : wallBoardHeaderBlock(catFs);
       const pitch = wallBoardRowPitch(bodyFs);
       const roomPx = contentHeightPx - usedH - segGap - headerH;
       let roomItems = Math.floor(roomPx / pitch);
+      const softRoom = softCap - columns[colIdx].itemCount;
+      if (colIdx < cols - 1) roomItems = Math.min(roomItems, Math.max(0, softRoom));
 
       if (roomItems < 1) {
         if (advance()) continue;
@@ -264,7 +284,7 @@ export function packWallBoardColumns(
         categoryId: cat.id,
         title: cat.title,
         items: cat.items.slice(start, start + take),
-        continued: start > 0,
+        continued,
       });
       columns[colIdx].itemCount += take;
       start += take;
@@ -276,6 +296,38 @@ export function packWallBoardColumns(
       segments: col.segments.filter((seg) => seg.items.length > 0),
     }))
     .filter((col) => col.itemCount > 0 && col.segments.length > 0);
+}
+
+/** Shrink wall type until every dish packs into the board (or floor is hit). */
+export function fitWallBoardType(opts: {
+  categories: Category[];
+  columnCount: number;
+  contentHeightPx: number;
+  bodyFs: number;
+  catFs: number;
+}): { bodyFs: number; catFs: number; packed: WallBoardColumn[] } {
+  const totalItems = opts.categories.reduce((n, cat) => n + cat.items.length, 0);
+  let bodyFs = opts.bodyFs;
+  let catFs = opts.catFs;
+  let packed = packWallBoardColumns(
+    opts.categories,
+    opts.columnCount,
+    opts.contentHeightPx,
+    bodyFs,
+    catFs,
+  );
+  for (let i = 0; i < 16 && wallBoardPackedItemCount(packed) < totalItems; i++) {
+    bodyFs = Math.max(11, Math.round(bodyFs * 0.92));
+    catFs = Math.max(12, Math.round(catFs * 0.92));
+    packed = packWallBoardColumns(
+      opts.categories,
+      opts.columnCount,
+      opts.contentHeightPx,
+      bodyFs,
+      catFs,
+    );
+  }
+  return { bodyFs, catFs, packed };
 }
 
 export function wallBoardColumnFontScale(widthPx: number, cols: number): number {

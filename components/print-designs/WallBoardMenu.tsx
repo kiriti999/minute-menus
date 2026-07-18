@@ -17,7 +17,7 @@ import {
   headingWeight,
   hexToRgba,
   logoAlign,
-  packWallBoardColumns,
+  fitWallBoardType,
   outerBorderCss,
   patternOverlay,
   scaledBodyFsWall,
@@ -334,27 +334,33 @@ function WallColumn({
             display: "flex",
             flexDirection: "column",
             flexShrink: 0,
-            marginTop: segIndex > 0 ? categoryBreakGap : 0,
+            marginTop:
+              segIndex > 0
+                ? segment.continued
+                  ? itemGap
+                  : categoryBreakGap
+                : 0,
           }}
         >
-          <div
-            style={{
-              fontFamily: fontFamilyCss(fonts.heading),
-              fontSize: cfs,
-              fontWeight: 700,
-              color: text,
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              lineHeight: 1.15,
-              borderBottom: `2px solid ${ruleColor}`,
-              paddingBottom: Math.round(cfs * 0.35),
-              marginBottom: Math.round(cfs * 0.85),
-              wordBreak: "break-word",
-            }}
-          >
-            {segment.title}
-            {segment.continued ? " (cont.)" : ""}
-          </div>
+          {!segment.continued && (
+            <div
+              style={{
+                fontFamily: fontFamilyCss(fonts.heading),
+                fontSize: cfs,
+                fontWeight: 700,
+                color: text,
+                textTransform: "uppercase",
+                letterSpacing: "0.06em",
+                lineHeight: 1.15,
+                borderBottom: `2px solid ${ruleColor}`,
+                paddingBottom: Math.round(cfs * 0.35),
+                marginBottom: Math.round(cfs * 0.85),
+                wordBreak: "break-word",
+              }}
+            >
+              {segment.title}
+            </div>
+          )}
           <div
             style={{
               display: "flex",
@@ -443,10 +449,10 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
   // Size type for a ~13.8" column module, then pack into that many columns.
   const moduleColWidth = Math.round(13.8 * 96);
   const probeCols = Math.max(1, Math.round(widthPx / moduleColWidth));
-  const bodyFs = scaledBodyFsWall(widthPx, heightPx, customization, probeCols);
-  const catFs = scaledCatFsWall(widthPx, heightPx, customization, probeCols);
+  const baseBodyFs = scaledBodyFsWall(widthPx, heightPx, customization, probeCols);
+  const baseCatFs = scaledCatFsWall(widthPx, heightPx, customization, probeCols);
   const totalItems = menuItems.reduce((n, c) => n + c.items.length, 0);
-  const flowCols = wallBoardFlowColumnCount(totalItems, contentHeight, bodyFs, catFs);
+  const flowCols = wallBoardFlowColumnCount(totalItems, contentHeight, baseBodyFs, baseCatFs);
   const maxByWidth = Math.max(1, Math.floor((widthPx - pad * 2) / (moduleColWidth * 0.85)));
   // Honor Columns control when set (e.g. 58.2×23" → 4 cols); else use flow capacity.
   const userCols = customization.layout.columns;
@@ -454,7 +460,13 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
     maxByWidth,
     userCols >= 2 ? userCols : Math.max(1, flowCols),
   );
-  const packed = packWallBoardColumns(menuItems, cols, contentHeight, bodyFs, catFs);
+  const { bodyFs, catFs, packed } = fitWallBoardType({
+    categories: menuItems,
+    columnCount: cols,
+    contentHeightPx: contentHeight,
+    bodyFs: baseBodyFs,
+    catFs: baseCatFs,
+  });
   const gridCols = Math.max(1, packed.length);
   const palette = wallColumnPalette(customization.colors, customization.columnColors);
   const gridGap = Math.round(Math.min(widthPx, heightPx) * 0.014);
