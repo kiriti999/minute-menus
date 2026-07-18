@@ -19,6 +19,7 @@ import {
   logoAlign,
   fitWallBoardType,
   outerBorderCss,
+  patternInkColor,
   patternOverlay,
   scaledBodyFsWall,
   scaledCatFsWall,
@@ -494,7 +495,7 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
           style={{
             position: "absolute",
             inset: 0,
-            ...patternOverlay(customization.backgroundPattern, customization.colors.border),
+            ...patternOverlay(customization.backgroundPattern, patternInkColor(customization)),
             pointerEvents: "none",
           }}
         />

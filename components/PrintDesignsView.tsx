@@ -57,6 +57,7 @@ import {
   DEFAULT_COLUMN_BORDER_COLOR,
   DEFAULT_QR_BORDER_COLOR,
   DEFAULT_QR_BORDER_WIDTH,
+  DEFAULT_WALL_YELLOW_PATTERN_COLOR,
   WALL_BOARD_FORMAT_GROUPS,
   WALL_YELLOW_COLUMN_COLORS,
   yellowColumnPattern,
@@ -356,6 +357,8 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
       // Drop custom column colours so the scheme (or wall-yellow defaults) drives panel fills —
       // never touch layout.columns here.
       columnColors: key === 'wall-yellow' ? [...WALL_YELLOW_COLUMN_COLORS] : undefined,
+      backgroundPatternColor:
+        key === 'wall-yellow' ? DEFAULT_WALL_YELLOW_PATTERN_COLOR : prev.backgroundPatternColor,
     }));
   }, []);
 
@@ -976,7 +979,22 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                   {(['solid', 'gradient', 'pattern', 'image'] as const).map((bt) => (
                     <button
                       key={bt}
-                      onClick={() => patchCustom('backgroundType', bt)}
+                      onClick={() => {
+                        setCustom((prev) => ({
+                          ...prev,
+                          backgroundType: bt,
+                          ...(bt === 'pattern'
+                            ? {
+                                backgroundPattern: prev.backgroundPattern ?? 'geometric',
+                                backgroundPatternColor:
+                                  prev.backgroundPatternColor
+                                  ?? (prev.colorScheme === 'wall-yellow'
+                                    ? DEFAULT_WALL_YELLOW_PATTERN_COLOR
+                                    : prev.colors.border),
+                              }
+                            : {}),
+                        }));
+                      }}
                       className={`px-3 py-1.5 rounded-full text-xs border transition-all capitalize ${custom.backgroundType === bt ? isDarkTheme ? 'border-white bg-zinc-800 text-white' : 'border-zinc-900 bg-zinc-100 text-zinc-900' : isDarkTheme ? 'border-zinc-700 text-zinc-400' : 'border-zinc-200 text-zinc-500'}`}
                     >
                       {bt}
@@ -1012,16 +1030,29 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                   </div>
                 )}
                 {custom.backgroundType === 'pattern' && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {(['dots', 'lines', 'geometric'] as const).map((p) => (
-                      <button
-                        key={p}
-                        onClick={() => patchCustom('backgroundPattern', p)}
-                        className={`px-3 py-1.5 rounded-full text-xs border capitalize transition-all ${custom.backgroundPattern === p ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100' : isDarkTheme ? 'border-zinc-700 text-zinc-400' : 'border-zinc-200 text-zinc-500'}`}
-                      >
-                        {p}
-                      </button>
-                    ))}
+                  <div className="mt-2 space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      {(['dots', 'lines', 'geometric'] as const).map((p) => (
+                        <button
+                          key={p}
+                          onClick={() => patchCustom('backgroundPattern', p)}
+                          className={`px-3 py-1.5 rounded-full text-xs border capitalize transition-all ${custom.backgroundPattern === p ? isDarkTheme ? 'border-white bg-zinc-800' : 'border-zinc-900 bg-zinc-100' : isDarkTheme ? 'border-zinc-700 text-zinc-400' : 'border-zinc-200 text-zinc-500'}`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="color"
+                        value={custom.backgroundPatternColor || custom.colors.border}
+                        onChange={(e) => patchCustom('backgroundPatternColor', e.target.value)}
+                        className="w-10 h-10 rounded cursor-pointer border-0 p-0"
+                      />
+                      <span className={`text-xs ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                        Pattern colour
+                      </span>
+                    </div>
                   </div>
                 )}
                 {custom.backgroundType === 'image' && (

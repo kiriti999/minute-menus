@@ -246,6 +246,9 @@ export const COLOR_SCHEMES: Record<ColorSchemeKey, DesignColors & { label: strin
 /** Soft yellow column panels for wall-yellow boards — keeps equal column shapes with black ink. */
 export const WALL_YELLOW_COLUMN_COLORS = ['#FFF3B0', '#FFE566', '#FFD200', '#F5C400', '#FFE566'];
 
+/** Default motif colour for wall-yellow pattern backgrounds (soft gold on #FFD200). */
+export const DEFAULT_WALL_YELLOW_PATTERN_COLOR = '#FFE566';
+
 /** Alternating pale / bright yellow rhythm for N wall columns. */
 export function yellowColumnPattern(columns: number): string[] {
   const n = Math.max(1, columns);
@@ -416,8 +419,10 @@ export function defaultCustomization(
     showQR: !isWall,
     showTagline: true,
     borderStyle: isNameBoardYellow ? 'none' : 'simple',
-    backgroundType: 'solid',
+    backgroundType: isNameBoardYellow ? 'pattern' : 'solid',
     backgroundGradient: GRADIENT_PRESETS[0].value,
+    backgroundPattern: isNameBoardYellow ? 'geometric' : undefined,
+    backgroundPatternColor: isNameBoardYellow ? DEFAULT_WALL_YELLOW_PATTERN_COLOR : undefined,
     logoUrl: undefined, logoPosition: isNameBoardYellow ? 'center' : 'left',
     colorMode: 'rgb', showBleedGuides: false, includeCropMarks: false,
     showColumnBorders: false,

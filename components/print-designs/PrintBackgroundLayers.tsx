@@ -1,6 +1,6 @@
 import type { DesignCustomization } from "@minute-menus/types";
 import type React from "react";
-import { patternOverlay } from "./menuStyleHelpers";
+import { patternInkColor, patternOverlay } from "./menuStyleHelpers";
 
 export function PrintBackgroundLayers({
 	customization,
@@ -18,7 +18,7 @@ export function PrintBackgroundLayers({
 					style={{
 						position: "absolute",
 						inset: 0,
-						...patternOverlay(customization.backgroundPattern!, customization.colors.border),
+						...patternOverlay(customization.backgroundPattern!, patternInkColor(customization)),
 						pointerEvents: "none",
 					}}
 				/>

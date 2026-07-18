@@ -521,6 +521,8 @@ export interface DesignCustomization {
   backgroundType: 'solid' | 'gradient' | 'pattern' | 'image';
   backgroundGradient?: string;
   backgroundPattern?: BackgroundPattern;
+  /** Ink colour for background pattern motifs (defaults to colors.border). */
+  backgroundPatternColor?: string;
   backgroundImageUrl?: string;
   logoUrl?: string;
   logoPosition: 'left' | 'center' | 'right';

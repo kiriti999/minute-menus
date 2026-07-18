@@ -456,15 +456,19 @@ export function baseBackground(customization: DesignCustomization): string {
   return customization.colors.background;
 }
 
-export function patternOverlay(pattern: BackgroundPattern, borderColor: string): CSS {
+export function patternInkColor(customization: DesignCustomization): string {
+  return customization.backgroundPatternColor || customization.colors.border;
+}
+
+export function patternOverlay(pattern: BackgroundPattern, inkColor: string): CSS {
   if (pattern === 'dots') {
-    return { backgroundImage: `radial-gradient(${borderColor}44 1px, transparent 1px)`, backgroundSize: '14px 14px' };
+    return { backgroundImage: `radial-gradient(${inkColor}44 1px, transparent 1px)`, backgroundSize: '14px 14px' };
   }
   if (pattern === 'lines') {
-    return { backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 11px, ${borderColor}22 11px, ${borderColor}22 12px)` };
+    return { backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 11px, ${inkColor}22 11px, ${inkColor}22 12px)` };
   }
   return {
-    backgroundImage: `linear-gradient(45deg, ${borderColor}18 25%, transparent 25%, transparent 75%, ${borderColor}18 75%)`,
+    backgroundImage: `linear-gradient(45deg, ${inkColor}55 25%, transparent 25%, transparent 75%, ${inkColor}55 75%)`,
     backgroundSize: '18px 18px',
   };
 }
