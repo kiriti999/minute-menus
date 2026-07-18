@@ -481,6 +481,87 @@ export function compactMaxItemsPerCategory(widthPx: number, heightPx: number): n
   return 8;
 }
 
+/** Page columns for menu-card / pamphlet — allow 2-up on DL/A5, not only wide A4. */
+export function standardMenuPageColumns(widthPx: number, userColumns: number): number {
+  if (userColumns < 2) return 1;
+  return widthPx >= 340 ? 2 : 1;
+}
+
+function estimateCategoryBlockHeight(
+  itemCount: number,
+  colWidth: number,
+  customization: DesignCustomization,
+  scale: number,
+  showDescriptions: boolean,
+): number {
+  const bfs = Math.max(6, Math.round(scaledBodyFs(colWidth, customization) * scale));
+  const dfs = Math.max(5, Math.round(scaledDescFs(colWidth, customization) * scale));
+  const cfs = Math.max(7, Math.round(scaledCatFs(colWidth, customization) * scale));
+  const gap =
+    customization.layout.spacing === "compact"
+      ? Math.round(colWidth * 0.008 * scale)
+      : Math.round(colWidth * 0.016 * scale);
+  const catMargin = Math.round(colWidth * 0.04 * scale);
+  const header = Math.round(cfs * 1.7);
+  const row = bfs + (showDescriptions ? dfs + 2 : 0) + gap;
+  return header + itemCount * row + catMargin;
+}
+
+/** Tallest column after balancing categories left→right. */
+export function estimateStandardMenuHeight(
+  menuItems: Category[],
+  widthPx: number,
+  pageColumns: number,
+  customization: DesignCustomization,
+  scale: number,
+  showDescriptions: boolean,
+): number {
+  const colWidth = menuColumnWidth(widthPx, pageColumns);
+  const heights = menuItems.map((cat) =>
+    estimateCategoryBlockHeight(cat.items.length, colWidth, customization, scale, showDescriptions),
+  );
+  if (pageColumns <= 1) return heights.reduce((a, b) => a + b, 0);
+  const colH = Array.from({ length: pageColumns }, () => 0);
+  for (const h of heights) {
+    const i = colH.indexOf(Math.min(...colH));
+    colH[i] += h;
+  }
+  return Math.max(...colH);
+}
+
+/**
+ * Shrink type (and drop descriptions if needed) so every dish fits the page.
+ * Prevents overflow:hidden from clipping the whole menu on pamphlets.
+ */
+export function fitStandardMenuContent(opts: {
+  menuItems: Category[];
+  widthPx: number;
+  availableHeight: number;
+  pageColumns: number;
+  customization: DesignCustomization;
+}): { scale: number; showDescriptions: boolean } {
+  const { menuItems, widthPx, availableHeight, pageColumns, customization } = opts;
+  let showDescriptions = customization.showDescriptions;
+  let scale = 1;
+  for (let i = 0; i < 14; i++) {
+    const h = estimateStandardMenuHeight(
+      menuItems,
+      widthPx,
+      pageColumns,
+      customization,
+      scale,
+      showDescriptions,
+    );
+    if (h <= availableHeight) return { scale, showDescriptions };
+    if (showDescriptions && i >= 1) {
+      showDescriptions = false;
+      continue;
+    }
+    scale = Math.max(0.48, Number((scale * 0.9).toFixed(3)));
+  }
+  return { scale, showDescriptions };
+}
+
 function hexToRgb(hex: string): [number, number, number] {
   const h = hex.replace('#', '');
   const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;

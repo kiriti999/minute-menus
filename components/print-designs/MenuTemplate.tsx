@@ -21,12 +21,14 @@ import {
   containerRadius,
   containerShadow,
   effectiveFonts,
+  fitStandardMenuContent,
   footerQrSize,
   formatPrintDisplayName,
   headingWeight,
   logoAlign,
   menuColumnWidth,
   menuFooterContactLine,
+  menuFooterReserveHeight,
   MENU_QR_LABEL,
   menuQrLabelFs,
   outerBorderCss,
@@ -37,6 +39,7 @@ import {
   scaledHeadingFs,
   scaledPriceFs,
   splitNameBoardTitle,
+  standardMenuPageColumns,
   textTransformCss,
   titleFontFamily,
   titleStyleExtras,
@@ -75,21 +78,38 @@ function BackgroundLayers({ customization }: { customization: DesignCustomizatio
   );
 }
 
-function DishList({ cat, style, customization, widthPx, pageColumns }: { cat: Category; style: TemplateStyle; customization: DesignCustomization; widthPx: number; pageColumns: number }) {
+function DishList({
+  cat,
+  style,
+  customization,
+  widthPx,
+  pageColumns,
+  fontScale = 1,
+  showDescriptions: showDescriptionsProp,
+}: {
+  cat: Category;
+  style: TemplateStyle;
+  customization: DesignCustomization;
+  widthPx: number;
+  pageColumns: number;
+  fontScale?: number;
+  showDescriptions?: boolean;
+}) {
   const fonts = effectiveFonts(customization);
   const visual = TEMPLATE_VISUALS[style];
-  const { colors, layout, showPrices, showDescriptions } = customization;
+  const { colors, layout, showPrices } = customization;
+  const showDescriptions = showDescriptionsProp ?? customization.showDescriptions;
   const colWidth = menuColumnWidth(widthPx, pageColumns);
-  const bfs = scaledBodyFs(colWidth, customization);
-  const pfs = scaledPriceFs(widthPx, bfs);
-  const dfs = scaledDescFs(colWidth, customization);
-  const cfs = scaledCatFs(colWidth, customization);
+  const bfs = Math.max(6, Math.round(scaledBodyFs(colWidth, customization) * fontScale));
+  const pfs = Math.max(bfs, Math.round(scaledPriceFs(widthPx, bfs)));
+  const dfs = Math.max(5, Math.round(scaledDescFs(colWidth, customization) * fontScale));
+  const cfs = Math.max(7, Math.round(scaledCatFs(colWidth, customization) * fontScale));
   const gap = layout.spacing === 'compact' ? Math.round(colWidth * 0.008) : Math.round(colWidth * 0.016);
   const dishCols = pageColumns > 1 ? 1 : (layout.columns === 2 ? 2 : 1);
   const priceInk = priceColor(colors);
 
   return (
-    <div style={{ marginBottom: Math.round(colWidth * 0.04), breakInside: 'avoid', minWidth: 0, width: '100%' }}>
+    <div style={{ marginBottom: Math.round(colWidth * 0.04 * fontScale), minWidth: 0, width: '100%' }}>
       <div style={categoryHeadingStyle(visual.category, customization, cfs, fonts)}>{cat.title}</div>
       <div style={{ display: 'grid', gridTemplateColumns: dishCols > 1 ? 'minmax(0, 1fr) minmax(0, 1fr)' : 'minmax(0, 1fr)', gap }}>
         {cat.items.map((dish) => (
@@ -403,12 +423,30 @@ function PocketCard({ customization, branding, menuItems, widthPx, heightPx, sit
   );
 }
 
-function StandardMenu({ style, customization, branding, menuItems, widthPx, heightPx, siteUrl }: Omit<MenuTemplateProps, 'designType'>) {
+function StandardMenu({
+  style,
+  customization,
+  branding,
+  menuItems,
+  widthPx,
+  heightPx,
+  siteUrl,
+}: Omit<MenuTemplateProps, 'designType' | 'format' | 'jobFlyer' | 'forExport'>) {
   const visual = TEMPLATE_VISUALS[style];
   const fonts = effectiveFonts(customization);
   const pad = Math.round(widthPx * 0.06);
   const border = outerBorderCss(visual, customization);
-  const cols = customization.layout.columns === 2 && widthPx > 500 ? 2 : 1;
+  const cols = standardMenuPageColumns(widthPx, customization.layout.columns);
+  const headerReserve = Math.round(heightPx * (visual.header === 'gradient-band' || visual.header === 'fast-bold' ? 0.2 : 0.12));
+  const footerReserve = menuFooterReserveHeight(widthPx, heightPx, visual.footer, customization.showQR);
+  const availableHeight = Math.max(120, heightPx - pad * 2 - headerReserve - footerReserve);
+  const fit = fitStandardMenuContent({
+    menuItems,
+    widthPx,
+    availableHeight,
+    pageColumns: cols,
+    customization,
+  });
 
   return (
     <div
@@ -429,7 +467,16 @@ function StandardMenu({ style, customization, branding, menuItems, widthPx, heig
         gap: Math.round(widthPx * 0.025), alignContent: 'start',
       }}>
         {menuItems.map((cat) => (
-          <DishList key={cat.id} cat={cat} style={style} customization={customization} widthPx={widthPx} pageColumns={cols} />
+          <DishList
+            key={cat.id}
+            cat={cat}
+            style={style}
+            customization={customization}
+            widthPx={widthPx}
+            pageColumns={cols}
+            fontScale={fit.scale}
+            showDescriptions={fit.showDescriptions}
+          />
         ))}
       </div>
       <MenuFooter style={style} customization={customization} branding={branding} siteUrl={siteUrl} widthPx={widthPx} pad={pad} />

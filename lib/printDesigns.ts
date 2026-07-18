@@ -392,6 +392,7 @@ export function defaultCustomization(
   const fonts = FONT_PAIRINGS[tmpl.defaultFonts];
   const isNameBoardYellow = style === 'name-board-yellow';
   const isWall = designType === 'wall-board';
+  const isPamphlet = designType === 'pamphlet';
   return {
     colorScheme: isNameBoardYellow ? 'wall-yellow' : colorKey,
     fontPairing: tmpl.defaultFonts,
@@ -404,12 +405,13 @@ export function defaultCustomization(
     effects: { ...DEFAULT_EFFECTS },
     layout: {
       columns: isWall ? 5 : 2,
-      spacing: 'normal',
+      spacing: isPamphlet ? 'compact' : 'normal',
       alignment: isNameBoardYellow ? 'center' : 'left',
       categoryStyle: 'heading',
     },
     showPrices: true,
-    showDescriptions: !isWall && !isNameBoardYellow,
+    // Pamphlets are short — descriptions eat the page and clip dishes.
+    showDescriptions: !isWall && !isNameBoardYellow && !isPamphlet,
     showImages: false,
     showQR: !isWall,
     showTagline: true,

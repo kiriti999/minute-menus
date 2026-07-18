@@ -423,7 +423,8 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   const circleSticker = designType === 'sticker' && fmt.shape === 'circle';
   const isJobFlyer = designType === 'job-flyer';
   const needsMenu = !circleSticker && !isJobFlyer;
-  const canExport = !needsMenu || printMenu.length > 0;
+  const menuDishCount = printMenu.reduce((n, c) => n + c.items.length, 0);
+  const canExport = !needsMenu || menuDishCount > 0;
 
   const exportPdf = useCallback(async () => {
     setExporting(true);
