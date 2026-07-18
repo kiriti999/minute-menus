@@ -406,23 +406,25 @@ export function wallBoardColumnFontScale(widthPx: number, cols: number): number 
 export function scaledBodyFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
   const ref = wallBoardRefPx(widthPx, heightPx);
   const wideBoost = isUltraWideWall(widthPx, heightPx) ? 1.25 : 1;
-  const base = Math.round(scaledBodyFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.3 * wideBoost);
+  const base = Math.round(scaledBodyFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.4 * wideBoost);
   return Math.max(14, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
 }
 
 export function scaledDescFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
   const ref = wallBoardRefPx(widthPx, heightPx);
   const wideBoost = isUltraWideWall(widthPx, heightPx) ? 1.2 : 1;
-  const base = Math.round(scaledDescFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.2 * wideBoost);
+  const base = Math.round(scaledDescFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.28 * wideBoost);
   return Math.max(12, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
 }
 
 export function scaledCatFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
   const ref = wallBoardRefPx(widthPx, heightPx);
   const wideBoost = isUltraWideWall(widthPx, heightPx) ? 1.2 : 1;
-  const base = Math.round(scaledCatFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.22 * wideBoost);
+  const base = Math.round(scaledCatFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.3 * wideBoost);
   return Math.max(16, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
-}export function scaledHeadingFsWall(widthPx: number, heightPx: number, customization: DesignCustomization): number {
+}
+
+export function scaledHeadingFsWall(widthPx: number, heightPx: number, customization: DesignCustomization): number {
   const ref = wallBoardRefPx(widthPx, heightPx);
   const raw = Math.round(scaledHeadingFs(ref, customization) * wallBoardFontScale(widthPx, heightPx));
   // Cap title so ultra-wide boards keep most of the height for menu columns.
