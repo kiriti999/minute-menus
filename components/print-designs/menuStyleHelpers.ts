@@ -200,6 +200,76 @@ export function wallBoardPackedItemCount(columns: WallBoardColumn[]): number {
   return columns.reduce((n, col) => n + col.itemCount, 0);
 }
 
+const ORPHAN_CONTINUATION_MAX = 2;
+
+function wallColumnUsedHeight(col: WallBoardColumn, bodyFs: number, catFs: number): number {
+  let h = 0;
+  col.segments.forEach((seg, i) => {
+    h += segmentHeight(seg.items.length, bodyFs, catFs, i > 0, !seg.continued);
+  });
+  return h;
+}
+
+/** How many dishes to place now — soft-balance columns but finish small category leftovers. */
+function wallPackTakeCount(opts: {
+  heightRoom: number;
+  remaining: number;
+  softRoom: number;
+  isLastCol: boolean;
+}): number {
+  const { heightRoom, remaining, softRoom, isLastCol } = opts;
+  if (heightRoom < 1) return 0;
+  if (isLastCol) return Math.min(heightRoom, remaining);
+  if (softRoom <= 0) {
+    // Past share — only stay to finish a tiny leftover (avoids "Tuna Salad" alone in next col).
+    return remaining <= ORPHAN_CONTINUATION_MAX && heightRoom >= remaining ? remaining : 0;
+  }
+  const leftoverAfterSoft = remaining - softRoom;
+  if (leftoverAfterSoft > 0 && leftoverAfterSoft <= ORPHAN_CONTINUATION_MAX && heightRoom >= remaining) {
+    return remaining;
+  }
+  return Math.min(heightRoom, softRoom, remaining);
+}
+
+/**
+ * Pull 1–2 orphan continuation dishes back into the previous column when they fit,
+ * so the next column can start on a real category header (e.g. Milkshakes).
+ */
+function absorbOrphanContinuations(
+  columns: WallBoardColumn[],
+  contentHeightPx: number,
+  bodyFs: number,
+  catFs: number,
+): WallBoardColumn[] {
+  const cols = columns.map((col) => ({
+    itemCount: col.itemCount,
+    segments: col.segments.map((seg) => ({ ...seg, items: [...seg.items] })),
+  }));
+  const pitch = wallBoardRowPitch(bodyFs);
+
+  for (let i = 1; i < cols.length; i++) {
+    const first = cols[i].segments[0];
+    if (!first?.continued || first.items.length > ORPHAN_CONTINUATION_MAX) continue;
+    const prev = cols[i - 1];
+    const last = prev.segments[prev.segments.length - 1];
+    if (!last || last.categoryId !== first.categoryId) continue;
+    const extraH = first.items.length * pitch;
+    if (wallColumnUsedHeight(prev, bodyFs, catFs) + extraH > contentHeightPx) continue;
+
+    last.items.push(...first.items);
+    prev.itemCount += first.items.length;
+    cols[i].segments.shift();
+    cols[i].itemCount -= first.items.length;
+  }
+
+  return cols
+    .map((col) => ({
+      ...col,
+      segments: col.segments.filter((seg) => seg.items.length > 0),
+    }))
+    .filter((col) => col.itemCount > 0 && col.segments.length > 0);
+}
+
 /**
  * Pack left→right by fixed vertical capacity (not equal item counts).
  * Continuations omit category headers (no "(cont.)" rows) to free space.
@@ -223,14 +293,6 @@ export function packWallBoardColumns(
   /** Soft cap so fixed column counts (e.g. 4) fill evenly instead of left-packing into 3. */
   const softCap = Math.ceil(totalItems / cols);
 
-  const columnUsedH = (col: WallBoardColumn): number => {
-    let h = 0;
-    col.segments.forEach((seg, i) => {
-      h += segmentHeight(seg.items.length, bodyFs, catFs, i > 0, !seg.continued);
-    });
-    return h;
-  };
-
   const advance = (): boolean => {
     if (colIdx >= cols - 1) return false;
     colIdx += 1;
@@ -242,11 +304,7 @@ export function packWallBoardColumns(
     while (start < cat.items.length) {
       const remaining = cat.items.length - start;
       const continued = start > 0;
-      // Move on once this column hit its share (keeps later categories visible).
-      if (columns[colIdx].itemCount >= softCap && advance()) continue;
-
-      const usedH = columnUsedH(columns[colIdx]);
-      // Continuations only need a small gap if the column already has content.
+      const usedH = wallColumnUsedHeight(columns[colIdx], bodyFs, catFs);
       const segGap =
         columns[colIdx].segments.length > 0
           ? continued
@@ -255,14 +313,17 @@ export function packWallBoardColumns(
           : 0;
       const headerH = continued ? 0 : wallBoardHeaderBlock(catFs);
       const pitch = wallBoardRowPitch(bodyFs);
-      const roomPx = contentHeightPx - usedH - segGap - headerH;
-      let roomItems = Math.floor(roomPx / pitch);
+      const heightRoom = Math.floor((contentHeightPx - usedH - segGap - headerH) / pitch);
       const softRoom = softCap - columns[colIdx].itemCount;
-      if (colIdx < cols - 1) roomItems = Math.min(roomItems, Math.max(0, softRoom));
+      let roomItems = wallPackTakeCount({
+        heightRoom,
+        remaining,
+        softRoom,
+        isLastCol: colIdx >= cols - 1,
+      });
 
       if (roomItems < 1) {
         if (advance()) continue;
-        // Last column is full — stop rather than paint a header with no visible items.
         break;
       }
 
@@ -290,15 +351,18 @@ export function packWallBoardColumns(
       start += take;
     }
   }
-  return columns
+
+  const cleaned = columns
     .map((col) => ({
       ...col,
       segments: col.segments.filter((seg) => seg.items.length > 0),
     }))
     .filter((col) => col.itemCount > 0 && col.segments.length > 0);
+
+  return absorbOrphanContinuations(cleaned, contentHeightPx, bodyFs, catFs);
 }
 
-/** Shrink wall type until every dish packs into the board (or floor is hit). */
+/** Fit wall type to the board — shrink until all dishes pack, then grow into spare space. */
 export function fitWallBoardType(opts: {
   categories: Category[];
   columnCount: number;
@@ -326,6 +390,24 @@ export function fitWallBoardType(opts: {
       bodyFs,
       catFs,
     );
+  }
+  // Use leftover column height — bump type while the full menu still packs.
+  const maxBody = Math.round(opts.bodyFs * 1.22);
+  for (let i = 0; i < 10; i++) {
+    const nextBody = Math.min(maxBody, Math.round(bodyFs * 1.05));
+    if (nextBody <= bodyFs) break;
+    const nextCat = Math.max(catFs, Math.round(catFs * (nextBody / bodyFs)));
+    const nextPacked = packWallBoardColumns(
+      opts.categories,
+      opts.columnCount,
+      opts.contentHeightPx,
+      nextBody,
+      nextCat,
+    );
+    if (wallBoardPackedItemCount(nextPacked) < totalItems) break;
+    bodyFs = nextBody;
+    catFs = nextCat;
+    packed = nextPacked;
   }
   return { bodyFs, catFs, packed };
 }
