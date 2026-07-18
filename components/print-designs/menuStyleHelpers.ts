@@ -362,7 +362,7 @@ export function packWallBoardColumns(
   return absorbOrphanContinuations(cleaned, contentHeightPx, bodyFs, catFs);
 }
 
-/** Fit wall type to the board — shrink until all dishes pack, then grow into spare space. */
+/** Shrink wall type until every dish packs into the board (or floor is hit). */
 export function fitWallBoardType(opts: {
   categories: Category[];
   columnCount: number;
@@ -391,24 +391,6 @@ export function fitWallBoardType(opts: {
       catFs,
     );
   }
-  // Use leftover column height — bump type while the full menu still packs.
-  const maxBody = Math.round(opts.bodyFs * 1.22);
-  for (let i = 0; i < 10; i++) {
-    const nextBody = Math.min(maxBody, Math.round(bodyFs * 1.05));
-    if (nextBody <= bodyFs) break;
-    const nextCat = Math.max(catFs, Math.round(catFs * (nextBody / bodyFs)));
-    const nextPacked = packWallBoardColumns(
-      opts.categories,
-      opts.columnCount,
-      opts.contentHeightPx,
-      nextBody,
-      nextCat,
-    );
-    if (wallBoardPackedItemCount(nextPacked) < totalItems) break;
-    bodyFs = nextBody;
-    catFs = nextCat;
-    packed = nextPacked;
-  }
   return { bodyFs, catFs, packed };
 }
 
@@ -423,25 +405,24 @@ export function wallBoardColumnFontScale(widthPx: number, cols: number): number 
 
 export function scaledBodyFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
   const ref = wallBoardRefPx(widthPx, heightPx);
-  const wideBoost = isUltraWideWall(widthPx, heightPx) ? 1.28 : 1;
-  const base = Math.round(scaledBodyFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.35 * wideBoost);
+  const wideBoost = isUltraWideWall(widthPx, heightPx) ? 1.25 : 1;
+  const base = Math.round(scaledBodyFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.3 * wideBoost);
   return Math.max(14, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
 }
 
 export function scaledDescFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
   const ref = wallBoardRefPx(widthPx, heightPx);
-  const wideBoost = isUltraWideWall(widthPx, heightPx) ? 1.22 : 1;
-  const base = Math.round(scaledDescFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.28 * wideBoost);
+  const wideBoost = isUltraWideWall(widthPx, heightPx) ? 1.2 : 1;
+  const base = Math.round(scaledDescFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.2 * wideBoost);
   return Math.max(12, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
 }
 
 export function scaledCatFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
   const ref = wallBoardRefPx(widthPx, heightPx);
-  const wideBoost = isUltraWideWall(widthPx, heightPx) ? 1.22 : 1;
-  const base = Math.round(scaledCatFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.28 * wideBoost);
+  const wideBoost = isUltraWideWall(widthPx, heightPx) ? 1.2 : 1;
+  const base = Math.round(scaledCatFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.22 * wideBoost);
   return Math.max(16, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
-}
-export function scaledHeadingFsWall(widthPx: number, heightPx: number, customization: DesignCustomization): number {
+}export function scaledHeadingFsWall(widthPx: number, heightPx: number, customization: DesignCustomization): number {
   const ref = wallBoardRefPx(widthPx, heightPx);
   const raw = Math.round(scaledHeadingFs(ref, customization) * wallBoardFontScale(widthPx, heightPx));
   // Cap title so ultra-wide boards keep most of the height for menu columns.
