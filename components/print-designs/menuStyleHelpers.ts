@@ -574,9 +574,25 @@ export function footerQrSize(widthPx: number): number {
 
 export const MENU_QR_LABEL = "Scan to order";
 
-/** Footer social line — Instagram/website only (no phone on menu cards or pamphlets). */
+/** Readable WhatsApp digits for print (strip +91 when present). */
+export function formatPrintWhatsAppPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2);
+  return phone.trim();
+}
+
+/** WhatsApp order CTA for menu card / pamphlet footers. */
+export function menuFooterWhatsAppLine(branding: RestaurantBranding): string {
+  const phone = branding.phone?.trim();
+  if (!phone) return "";
+  return `Order on WhatsApp ${formatPrintWhatsAppPhone(phone)}`;
+}
+
+/** Footer contact line — WhatsApp order note, then Instagram / website. */
 export function menuFooterContactLine(branding: RestaurantBranding): string {
-  return [branding.instagram, branding.website].filter(Boolean).join(" · ");
+  return [menuFooterWhatsAppLine(branding), branding.instagram, branding.website]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 export function menuQrLabelFs(widthPx: number, customization: DesignCustomization): number {
@@ -595,11 +611,13 @@ export function menuFooterReserveHeight(
   heightPx: number,
   footerVariant: TemplateVisualConfig['footer'],
   showQR: boolean,
+  hasContactLine = false,
 ): number {
   const qrSize = footerQrSize(widthPx);
-  if (footerVariant === 'strip') return qrSize + 24;
-  if (showQR) return qrSize + Math.round(heightPx * 0.04) + 28;
-  return Math.round(heightPx * 0.06);
+  const contactExtra = hasContactLine ? 20 : 0;
+  if (footerVariant === 'strip') return qrSize + 24 + contactExtra;
+  if (showQR) return qrSize + Math.round(heightPx * 0.04) + 28 + contactExtra;
+  return Math.round(heightPx * 0.06) + contactExtra;
 }
 
 /** Font scale for pocket cards and small stickers. */

@@ -229,11 +229,12 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
       } catch {
         saved = {};
       }
+      const savedPhone = saved.phone?.trim() ?? '';
       setBranding({
         name: d.name ?? '',
         tagline: saved.tagline ?? '',
         address: saved.address ?? '',
-        phone: saved.phone ?? '',
+        phone: savedPhone || (/fusion/i.test(d.name ?? '') ? '8790385964' : ''),
         slug: d.slug ?? '',
         instagram: saved.instagram ?? '',
         website: saved.website ?? '',
@@ -1451,11 +1452,13 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
               <div className="space-y-3">
                 {(['name', 'tagline', 'phone', 'address', 'instagram', 'website'] as const).map((field) => (
                   <div key={field}>
-                    <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1 ${muted}`}>{field}</label>
+                    <label className={`text-[10px] font-semibold uppercase tracking-wider block mb-1 ${muted}`}>
+                      {field === 'phone' ? 'WhatsApp / phone' : field}
+                    </label>
                     <input
                       value={branding[field] ?? ''}
                       onChange={(e) => setBranding((b) => ({ ...b, [field]: e.target.value }))}
-                      placeholder={field.charAt(0).toUpperCase() + field.slice(1)}
+                      placeholder={field === 'phone' ? '8790385964' : field.charAt(0).toUpperCase() + field.slice(1)}
                       className={`w-full px-3 py-2 rounded-lg border text-sm outline-none ${inputCls}`}
                     />
                   </div>

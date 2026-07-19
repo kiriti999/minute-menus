@@ -375,8 +375,25 @@ function MenuFooter({ style, customization, branding, siteUrl, widthPx, pad }: {
 
   return (
     <div style={{ flexShrink: 0, marginTop: Math.round(widthPx * 0.015) }}>
-      {showQR && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: social ? 8 : 0 }}>
+      <div style={{
+        display: 'flex',
+        justifyContent: showQR && social ? 'space-between' : showQR ? 'flex-end' : 'flex-start',
+        alignItems: 'flex-end',
+        gap: 12,
+      }}>
+        {social && (
+          <div style={{
+            fontSize: Math.max(dfs, 11),
+            fontWeight: 600,
+            color: colors.primary,
+            fontFamily: fonts.body,
+            lineHeight: 1.3,
+            maxWidth: showQR ? '62%' : '100%',
+          }}>
+            {social}
+          </div>
+        )}
+        {showQR && (
           <MenuQrBlock
             siteUrl={siteUrl}
             qrSize={qrSize}
@@ -387,19 +404,8 @@ function MenuFooter({ style, customization, branding, siteUrl, widthPx, pad }: {
             fgColor={colors.primary}
             labelColor={colors.primary}
           />
-        </div>
-      )}
-      {social && (
-        <div style={{
-          borderTop: `1px solid ${colors.border}`,
-          paddingTop: 8,
-          display: 'flex',
-          justifyContent: 'flex-start',
-          alignItems: 'center',
-        }}>
-          <div style={{ fontSize: dfs, color: colors.textMuted, fontFamily: fonts.body }}>{social}</div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -438,7 +444,13 @@ function StandardMenu({
   const border = outerBorderCss(visual, customization);
   const cols = standardMenuPageColumns(widthPx, customization.layout.columns);
   const headerReserve = Math.round(heightPx * (visual.header === 'gradient-band' || visual.header === 'fast-bold' ? 0.2 : 0.12));
-  const footerReserve = menuFooterReserveHeight(widthPx, heightPx, visual.footer, customization.showQR);
+  const footerReserve = menuFooterReserveHeight(
+    widthPx,
+    heightPx,
+    visual.footer,
+    customization.showQR,
+    Boolean(menuFooterContactLine(branding)),
+  );
   const availableHeight = Math.max(120, heightPx - pad * 2 - headerReserve - footerReserve);
   const fit = fitStandardMenuContent({
     menuItems,
