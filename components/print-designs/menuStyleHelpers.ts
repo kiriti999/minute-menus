@@ -127,7 +127,7 @@ export function wallBoardRowPitch(bodyFs: number): number {
 
 export function wallBoardHeaderBlock(catFs: number): number {
   // Includes underline padding + space between category name and first dish.
-  return Math.round(catFs * 1.15 + catFs * 0.35 + catFs * 0.85 + 4);
+  return Math.round(catFs * 1.15 + catFs * 0.35 + catFs * 1.15 + 4);
 }
 
 export function wallBoardSegmentGap(catFs: number, bodyFs = catFs): number {
@@ -406,21 +406,21 @@ export function wallBoardColumnFontScale(widthPx: number, cols: number): number 
 export function scaledBodyFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
   const ref = wallBoardRefPx(widthPx, heightPx);
   const wideBoost = isUltraWideWall(widthPx, heightPx) ? 1.25 : 1;
-  const base = Math.round(scaledBodyFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.48 * wideBoost);
+  const base = Math.round(scaledBodyFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.56 * wideBoost);
   return Math.max(14, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
 }
 
 export function scaledDescFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
   const ref = wallBoardRefPx(widthPx, heightPx);
   const wideBoost = isUltraWideWall(widthPx, heightPx) ? 1.2 : 1;
-  const base = Math.round(scaledDescFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.34 * wideBoost);
+  const base = Math.round(scaledDescFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.4 * wideBoost);
   return Math.max(12, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
 }
 
 export function scaledCatFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
   const ref = wallBoardRefPx(widthPx, heightPx);
   const wideBoost = isUltraWideWall(widthPx, heightPx) ? 1.2 : 1;
-  const base = Math.round(scaledCatFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.38 * wideBoost);
+  const base = Math.round(scaledCatFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.48 * wideBoost);
   return Math.max(16, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
 }
 

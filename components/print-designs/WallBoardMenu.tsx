@@ -355,7 +355,7 @@ function WallColumn({
                 lineHeight: 1.15,
                 borderBottom: `2px solid ${ruleColor}`,
                 paddingBottom: Math.round(cfs * 0.35),
-                marginBottom: Math.round(cfs * 0.85),
+                marginBottom: Math.round(cfs * 1.15),
                 wordBreak: "break-word",
               }}
             >
