@@ -433,8 +433,12 @@ function WallColumn({
           style={{
             flexShrink: 0,
             display: "flex",
-            justifyContent: "center",
+            justifyContent: "flex-end",
+            alignItems: "flex-end",
             paddingTop: Math.round(itemGap * 1.2),
+            // Flush to the column’s inner right/bottom edge (padding already on parent).
+            marginRight: 0,
+            marginBottom: 0,
           }}
         >
           <QRCodeSVG
