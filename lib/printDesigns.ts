@@ -243,13 +243,13 @@ export const COLOR_SCHEMES: Record<ColorSchemeKey, DesignColors & { label: strin
   'wall-yellow':      { label: 'Wall Yellow',       primary: '#111111', secondary: '#2A2A2A', background: '#FFD200', text: '#111111', textMuted: '#3D3D3D', accent: '#111111', border: '#111111' },
 };
 
-/** Soft yellow column panels for wall-yellow boards — keeps equal column shapes with black ink. */
-export const WALL_YELLOW_COLUMN_COLORS = ['#FFF3B0', '#FFE566', '#FFD200', '#F5C400', '#FFE566'];
+/** Soft yellow column panels — alternating rgb(254,229,102) / rgb(255,220,68). */
+export const WALL_YELLOW_COLUMN_COLORS = ['#FEE566', '#FFDC44'];
 
 /** Default motif colour for wall-yellow pattern backgrounds (soft gold on #FFD200). */
 export const DEFAULT_WALL_YELLOW_PATTERN_COLOR = '#FFE566';
 
-/** Alternating pale / bright yellow rhythm for N wall columns. */
+/** Alternating pale / bright yellow for N wall columns (4- and 5-col defaults). */
 export function yellowColumnPattern(columns: number): string[] {
   const n = Math.max(1, columns);
   return Array.from({ length: n }, (_, i) => WALL_YELLOW_COLUMN_COLORS[i % WALL_YELLOW_COLUMN_COLORS.length]);

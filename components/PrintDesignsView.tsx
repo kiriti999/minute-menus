@@ -59,7 +59,6 @@ import {
   DEFAULT_QR_BORDER_WIDTH,
   DEFAULT_WALL_YELLOW_PATTERN_COLOR,
   WALL_BOARD_FORMAT_GROUPS,
-  WALL_YELLOW_COLUMN_COLORS,
   yellowColumnPattern,
 } from "../lib/printDesigns";
 import { colorModeLabel, colorsToCmykSummary } from "../lib/printColorUtils";
@@ -300,7 +299,11 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     if (designType !== 'wall-board') return;
     // 58.2×23" is the four-column strip; 13.8×23" is a single column panel.
     if (f === '58.2x23') {
-      setCustom((prev) => ({ ...prev, layout: { ...prev.layout, columns: 4 } }));
+      setCustom((prev) => ({
+        ...prev,
+        layout: { ...prev.layout, columns: 4 },
+        ...(prev.colorScheme === 'wall-yellow' ? { columnColors: yellowColumnPattern(4) } : {}),
+      }));
     } else if (f === '13.8x23') {
       setCustom((prev) => ({ ...prev, layout: { ...prev.layout, columns: 1 } }));
     }
@@ -356,7 +359,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
       },
       // Drop custom column colours so the scheme (or wall-yellow defaults) drives panel fills —
       // never touch layout.columns here.
-      columnColors: key === 'wall-yellow' ? [...WALL_YELLOW_COLUMN_COLORS] : undefined,
+      columnColors: key === 'wall-yellow' ? yellowColumnPattern(prev.layout.columns) : undefined,
       backgroundPatternColor:
         key === 'wall-yellow' ? DEFAULT_WALL_YELLOW_PATTERN_COLOR : prev.backgroundPatternColor,
     }));
@@ -1114,7 +1117,16 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                   {(designType === 'wall-board' ? [2, 3, 4, 5, 6] : [1, 2]).map((c) => (
                     <button
                       key={c}
-                      onClick={() => patchCustom('layout', { ...custom.layout, columns: c as 1 | 2 | 3 | 4 | 5 | 6 })}
+                      onClick={() => {
+                        const n = c as 1 | 2 | 3 | 4 | 5 | 6;
+                        setCustom((prev) => ({
+                          ...prev,
+                          layout: { ...prev.layout, columns: n },
+                          ...(prev.colorScheme === 'wall-yellow'
+                            ? { columnColors: yellowColumnPattern(n) }
+                            : {}),
+                        }));
+                      }}
                       className={`px-3 py-1.5 rounded-full text-xs border transition-all ${custom.layout.columns === c ? isDarkTheme ? 'border-white bg-zinc-800 text-white' : 'border-zinc-900 bg-zinc-100 text-zinc-900' : isDarkTheme ? 'border-zinc-700 text-zinc-400' : 'border-zinc-200 text-zinc-500'}`}
                     >
                       {c}

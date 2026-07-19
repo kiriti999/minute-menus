@@ -2,7 +2,7 @@
  * Pure style builders for MenuTemplate — keeps TSX cyclomatic complexity low.
  */
 import type { BackgroundPattern, Category, DesignColors, DesignCustomization, DesignFonts, RestaurantBranding, TitleStyle } from "@minute-menus/types";
-import { resolveFonts, WALL_YELLOW_COLUMN_COLORS } from "../../lib/printDesigns";
+import { resolveFonts, WALL_YELLOW_COLUMN_COLORS, yellowColumnPattern } from "../../lib/printDesigns";
 import {
   BODY_SIZE_SCALE,
   CORNER_RADIUS_MAP,
@@ -762,7 +762,7 @@ export function wallColumnPalette(colors: DesignColors, customColors?: string[])
   const isWallYellow =
     colors.background.toLowerCase() === '#ffd200'
     && colors.primary.toLowerCase() === '#111111';
-  if (isWallYellow) return [...WALL_YELLOW_COLUMN_COLORS];
+  if (isWallYellow) return yellowColumnPattern(4);
   return defaultColumnPalette(colors);
 }
 
