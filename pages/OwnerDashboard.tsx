@@ -879,6 +879,24 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const [isDeletingCategory, setIsDeletingCategory] = useState(false);
 
   useEffect(() => {
+    if (!activeOptionsDishId) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setActiveOptionsDishId(null);
+    };
+    const onPointerDown = (e: PointerEvent) => {
+      const el = e.target as Element | null;
+      if (el?.closest?.("[data-dish-options]")) return;
+      setActiveOptionsDishId(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [activeOptionsDishId]);
+
+  useEffect(() => {
     unsavedChangesRef.current = unsavedChanges;
   }, [unsavedChanges]);
 
@@ -2282,8 +2300,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                       className="w-full group flex flex-col relative"
                     >
                       {/* Options Menu Button */}
-                      <div className="absolute top-3 right-3 z-30">
+                      <div className="absolute top-3 right-3 z-30" data-dish-options>
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             setActiveOptionsDishId(
