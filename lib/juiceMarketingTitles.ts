@@ -1,9 +1,9 @@
 /**
  * Marketing-style juice titles — shared by wall board print and menu rename scripts.
- * Menu editor / DB use the target titles; wall board falls back for legacy names.
+ * Menu editor / DB names are the source of truth; only exact legacy keys are remapped.
  */
 
-/** Legacy menu name → marketing title shown in editor, reels, and wall board. */
+/** Legacy menu name → marketing title (exact match only). */
 export const JUICE_MARKETING_TITLES: Record<string, string> = {
 	"ABC Juice": "ABC Immunity Booster",
 	"Orange Juice Cold Pressed": "Orange Immunity Boost",
@@ -37,42 +37,11 @@ function normalizeKey(name: string): string {
 	return name.trim().replace(/\s+/g, " ");
 }
 
-function inferJuiceTitle(dishName: string): string {
-	const n = normalizeKey(dishName);
-	const lower = n.toLowerCase();
-
-	if (/^abc\b/.test(lower)) return "ABC Immunity Booster";
-	if (lower.includes("watermelon")) return "Watermelon Hydrator";
-	if (lower.includes("orange")) return "Orange Immunity Boost";
-	if (lower.includes("carrot") && lower.includes("celery")) return "Green Glow Detox";
-	if (lower.includes("carrot") && lower.includes("apple")) return "Carrot Apple Energy";
-	if (lower.includes("citrus") || lower.includes("colada")) return "Tropical Citrus Cooler";
-	if (lower.includes("mosambi") || lower.includes("sweet lime")) return "Sweet Lime Digestive";
-	if (lower.includes("mango")) return "Alphonso Mango Refresh";
-	if (lower.includes("pineapple") || lower.includes("pina")) return "Tropical Electrolyte Cooler";
-	if (lower.includes("beet")) return "Beetroot Blood Flow Boost";
-	if (lower.includes("oat")) return "Oat Fiber Vitality";
-	if (lower.includes("apple") && lower.includes("pomegranate")) return "Apple Pomegranate Boost";
-	if (lower.includes("carrot")) return "Beta-Glow Carrot";
-	if (lower.includes("apple")) return "Crisp Apple Vitality";
-
-	const trimmed = n
-		.replace(/\s+Cold Pressed$/i, "")
-		.replace(/\s+Juice$/i, "")
-		.trim();
-	if (trimmed.length < n.length && trimmed.length > 0) return trimmed;
-
-	return n;
-}
-
-/** Resolve display title for wall board (DB name or legacy alias). */
-export function juiceDisplayTitle(dishName: string, categoryTitle: string): string {
+/** Wall board title: editor/DB name, or exact legacy alias if still on an old name. */
+export function juiceDisplayTitle(dishName: string, _categoryTitle: string): string {
 	const key = normalizeKey(dishName);
 	if (MARKETING_TITLE_SET.has(key)) return key;
-	const mapped = JUICE_MARKETING_TITLES[key];
-	if (mapped) return mapped;
-	if (!isJuiceCategory(categoryTitle)) return key;
-	return inferJuiceTitle(key);
+	return JUICE_MARKETING_TITLES[key] ?? key;
 }
 
 /** Target title for DB rename scripts — undefined if already marketing or not mapped. */
