@@ -113,12 +113,12 @@ export function wallBoardColumns(widthPx: number, heightPx: number, userCols: nu
   return userCols >= 2 ? userCols : defaultCols;
 }
 
-/** Fixed vertical rhythm — tighter gaps so larger dish type still packs. */
-export const WALL_ITEM_LINE_HEIGHT = 1.12;
-export const WALL_ITEM_GAP_RATIO = 1.05;
+/** Fixed vertical rhythm — dish row gap (tuned so fit lands ~+20% vs prior type). */
+export const WALL_ITEM_LINE_HEIGHT = 1.15;
+export const WALL_ITEM_GAP_RATIO = 1.28;
 
 export function wallBoardItemGap(bodyFs: number): number {
-  return Math.max(4, Math.round(bodyFs * WALL_ITEM_GAP_RATIO));
+  return Math.max(6, Math.round(bodyFs * WALL_ITEM_GAP_RATIO));
 }
 
 export function wallBoardRowPitch(bodyFs: number): number {
@@ -410,21 +410,21 @@ export function wallBoardColumnFontScale(widthPx: number, cols: number): number 
 export function scaledBodyFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
   const ref = wallBoardRefPx(widthPx, heightPx);
   const wideBoost = isUltraWideWall(widthPx, heightPx) ? 1.25 : 1;
-  const base = Math.round(scaledBodyFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.7 * wideBoost);
+  const base = Math.round(scaledBodyFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.45 * wideBoost);
   return Math.max(14, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
 }
 
 export function scaledDescFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
   const ref = wallBoardRefPx(widthPx, heightPx);
   const wideBoost = isUltraWideWall(widthPx, heightPx) ? 1.2 : 1;
-  const base = Math.round(scaledDescFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.5 * wideBoost);
+  const base = Math.round(scaledDescFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.32 * wideBoost);
   return Math.max(12, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
 }
 
 export function scaledCatFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
   const ref = wallBoardRefPx(widthPx, heightPx);
   const wideBoost = isUltraWideWall(widthPx, heightPx) ? 1.2 : 1;
-  const base = Math.round(scaledCatFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.55 * wideBoost);
+  const base = Math.round(scaledCatFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.38 * wideBoost);
   return Math.max(16, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
 }
 
