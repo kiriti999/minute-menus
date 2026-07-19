@@ -151,7 +151,7 @@ export const FORMATS: Record<PrintFormat, FormatInfo> = {
 };
 
 export const WALL_BOARD_FORMAT_GROUPS: { label: string; formats: PrintFormat[] }[] = [
-  { label: 'Landscape (wide wall)', formats: ['72x23', '58.2x23', '13.8x23', 'a2-landscape', 'a1-landscape', 'a0-landscape', '36x24', '48x36'] },
+  { label: 'Landscape (wide wall)', formats: ['58.2x23', '72x23', '13.8x23', 'a2-landscape', 'a1-landscape', 'a0-landscape', '36x24', '48x36'] },
   { label: 'Portrait (tall wall)', formats: ['a2', 'a1', 'a0', '24x36', '18x24', '36x48'] },
   { label: 'Square', formats: ['square-24'] },
 ];
@@ -166,7 +166,7 @@ export const DESIGN_TYPE_FORMATS: Record<PrintDesignType, PrintFormat[]> = {
 };
 
 export const DEFAULT_FORMAT: Record<PrintDesignType, PrintFormat> = {
-  'menu-card': 'a4', 'wall-board': '72x23', 'pamphlet': 'a5',
+  'menu-card': 'a4', 'wall-board': '58.2x23', 'pamphlet': 'a5',
   'pocket-card': 'business-card', 'sticker': 'circle-75', 'job-flyer': 'a5',
 };
 
@@ -407,7 +407,8 @@ export function defaultCustomization(
     },
     effects: { ...DEFAULT_EFFECTS },
     layout: {
-      columns: isWall ? 5 : 2,
+      // 58.2×23" · 4 Col is the default wall format.
+      columns: isWall ? 4 : 2,
       spacing: isPamphlet ? 'compact' : 'normal',
       alignment: isNameBoardYellow ? 'center' : 'left',
       categoryStyle: 'heading',
@@ -430,6 +431,6 @@ export function defaultCustomization(
     priceLeaderStyle: 'none',
     qrBorderWidth: DEFAULT_QR_BORDER_WIDTH,
     qrBorderColor: DEFAULT_QR_BORDER_COLOR,
-    ...(isNameBoardYellow ? { columnColors: yellowColumnPattern(isWall ? 5 : 2) } : {}),
+    ...(isNameBoardYellow ? { columnColors: yellowColumnPattern(isWall ? 4 : 2) } : {}),
   };
 }

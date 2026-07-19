@@ -334,7 +334,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
       const next = defaultCustomization(s, designType);
       // Keep wall-board column count stable — colors/templates must not reshape the grid.
       if (designType === 'wall-board') {
-        next.layout = { ...next.layout, columns: prev.layout.columns >= 2 ? prev.layout.columns : 5 };
+        next.layout = { ...next.layout, columns: prev.layout.columns >= 2 ? prev.layout.columns : 4 };
       }
       return next;
     });
