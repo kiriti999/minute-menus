@@ -1102,6 +1102,24 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       });
   };
 
+  /** Reorder dishes within a category — sort_order is saved with Save Changes. */
+  const handleMoveDish = (catIndex: number, dishIndex: number, delta: -1 | 1) => {
+    const items = menuItems[catIndex]?.items;
+    if (!items) return;
+    const to = dishIndex + delta;
+    if (to < 0 || to >= items.length) return;
+    const newMenu = menuItems.map((cat, i) => {
+      if (i !== catIndex) return cat;
+      const next = [...cat.items];
+      const [moved] = next.splice(dishIndex, 1);
+      next.splice(to, 0, moved);
+      return { ...cat, items: next };
+    });
+    setMenuItems(newMenu);
+    setUnsavedChanges(true);
+    setActiveOptionsDishId(null);
+  };
+
   const handleAddCategory = () => {
     if (menuItems.length >= 2) {
       if (triggerPaywall("Unlimited Categories")) return;
@@ -2281,6 +2299,24 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                         {activeOptionsDishId === dish.id && (
                           <div className={`absolute right-0 mt-2 w-48 border rounded-xl shadow-2xl overflow-hidden z-40 animate-in fade-in slide-in-from-top-2 ${isDarkTheme ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-300'}`}>
                             <button
+                              type="button"
+                              disabled={idx === 0}
+                              onClick={() => handleMoveDish(selectedCategoryIdx, idx, -1)}
+                              className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 border-b disabled:opacity-40 disabled:cursor-not-allowed ${isDarkTheme ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white border-zinc-800' : 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 border-zinc-200'}`}
+                            >
+                              <ChevronLeft size={14} />
+                              Move earlier
+                            </button>
+                            <button
+                              type="button"
+                              disabled={idx >= (menuItems[selectedCategoryIdx]?.items.length ?? 0) - 1}
+                              onClick={() => handleMoveDish(selectedCategoryIdx, idx, 1)}
+                              className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 border-b disabled:opacity-40 disabled:cursor-not-allowed ${isDarkTheme ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white border-zinc-800' : 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 border-zinc-200'}`}
+                            >
+                              <ChevronRight size={14} />
+                              Move later
+                            </button>
+                            <button
                               onClick={() => handleDuplicateDish(selectedCategoryIdx, idx)}
                               className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 border-b ${isDarkTheme ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white border-zinc-800' : 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 border-zinc-200'}`}
                             >
@@ -2364,9 +2400,33 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                           </label>
                         </div>
 
-                        {/* Slot badge */}
-                        <div className={`absolute top-3 left-3 text-[10px] font-mono px-2 py-0.5 rounded z-10 ${isDarkTheme ? 'text-zinc-500 bg-black/60' : 'text-zinc-600 bg-white/60'}`}>
-                          #{idx + 1}
+                        {/* Slot badge + reorder */}
+                        <div className={`absolute top-3 left-3 z-10 flex items-center gap-0.5 rounded-lg overflow-hidden backdrop-blur ${isDarkTheme ? 'bg-black/60 text-zinc-300' : 'bg-white/70 text-zinc-700'}`}>
+                          <button
+                            type="button"
+                            title="Move earlier"
+                            disabled={idx === 0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMoveDish(selectedCategoryIdx, idx, -1);
+                            }}
+                            className={`p-1 transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${isDarkTheme ? 'hover:bg-white/15 hover:text-white' : 'hover:bg-zinc-900/10 hover:text-zinc-900'}`}
+                          >
+                            <ChevronLeft size={12} />
+                          </button>
+                          <span className="text-[10px] font-mono px-0.5 tabular-nums">#{idx + 1}</span>
+                          <button
+                            type="button"
+                            title="Move later"
+                            disabled={idx >= (menuItems[selectedCategoryIdx]?.items.length ?? 0) - 1}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMoveDish(selectedCategoryIdx, idx, 1);
+                            }}
+                            className={`p-1 transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${isDarkTheme ? 'hover:bg-white/15 hover:text-white' : 'hover:bg-zinc-900/10 hover:text-zinc-900'}`}
+                          >
+                            <ChevronRight size={12} />
+                          </button>
                         </div>
 
                         {/* Manual sold-out badge */}
