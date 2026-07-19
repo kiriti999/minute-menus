@@ -183,7 +183,7 @@ Who we are looking for:
 • Local candidates preferred (easy late-evening commute)
 
 How to apply:
-WhatsApp your details on "6300711966" (or scan the QR) with availability, location, and CV. Please do not call — WhatsApp applicants are contacted first.`;
+WhatsApp your details on "8790385964" (or scan the QR) with availability, location, and CV. Please do not call — WhatsApp applicants are contacted first.`;
 
 export const DEFAULT_JOB_FLYER_CONTENT: JobFlyerContent = {
   roleTitle: 'Part time — Cloud Kitchen',

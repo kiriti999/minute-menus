@@ -114,6 +114,7 @@ function JobFlyerQrPanel({
 	qrSize,
 	smallFs,
 	colors,
+	compact,
 }: {
 	label: string;
 	url: string | null;
@@ -122,8 +123,10 @@ function JobFlyerQrPanel({
 	qrSize: number;
 	smallFs: number;
 	colors: DesignCustomization["colors"];
+	compact?: boolean;
 }) {
-	const labelFs = Math.max(8, Math.round(smallFs * 0.92));
+	const labelFs = Math.max(7, Math.round(smallFs * (compact ? 0.85 : 0.92)));
+	const panelPad = compact ? 4 : 6;
 	const customImage = imageUrl?.trim();
 	if (customImage || url) {
 		return (
@@ -131,14 +134,14 @@ function JobFlyerQrPanel({
 				style={{
 					flexShrink: 0,
 					textAlign: "center",
-					padding: 6,
-					borderRadius: 10,
+					padding: panelPad,
+					borderRadius: compact ? 8 : 10,
 					background: "#FFFFFF",
 					border: `1px solid ${hexToRgba(colors.border, 0.85)}`,
 					boxShadow: `0 2px 10px ${hexToRgba(colors.primary, 0.08)}`,
 				}}
 			>
-				<p style={{ margin: "0 0 4px", fontSize: labelFs, fontWeight: 700, color: colors.text, lineHeight: 1.2 }}>
+				<p style={{ margin: "0 0 3px", fontSize: labelFs, fontWeight: 700, color: colors.text, lineHeight: 1.15 }}>
 					{label}
 				</p>
 				{customImage ? (
@@ -239,6 +242,9 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 		qrSize,
 		detailLabelFs,
 		detailValueFs,
+		useCompactQrRow,
+		detailGap,
+		headerPadY,
 	} = sizing;
 	const displayName = formatPrintDisplayName(branding.name, customization.typography.textTransform);
 	const titleFont = titleFontFamily(customization);
@@ -286,7 +292,7 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 				style={{
 					flexShrink: 0,
 					background: `linear-gradient(135deg, ${colors.primary} 0%, ${hexToRgba(colors.primary, 0.88)} 55%, ${colors.secondary} 100%)`,
-					padding: `${Math.round(pad * 0.7)}px ${pad}px ${Math.round(pad * 0.55)}px`,
+					padding: `${headerPadY}px ${pad}px ${Math.round(headerPadY * 0.85)}px`,
 					textAlign: "center",
 					position: "relative",
 				}}
@@ -349,24 +355,24 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 							src={customization.logoUrl}
 							alt={displayName || "Logo"}
 							style={{
-								height: Math.round(Math.min(heightPx * 0.12, widthPx * 0.28)),
+								height: Math.round(Math.min(heightPx * (useCompactQrRow ? 0.08 : 0.1), widthPx * 0.24)),
 								width: "auto",
-								maxWidth: "75%",
+								maxWidth: "70%",
 								objectFit: "contain",
 								display: "block",
-								margin: "0 auto 8px",
+								margin: "0 auto 6px",
 							}}
 						/>
 					) : (
 						displayName && (
 							<p
 								style={{
-									margin: "0 0 6px",
-									fontSize: Math.max(14, Math.round(headingFs * 0.48)),
+									margin: "0 0 4px",
+									fontSize: Math.max(12, Math.round(headingFs * 0.48)),
 									fontFamily: titleFont,
 									fontWeight: hw,
 									color: colors.primary,
-									lineHeight: 1.2,
+									lineHeight: 1.15,
 									textTransform: nameTransform,
 									...titleExtras,
 								}}
@@ -392,12 +398,12 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 					{jobFlyer.hookLine?.trim() && (
 						<p
 							style={{
-								margin: "6px auto 0",
+								margin: "4px auto 0",
 								maxWidth: "94%",
 								fontSize: smallFs,
 								fontWeight: 600,
 								color: colors.accent,
-								lineHeight: 1.34,
+								lineHeight: 1.3,
 							}}
 						>
 							{jobFlyer.hookLine.trim()}
@@ -410,7 +416,7 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 						flexShrink: 0,
 						display: "grid",
 						gridTemplateColumns: `repeat(${detailCols}, minmax(0, 1fr))`,
-						gap: 8,
+						gap: detailGap,
 					}}
 				>
 					{details.map((item) => (
@@ -428,13 +434,13 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 					<div
 						style={{
 							flexShrink: 0,
-							padding: "8px 12px",
+							padding: useCompactQrRow ? "6px 10px" : "8px 12px",
 							borderRadius: 6,
 							borderLeft: `3px solid ${colors.accent}`,
 							background: hexToRgba(colors.accent, 0.1),
 							fontSize: Math.max(8, Math.round(smallFs * 0.94)),
 							color: colors.text,
-							lineHeight: 1.36,
+							lineHeight: 1.32,
 						}}
 					>
 						<strong style={{ color: colors.primary }}>Note: </strong>
@@ -442,89 +448,78 @@ export const JobFlyerLayout: React.FC<JobFlyerLayoutProps> = ({
 					</div>
 				)}
 
-				{(descriptionText || customization.showQR || showMapsQr || branding.phone?.trim()) && (
+				{descriptionText && (
 					<div
 						style={{
-							flex: 1,
-							minHeight: 0,
-							display: "flex",
-							flexDirection: "column",
-							alignItems: "stretch",
-							gap: Math.max(10, Math.round(gap * 0.9)),
+							flexShrink: 0,
+							padding: `${Math.max(6, Math.round(descFs * 0.55))}px ${Math.max(8, Math.round(descFs * 0.75))}px`,
+							borderRadius: Math.max(6, Math.round(descFs * 0.5)),
+							background: hexToRgba(colors.background, 0.7),
+							border: `1px solid ${hexToRgba(colors.border, 0.75)}`,
+							fontSize: descFs,
+							color: colors.text,
+							lineHeight: 1.32,
+							whiteSpace: "pre-line",
 						}}
 					>
-						{descriptionText && (
-							<div
-								style={{
-									flex: 1,
-									minHeight: 0,
-									overflow: "hidden",
-									padding: `${Math.max(8, Math.round(descFs * 0.7))}px ${Math.max(10, Math.round(descFs * 0.85))}px`,
-									borderRadius: Math.max(6, Math.round(descFs * 0.55)),
-									background: hexToRgba(colors.background, 0.7),
-									border: `1px solid ${hexToRgba(colors.border, 0.75)}`,
-									fontSize: descFs,
-									color: colors.text,
-									lineHeight: 1.4,
-									whiteSpace: "pre-line",
-								}}
-							>
-								{descriptionText}
-							</div>
+						{descriptionText}
+					</div>
+				)}
+
+				<div style={{ flex: 1, minHeight: 0 }} />
+
+				{phoneDisplay && (
+					<div
+						style={{
+							flexShrink: 0,
+							textAlign: "center",
+							fontSize: Math.max(smallFs, Math.round(descFs * 1.02)),
+							fontWeight: 700,
+							color: "#FFFFFF",
+							lineHeight: 1.2,
+							padding: `${Math.max(6, Math.round(smallFs * 0.45))}px ${Math.max(10, Math.round(smallFs * 0.8))}px`,
+							borderRadius: Math.max(6, Math.round(smallFs * 0.45)),
+							background: colors.primary,
+							letterSpacing: "0.01em",
+						}}
+					>
+						WhatsApp your details on &quot;{phoneDisplay}&quot;
+					</div>
+				)}
+				{(customization.showQR || showMapsQr) && (
+					<div
+						style={{
+							flexShrink: 0,
+							display: "flex",
+							flexDirection: "row",
+							flexWrap: "nowrap",
+							justifyContent: "center",
+							alignItems: "flex-start",
+							gap: bothQrs ? Math.max(10, Math.round(qrSize * (useCompactQrRow ? 0.08 : 0.12))) : 10,
+						}}
+					>
+						{customization.showQR && (
+							<JobFlyerQrPanel
+								label="Scan & Share CV"
+								url={whatsAppUrl}
+								imageUrl={jobFlyer.whatsAppQrImageUrl}
+								emptyHint="Add WhatsApp number or upload QR above"
+								qrSize={qrSize}
+								smallFs={smallFs}
+								colors={colors}
+								compact={useCompactQrRow}
+							/>
 						)}
-						{phoneDisplay && (
-							<div
-								style={{
-									flexShrink: 0,
-									textAlign: "center",
-									fontSize: Math.max(smallFs, Math.round(descFs * 1.05)),
-									fontWeight: 700,
-									color: "#FFFFFF",
-									lineHeight: 1.25,
-									padding: `${Math.max(8, Math.round(smallFs * 0.55))}px ${Math.max(12, Math.round(smallFs * 0.9))}px`,
-									borderRadius: Math.max(6, Math.round(smallFs * 0.5)),
-									background: colors.primary,
-									letterSpacing: "0.01em",
-								}}
-							>
-								WhatsApp your details on &quot;{phoneDisplay}&quot;
-							</div>
-						)}
-						{(customization.showQR || showMapsQr) && (
-							<div
-								style={{
-									flexShrink: 0,
-									display: "flex",
-									flexDirection: "row",
-									flexWrap: "nowrap",
-									justifyContent: "center",
-									alignItems: "flex-start",
-									gap: bothQrs ? Math.max(16, Math.round(qrSize * 0.12)) : 10,
-									paddingTop: 2,
-								}}
-							>
-								{customization.showQR && (
-									<JobFlyerQrPanel
-										label="Scan & Share CV"
-										url={whatsAppUrl}
-										imageUrl={jobFlyer.whatsAppQrImageUrl}
-										emptyHint="Add WhatsApp number or upload QR above"
-										qrSize={qrSize}
-										smallFs={smallFs}
-										colors={colors}
-									/>
-								)}
-								{showMapsQr && (
-									<JobFlyerQrPanel
-										label="Find us on Maps"
-										url={mapsTarget}
-										emptyHint="Add location or Maps link"
-										qrSize={qrSize}
-										smallFs={smallFs}
-										colors={colors}
-									/>
-								)}
-							</div>
+						{showMapsQr && (
+							<JobFlyerQrPanel
+								label="Find us on Maps"
+								url={mapsTarget}
+								emptyHint="Add location or Maps link"
+								qrSize={qrSize}
+								smallFs={smallFs}
+								colors={colors}
+								compact={useCompactQrRow}
+							/>
 						)}
 					</div>
 				)}
