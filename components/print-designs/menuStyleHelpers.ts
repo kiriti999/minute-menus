@@ -113,12 +113,12 @@ export function wallBoardColumns(widthPx: number, heightPx: number, userCols: nu
   return userCols >= 2 ? userCols : defaultCols;
 }
 
-/** Fixed vertical rhythm — wall-board dish rows (gap between items ≈ 1.55× body size). */
-export const WALL_ITEM_LINE_HEIGHT = 1.2;
-export const WALL_ITEM_GAP_RATIO = 1.55;
+/** Fixed vertical rhythm — tighter gaps so larger dish type still packs. */
+export const WALL_ITEM_LINE_HEIGHT = 1.12;
+export const WALL_ITEM_GAP_RATIO = 1.05;
 
 export function wallBoardItemGap(bodyFs: number): number {
-  return Math.max(8, Math.round(bodyFs * WALL_ITEM_GAP_RATIO));
+  return Math.max(4, Math.round(bodyFs * WALL_ITEM_GAP_RATIO));
 }
 
 export function wallBoardRowPitch(bodyFs: number): number {
@@ -362,7 +362,10 @@ export function packWallBoardColumns(
   return absorbOrphanContinuations(cleaned, contentHeightPx, bodyFs, catFs);
 }
 
-/** Shrink wall type until every dish packs into the board (or floor is hit). */
+/**
+ * Shrink wall type until every dish packs. Prefers staying near the requested
+ * size (item bumps were previously erased by aggressive 0.92 shrink loops).
+ */
 export function fitWallBoardType(opts: {
   categories: Category[];
   columnCount: number;
@@ -380,9 +383,10 @@ export function fitWallBoardType(opts: {
     bodyFs,
     catFs,
   );
-  for (let i = 0; i < 16 && wallBoardPackedItemCount(packed) < totalItems; i++) {
-    bodyFs = Math.max(11, Math.round(bodyFs * 0.92));
-    catFs = Math.max(12, Math.round(catFs * 0.92));
+  for (let i = 0; i < 18 && wallBoardPackedItemCount(packed) < totalItems; i++) {
+    // Gentle shrink so base size increases actually show up on the board.
+    bodyFs = Math.max(14, Math.round(bodyFs * 0.96));
+    catFs = Math.max(16, Math.round(catFs * 0.96));
     packed = packWallBoardColumns(
       opts.categories,
       opts.columnCount,
@@ -406,21 +410,21 @@ export function wallBoardColumnFontScale(widthPx: number, cols: number): number 
 export function scaledBodyFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
   const ref = wallBoardRefPx(widthPx, heightPx);
   const wideBoost = isUltraWideWall(widthPx, heightPx) ? 1.25 : 1;
-  const base = Math.round(scaledBodyFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.56 * wideBoost);
+  const base = Math.round(scaledBodyFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.7 * wideBoost);
   return Math.max(14, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
 }
 
 export function scaledDescFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
   const ref = wallBoardRefPx(widthPx, heightPx);
   const wideBoost = isUltraWideWall(widthPx, heightPx) ? 1.2 : 1;
-  const base = Math.round(scaledDescFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.4 * wideBoost);
+  const base = Math.round(scaledDescFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.5 * wideBoost);
   return Math.max(12, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
 }
 
 export function scaledCatFsWall(widthPx: number, heightPx: number, customization: DesignCustomization, cols = 1): number {
   const ref = wallBoardRefPx(widthPx, heightPx);
   const wideBoost = isUltraWideWall(widthPx, heightPx) ? 1.2 : 1;
-  const base = Math.round(scaledCatFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.48 * wideBoost);
+  const base = Math.round(scaledCatFs(ref, customization) * wallBoardFontScale(widthPx, heightPx) * 1.55 * wideBoost);
   return Math.max(16, Math.round(base * wallBoardColumnFontScale(widthPx, cols)));
 }
 
