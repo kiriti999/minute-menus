@@ -431,6 +431,12 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   const needsMenu = !circleSticker && !isJobFlyer;
   const menuDishCount = printMenu.reduce((n, c) => n + c.items.length, 0);
   const canExport = !needsMenu || menuDishCount > 0;
+  /** Wall board, pamphlet, pocket card (and menu card) — dish ₹ prices can be hidden. */
+  const canTogglePrices =
+    designType === 'wall-board'
+    || designType === 'pamphlet'
+    || designType === 'pocket-card'
+    || designType === 'menu-card';
 
   const exportPdf = useCallback(async () => {
     setExporting(true);
@@ -940,7 +946,7 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
             {/* Step 5: Customise */}
             <CollapsibleSection
               title="5. Customise"
-              summary={`${COLOR_SCHEMES[custom.colorScheme]?.label ?? custom.colorScheme} · columns ${custom.layout.columns}`}
+              summary={`${COLOR_SCHEMES[custom.colorScheme]?.label ?? custom.colorScheme} · columns ${custom.layout.columns}${canTogglePrices ? ` · prices ${custom.showPrices ? 'on' : 'off'}` : ''}`}
               open={openSections.customise}
               onToggle={() => toggleSection('customise')}
               cardClass={card}
@@ -1136,6 +1142,27 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
               </div>
               )}
 
+              {canTogglePrices && (
+                <div className={`mb-4 p-3 rounded-lg border ${isDarkTheme ? 'border-zinc-800 bg-zinc-900/40' : 'border-zinc-200 bg-zinc-50'}`}>
+                  <label className="flex items-center justify-between gap-3 cursor-pointer select-none">
+                    <div>
+                      <p className={`text-xs font-semibold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>Show prices</p>
+                      <p className={`text-[10px] mt-0.5 ${muted}`}>
+                        Hide or show ₹ prices on this design
+                      </p>
+                    </div>
+                    <div
+                      role="switch"
+                      aria-checked={custom.showPrices}
+                      onClick={() => patchCustom('showPrices', !custom.showPrices)}
+                      className={`w-9 h-5 rounded-full transition-colors flex-shrink-0 ${custom.showPrices ? 'bg-green-500' : isDarkTheme ? 'bg-zinc-700' : 'bg-zinc-300'}`}
+                    >
+                      <div className={`w-4 h-4 bg-white rounded-full mt-0.5 transition-transform ${custom.showPrices ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </div>
+                  </label>
+                </div>
+              )}
+
               {designType === 'wall-board' && (
                 <div className="mb-4">
                   <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Column Colours</p>
@@ -1231,27 +1258,29 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                       </label>
                     )}
                   </div>
-                  <div className="mt-4">
-                    <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Price leader line</p>
-                    <div className="flex flex-wrap gap-2">
-                      {([
-                        ['none', 'Off'],
-                        ['dots', 'Dots'],
-                        ['dashes', 'Dashes'],
-                        ['hyphens', 'Hyphens'],
-                        ['solid', 'Solid'],
-                      ] as const satisfies ReadonlyArray<readonly [PriceLeaderStyle, string]>).map(([key, label]) => (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => patchCustom('priceLeaderStyle', key)}
-                          className={`px-3 py-1.5 rounded-full text-[10px] border transition-all ${(custom.priceLeaderStyle ?? 'none') === key ? isDarkTheme ? 'border-white bg-zinc-800 text-white' : 'border-zinc-900 bg-zinc-100 text-zinc-900' : isDarkTheme ? 'border-zinc-700 text-zinc-400' : 'border-zinc-200 text-zinc-500'}`}
-                        >
-                          {label}
-                        </button>
-                      ))}
+                  {custom.showPrices && (
+                    <div className="mt-4">
+                      <p className={`text-[10px] font-semibold uppercase tracking-wider mb-2 ${muted}`}>Price leader line</p>
+                      <div className="flex flex-wrap gap-2">
+                        {([
+                          ['none', 'Off'],
+                          ['dots', 'Dots'],
+                          ['dashes', 'Dashes'],
+                          ['hyphens', 'Hyphens'],
+                          ['solid', 'Solid'],
+                        ] as const satisfies ReadonlyArray<readonly [PriceLeaderStyle, string]>).map(([key, label]) => (
+                          <button
+                            key={key}
+                            type="button"
+                            onClick={() => patchCustom('priceLeaderStyle', key)}
+                            className={`px-3 py-1.5 rounded-full text-[10px] border transition-all ${(custom.priceLeaderStyle ?? 'none') === key ? isDarkTheme ? 'border-white bg-zinc-800 text-white' : 'border-zinc-900 bg-zinc-100 text-zinc-900' : isDarkTheme ? 'border-zinc-700 text-zinc-400' : 'border-zinc-200 text-zinc-500'}`}
+                          >
+                            {label}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
@@ -1264,16 +1293,21 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                     ] as const)
                   : designType === 'wall-board'
                     ? ([
-                        ['showPrices', 'Prices'],
                         ['showQR', 'QR Code'],
                         ['showTagline', 'Tagline'],
                       ] as const)
-                    : ([
-                        ['showPrices', 'Prices'],
-                        ['showDescriptions', 'Descriptions'],
-                        ['showQR', 'QR Code'],
-                        ['showTagline', 'Tagline'],
-                      ] as const)
+                    : canTogglePrices
+                      ? ([
+                          ['showDescriptions', 'Descriptions'],
+                          ['showQR', 'QR Code'],
+                          ['showTagline', 'Tagline'],
+                        ] as const)
+                      : ([
+                          ['showPrices', 'Prices'],
+                          ['showDescriptions', 'Descriptions'],
+                          ['showQR', 'QR Code'],
+                          ['showTagline', 'Tagline'],
+                        ] as const)
                 ).map(([k, label]) => (
                   <label key={k} className="flex items-center gap-2 cursor-pointer select-none">
                     <div
