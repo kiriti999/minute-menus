@@ -29,10 +29,10 @@ import {
   textTransformCss,
   titleFontFamily,
   titleStyleExtras,
+  wallBoardColumnQrSize,
   wallBoardContentHeight,
   wallBoardFlowColumnCount,
   wallBoardItemGap,
-  wallBoardQrSize,
   wallBoardSegmentGap,
   wallColumnPalette,
   WALL_ITEM_LINE_HEIGHT,
@@ -191,53 +191,42 @@ function WallHeader({ style, customization, branding, widthPx, heightPx, isLands
   );
 }
 
-function WallFooter({ style, customization, branding, siteUrl, widthPx, heightPx, pad }: {
+/** Footer contact only — wall-board QR lives in the last column (no "Scan to order"). */
+function WallFooter({ style, customization, branding, widthPx, heightPx, pad }: {
   style: TemplateStyle; customization: DesignCustomization; branding: RestaurantBranding;
-  siteUrl: string; widthPx: number; heightPx: number; pad: number;
+  widthPx: number; heightPx: number; pad: number;
 }) {
   const fonts = effectiveFonts(customization);
-  const { colors, showQR } = customization;
+  const { colors } = customization;
   const dfs = scaledDescFsWall(widthPx, heightPx, customization);
-  const qrSize = wallBoardQrSize(widthPx, heightPx);
   const social = [branding.phone, branding.instagram].filter(Boolean).join(' · ');
   const visual = TEMPLATE_VISUALS[style];
 
-  if (!showQR && !social) return null;
+  if (!social) return null;
 
   if (visual.footer === 'strip') {
     return (
       <div style={{
         flexShrink: 0, margin: `0 -${pad}px -${pad}px`,
         background: colors.primary, padding: `10px ${pad}px`,
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        display: 'flex', justifyContent: 'flex-end', alignItems: 'center',
       }}>
-        {showQR && <QRCodeSVG value={siteUrl} size={qrSize} fgColor="#FFF" bgColor="transparent" level="H" />}
-        {social && <div style={{ fontSize: dfs, color: 'rgba(255,255,255,0.9)', fontFamily: fonts.body }}>{social}</div>}
+        <div style={{ fontSize: dfs, color: 'rgba(255,255,255,0.9)', fontFamily: fonts.body }}>{social}</div>
       </div>
     );
   }
 
   return (
     <div style={{ flexShrink: 0, marginTop: Math.round(heightPx * 0.01) }}>
-      {showQR && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: social ? 10 : 0 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-            <QRCodeSVG value={siteUrl} size={qrSize} fgColor={colors.primary} bgColor="transparent" level="H" />
-            <div style={{ fontSize: dfs, color: colors.textMuted, fontFamily: fonts.body }}>Scan to order</div>
-          </div>
-        </div>
-      )}
-      {social && (
-        <div style={{
-          borderTop: showQR ? `2px solid ${colors.border}` : 'none',
-          paddingTop: showQR ? 10 : 0,
-          display: 'flex',
-          justifyContent: 'flex-start',
-          alignItems: 'center',
-        }}>
-          <div style={{ fontSize: dfs, color: colors.textMuted, fontFamily: fonts.body }}>{social}</div>
-        </div>
-      )}
+      <div style={{
+        borderTop: `2px solid ${colors.border}`,
+        paddingTop: 10,
+        display: 'flex',
+        justifyContent: 'flex-start',
+        alignItems: 'center',
+      }}>
+        <div style={{ fontSize: dfs, color: colors.textMuted, fontFamily: fonts.body }}>{social}</div>
+      </div>
     </div>
   );
 }
@@ -282,6 +271,7 @@ function WallColumn({
   blockColor,
   bodyFs,
   catFs,
+  qr,
 }: {
   column: WallBoardColumn;
   customization: DesignCustomization;
@@ -290,6 +280,8 @@ function WallColumn({
   blockColor: string;
   bodyFs: number;
   catFs: number;
+  /** Larger QR pinned to the bottom of the last column (no label). */
+  qr?: { siteUrl: string; size: number; fgColor: string };
 }) {
   const fonts = effectiveFonts(customization);
   const { showPrices, showColumnBorders, columnBorderColor, priceLeaderStyle = "none" } = customization;
@@ -326,6 +318,16 @@ function WallColumn({
         border: colBorder,
       }}
     >
+      <div
+        style={{
+          flex: "1 1 0%",
+          minHeight: 0,
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "flex-start",
+        }}
+      >
       {column.segments
         .filter((segment) => segment.items.length > 0)
         .map((segment, segIndex) => (
@@ -425,6 +427,25 @@ function WallColumn({
           </div>
         </div>
       ))}
+      </div>
+      {qr && (
+        <div
+          style={{
+            flexShrink: 0,
+            display: "flex",
+            justifyContent: "center",
+            paddingTop: Math.round(itemGap * 1.2),
+          }}
+        >
+          <QRCodeSVG
+            value={qr.siteUrl}
+            size={qr.size}
+            fgColor={qr.fgColor}
+            bgColor="transparent"
+            level="H"
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -461,16 +482,22 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
     maxByWidth,
     userCols >= 2 ? userCols : Math.max(1, flowCols),
   );
+  // Reserve room in every column’s pack budget so the last-column QR is not clipped.
+  const columnQrSize = wallBoardColumnQrSize(widthPx, heightPx, cols);
+  const packHeight = customization.showQR
+    ? Math.max(200, contentHeight - columnQrSize - Math.round(Math.min(widthPx, heightPx) * 0.02))
+    : contentHeight;
   const { bodyFs, catFs, packed } = fitWallBoardType({
     categories: menuItems,
     columnCount: cols,
-    contentHeightPx: contentHeight,
+    contentHeightPx: packHeight,
     bodyFs: baseBodyFs,
     catFs: baseCatFs,
   });
   const gridCols = Math.max(1, packed.length);
   const palette = wallColumnPalette(customization.colors, customization.columnColors);
   const gridGap = Math.round(Math.min(widthPx, heightPx) * 0.014);
+  const lastColIdx = gridCols - 1;
 
   return (
     <div
@@ -535,6 +562,15 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
             blockColor={palette[i % palette.length]}
             bodyFs={bodyFs}
             catFs={catFs}
+            qr={
+              customization.showQR && i === lastColIdx
+                ? {
+                    siteUrl,
+                    size: columnQrSize,
+                    fgColor: contrastTextColor(palette[i % palette.length]),
+                  }
+                : undefined
+            }
           />
         ))}
       </div>
@@ -542,7 +578,6 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
         style={style}
         customization={customization}
         branding={branding}
-        siteUrl={siteUrl}
         widthPx={widthPx}
         heightPx={heightPx}
         pad={pad}

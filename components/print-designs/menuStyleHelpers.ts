@@ -63,6 +63,17 @@ export function wallBoardQrSize(widthPx: number, heightPx: number): number {
   return Math.max(48, Math.round(Math.min(widthPx, heightPx) * 0.09));
 }
 
+/**
+ * Larger QR for the last wall column (no footer label).
+ * Sized from column width / board height — does not change print dimensions.
+ */
+export function wallBoardColumnQrSize(widthPx: number, heightPx: number, cols: number): number {
+  const colW = widthPx / Math.max(cols, 1);
+  const byCol = Math.round(colW * 0.38);
+  const byH = Math.round(heightPx * 0.2);
+  return Math.max(88, Math.min(byCol, byH));
+}
+
 /** Vertical space left for category columns after header/footer. */
 export function wallBoardContentHeight(
   heightPx: number,
@@ -79,9 +90,10 @@ export function wallBoardContentHeight(
     ? heightPx * (ultra ? 0.16 : 0.14)
     : isLandscape ? heightPx * (ultra ? 0.1 : 0.14) : heightPx * 0.12;
   const headerGap = Math.min(widthPx, heightPx) * (hasLogo ? 0.008 : 0.015);
+  // QR sits inside the last column — do not reserve a footer band for it.
   let footerBlock = 0;
-  if (showQR) footerBlock = wallBoardQrSize(widthPx, heightPx) + 20 + heightPx * 0.01;
-  else if (hasFooterSocial) footerBlock = 32 + heightPx * 0.01;
+  if (hasFooterSocial && !showQR) footerBlock = 32 + heightPx * 0.01;
+  else if (hasFooterSocial) footerBlock = 28 + heightPx * 0.008;
   return Math.max(200, heightPx - pad * 2 - headerBand - headerGap - footerBlock);
 }
 
