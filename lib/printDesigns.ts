@@ -246,8 +246,8 @@ export const COLOR_SCHEMES: Record<ColorSchemeKey, DesignColors & { label: strin
 /** Soft yellow column panels — alternating rgb(254,229,102) / rgb(255,220,68). */
 export const WALL_YELLOW_COLUMN_COLORS = ['#FEE566', '#FFDC44'];
 
-/** Default motif colour for wall-yellow pattern backgrounds (soft gold on #FFD200). */
-export const DEFAULT_WALL_YELLOW_PATTERN_COLOR = '#FFE566';
+/** Default motif colour for wall-yellow pattern backgrounds — rgb(252, 182, 1). */
+export const DEFAULT_WALL_YELLOW_PATTERN_COLOR = '#FCB601';
 
 /** Alternating pale / bright yellow for N wall columns (4- and 5-col defaults). */
 export function yellowColumnPattern(columns: number): string[] {
