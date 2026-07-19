@@ -301,6 +301,7 @@ function WallColumn({
   return (
     <div
       style={{
+        position: "relative",
         breakInside: "avoid",
         background: blockColor,
         color: text,
@@ -318,16 +319,6 @@ function WallColumn({
         border: colBorder,
       }}
     >
-      <div
-        style={{
-          flex: "1 1 0%",
-          minHeight: 0,
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "flex-start",
-        }}
-      >
       {column.segments
         .filter((segment) => segment.items.length > 0)
         .map((segment, segIndex) => (
@@ -427,18 +418,15 @@ function WallColumn({
           </div>
         </div>
       ))}
-      </div>
       {qr && (
         <div
           style={{
-            flexShrink: 0,
-            display: "flex",
-            justifyContent: "flex-end",
-            alignItems: "flex-end",
-            paddingTop: Math.round(itemGap * 1.2),
-            // Flush to the column’s inner right/bottom edge (padding already on parent).
-            marginRight: 0,
-            marginBottom: 0,
+            position: "absolute",
+            right: pad,
+            bottom: pad,
+            width: qr.size,
+            height: qr.size,
+            pointerEvents: "none",
           }}
         >
           <QRCodeSVG
@@ -486,21 +474,18 @@ export function WallBoardMenu({ style, customization, branding, menuItems, fmt, 
     maxByWidth,
     userCols >= 2 ? userCols : Math.max(1, flowCols),
   );
-  // Reserve room in every column’s pack budget so the last-column QR is not clipped.
-  const columnQrSize = wallBoardColumnQrSize(widthPx, heightPx, cols);
-  const packHeight = customization.showQR
-    ? Math.max(200, contentHeight - columnQrSize - Math.round(Math.min(widthPx, heightPx) * 0.02))
-    : contentHeight;
+  // Pack the same with or without QR — QR overlays the last column’s spare corner.
   const { bodyFs, catFs, packed } = fitWallBoardType({
     categories: menuItems,
     columnCount: cols,
-    contentHeightPx: packHeight,
+    contentHeightPx: contentHeight,
     bodyFs: baseBodyFs,
     catFs: baseCatFs,
   });
   const gridCols = Math.max(1, packed.length);
   const palette = wallColumnPalette(customization.colors, customization.columnColors);
   const gridGap = Math.round(Math.min(widthPx, heightPx) * 0.014);
+  const columnQrSize = wallBoardColumnQrSize(widthPx, heightPx, gridCols);
   const lastColIdx = gridCols - 1;
 
   return (
