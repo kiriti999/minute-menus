@@ -240,14 +240,14 @@ export const COLOR_SCHEMES: Record<ColorSchemeKey, DesignColors & { label: strin
   'garden-fresh':     { label: 'Garden Herb',       primary: '#2D5A27', secondary: '#5A8F3D', background: '#F5F9F0', text: '#1A2E14', textMuted: '#5A7550', accent: '#E07A3D', border: '#D0E0C0' },
   'banana-leaf':      { label: 'Banana Leaf',       primary: '#5C1D1D', secondary: '#3D6B2F', background: '#FFF9E8', text: '#2A1810', textMuted: '#6B5344', accent: '#D4A017', border: '#E8D4A8' },
   /** Matches Fresh & Fusion kitchen wall — bright yellow field, black ink for wall boards. */
-  'wall-yellow':      { label: 'Wall Yellow',       primary: '#111111', secondary: '#2A2A2A', background: '#FFD200', text: '#111111', textMuted: '#3D3D3D', accent: '#111111', border: '#111111' },
+  'wall-yellow':      { label: 'Wall Yellow',       primary: '#111111', secondary: '#2A2A2A', background: '#FFB601', text: '#111111', textMuted: '#3D3D3D', accent: '#111111', border: '#111111' },
 };
 
 /** Soft yellow column panels — alternating rgb(254,229,102) / rgb(255,220,68). */
 export const WALL_YELLOW_COLUMN_COLORS = ['#FEE566', '#FFDC44'];
 
-/** Default motif colour for wall-yellow pattern backgrounds — rgb(252, 182, 1). */
-export const DEFAULT_WALL_YELLOW_PATTERN_COLOR = '#FCB601';
+/** Default motif colour for wall-yellow pattern backgrounds — rgb(255, 182, 1). */
+export const DEFAULT_WALL_YELLOW_PATTERN_COLOR = '#FFB601';
 
 /** Alternating pale / bright yellow for N wall columns (4- and 5-col defaults). */
 export function yellowColumnPattern(columns: number): string[] {
@@ -327,7 +327,7 @@ export const TEMPLATES: TemplateInfo[] = [
   { key: 'ethnic-traditional',  label: 'Ethnic Traditional',   description: 'Indigo, vermillion & gold',        category: 'indian',  defaultColors: 'royal-purple',     defaultFonts: 'ethnic-hindi',    previewColors: ['#3D1F5C', '#FFFBF5', '#C9A227'] },
   { key: 'salad-bowl-fresh',    label: 'Salad Bowl Fresh',     description: 'Herb green, carrot accent',        category: 'modern',  defaultColors: 'garden-fresh',     defaultFonts: 'minimal-sans',    previewColors: ['#2D5A27', '#F5F9F0', '#E07A3D'] },
   { key: 'south-indian-mess',   label: 'South Indian Mess',    description: 'Maroon, leaf green, turmeric',     category: 'indian',  defaultColors: 'banana-leaf',      defaultFonts: 'heritage',        previewColors: ['#5C1D1D', '#FFF9E8', '#D4A017'] },
-  { key: 'name-board-yellow',   label: 'Name Board Yellow',    description: 'Wall yellow, black ink title',     category: 'casual',  defaultColors: 'wall-yellow',      defaultFonts: 'modern-clean',    previewColors: ['#111111', '#FFD200', '#111111'] },
+  { key: 'name-board-yellow',   label: 'Name Board Yellow',    description: 'Wall yellow, black ink title',     category: 'casual',  defaultColors: 'wall-yellow',      defaultFonts: 'modern-clean',    previewColors: ['#111111', '#FFB601', '#111111'] },
 ];
 
 export const DEFAULT_TYPOGRAPHY: DesignTypography = {

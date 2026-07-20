@@ -794,7 +794,7 @@ export function wallColumnPalette(colors: DesignColors, customColors?: string[])
   if (customColors && customColors.length > 0) return customColors;
   // Near-black schemes would otherwise paint every panel black and hide the yellow field.
   const isWallYellow =
-    colors.background.toLowerCase() === '#ffd200'
+    colors.background.toLowerCase() === '#ffb601'
     && colors.primary.toLowerCase() === '#111111';
   if (isWallYellow) return yellowColumnPattern(4);
   return defaultColumnPalette(colors);

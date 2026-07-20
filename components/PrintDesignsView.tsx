@@ -366,6 +366,18 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
     }));
   }, []);
 
+  // Migrate legacy Wall Yellow field (#FFD200) → #FFB601 after palette update.
+  useEffect(() => {
+    if (custom.colorScheme !== 'wall-yellow') return;
+    if (custom.colors.background.toLowerCase() !== '#ffd200') return;
+    const want = COLOR_SCHEMES['wall-yellow'].background;
+    setCustom((prev) => ({
+      ...prev,
+      colors: { ...prev.colors, background: want },
+      backgroundPatternColor: prev.backgroundPatternColor ?? DEFAULT_WALL_YELLOW_PATTERN_COLOR,
+    }));
+  }, [custom.colorScheme, custom.colors.background]);
+
   const handleFontPairing = useCallback((key: FontPairingKey) => {
     const pairing = FONT_PAIRINGS[key];
     setCustom((prev) => ({ ...prev, fontPairing: key, fonts: { heading: pairing.heading, body: pairing.body, price: pairing.price } }));
@@ -990,20 +1002,25 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
                     <button
                       key={bt}
                       onClick={() => {
-                        setCustom((prev) => ({
-                          ...prev,
-                          backgroundType: bt,
-                          ...(bt === 'pattern'
-                            ? {
-                                backgroundPattern: prev.backgroundPattern ?? 'geometric',
-                                backgroundPatternColor:
-                                  prev.backgroundPatternColor
-                                  ?? (prev.colorScheme === 'wall-yellow'
-                                    ? DEFAULT_WALL_YELLOW_PATTERN_COLOR
-                                    : prev.colors.border),
-                              }
-                            : {}),
-                        }));
+                        setCustom((prev) => {
+                          const next: DesignCustomization = { ...prev, backgroundType: bt };
+                          if (bt === 'pattern') {
+                            next.backgroundPattern = prev.backgroundPattern ?? 'geometric';
+                            next.backgroundPatternColor =
+                              prev.backgroundPatternColor
+                              ?? (prev.colorScheme === 'wall-yellow'
+                                ? DEFAULT_WALL_YELLOW_PATTERN_COLOR
+                                : prev.colors.border);
+                          }
+                          // Solid field shows colors.background — keep Wall Yellow on the scheme default.
+                          if (bt === 'solid' && prev.colorScheme === 'wall-yellow') {
+                            next.colors = {
+                              ...prev.colors,
+                              background: COLOR_SCHEMES['wall-yellow'].background,
+                            };
+                          }
+                          return next;
+                        });
                       }}
                       className={`px-3 py-1.5 rounded-full text-xs border transition-all capitalize ${custom.backgroundType === bt ? isDarkTheme ? 'border-white bg-zinc-800 text-white' : 'border-zinc-900 bg-zinc-100 text-zinc-900' : isDarkTheme ? 'border-zinc-700 text-zinc-400' : 'border-zinc-200 text-zinc-500'}`}
                     >
