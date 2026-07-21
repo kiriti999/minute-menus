@@ -15,16 +15,16 @@ import {
 type CSS = Record<string, string | number | undefined>;
 
 export function scaledBodyFs(widthPx: number, customization: DesignCustomization): number {
-  const base = Math.max(9, Math.round(widthPx * 0.014));
+  const base = Math.max(14, Math.round(widthPx * 0.048));
   return Math.round(base * BODY_SIZE_SCALE[customization.typography.bodySize]);
 }
 
 export function scaledDescFs(widthPx: number, customization: DesignCustomization): number {
-  return Math.max(8, Math.round(scaledBodyFs(widthPx, customization) * 0.8));
+  return Math.max(11, Math.round(scaledBodyFs(widthPx, customization) * 0.82));
 }
 
 export function scaledCatFs(widthPx: number, customization: DesignCustomization): number {
-  const base = Math.max(10, Math.round(widthPx * 0.018));
+  const base = Math.max(16, Math.round(widthPx * 0.056));
   return Math.round(base * BODY_SIZE_SCALE[customization.typography.bodySize]);
 }
 
@@ -569,7 +569,7 @@ export function menuColumnWidth(widthPx: number, pageColumns: number): number {
 
 /** QR size for menu card / wall board footers — large enough to scan reliably. */
 export function footerQrSize(widthPx: number): number {
-  return Math.max(56, Math.round(widthPx * 0.12));
+  return Math.max(52, Math.round(widthPx * 0.1));
 }
 
 export const MENU_QR_LABEL = "Scan to order";
@@ -614,10 +614,10 @@ export function menuFooterReserveHeight(
   hasContactLine = false,
 ): number {
   const qrSize = footerQrSize(widthPx);
-  const contactExtra = hasContactLine ? 20 : 0;
-  if (footerVariant === 'strip') return qrSize + 24 + contactExtra;
-  if (showQR) return qrSize + Math.round(heightPx * 0.04) + 28 + contactExtra;
-  return Math.round(heightPx * 0.06) + contactExtra;
+  const contactExtra = hasContactLine ? 18 : 0;
+  if (footerVariant === 'strip') return qrSize + 20 + contactExtra;
+  if (showQR) return qrSize + Math.round(heightPx * 0.02) + 22 + contactExtra;
+  return Math.round(heightPx * 0.045) + contactExtra;
 }
 
 /** Font scale for pocket cards and small stickers. */
@@ -644,24 +644,34 @@ export function standardMenuPageColumns(widthPx: number, userColumns: number): n
 function estimateCategoryBlockHeight(
   itemCount: number,
   colWidth: number,
+  typeWidth: number,
   customization: DesignCustomization,
   scale: number,
   showDescriptions: boolean,
 ): number {
-  const bfs = Math.max(6, Math.round(scaledBodyFs(colWidth, customization) * scale));
-  const dfs = Math.max(5, Math.round(scaledDescFs(colWidth, customization) * scale));
-  const cfs = Math.max(7, Math.round(scaledCatFs(colWidth, customization) * scale));
-  const gap =
+  const bfs = Math.max(6, Math.round(scaledBodyFs(typeWidth, customization) * scale));
+  const dfs = Math.max(5, Math.round(scaledDescFs(typeWidth, customization) * scale));
+  const cfs = Math.max(7, Math.round(scaledCatFs(typeWidth, customization) * scale));
+  const gapBase =
     customization.layout.spacing === "compact"
-      ? Math.round(colWidth * 0.008 * scale)
-      : Math.round(colWidth * 0.016 * scale);
-  const catMargin = Math.round(colWidth * 0.04 * scale);
-  const header = Math.round(cfs * 1.7);
-  const row = bfs + (showDescriptions ? dfs + 2 : 0) + gap;
+      ? Math.round(colWidth * 0.01)
+      : Math.round(colWidth * 0.018);
+  const gap = Math.max(3, Math.round(gapBase * scale));
+  const catMargin = Math.round(colWidth * 0.032 * scale);
+  const header = Math.round(cfs * 1.45);
+  const rowPad = Math.round(2 * scale);
+  const row = bfs * 1.22 + (showDescriptions ? dfs * 1.15 + 2 : 0) + gap + rowPad;
   return header + itemCount * row + catMargin;
 }
 
-/** Tallest column after balancing categories left→right. */
+/** Type reference width — avoid tiny type when the page is split into columns. */
+export function standardMenuTypeWidth(widthPx: number, pageColumns: number): number {
+  const col = menuColumnWidth(widthPx, pageColumns);
+  if (pageColumns <= 1) return col;
+  return Math.round(Math.max(col * 1.25, widthPx * 0.4));
+}
+
+/** Tallest column after balancing categories onto the shortest column. */
 export function estimateStandardMenuHeight(
   menuItems: Category[],
   widthPx: number,
@@ -670,22 +680,54 @@ export function estimateStandardMenuHeight(
   scale: number,
   showDescriptions: boolean,
 ): number {
-  const colWidth = menuColumnWidth(widthPx, pageColumns);
-  const heights = menuItems.map((cat) =>
-    estimateCategoryBlockHeight(cat.items.length, colWidth, customization, scale, showDescriptions),
+  const packed = packStandardMenuColumns(
+    menuItems,
+    widthPx,
+    pageColumns,
+    customization,
+    scale,
+    showDescriptions,
   );
-  if (pageColumns <= 1) return heights.reduce((a, b) => a + b, 0);
-  const colH = Array.from({ length: pageColumns }, () => 0);
-  for (const h of heights) {
-    const i = colH.indexOf(Math.min(...colH));
-    colH[i] += h;
+  return Math.max(1, ...packed.map((c) => c.height));
+}
+
+/** Place each category onto the currently shortest column (balanced multi-column menus). */
+export function packStandardMenuColumns(
+  menuItems: Category[],
+  widthPx: number,
+  pageColumns: number,
+  customization: DesignCustomization,
+  scale: number,
+  showDescriptions: boolean,
+): { cats: Category[]; height: number }[] {
+  const colWidth = menuColumnWidth(widthPx, pageColumns);
+  const typeWidth = standardMenuTypeWidth(widthPx, pageColumns);
+  const cols = Array.from({ length: Math.max(1, pageColumns) }, () => ({
+    cats: [] as Category[],
+    height: 0,
+  }));
+  for (const cat of menuItems) {
+    const h = estimateCategoryBlockHeight(
+      cat.items.length,
+      colWidth,
+      typeWidth,
+      customization,
+      scale,
+      showDescriptions,
+    );
+    let best = 0;
+    for (let i = 1; i < cols.length; i++) {
+      if (cols[i].height < cols[best].height) best = i;
+    }
+    cols[best].cats.push(cat);
+    cols[best].height += h;
   }
-  return Math.max(...colH);
+  return cols;
 }
 
 /**
- * Shrink type (and drop descriptions if needed) so every dish fits the page.
- * Prevents overflow:hidden from clipping the whole menu on pamphlets.
+ * Grow/shrink type so the menu fills the page without clipping.
+ * Prefer larger type when there is leftover vertical space (pamphlets / menu cards).
  */
 export function fitStandardMenuContent(opts: {
   menuItems: Category[];
@@ -696,24 +738,24 @@ export function fitStandardMenuContent(opts: {
 }): { scale: number; showDescriptions: boolean } {
   const { menuItems, widthPx, availableHeight, pageColumns, customization } = opts;
   let showDescriptions = customization.showDescriptions;
-  let scale = 1;
-  for (let i = 0; i < 14; i++) {
-    const h = estimateStandardMenuHeight(
-      menuItems,
-      widthPx,
-      pageColumns,
-      customization,
-      scale,
-      showDescriptions,
-    );
-    if (h <= availableHeight) return { scale, showDescriptions };
-    if (showDescriptions && i >= 1) {
-      showDescriptions = false;
-      continue;
-    }
-    scale = Math.max(0.48, Number((scale * 0.9).toFixed(3)));
+
+  const heightAt = (scale: number, descs: boolean) =>
+    estimateStandardMenuHeight(menuItems, widthPx, pageColumns, customization, scale, descs);
+
+  if (showDescriptions && heightAt(1, true) > availableHeight) {
+    showDescriptions = false;
   }
-  return { scale, showDescriptions };
+
+  // Binary search largest scale that still fits (~fill the page).
+  let lo = 0.55;
+  let hi = 2.15;
+  const budget = availableHeight * 0.97;
+  for (let i = 0; i < 16; i++) {
+    const mid = (lo + hi) / 2;
+    if (heightAt(mid, showDescriptions) <= budget) lo = mid;
+    else hi = mid;
+  }
+  return { scale: Math.max(0.55, Number(lo.toFixed(3))), showDescriptions };
 }
 
 function hexToRgb(hex: string): [number, number, number] {

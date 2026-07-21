@@ -32,6 +32,7 @@ import {
   MENU_QR_LABEL,
   menuQrLabelFs,
   outerBorderCss,
+  packStandardMenuColumns,
   priceColor,
   scaledBodyFs,
   scaledCatFs,
@@ -40,6 +41,7 @@ import {
   scaledPriceFs,
   splitNameBoardTitle,
   standardMenuPageColumns,
+  standardMenuTypeWidth,
   textTransformCss,
   titleFontFamily,
   titleStyleExtras,
@@ -100,26 +102,28 @@ function DishList({
   const { colors, layout, showPrices } = customization;
   const showDescriptions = showDescriptionsProp ?? customization.showDescriptions;
   const colWidth = menuColumnWidth(widthPx, pageColumns);
-  const bfs = Math.max(6, Math.round(scaledBodyFs(colWidth, customization) * fontScale));
+  const typeWidth = standardMenuTypeWidth(widthPx, pageColumns);
+  const bfs = Math.max(6, Math.round(scaledBodyFs(typeWidth, customization) * fontScale));
   const pfs = Math.max(bfs, Math.round(scaledPriceFs(widthPx, bfs)));
-  const dfs = Math.max(5, Math.round(scaledDescFs(colWidth, customization) * fontScale));
-  const cfs = Math.max(7, Math.round(scaledCatFs(colWidth, customization) * fontScale));
-  const gap = layout.spacing === 'compact' ? Math.round(colWidth * 0.008) : Math.round(colWidth * 0.016);
+  const dfs = Math.max(5, Math.round(scaledDescFs(typeWidth, customization) * fontScale));
+  const cfs = Math.max(7, Math.round(scaledCatFs(typeWidth, customization) * fontScale));
+  const gapBase = layout.spacing === 'compact' ? Math.round(colWidth * 0.012) : Math.round(colWidth * 0.022);
+  const gap = Math.max(4, Math.round(gapBase * fontScale));
   const dishCols = pageColumns > 1 ? 1 : (layout.columns === 2 ? 2 : 1);
   const priceInk = priceColor(colors);
 
   return (
-    <div style={{ marginBottom: Math.round(colWidth * 0.04 * fontScale), minWidth: 0, width: '100%' }}>
+    <div style={{ marginBottom: Math.round(colWidth * 0.05 * fontScale), minWidth: 0, width: '100%' }}>
       <div style={categoryHeadingStyle(visual.category, customization, cfs, fonts)}>{cat.title}</div>
       <div style={{ display: 'grid', gridTemplateColumns: dishCols > 1 ? 'minmax(0, 1fr) minmax(0, 1fr)' : 'minmax(0, 1fr)', gap }}>
         {cat.items.map((dish) => (
-          <div key={dish.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 6, minWidth: 0, width: '100%' }}>
+          <div key={dish.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, minWidth: 0, width: '100%', paddingTop: Math.round(2 * fontScale), paddingBottom: Math.round(2 * fontScale) }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: fonts.body, fontSize: bfs, fontWeight: 500, color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ fontFamily: fonts.body, fontSize: bfs, fontWeight: 500, color: colors.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.25 }}>
                 {dish.name}
               </div>
               {showDescriptions && dish.description && (
-                <div style={{ fontFamily: fonts.body, fontSize: dfs, color: colors.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontFamily: fonts.body, fontSize: dfs, color: colors.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.25 }}>
                   {dish.description}
                 </div>
               )}
@@ -440,10 +444,10 @@ function StandardMenu({
 }: Omit<MenuTemplateProps, 'designType' | 'format' | 'jobFlyer' | 'forExport'>) {
   const visual = TEMPLATE_VISUALS[style];
   const fonts = effectiveFonts(customization);
-  const pad = Math.round(widthPx * 0.06);
+  const pad = Math.round(widthPx * 0.045);
   const border = outerBorderCss(visual, customization);
   const cols = standardMenuPageColumns(widthPx, customization.layout.columns);
-  const headerReserve = Math.round(heightPx * (visual.header === 'gradient-band' || visual.header === 'fast-bold' ? 0.2 : 0.12));
+  const headerReserve = Math.round(heightPx * (visual.header === 'gradient-band' || visual.header === 'fast-bold' ? 0.18 : 0.1));
   const footerReserve = menuFooterReserveHeight(
     widthPx,
     heightPx,
@@ -459,6 +463,14 @@ function StandardMenu({
     pageColumns: cols,
     customization,
   });
+  const packed = packStandardMenuColumns(
+    menuItems,
+    widthPx,
+    cols,
+    customization,
+    fit.scale,
+    fit.showDescriptions,
+  );
 
   return (
     <div
@@ -476,19 +488,32 @@ function StandardMenu({
       <div style={{
         flex: 1, minHeight: 0, overflow: 'hidden',
         display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-        gap: Math.round(widthPx * 0.025), alignContent: 'start',
+        gap: Math.round(widthPx * 0.03),
       }}>
-        {menuItems.map((cat) => (
-          <DishList
-            key={cat.id}
-            cat={cat}
-            style={style}
-            customization={customization}
-            widthPx={widthPx}
-            pageColumns={cols}
-            fontScale={fit.scale}
-            showDescriptions={fit.showDescriptions}
-          />
+        {packed.map((col, colIdx) => (
+          <div
+            key={`col-${colIdx}`}
+            style={{
+              minWidth: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: Math.round(8 * fit.scale),
+            }}
+          >
+            {col.cats.map((cat) => (
+              <DishList
+                key={cat.id}
+                cat={cat}
+                style={style}
+                customization={customization}
+                widthPx={widthPx}
+                pageColumns={cols}
+                fontScale={fit.scale}
+                showDescriptions={fit.showDescriptions}
+              />
+            ))}
+          </div>
         ))}
       </div>
       <MenuFooter style={style} customization={customization} branding={branding} siteUrl={siteUrl} widthPx={widthPx} pad={pad} />
