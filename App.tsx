@@ -17,6 +17,7 @@ import { useRestaurantSlugRoute } from "./hooks/useRestaurantSlugRoute";
 import { CustomerApp } from "./pages/CustomerApp";
 import { LoginPage } from "./pages/LoginPage";
 import { OwnerDashboard } from "./pages/OwnerDashboard";
+import { RecipeBookPage } from "./pages/RecipeBookPage";
 import { StaffClockPage } from "./pages/StaffClockPage";
 import { AppMode } from "@minute-menus/types";
 
@@ -25,6 +26,10 @@ function parseClockRoute(): { slug: string; badge: string | null } | null {
     if (!match) return null;
     const badge = new URLSearchParams(window.location.search).get("badge");
     return { slug: match[1].toLowerCase(), badge };
+}
+
+function isRecipeBookPath(): boolean {
+    return /^\/recipe-book\/?$/i.test(window.location.pathname);
 }
 
 const App: React.FC = () => {
@@ -113,6 +118,29 @@ const App: React.FC = () => {
 
     if (authLoading) {
         return <LoadingScreen />;
+    }
+
+    if (isRecipeBookPath()) {
+        if (!isAuthenticated) {
+            return (
+                <LoginPage
+                    onLoginSuccess={() => {
+                        setMode(AppMode.OWNER);
+                        window.history.replaceState({}, "", "/recipe-book");
+                    }}
+                    targetMode={AppMode.OWNER}
+                />
+            );
+        }
+        return (
+            <RecipeBookPage
+                isDarkTheme={isDarkTheme}
+                onBack={() => {
+                    window.history.pushState({}, "", "/");
+                    setMode(AppMode.OWNER);
+                }}
+            />
+        );
     }
 
     const clockRoute = parseClockRoute();
