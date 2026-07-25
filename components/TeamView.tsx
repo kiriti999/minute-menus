@@ -547,7 +547,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 	}
 
 	return (
-		<div className="w-full min-w-0 max-w-5xl space-y-5 sm:space-y-7 pb-12 overflow-x-hidden">
+		<div className="w-full min-w-0 space-y-5 sm:space-y-6 pb-12 overflow-x-hidden">
 			<header className="min-w-0">
 				<h1 className={`text-2xl sm:text-3xl font-light tracking-tight mb-1 ${text}`}>Team</h1>
 				<p className={`text-sm ${muted}`}>
@@ -561,57 +561,60 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 				</div>
 			)}
 
-			<section className={`rounded-2xl border p-4 sm:p-6 space-y-4 min-w-0 ${card}`}>
-				<div className="flex items-center justify-between gap-3">
-					<div className="min-w-0">
-						<h2 className={`text-base sm:text-lg font-semibold ${text}`}>QR Badges</h2>
-						<p className={`text-xs mt-0.5 ${muted}`}>
-							{badges.length}/6 · print once, reassign anytime
+			{/* Wide: badges + staff side by side; narrow: stacked */}
+			<div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(300px,380px)] gap-5 items-start">
+				<section className={`rounded-2xl border p-4 sm:p-6 space-y-4 min-w-0 ${card}`}>
+					<div className="flex items-center justify-between gap-3">
+						<div className="min-w-0">
+							<h2 className={`text-base sm:text-lg font-semibold ${text}`}>QR Badges</h2>
+							<p className={`text-xs mt-0.5 ${muted}`}>
+								{badges.length}/6 · print once, reassign anytime
+							</p>
+						</div>
+						<button
+							type="button"
+							onClick={() => void handleAddBadge()}
+							disabled={saving || badges.length >= 6}
+							className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold shrink-0 ${
+								isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white"
+							} disabled:opacity-50`}
+						>
+							<Plus size={14} />
+							<span className="hidden sm:inline">Add badge</span>
+							<span className="sm:hidden">Add</span>
+						</button>
+					</div>
+
+					{badges.length === 0 ? (
+						<p className={`text-sm ${muted}`}>
+							Add badges for your staff stickers (print once, reuse forever).
 						</p>
-					</div>
-					<button
-						type="button"
-						onClick={() => void handleAddBadge()}
-						disabled={saving || badges.length >= 6}
-						className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold shrink-0 ${
-							isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white"
-						} disabled:opacity-50`}
-					>
-						<Plus size={14} />
-						<span className="hidden sm:inline">Add badge</span>
-						<span className="sm:hidden">Add</span>
-					</button>
-				</div>
+					) : (
+						<div className="grid gap-3 grid-cols-1 md:grid-cols-2 2xl:grid-cols-3">
+							{badges.map((badge) => (
+								<BadgeCard
+									key={badge.id}
+									badge={badge}
+									slug={slug}
+									activeStaff={activeStaff}
+									assignValue={assignStaffId[badge.id] ?? ""}
+									saving={saving}
+									theme={theme}
+									onAssignChange={(staffId) =>
+										setAssignStaffId((prev) => ({ ...prev, [badge.id]: staffId }))
+									}
+									onSave={() => void handleAssign(badge.id)}
+									onPrint={() => setPrintBadge(badge)}
+									onDelete={() => void handleDeleteBadge(badge)}
+								/>
+							))}
+						</div>
+					)}
+				</section>
 
-				{badges.length === 0 ? (
-					<p className={`text-sm ${muted}`}>
-						Add badges for your staff stickers (print once, reuse forever).
-					</p>
-				) : (
-					<div className="grid gap-3 grid-cols-1 lg:grid-cols-2">
-						{badges.map((badge) => (
-							<BadgeCard
-								key={badge.id}
-								badge={badge}
-								slug={slug}
-								activeStaff={activeStaff}
-								assignValue={assignStaffId[badge.id] ?? ""}
-								saving={saving}
-								theme={theme}
-								onAssignChange={(staffId) =>
-									setAssignStaffId((prev) => ({ ...prev, [badge.id]: staffId }))
-								}
-								onSave={() => void handleAssign(badge.id)}
-								onPrint={() => setPrintBadge(badge)}
-								onDelete={() => void handleDeleteBadge(badge)}
-							/>
-						))}
-					</div>
-				)}
-			</section>
-
-			<section className={`rounded-2xl border p-4 sm:p-6 space-y-4 min-w-0 ${card}`}>
-				<div className="flex items-center justify-between gap-3">
+				<section
+					className={`rounded-2xl border p-4 sm:p-5 space-y-4 min-w-0 xl:sticky xl:top-4 ${card}`}
+				>
 					<div className="min-w-0">
 						<h2 className={`text-base sm:text-lg font-semibold flex items-center gap-2 ${text}`}>
 							<Users size={18} className="shrink-0 opacity-70" />
@@ -624,51 +627,49 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 								: ""}
 						</p>
 					</div>
-				</div>
 
-				<div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2">
-					<input
-						type="text"
-						placeholder="Name"
-						value={newStaffName}
-						onChange={(e) => setNewStaffName(e.target.value)}
-						className={`w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm ${input}`}
-					/>
-					<input
-						type="tel"
-						placeholder="Mobile (optional)"
-						value={newStaffPhone}
-						onChange={(e) => setNewStaffPhone(e.target.value)}
-						className={`w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm ${input}`}
-					/>
-					<button
-						type="button"
-						onClick={() => void handleAddStaff()}
-						disabled={saving || !newStaffName.trim()}
-						className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap ${
-							isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white"
-						} disabled:opacity-50`}
-					>
-						<Plus size={14} /> Add staff
-					</button>
-				</div>
+					<div className="grid grid-cols-1 gap-2">
+						<input
+							type="text"
+							placeholder="Name"
+							value={newStaffName}
+							onChange={(e) => setNewStaffName(e.target.value)}
+							className={`w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm ${input}`}
+						/>
+						<input
+							type="tel"
+							placeholder="Mobile (optional)"
+							value={newStaffPhone}
+							onChange={(e) => setNewStaffPhone(e.target.value)}
+							className={`w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm ${input}`}
+						/>
+						<button
+							type="button"
+							onClick={() => void handleAddStaff()}
+							disabled={saving || !newStaffName.trim()}
+							className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold ${
+								isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white"
+							} disabled:opacity-50`}
+						>
+							<Plus size={14} /> Add staff
+						</button>
+					</div>
 
-				{staff.length === 0 ? (
-					<p className={`text-sm ${muted}`}>No staff yet. Add someone to assign a badge.</p>
-				) : (
-					<ul className="space-y-2">
-						{staff.map((s) => {
-							const isEditing = editingStaffId === s.id;
-							return (
-								<li
-									key={s.id}
-									className={`rounded-xl border p-3 sm:p-3.5 min-w-0 ${innerBorder} ${
-										s.active ? "" : "opacity-60"
-									}`}
-								>
-									{isEditing ? (
-										<div className="flex flex-col gap-2">
-											<div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+					{staff.length === 0 ? (
+						<p className={`text-sm ${muted}`}>No staff yet. Add someone to assign a badge.</p>
+					) : (
+						<ul className="space-y-2">
+							{staff.map((s) => {
+								const isEditing = editingStaffId === s.id;
+								return (
+									<li
+										key={s.id}
+										className={`rounded-xl border p-3 min-w-0 ${innerBorder} ${
+											s.active ? "" : "opacity-60"
+										}`}
+									>
+										{isEditing ? (
+											<div className="flex flex-col gap-2">
 												<input
 													type="text"
 													value={editStaffName}
@@ -683,86 +684,84 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 													placeholder="Mobile (optional)"
 													className={`w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm ${input}`}
 												/>
-											</div>
-											<div className="flex items-center gap-2">
-												<button
-													type="button"
-													onClick={() => void handleSaveStaff()}
-													disabled={saving || !editStaffName.trim()}
-													className={`px-3 py-2 rounded-xl text-xs font-bold ${
-														isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white"
-													} disabled:opacity-50`}
-												>
-													Save
-												</button>
-												<button
-													type="button"
-													onClick={cancelEditStaff}
-													disabled={saving}
-													className={`p-2 rounded-xl border ${
-														isDarkTheme
-															? "border-zinc-700 text-zinc-400"
-															: "border-zinc-200 text-zinc-500"
-													}`}
-													title="Cancel"
-													aria-label="Cancel edit"
-												>
-													<X size={14} />
-												</button>
-											</div>
-										</div>
-									) : (
-										<div className="flex items-start sm:items-center justify-between gap-3">
-											<div className="min-w-0">
-												<p className={`font-medium break-words ${text}`}>
-													{s.name}
-													{!s.active && (
-														<span className="ml-2 text-xs font-normal text-zinc-500">
-															(inactive)
-														</span>
-													)}
-												</p>
-												<p className={`text-xs mt-0.5 truncate ${muted}`}>
-													{s.phone || "No mobile number"}
-												</p>
-											</div>
-											<div className="flex items-center gap-1.5 shrink-0">
-												<button
-													type="button"
-													onClick={() => startEditStaff(s)}
-													disabled={saving}
-													className={`p-2 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs inline-flex items-center gap-1 ${
-														isDarkTheme
-															? "border-zinc-700 text-zinc-300 hover:bg-zinc-800"
-															: "border-zinc-200 text-zinc-600 hover:bg-zinc-100"
-													}`}
-													title="Edit"
-													aria-label={`Edit ${s.name}`}
-												>
-													<Pencil size={14} />
-													<span className="hidden sm:inline">Edit</span>
-												</button>
-												{s.active && (
+												<div className="flex items-center gap-2">
 													<button
 														type="button"
-														onClick={() => void handleDeactivate(s.id)}
-														className="p-2 sm:px-2.5 sm:py-1.5 rounded-xl border border-red-500/30 text-red-400 text-xs inline-flex items-center gap-1 hover:bg-red-500/10"
-														title="Deactivate"
-														aria-label={`Deactivate ${s.name}`}
+														onClick={() => void handleSaveStaff()}
+														disabled={saving || !editStaffName.trim()}
+														className={`px-3 py-2 rounded-xl text-xs font-bold ${
+															isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white"
+														} disabled:opacity-50`}
 													>
-														<UserMinus size={14} />
-														<span className="hidden sm:inline">Deactivate</span>
+														Save
 													</button>
-												)}
+													<button
+														type="button"
+														onClick={cancelEditStaff}
+														disabled={saving}
+														className={`p-2 rounded-xl border ${
+															isDarkTheme
+																? "border-zinc-700 text-zinc-400"
+																: "border-zinc-200 text-zinc-500"
+														}`}
+														title="Cancel"
+														aria-label="Cancel edit"
+													>
+														<X size={14} />
+													</button>
+												</div>
 											</div>
-										</div>
-									)}
-								</li>
-							);
-						})}
-					</ul>
-				)}
-			</section>
+										) : (
+											<div className="flex items-start justify-between gap-2">
+												<div className="min-w-0">
+													<p className={`font-medium break-words ${text}`}>
+														{s.name}
+														{!s.active && (
+															<span className="ml-2 text-xs font-normal text-zinc-500">
+																(inactive)
+															</span>
+														)}
+													</p>
+													<p className={`text-xs mt-0.5 truncate ${muted}`}>
+														{s.phone || "No mobile number"}
+													</p>
+												</div>
+												<div className="flex items-center gap-1 shrink-0">
+													<button
+														type="button"
+														onClick={() => startEditStaff(s)}
+														disabled={saving}
+														className={`p-2 rounded-xl border ${
+															isDarkTheme
+																? "border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+																: "border-zinc-200 text-zinc-600 hover:bg-zinc-100"
+														}`}
+														title="Edit"
+														aria-label={`Edit ${s.name}`}
+													>
+														<Pencil size={14} />
+													</button>
+													{s.active && (
+														<button
+															type="button"
+															onClick={() => void handleDeactivate(s.id)}
+															className="p-2 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10"
+															title="Deactivate"
+															aria-label={`Deactivate ${s.name}`}
+														>
+															<UserMinus size={14} />
+														</button>
+													)}
+												</div>
+											</div>
+										)}
+									</li>
+								);
+							})}
+						</ul>
+					)}
+				</section>
+			</div>
 
 			<section className={`rounded-2xl border p-4 sm:p-6 space-y-4 min-w-0 ${card}`}>
 				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
