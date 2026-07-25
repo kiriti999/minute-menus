@@ -37,11 +37,29 @@ export function dishesFromMenu(menu: Category[]): RecipeBookDish[] {
 	return rows;
 }
 
-/** Build recipe list: curated match first, else generate from menu fields. Always include shared dressings. */
+/** True if recipe/menu text references this dressing (e.g. "Caesar cup", "vinaigrette"). */
+function textMentionsDressing(text: string, dressingName: string): boolean {
+	const hay = text.toLowerCase();
+	const needle = dressingName.toLowerCase();
+	if (hay.includes(needle)) return true;
+	const tokens = needle.split(/[^a-z0-9]+/).filter((t) => t.length >= 5);
+	return tokens.some((t) => hay.includes(t));
+}
+
+function collectDressingsForText(text: string, into: Set<string>): void {
+	for (const dressing of RECIPE_BOOK) {
+		if (dressing.category !== "Dressings") continue;
+		if (textMentionsDressing(text, dressing.dishName)) {
+			into.add(dressing.dishName.toLowerCase());
+		}
+	}
+}
+
+/** Build recipe list from live menu only; dressing cards only when a menu dish uses them. */
 export function buildRecipeEntries(menuDishes: RecipeBookDish[]): RecipeEntry[] {
-	const dressings = RECIPE_BOOK.filter((r) => r.category === "Dressings");
 	const seen = new Set<string>();
 	const fromMenu: RecipeEntry[] = [];
+	const neededDressingKeys = new Set<string>();
 
 	for (const d of menuDishes) {
 		const key = d.name.trim().toLowerCase();
@@ -54,11 +72,19 @@ export function buildRecipeEntries(menuDishes: RecipeBookDish[]): RecipeEntry[] 
 				category: d.category || curated.category,
 				ingredients: curated.ingredients,
 			});
+			collectDressingsForText(
+				`${curated.ingredients} ${curated.method} ${curated.yieldNote ?? ""}`,
+				neededDressingKeys,
+			);
 			continue;
 		}
 		fromMenu.push(recipeFromMenuFields(d.name, d.category, d.ingredients, d.description));
+		collectDressingsForText(`${d.ingredients} ${d.description}`, neededDressingKeys);
 	}
 
+	const dressings = RECIPE_BOOK.filter(
+		(r) => r.category === "Dressings" && neededDressingKeys.has(r.dishName.toLowerCase()),
+	);
 	return [...dressings, ...fromMenu];
 }
 
