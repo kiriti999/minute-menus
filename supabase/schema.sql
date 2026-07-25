@@ -1169,6 +1169,17 @@ begin
   order by clock_in_at desc limit 1;
 
   if v_open.id is not null then
+    -- Guard against QR prefetch / double-tap immediately clocking out
+    if v_now - v_open.clock_in_at < interval '90 seconds' then
+      return jsonb_build_object(
+        'ok', false,
+        'error', 'Just clocked in — wait a minute before clocking out.',
+        'action', 'in',
+        'staff_name', v_staff.name,
+        'at', v_open.clock_in_at
+      );
+    end if;
+
     update time_logs set clock_out_at = v_now where id = v_open.id;
     return jsonb_build_object(
       'ok', true,
