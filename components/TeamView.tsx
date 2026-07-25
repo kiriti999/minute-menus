@@ -41,54 +41,94 @@ const WeeklyHoursTables: React.FC<{
 		row.shifts.map((shift) => ({ row, shift, key: `${row.staffId}-${shift.clockInAt}` })),
 	);
 
+	const cardBorder = isDarkTheme ? "border-zinc-800" : "border-zinc-200";
+
 	return (
 		<div className="space-y-6">
-			<table className="w-full text-sm">
-				<thead>
-					<tr className={`text-left text-xs uppercase ${muted}`}>
-						<th className="pb-2">Staff</th>
-						<th className="pb-2">Phone</th>
-						<th className="pb-2 text-right">Hours</th>
-						<th className="pb-2 text-right">Days</th>
-					</tr>
-				</thead>
-				<tbody>
-					{rows.map((row) => (
-						<tr key={row.staffId} className={border}>
-							<td className={`py-2 ${text}`}>{row.staffName}</td>
-							<td className={`py-2 ${muted}`}>{row.phone ?? "—"}</td>
-							<td className={`py-2 text-right font-mono ${text}`}>{row.totalHours.toFixed(1)}h</td>
-							<td className={`py-2 text-right ${muted}`}>{row.daysWorked}</td>
+			{/* Mobile summary cards */}
+			<ul className="sm:hidden space-y-2">
+				{rows.map((row) => (
+					<li key={row.staffId} className={`rounded-lg border p-3 ${cardBorder}`}>
+						<p className={`font-medium ${text}`}>{row.staffName}</p>
+						<p className={`text-xs ${muted}`}>{row.phone ?? "No phone"}</p>
+						<div className="mt-2 flex justify-between text-sm">
+							<span className={`font-mono ${text}`}>{row.totalHours.toFixed(1)}h</span>
+							<span className={muted}>{row.daysWorked} day{row.daysWorked === 1 ? "" : "s"}</span>
+						</div>
+					</li>
+				))}
+			</ul>
+
+			{/* Desktop summary table */}
+			<div className="hidden sm:block overflow-x-auto -mx-1 px-1">
+				<table className="w-full text-sm min-w-[360px]">
+					<thead>
+						<tr className={`text-left text-xs uppercase ${muted}`}>
+							<th className="pb-2 pr-3">Staff</th>
+							<th className="pb-2 pr-3">Phone</th>
+							<th className="pb-2 text-right">Hours</th>
+							<th className="pb-2 text-right">Days</th>
 						</tr>
-					))}
-				</tbody>
-			</table>
+					</thead>
+					<tbody>
+						{rows.map((row) => (
+							<tr key={row.staffId} className={border}>
+								<td className={`py-2 pr-3 ${text}`}>{row.staffName}</td>
+								<td className={`py-2 pr-3 ${muted}`}>{row.phone ?? "—"}</td>
+								<td className={`py-2 text-right font-mono ${text}`}>{row.totalHours.toFixed(1)}h</td>
+								<td className={`py-2 text-right ${muted}`}>{row.daysWorked}</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
 
 			{shiftRows.length > 0 && (
 				<div>
 					<h3 className={`text-xs font-bold uppercase tracking-widest mb-2 ${muted}`}>Clock in / out</h3>
-					<table className="w-full text-sm">
-						<thead>
-							<tr className={`text-left text-xs uppercase ${muted}`}>
-								<th className="pb-2">Staff</th>
-								<th className="pb-2">Date</th>
-								<th className="pb-2">Clock in</th>
-								<th className="pb-2">Clock out</th>
-								<th className="pb-2 text-right">Hours</th>
-							</tr>
-						</thead>
-						<tbody>
-							{shiftRows.map(({ row, shift, key }) => (
-								<tr key={key} className={border}>
-									<td className={`py-2 ${text}`}>{row.staffName}</td>
-									<td className={`py-2 ${muted}`}>{formatShiftDate(shift.clockInAt)}</td>
-									<td className={`py-2 font-mono ${text}`}>{formatShiftTime(shift.clockInAt)}</td>
-									<td className={`py-2 font-mono ${muted}`}>{formatShiftClockOut(shift.clockOutAt)}</td>
-									<td className={`py-2 text-right font-mono ${text}`}>{shift.hours.toFixed(1)}h</td>
+					<ul className="sm:hidden space-y-2">
+						{shiftRows.map(({ row, shift, key }) => (
+							<li key={key} className={`rounded-lg border p-3 ${cardBorder}`}>
+								<p className={`font-medium ${text}`}>{row.staffName}</p>
+								<p className={`text-xs ${muted}`}>{formatShiftDate(shift.clockInAt)}</p>
+								<div className="mt-2 grid grid-cols-2 gap-2 text-sm">
+									<div>
+										<p className={`text-[10px] uppercase ${muted}`}>In</p>
+										<p className={`font-mono ${text}`}>{formatShiftTime(shift.clockInAt)}</p>
+									</div>
+									<div>
+										<p className={`text-[10px] uppercase ${muted}`}>Out</p>
+										<p className={`font-mono ${muted}`}>{formatShiftClockOut(shift.clockOutAt)}</p>
+									</div>
+								</div>
+								<p className={`mt-2 text-right font-mono text-sm ${text}`}>{shift.hours.toFixed(1)}h</p>
+							</li>
+						))}
+					</ul>
+					<div className="hidden sm:block overflow-x-auto -mx-1 px-1">
+						<table className="w-full text-sm min-w-[480px]">
+							<thead>
+								<tr className={`text-left text-xs uppercase ${muted}`}>
+									<th className="pb-2 pr-3">Staff</th>
+									<th className="pb-2 pr-3">Date</th>
+									<th className="pb-2 pr-3">Clock in</th>
+									<th className="pb-2 pr-3">Clock out</th>
+									<th className="pb-2 text-right">Hours</th>
 								</tr>
-							))}
-						</tbody>
-					</table>
+							</thead>
+							<tbody>
+								{shiftRows.map(({ row, shift, key }) => (
+									<tr key={key} className={border}>
+										<td className={`py-2 pr-3 ${text}`}>{row.staffName}</td>
+										<td className={`py-2 pr-3 ${muted}`}>{formatShiftDate(shift.clockInAt)}</td>
+										<td className={`py-2 pr-3 font-mono ${text}`}>{formatShiftTime(shift.clockInAt)}</td>
+										<td className={`py-2 pr-3 font-mono ${muted}`}>{formatShiftClockOut(shift.clockOutAt)}</td>
+										<td className={`py-2 text-right font-mono ${text}`}>{shift.hours.toFixed(1)}h</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
 				</div>
 			)}
 		</div>
@@ -292,9 +332,9 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 	}
 
 	return (
-		<div className="space-y-8 pb-12">
+		<div className="space-y-6 sm:space-y-8 pb-12 max-w-5xl">
 			<div>
-				<h1 className={`text-3xl font-light tracking-tight mb-1 ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
+				<h1 className={`text-2xl sm:text-3xl font-light tracking-tight mb-1 ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
 					Team
 				</h1>
 				<p className={`text-sm ${muted}`}>
@@ -303,14 +343,14 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 			</div>
 
 			{error && (
-				<div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+				<div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 sm:px-4 py-3 text-sm text-red-400 break-words">
 					{error}
 				</div>
 			)}
 
-			<section className={`rounded-xl border p-6 space-y-4 ${card}`}>
-				<div className="flex items-center justify-between gap-4 flex-wrap">
-					<h2 className={`text-lg font-semibold ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>QR Badges</h2>
+			<section className={`rounded-xl border p-4 sm:p-6 space-y-4 ${card}`}>
+				<div className="flex items-center justify-between gap-3 flex-wrap">
+					<h2 className={`text-base sm:text-lg font-semibold ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>QR Badges</h2>
 					<button
 						type="button"
 						onClick={() => void handleAddBadge()}
@@ -327,15 +367,15 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 					<p className={`text-sm ${muted}`}>Add two badges for your staff stickers (print once, reuse forever).</p>
 				)}
 
-				<div className="grid gap-4 md:grid-cols-2">
+				<div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
 					{badges.map((badge) => {
 						const url = slug ? badgeClockUrl(slug, badge.badgeToken) : "";
 						return (
-							<div key={badge.id} className={`rounded-lg border p-4 space-y-3 ${isDarkTheme ? "border-zinc-800" : "border-zinc-200"}`}>
+							<div key={badge.id} className={`rounded-lg border p-3 sm:p-4 space-y-3 min-w-0 ${isDarkTheme ? "border-zinc-800" : "border-zinc-200"}`}>
 								<div className="flex items-start justify-between gap-2">
-									<div>
+									<div className="min-w-0">
 										<p className={`font-semibold ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>{badge.label}</p>
-										<p className={`text-xs ${muted}`}>
+										<p className={`text-xs ${muted} truncate`}>
 											{badge.assignedStaffName ? `Assigned: ${badge.assignedStaffName}` : "Unassigned"}
 										</p>
 									</div>
@@ -343,7 +383,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 										<button
 											type="button"
 											onClick={() => setPrintBadge(badge)}
-											className={`p-2 rounded-lg border ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-200 hover:bg-zinc-100"}`}
+											className={`p-2 rounded-lg border shrink-0 ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-200 hover:bg-zinc-100"}`}
 											title="Print sticker"
 										>
 											<Printer size={16} />
@@ -351,18 +391,20 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 									)}
 								</div>
 								{url && (
-									<div className="flex items-center gap-3">
-										<QRCodeSVG value={url} size={64} level="H" bgColor={isDarkTheme ? "#18181b" : "#ffffff"} fgColor={isDarkTheme ? "#fff" : "#000"} />
-										<p className={`text-[10px] break-all flex-1 ${muted}`}>{url}</p>
+									<div className="flex flex-col sm:flex-row items-start gap-3 min-w-0">
+										<div className="shrink-0">
+											<QRCodeSVG value={url} size={64} level="H" bgColor={isDarkTheme ? "#18181b" : "#ffffff"} fgColor={isDarkTheme ? "#fff" : "#000"} />
+										</div>
+										<p className={`text-[10px] break-all flex-1 min-w-0 leading-relaxed ${muted}`}>{url}</p>
 									</div>
 								)}
-								<div className="flex gap-2">
+								<div className="flex flex-col sm:flex-row gap-2">
 									<select
 										value={assignStaffId[badge.id] ?? ""}
 										onChange={(e) =>
 											setAssignStaffId((prev) => ({ ...prev, [badge.id]: e.target.value }))
 										}
-										className={`flex-1 text-sm rounded-lg border px-2 py-1.5 ${input}`}
+										className={`w-full sm:flex-1 text-sm rounded-lg border px-2 py-2 sm:py-1.5 ${input}`}
 									>
 										<option value="">Unassigned</option>
 										{activeStaff.map((s) => (
@@ -375,7 +417,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 										type="button"
 										onClick={() => void handleAssign(badge.id)}
 										disabled={saving}
-										className={`px-3 py-1.5 rounded-lg text-xs font-bold shrink-0 ${
+										className={`w-full sm:w-auto px-3 py-2 sm:py-1.5 rounded-lg text-xs font-bold shrink-0 ${
 											isDarkTheme ? "bg-zinc-800 text-white" : "bg-zinc-200 text-zinc-900"
 										}`}
 									>
@@ -388,59 +430,59 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 				</div>
 			</section>
 
-			<section className={`rounded-xl border p-6 space-y-4 ${card}`}>
-				<h2 className={`text-lg font-semibold ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>Staff</h2>
-				<div className="flex flex-wrap gap-2">
+			<section className={`rounded-xl border p-4 sm:p-6 space-y-4 ${card}`}>
+				<h2 className={`text-base sm:text-lg font-semibold ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>Staff</h2>
+				<div className="flex flex-col sm:flex-row sm:flex-wrap gap-2">
 					<input
 						type="text"
 						placeholder="Name"
 						value={newStaffName}
 						onChange={(e) => setNewStaffName(e.target.value)}
-						className={`rounded-lg border px-3 py-2 text-sm ${input}`}
+						className={`w-full sm:w-auto sm:min-w-[160px] sm:flex-1 rounded-lg border px-3 py-2 text-sm ${input}`}
 					/>
 					<input
 						type="tel"
 						placeholder="Mobile (optional)"
 						value={newStaffPhone}
 						onChange={(e) => setNewStaffPhone(e.target.value)}
-						className={`rounded-lg border px-3 py-2 text-sm ${input}`}
+						className={`w-full sm:w-auto sm:min-w-[160px] sm:flex-1 rounded-lg border px-3 py-2 text-sm ${input}`}
 					/>
 					<button
 						type="button"
 						onClick={() => void handleAddStaff()}
 						disabled={saving || !newStaffName.trim()}
-						className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold ${
+						className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-bold ${
 							isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white"
 						} disabled:opacity-50`}
 					>
 						<Plus size={14} /> Add staff
 					</button>
 				</div>
-				<ul className="divide-y divide-zinc-800/50">
+				<ul className={`divide-y ${isDarkTheme ? "divide-zinc-800/50" : "divide-zinc-200"}`}>
 					{staff.map((s) => {
 						const isEditing = editingStaffId === s.id;
 						return (
 						<li key={s.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
 							{isEditing ? (
-								<div className="flex flex-wrap gap-2 flex-1">
+								<div className="flex flex-col sm:flex-row flex-wrap gap-2 flex-1 w-full min-w-0">
 									<input
 										type="text"
 										value={editStaffName}
 										onChange={(e) => setEditStaffName(e.target.value)}
 										placeholder="Name"
-										className={`rounded-lg border px-3 py-2 text-sm min-w-[140px] ${input}`}
+										className={`w-full sm:w-auto rounded-lg border px-3 py-2 text-sm sm:min-w-[140px] ${input}`}
 									/>
 									<input
 										type="tel"
 										value={editStaffPhone}
 										onChange={(e) => setEditStaffPhone(e.target.value)}
 										placeholder="Mobile (optional)"
-										className={`rounded-lg border px-3 py-2 text-sm min-w-[140px] ${input}`}
+										className={`w-full sm:w-auto rounded-lg border px-3 py-2 text-sm sm:min-w-[140px] ${input}`}
 									/>
 								</div>
 							) : (
-								<div>
-									<p className={`font-medium ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
+								<div className="min-w-0">
+									<p className={`font-medium break-words ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
 										{s.name}
 										{!s.active && (
 											<span className="ml-2 text-xs text-zinc-500">(inactive)</span>
@@ -453,7 +495,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 									)}
 								</div>
 							)}
-							<div className="flex items-center gap-2 shrink-0">
+							<div className="flex items-center gap-2 shrink-0 flex-wrap">
 								{isEditing ? (
 									<>
 										<button
@@ -506,23 +548,23 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 				</ul>
 			</section>
 
-			<section className={`rounded-xl border p-6 space-y-4 ${card}`}>
-				<div className="flex flex-wrap items-center justify-between gap-3">
-					<h2 className={`text-lg font-semibold flex items-center gap-2 ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
+			<section className={`rounded-xl border p-4 sm:p-6 space-y-4 ${card}`}>
+				<div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-3">
+					<h2 className={`text-base sm:text-lg font-semibold flex items-center gap-2 ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
 						<QrCode size={18} /> Weekly hours
 					</h2>
-					<div className="flex items-center gap-2">
+					<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
 						<input
 							type="date"
 							value={weekStart}
 							onChange={(e) => setWeekStart(e.target.value)}
-							className={`rounded-lg border px-2 py-1 text-sm ${input}`}
+							className={`w-full sm:w-auto rounded-lg border px-2 py-2 sm:py-1 text-sm ${input}`}
 						/>
 						<button
 							type="button"
 							onClick={() => exportWeeklyHoursCsv(weeklyHours, weekStart)}
 							disabled={weeklyHours.length === 0}
-							className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold border ${
+							className={`inline-flex items-center justify-center gap-1 px-3 py-2 sm:py-1.5 rounded-lg text-xs font-bold border ${
 								isDarkTheme ? "border-zinc-700 text-white" : "border-zinc-300 text-zinc-900"
 							} disabled:opacity-50`}
 						>
@@ -539,8 +581,8 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 
 			{printBadge && slug && (
 				<>
-					<div className="fixed inset-0 z-[80] bg-black/80 flex items-center justify-center p-4">
-						<div className="bg-zinc-900 rounded-xl max-w-md w-full p-6 space-y-4">
+					<div className="fixed inset-0 z-[80] bg-black/80 flex items-end sm:items-center justify-center p-0 sm:p-4">
+						<div className="bg-zinc-900 rounded-t-xl sm:rounded-xl max-w-md w-full p-4 sm:p-6 space-y-4 max-h-[90vh] overflow-y-auto">
 							<h3 className="text-white font-semibold">Print badge sticker</h3>
 							<p className="text-zinc-400 text-sm">
 								Use Print — only the sticker below is sent to the printer (no dashboard or browser UI).

@@ -2652,7 +2652,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           />
         )}
 
-        {currentView === "TEAM" && <TeamView isDarkTheme={isDarkTheme} />}
+        {currentView === "TEAM" && (
+          <div className={`flex-1 overflow-y-auto p-4 md:p-10 animate-in fade-in duration-500 pb-24 ${isDarkTheme ? "bg-black" : "bg-zinc-50"}`}>
+            <TeamView isDarkTheme={isDarkTheme} />
+          </div>
+        )}
 
         {currentView === "SALES" && restaurantDetails && (
           <SalesView
