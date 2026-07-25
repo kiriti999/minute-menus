@@ -1361,16 +1361,14 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         <Printer size={18} />
         <span className="font-medium">Print Designs</span>
       </button>
-      <button
-        onClick={() => {
-          window.history.pushState({}, "", "/recipe-book");
-          window.location.assign("/recipe-book");
-        }}
+      <a
+        href="/recipe-book"
+        onClick={() => setIsMobileMenuOpen(false)}
         className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-300 ${isDarkTheme ? "text-zinc-500 hover:text-white hover:bg-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200"}`}
       >
         <BookOpen size={18} />
         <span className="font-medium">Recipe Book</span>
-      </button>
+      </a>
       <button
         onClick={() => {
           setCurrentView("CUSTOMERS");

@@ -28,16 +28,13 @@ function parseClockRoute(): { slug: string; badge: string | null } | null {
     return { slug: match[1].toLowerCase(), badge };
 }
 
-function isRecipeBookPath(): boolean {
-    return /^\/recipe-book\/?$/i.test(window.location.pathname);
-}
-
 const App: React.FC = () => {
     const [mode, setMode] = useState<AppMode>(AppMode.LANDING);
     const [session, setSession] = useState<Session | null>(null);
     const [targetMode, setTargetMode] = useState<AppMode | null>(null);
     const [authLoading, setAuthLoading] = useState(true);
     const [isDarkTheme, setIsDarkTheme] = useState(true);
+    const [path, setPath] = useState(() => window.location.pathname);
 
     const slugRoute = useRestaurantSlugRoute();
     const restaurantSlug = slugRoute.slug;
@@ -50,6 +47,12 @@ const App: React.FC = () => {
     const toggleTheme = () => setIsDarkTheme((prev) => !prev);
 
     const skipOwnerLogin = devSkipOwnerLogin();
+
+    useEffect(() => {
+        const syncPath = () => setPath(window.location.pathname);
+        window.addEventListener("popstate", syncPath);
+        return () => window.removeEventListener("popstate", syncPath);
+    }, []);
 
     useEffect(() => {
         const useThemedShell = mode === AppMode.CUSTOMER || mode === AppMode.OWNER;
@@ -120,13 +123,14 @@ const App: React.FC = () => {
         return <LoadingScreen />;
     }
 
-    if (isRecipeBookPath()) {
+    if (/^\/recipe-book\/?$/i.test(path)) {
         if (!isAuthenticated) {
             return (
                 <LoginPage
                     onLoginSuccess={() => {
                         setMode(AppMode.OWNER);
                         window.history.replaceState({}, "", "/recipe-book");
+                        setPath("/recipe-book");
                     }}
                     targetMode={AppMode.OWNER}
                 />
@@ -134,9 +138,11 @@ const App: React.FC = () => {
         }
         return (
             <RecipeBookPage
+                key={path}
                 isDarkTheme={isDarkTheme}
                 onBack={() => {
                     window.history.pushState({}, "", "/");
+                    setPath("/");
                     setMode(AppMode.OWNER);
                 }}
             />
