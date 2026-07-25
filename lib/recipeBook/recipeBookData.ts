@@ -15,7 +15,11 @@ export type RecipeEntry = {
 	category: string;
 	/** Portion / yield note shown under the title. */
 	yieldNote?: string;
-	/** Cost-effective ingredient build. */
+	/** Exact description from the menu editor (live). */
+	menuDescription?: string;
+	/** Exact ingredients from the menu editor (live). */
+	menuIngredients?: string;
+	/** Cost-effective kitchen build (curated). */
 	ingredients: string;
 	/** Short easy method. */
 	method: string;

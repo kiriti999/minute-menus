@@ -55,6 +55,15 @@ function collectDressingsForText(text: string, into: Set<string>): void {
 	}
 }
 
+function withMenuFields(entry: RecipeEntry, dish: RecipeBookDish): RecipeEntry {
+	return {
+		...entry,
+		category: dish.category || entry.category,
+		menuDescription: dish.description || undefined,
+		menuIngredients: dish.ingredients || undefined,
+	};
+}
+
 /** Build recipe list from live menu only; dressing cards only when a menu dish uses them. */
 export function buildRecipeEntries(menuDishes: RecipeBookDish[]): RecipeEntry[] {
 	const seen = new Set<string>();
@@ -67,18 +76,16 @@ export function buildRecipeEntries(menuDishes: RecipeBookDish[]): RecipeEntry[] 
 		seen.add(key);
 		const curated = findRecipeForDish(d.name);
 		if (curated) {
-			fromMenu.push({
-				...curated,
-				category: d.category || curated.category,
-				ingredients: curated.ingredients,
-			});
+			fromMenu.push(withMenuFields(curated, d));
 			collectDressingsForText(
-				`${curated.ingredients} ${curated.method} ${curated.yieldNote ?? ""}`,
+				`${d.ingredients} ${d.description} ${curated.ingredients} ${curated.method} ${curated.yieldNote ?? ""}`,
 				neededDressingKeys,
 			);
 			continue;
 		}
-		fromMenu.push(recipeFromMenuFields(d.name, d.category, d.ingredients, d.description));
+		fromMenu.push(
+			withMenuFields(recipeFromMenuFields(d.name, d.category, d.ingredients, d.description), d),
+		);
 		collectDressingsForText(`${d.ingredients} ${d.description}`, neededDressingKeys);
 	}
 
@@ -112,14 +119,31 @@ function renderCard(entry: RecipeEntry): string {
 	const yieldLine = entry.yieldNote
 		? `<p class="yield">${escapeHtml(entry.yieldNote)}</p>`
 		: "";
+	const menuDesc = entry.menuDescription
+		? `<p class="label">Menu description</p><p class="body menu-field">${escapeHtml(entry.menuDescription)}</p>`
+		: `<p class="label">Menu description</p><p class="body muted">Not set in menu editor</p>`;
+	const menuIng = entry.menuIngredients
+		? `<p class="label">Menu ingredients</p><p class="body menu-field">${escapeHtml(entry.menuIngredients)}</p>`
+		: `<p class="label">Menu ingredients</p><p class="body muted">Not set in menu editor</p>`;
+	const kitchenBuild =
+		entry.category === "Dressings"
+			? ""
+			: `<p class="label">Kitchen build (portion guide)</p>
+  <p class="body">${escapeHtml(entry.ingredients)}</p>
+  <p class="label">Easy method</p>
+  <p class="body">${escapeHtml(entry.method)}</p>`;
+	const dressingBuild =
+		entry.category === "Dressings"
+			? `<p class="label">Batch recipe</p>
+  <p class="body">${escapeHtml(entry.ingredients)}</p>
+  <p class="label">Easy method</p>
+  <p class="body">${escapeHtml(entry.method)}</p>`
+			: "";
 	return `
 <article class="card">
   <h3>${escapeHtml(entry.dishName)}</h3>
   ${yieldLine}
-  <p class="label">Cost-effective build</p>
-  <p class="body">${escapeHtml(entry.ingredients)}</p>
-  <p class="label">Easy method</p>
-  <p class="body">${escapeHtml(entry.method)}</p>
+  ${entry.category === "Dressings" ? dressingBuild : `${menuDesc}${menuIng}${kitchenBuild}`}
   <p class="label">Kitchen hacks</p>
   <ul class="hacks">${hacks}</ul>
 </article>`;
@@ -211,6 +235,14 @@ export function buildRecipeBookHtml(opts: {
       color: #5a7a74;
     }
     .body { margin: 0; }
+    .menu-field {
+      background: #f0f7f4;
+      border: 1px solid #d5e5e0;
+      border-radius: 6px;
+      padding: 6px 8px;
+      white-space: pre-wrap;
+    }
+    .muted { color: #8a9e97; font-style: italic; }
     .hacks { margin: 4px 0 0; padding-left: 16px; }
     .hacks li { margin-bottom: 3px; }
     .hacks strong { color: #0b4a42; }
@@ -239,11 +271,10 @@ export function buildRecipeBookHtml(opts: {
     ${nav}
     <header>
       <h1>${name} — Kitchen Recipe Book</h1>
-      <p class="meta">Cost-effective builds · easy methods · kitchen hacks · printable A4</p>
+      <p class="meta">Live menu description &amp; ingredients · kitchen builds · hacks · printable A4</p>
       <div class="banner">
-        <strong>House rules:</strong> Salad bowls weigh <strong>300–350g</strong> (no dressing tossed in).
-        Dressing always in a <strong>120ml</strong> side cup (fill 110–120ml).
-        Overnight oats jars finish at <strong>250–280g</strong>. Prefer mayo-based dressings over raw-egg emulsions.
+        <strong>From your menu:</strong> each dish shows the exact <strong>description</strong> and <strong>ingredients</strong> saved in the menu editor.
+        Below that: kitchen portion guide and hacks. Salad bowls <strong>300–350g</strong>; dressing in a <strong>120ml</strong> side cup; oats <strong>250–280g</strong>.
       </div>
     </header>
     ${sections}
