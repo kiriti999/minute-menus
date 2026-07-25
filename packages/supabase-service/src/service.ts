@@ -1419,6 +1419,11 @@ export class SupabaseService {
         return createStaffBadge(this.client, rid, label);
     }
 
+    async deleteStaffBadge(badgeId: string) {
+        const { deleteStaffBadge } = await import("./teamTime");
+        return deleteStaffBadge(this.client, badgeId);
+    }
+
     async upsertRestaurantStaff(input: { id?: string; name: string; phone?: string | null; active?: boolean }) {
         const { upsertRestaurantStaff } = await import("./teamTime");
         const rid = await this.getRestaurantId();

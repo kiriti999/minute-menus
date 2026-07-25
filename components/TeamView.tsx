@@ -1,5 +1,5 @@
 import type { RestaurantStaffMember, StaffBadge, WeeklyStaffHours } from "@minute-menus/types";
-import { Download, Loader2, Pencil, Plus, Printer, QrCode, UserMinus, X } from "lucide-react";
+import { Download, Loader2, Pencil, Plus, Printer, QrCode, Trash2, UserMinus, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
@@ -246,6 +246,24 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 		}
 	};
 
+	const handleDeleteBadge = async (badge: StaffBadge) => {
+		const who = badge.assignedStaffName ? ` (assigned to ${badge.assignedStaffName})` : "";
+		if (!window.confirm(`Delete ${badge.label}${who}? The printed sticker QR will stop working.`)) {
+			return;
+		}
+		setSaving(true);
+		setError(null);
+		try {
+			if (printBadge?.id === badge.id) setPrintBadge(null);
+			await supabaseService.deleteStaffBadge(badge.id);
+			await load();
+		} catch (err) {
+			setError(getErrorMessage(err));
+		} finally {
+			setSaving(false);
+		}
+	};
+
 	const handleAddStaff = async () => {
 		if (!newStaffName.trim()) return;
 		setSaving(true);
@@ -379,16 +397,27 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 											{badge.assignedStaffName ? `Assigned: ${badge.assignedStaffName}` : "Unassigned"}
 										</p>
 									</div>
-									{url && (
+									<div className="flex items-center gap-1 shrink-0">
+										{url && (
+											<button
+												type="button"
+												onClick={() => setPrintBadge(badge)}
+												className={`p-2 rounded-lg border ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-200 hover:bg-zinc-100"}`}
+												title="Print sticker"
+											>
+												<Printer size={16} />
+											</button>
+										)}
 										<button
 											type="button"
-											onClick={() => setPrintBadge(badge)}
-											className={`p-2 rounded-lg border shrink-0 ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-200 hover:bg-zinc-100"}`}
-											title="Print sticker"
+											onClick={() => void handleDeleteBadge(badge)}
+											disabled={saving}
+											className={`p-2 rounded-lg border text-red-400 disabled:opacity-50 ${isDarkTheme ? "border-zinc-700 hover:bg-red-950/40" : "border-zinc-200 hover:bg-red-50"}`}
+											title="Delete badge"
 										>
-											<Printer size={16} />
+											<Trash2 size={16} />
 										</button>
-									)}
+									</div>
 								</div>
 								{url && (
 									<div className="flex flex-col sm:flex-row items-start gap-3 min-w-0">

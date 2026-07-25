@@ -165,6 +165,11 @@ export async function assignBadgeToStaff(
 	if (error) throw error;
 }
 
+export async function deleteStaffBadge(client: Client, badgeId: string): Promise<void> {
+	const { error } = await client.from("staff_badges").delete().eq("id", badgeId);
+	if (error) throw error;
+}
+
 export async function deactivateRestaurantStaff(client: Client, staffId: string): Promise<void> {
 	const { error: staffErr } = await client
 		.from("restaurant_staff")
