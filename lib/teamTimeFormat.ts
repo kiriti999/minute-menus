@@ -22,7 +22,7 @@ export function formatShiftClockOut(iso: string | null): string {
 	return formatShiftTime(iso);
 }
 
-export function exportWeeklyHoursCsv(rows: WeeklyStaffHours[], weekStart: string): void {
+export function exportWeeklyHoursCsv(rows: WeeklyStaffHours[], fileLabel: string): void {
 	const summaryHeader = "Staff,Phone,Total Hours,Days Worked\n";
 	const summaryBody = rows
 		.map((r) =>
@@ -38,7 +38,10 @@ export function exportWeeklyHoursCsv(rows: WeeklyStaffHours[], weekStart: string
 	const shiftHeader = "\n\nStaff,Phone,Date,Clock In,Clock Out,Session Hours\n";
 	const shiftBody = rows
 		.flatMap((r) =>
-			r.shifts.map((s) => shiftCsvRow(r.staffName, r.phone, s)),
+			r.shifts
+				.slice()
+				.sort((a, b) => new Date(b.clockInAt).getTime() - new Date(a.clockInAt).getTime())
+				.map((s) => shiftCsvRow(r.staffName, r.phone, s)),
 		)
 		.join("\n");
 
@@ -48,7 +51,7 @@ export function exportWeeklyHoursCsv(rows: WeeklyStaffHours[], weekStart: string
 	const url = URL.createObjectURL(blob);
 	const a = document.createElement("a");
 	a.href = url;
-	a.download = `team-hours-${weekStart}.csv`;
+	a.download = `team-hours-${fileLabel}.csv`;
 	a.click();
 	URL.revokeObjectURL(url);
 }

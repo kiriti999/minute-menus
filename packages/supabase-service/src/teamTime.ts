@@ -189,21 +189,21 @@ function hoursBetween(start: string, end: string): number {
 	return Math.max(0, ms / 3_600_000);
 }
 
-export async function getWeeklyStaffHours(
+export async function getStaffHoursInRange(
 	client: Client,
 	restaurantId: string,
-	weekStartIso: string,
+	fromIso: string,
+	toExclusiveIso: string,
 ): Promise<WeeklyStaffHours[]> {
-	const weekStart = new Date(`${weekStartIso}T00:00:00`);
-	const weekEnd = new Date(weekStart);
-	weekEnd.setDate(weekEnd.getDate() + 7);
+	const rangeStart = new Date(`${fromIso}T00:00:00`);
+	const rangeEnd = new Date(`${toExclusiveIso}T00:00:00`);
 
 	const { data, error } = await client
 		.from("time_logs")
 		.select("staff_id, clock_in_at, clock_out_at")
 		.eq("restaurant_id", restaurantId)
-		.gte("clock_in_at", weekStart.toISOString())
-		.lt("clock_in_at", weekEnd.toISOString());
+		.gte("clock_in_at", rangeStart.toISOString())
+		.lt("clock_in_at", rangeEnd.toISOString());
 	if (error) throw error;
 
 	const staffIds = [...new Set((data ?? []).map((row) => row.staff_id))];
@@ -258,6 +258,18 @@ export async function getWeeklyStaffHours(
 			(a, b) => new Date(a.clockInAt).getTime() - new Date(b.clockInAt).getTime(),
 		),
 	}));
+}
+
+export async function getWeeklyStaffHours(
+	client: Client,
+	restaurantId: string,
+	weekStartIso: string,
+): Promise<WeeklyStaffHours[]> {
+	const weekStart = new Date(`${weekStartIso}T00:00:00`);
+	const weekEnd = new Date(weekStart);
+	weekEnd.setDate(weekEnd.getDate() + 7);
+	const toExclusive = `${weekEnd.getFullYear()}-${String(weekEnd.getMonth() + 1).padStart(2, "0")}-${String(weekEnd.getDate()).padStart(2, "0")}`;
+	return getStaffHoursInRange(client, restaurantId, weekStartIso, toExclusive);
 }
 
 export function mondayOfWeek(date = new Date()): string {

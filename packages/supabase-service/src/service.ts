@@ -1446,6 +1446,12 @@ export class SupabaseService {
         return getWeeklyStaffHours(this.client, rid, weekStartIso);
     }
 
+    async getStaffHoursInRange(fromIso: string, toExclusiveIso: string, restaurantId?: string) {
+        const { getStaffHoursInRange } = await import("./teamTime");
+        const rid = restaurantId ?? (await this.getRestaurantId());
+        return getStaffHoursInRange(this.client, rid, fromIso, toExclusiveIso);
+    }
+
     async listTodaySalesInvoices(restaurantId?: string) {
         const { listTodaySalesInvoices } = await import("./salesInvoices");
         const rid = restaurantId ?? (await this.getRestaurantId());

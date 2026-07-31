@@ -34,12 +34,53 @@ export interface TeamViewProps {
 const SHIFT_PAGE_SIZE = 10;
 const DESKTOP_MQ = "(min-width: 640px)";
 
+type HoursPreset = "this_week" | "7d" | "this_month" | "30d" | "month" | "custom";
+
+function pad2(n: number): string {
+	return String(n).padStart(2, "0");
+}
+
+function localIsoDate(date = new Date()): string {
+	return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
+function addDaysIso(iso: string, days: number): string {
+	const d = new Date(`${iso}T12:00:00`);
+	d.setDate(d.getDate() + days);
+	return localIsoDate(d);
+}
+
 function mondayOfWeek(date = new Date()): string {
-	const d = new Date(date);
+	const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
 	const day = d.getDay();
 	const diff = d.getDate() - day + (day === 0 ? -6 : 1);
 	d.setDate(diff);
-	return d.toISOString().slice(0, 10);
+	return localIsoDate(d);
+}
+
+function monthBounds(yyyyMm: string): { from: string; to: string } {
+	const [y, m] = yyyyMm.split("-").map(Number);
+	const from = `${y}-${pad2(m)}-01`;
+	const last = new Date(y, m, 0);
+	return { from, to: localIsoDate(last) };
+}
+
+function rangeForPreset(
+	preset: HoursPreset,
+	monthValue: string,
+	currentFrom: string,
+	currentTo: string,
+): { from: string; to: string } {
+	const today = localIsoDate();
+	if (preset === "this_week") return { from: mondayOfWeek(), to: today };
+	if (preset === "7d") return { from: addDaysIso(today, -6), to: today };
+	if (preset === "30d") return { from: addDaysIso(today, -29), to: today };
+	if (preset === "this_month") {
+		const d = new Date();
+		return { from: `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-01`, to: today };
+	}
+	if (preset === "month") return monthBounds(monthValue);
+	return { from: currentFrom, to: currentTo };
 }
 
 function badgeClockUrl(slug: string, badgeToken: string): string {
@@ -49,14 +90,6 @@ function badgeClockUrl(slug: string, badgeToken: string): string {
 
 function shortClockPath(slug: string, badgeToken: string): string {
 	return `/clock/${slug}?badge=${badgeToken.slice(0, 8)}…`;
-}
-
-function localDateKey(iso: string): string {
-	const d = new Date(iso);
-	const y = d.getFullYear();
-	const m = String(d.getMonth() + 1).padStart(2, "0");
-	const day = String(d.getDate()).padStart(2, "0");
-	return `${y}-${m}-${day}`;
 }
 
 function useIsDesktop(): boolean {
@@ -92,16 +125,14 @@ const ClockInOutReport: React.FC<{
 	rows: WeeklyStaffHours[];
 	isDarkTheme: boolean;
 	muted: string;
-	input: string;
-}> = ({ rows, isDarkTheme, muted, input }) => {
-	const [dateFilter, setDateFilter] = useState("");
+}> = ({ rows, isDarkTheme, muted }) => {
 	const [page, setPage] = useState(1);
 	const border = isDarkTheme ? "border-t border-zinc-800" : "border-t border-zinc-100";
 	const text = isDarkTheme ? "text-white" : "text-zinc-900";
 	const cardBorder = isDarkTheme ? "border-zinc-800" : "border-zinc-200";
 	const cardBg = isDarkTheme ? "bg-zinc-950/50" : "bg-zinc-50";
 
-	const filtered = useMemo(() => {
+	const sorted = useMemo(() => {
 		const all: ShiftRow[] = rows.flatMap((row) =>
 			row.shifts.map((shift) => ({
 				row,
@@ -112,144 +143,114 @@ const ClockInOutReport: React.FC<{
 		all.sort(
 			(a, b) => new Date(b.shift.clockInAt).getTime() - new Date(a.shift.clockInAt).getTime(),
 		);
-		if (!dateFilter) return all;
-		return all.filter((item) => localDateKey(item.shift.clockInAt) === dateFilter);
-	}, [rows, dateFilter]);
+		return all;
+	}, [rows]);
 
-	const totalPages = Math.max(1, Math.ceil(filtered.length / SHIFT_PAGE_SIZE));
+	const totalPages = Math.max(1, Math.ceil(sorted.length / SHIFT_PAGE_SIZE));
 	const safePage = Math.min(page, totalPages);
-	const pageRows = filtered.slice((safePage - 1) * SHIFT_PAGE_SIZE, safePage * SHIFT_PAGE_SIZE);
+	const pageRows = sorted.slice((safePage - 1) * SHIFT_PAGE_SIZE, safePage * SHIFT_PAGE_SIZE);
 
 	useEffect(() => {
 		setPage(1);
-	}, [dateFilter, rows]);
+	}, [rows]);
 
-	if (filtered.length === 0 && !dateFilter) return null;
+	if (sorted.length === 0) return null;
 
 	return (
 		<div>
-			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-				<h3 className={`text-xs font-bold uppercase tracking-widest ${muted}`}>Clock in / out</h3>
-				<div className="flex items-center gap-2">
-					<input
-						type="date"
-						value={dateFilter}
-						onChange={(e) => setDateFilter(e.target.value)}
-						className={`w-full sm:w-auto min-w-0 rounded-xl border px-2.5 py-2 text-sm ${input}`}
-						aria-label="Filter clock rows by date"
-					/>
-					{dateFilter && (
-						<button
-							type="button"
-							onClick={() => setDateFilter("")}
-							className={`shrink-0 text-xs px-2 py-2 rounded-xl border ${
-								isDarkTheme ? "border-zinc-700 text-zinc-300" : "border-zinc-200 text-zinc-600"
-							}`}
-						>
-							Clear
-						</button>
-					)}
-				</div>
-			</div>
-
-			{filtered.length === 0 ? (
-				<p className={`text-sm ${muted}`}>No clock rows for this date.</p>
-			) : (
-				<>
-					<ul className="sm:hidden space-y-2">
-						{pageRows.map(({ row, shift, key }) => (
-							<li key={key} className={`rounded-xl border p-3.5 ${cardBorder} ${cardBg}`}>
-								<div className="flex items-start justify-between gap-2">
-									<div className="min-w-0">
-										<p className={`font-medium truncate ${text}`}>{row.staffName}</p>
-										<p className={`text-xs ${muted}`}>{formatShiftDate(shift.clockInAt)}</p>
-									</div>
-									<p className={`shrink-0 font-mono text-sm tabular-nums ${text}`}>
-										{shift.hours.toFixed(1)}h
-									</p>
-								</div>
-								<div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-									<div>
-										<p className={`text-[10px] uppercase tracking-wide ${muted}`}>In</p>
-										<p className={`font-mono tabular-nums ${text}`}>
-											{formatShiftTime(shift.clockInAt)}
-										</p>
-									</div>
-									<div>
-										<p className={`text-[10px] uppercase tracking-wide ${muted}`}>Out</p>
-										<p className={`font-mono tabular-nums ${muted}`}>
-											{formatShiftClockOut(shift.clockOutAt)}
-										</p>
-									</div>
-								</div>
-							</li>
-						))}
-					</ul>
-					<div className="hidden sm:block overflow-x-auto">
-						<table className="w-full text-sm min-w-[520px]">
-							<thead>
-								<tr className={`text-left text-xs uppercase tracking-wide ${muted}`}>
-									<th className="pb-2 pr-3 font-medium">Staff</th>
-									<th className="pb-2 pr-3 font-medium">Date</th>
-									<th className="pb-2 pr-3 font-medium">Clock in</th>
-									<th className="pb-2 pr-3 font-medium">Clock out</th>
-									<th className="pb-2 text-right font-medium">Hours</th>
-								</tr>
-							</thead>
-							<tbody>
-								{pageRows.map(({ row, shift, key }) => (
-									<tr key={key} className={border}>
-										<td className={`py-2.5 pr-3 ${text}`}>{row.staffName}</td>
-										<td className={`py-2.5 pr-3 ${muted}`}>{formatShiftDate(shift.clockInAt)}</td>
-										<td className={`py-2.5 pr-3 font-mono tabular-nums ${text}`}>
-											{formatShiftTime(shift.clockInAt)}
-										</td>
-										<td className={`py-2.5 pr-3 font-mono tabular-nums ${muted}`}>
-											{formatShiftClockOut(shift.clockOutAt)}
-										</td>
-										<td className={`py-2.5 text-right font-mono tabular-nums ${text}`}>
-											{shift.hours.toFixed(1)}h
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
-
-					{filtered.length > SHIFT_PAGE_SIZE && (
-						<div className="mt-3 flex items-center justify-between gap-3">
-							<p className={`text-xs ${muted}`}>
-								{(safePage - 1) * SHIFT_PAGE_SIZE + 1}–
-								{Math.min(safePage * SHIFT_PAGE_SIZE, filtered.length)} of {filtered.length}
+			<h3 className={`text-xs font-bold uppercase tracking-widest mb-3 ${muted}`}>Clock in / out</h3>
+			<ul className="sm:hidden space-y-2">
+				{pageRows.map(({ row, shift, key }) => (
+					<li key={key} className={`rounded-xl border p-3.5 ${cardBorder} ${cardBg}`}>
+						<div className="flex items-start justify-between gap-2">
+							<div className="min-w-0">
+								<p className={`font-medium truncate ${text}`}>{row.staffName}</p>
+								<p className={`text-xs ${muted}`}>{formatShiftDate(shift.clockInAt)}</p>
+							</div>
+							<p className={`shrink-0 font-mono text-sm tabular-nums ${text}`}>
+								{shift.hours.toFixed(1)}h
 							</p>
-							<div className="flex items-center gap-2">
-								<button
-									type="button"
-									disabled={safePage <= 1}
-									onClick={() => setPage((p) => Math.max(1, p - 1))}
-									className={`px-3 py-1.5 rounded-lg text-xs font-bold border disabled:opacity-40 ${
-										isDarkTheme ? "border-zinc-700 text-white" : "border-zinc-300 text-zinc-900"
-									}`}
-								>
-									Prev
-								</button>
-								<span className={`text-xs tabular-nums ${muted}`}>
-									{safePage}/{totalPages}
-								</span>
-								<button
-									type="button"
-									disabled={safePage >= totalPages}
-									onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-									className={`px-3 py-1.5 rounded-lg text-xs font-bold border disabled:opacity-40 ${
-										isDarkTheme ? "border-zinc-700 text-white" : "border-zinc-300 text-zinc-900"
-									}`}
-								>
-									Next
-								</button>
+						</div>
+						<div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+							<div>
+								<p className={`text-[10px] uppercase tracking-wide ${muted}`}>In</p>
+								<p className={`font-mono tabular-nums ${text}`}>
+									{formatShiftTime(shift.clockInAt)}
+								</p>
+							</div>
+							<div>
+								<p className={`text-[10px] uppercase tracking-wide ${muted}`}>Out</p>
+								<p className={`font-mono tabular-nums ${muted}`}>
+									{formatShiftClockOut(shift.clockOutAt)}
+								</p>
 							</div>
 						</div>
-					)}
-				</>
+					</li>
+				))}
+			</ul>
+			<div className="hidden sm:block overflow-x-auto">
+				<table className="w-full text-sm min-w-[520px]">
+					<thead>
+						<tr className={`text-left text-xs uppercase tracking-wide ${muted}`}>
+							<th className="pb-2 pr-3 font-medium">Staff</th>
+							<th className="pb-2 pr-3 font-medium">Date</th>
+							<th className="pb-2 pr-3 font-medium">Clock in</th>
+							<th className="pb-2 pr-3 font-medium">Clock out</th>
+							<th className="pb-2 text-right font-medium">Hours</th>
+						</tr>
+					</thead>
+					<tbody>
+						{pageRows.map(({ row, shift, key }) => (
+							<tr key={key} className={border}>
+								<td className={`py-2.5 pr-3 ${text}`}>{row.staffName}</td>
+								<td className={`py-2.5 pr-3 ${muted}`}>{formatShiftDate(shift.clockInAt)}</td>
+								<td className={`py-2.5 pr-3 font-mono tabular-nums ${text}`}>
+									{formatShiftTime(shift.clockInAt)}
+								</td>
+								<td className={`py-2.5 pr-3 font-mono tabular-nums ${muted}`}>
+									{formatShiftClockOut(shift.clockOutAt)}
+								</td>
+								<td className={`py-2.5 text-right font-mono tabular-nums ${text}`}>
+									{shift.hours.toFixed(1)}h
+								</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+
+			{sorted.length > SHIFT_PAGE_SIZE && (
+				<div className="mt-3 flex items-center justify-between gap-3">
+					<p className={`text-xs ${muted}`}>
+						{(safePage - 1) * SHIFT_PAGE_SIZE + 1}–
+						{Math.min(safePage * SHIFT_PAGE_SIZE, sorted.length)} of {sorted.length}
+					</p>
+					<div className="flex items-center gap-2">
+						<button
+							type="button"
+							disabled={safePage <= 1}
+							onClick={() => setPage((p) => Math.max(1, p - 1))}
+							className={`px-3 py-1.5 rounded-lg text-xs font-bold border disabled:opacity-40 ${
+								isDarkTheme ? "border-zinc-700 text-white" : "border-zinc-300 text-zinc-900"
+							}`}
+						>
+							Prev
+						</button>
+						<span className={`text-xs tabular-nums ${muted}`}>
+							{safePage}/{totalPages}
+						</span>
+						<button
+							type="button"
+							disabled={safePage >= totalPages}
+							onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+							className={`px-3 py-1.5 rounded-lg text-xs font-bold border disabled:opacity-40 ${
+								isDarkTheme ? "border-zinc-700 text-white" : "border-zinc-300 text-zinc-900"
+							}`}
+						>
+							Next
+						</button>
+					</div>
+				</div>
 			)}
 		</div>
 	);
@@ -259,8 +260,7 @@ const WeeklyHoursTables: React.FC<{
 	rows: WeeklyStaffHours[];
 	isDarkTheme: boolean;
 	muted: string;
-	input: string;
-}> = ({ rows, isDarkTheme, muted, input }) => {
+}> = ({ rows, isDarkTheme, muted }) => {
 	const border = isDarkTheme ? "border-t border-zinc-800" : "border-t border-zinc-100";
 	const text = isDarkTheme ? "text-white" : "text-zinc-900";
 	const cardBorder = isDarkTheme ? "border-zinc-800" : "border-zinc-200";
@@ -312,7 +312,7 @@ const WeeklyHoursTables: React.FC<{
 				</table>
 			</div>
 
-			<ClockInOutReport rows={rows} isDarkTheme={isDarkTheme} muted={muted} input={input} />
+			<ClockInOutReport rows={rows} isDarkTheme={isDarkTheme} muted={muted} />
 		</div>
 	);
 };
@@ -498,7 +498,10 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 	const [badges, setBadges] = useState<StaffBadge[]>([]);
 	const [staff, setStaff] = useState<RestaurantStaffMember[]>([]);
 	const [weeklyHours, setWeeklyHours] = useState<WeeklyStaffHours[]>([]);
-	const [weekStart, setWeekStart] = useState(mondayOfWeek());
+	const [hoursPreset, setHoursPreset] = useState<HoursPreset>("this_week");
+	const [rangeFrom, setRangeFrom] = useState(() => mondayOfWeek());
+	const [rangeTo, setRangeTo] = useState(() => localIsoDate());
+	const [monthValue, setMonthValue] = useState(() => localIsoDate().slice(0, 7));
 	const [printBadge, setPrintBadge] = useState<StaffBadge | null>(null);
 	const [badgesExpanded, setBadgesExpanded] = useState(false);
 	const [staffExpanded, setStaffExpanded] = useState(false);
@@ -521,16 +524,27 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 	const showBadges = isDesktop || badgesExpanded;
 	const showStaff = isDesktop || staffExpanded;
 
+	const applyHoursPreset = (preset: HoursPreset, nextMonth = monthValue) => {
+		const next = rangeForPreset(preset, nextMonth, rangeFrom, rangeTo);
+		setHoursPreset(preset);
+		setRangeFrom(next.from);
+		setRangeTo(next.to);
+		if (preset === "month") setMonthValue(nextMonth);
+	};
+
 	const load = useCallback(async () => {
 		setLoading(true);
 		setError(null);
 		try {
 			const details = await supabaseService.getRestaurantDetails();
 			setSlug(details.slug);
+			const from = rangeFrom <= rangeTo ? rangeFrom : rangeTo;
+			const to = rangeFrom <= rangeTo ? rangeTo : rangeFrom;
+			const toExclusive = addDaysIso(to, 1);
 			const [badgeRows, staffRows, hours] = await Promise.all([
 				supabaseService.listStaffBadges(),
 				supabaseService.listRestaurantStaff(),
-				supabaseService.getWeeklyStaffHours(weekStart),
+				supabaseService.getStaffHoursInRange(from, toExclusive),
 			]);
 			setBadges(badgeRows);
 			setStaff(staffRows);
@@ -545,7 +559,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 		} finally {
 			setLoading(false);
 		}
-	}, [weekStart]);
+	}, [rangeFrom, rangeTo]);
 
 	useEffect(() => {
 		void load();
@@ -936,43 +950,109 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 			</div>
 
 			<section className={`rounded-2xl border p-4 sm:p-6 space-y-4 min-w-0 ${card}`}>
-				<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+				<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 					<div className="min-w-0">
 						<h2 className={`text-base sm:text-lg font-semibold flex items-center gap-2 ${text}`}>
 							<QrCode size={18} className="shrink-0 opacity-70" />
-							Weekly hours
+							Staff hours
 						</h2>
-						<p className={`text-xs mt-0.5 ${muted}`}>Week starting {weekStart}</p>
+						<p className={`text-xs mt-0.5 ${muted}`}>
+							{rangeFrom} → {rangeTo}
+						</p>
 					</div>
-					<div className="grid grid-cols-[1fr_auto] gap-2 w-full sm:w-auto sm:flex sm:items-center">
-						<input
-							type="date"
-							value={weekStart}
-							onChange={(e) => setWeekStart(e.target.value)}
-							className={`w-full min-w-0 sm:w-auto rounded-xl border px-2.5 py-2.5 sm:py-2 text-sm ${input}`}
-							aria-label="Week start date"
-						/>
-						<button
-							type="button"
-							onClick={() => exportWeeklyHoursCsv(weeklyHours, weekStart)}
-							disabled={weeklyHours.length === 0}
-							className={`inline-flex items-center justify-center gap-1.5 px-3 py-2.5 sm:py-2 rounded-xl text-xs font-bold border ${
-								isDarkTheme ? "border-zinc-700 text-white" : "border-zinc-300 text-zinc-900"
-							} disabled:opacity-50`}
-						>
-							<Download size={14} /> CSV
-						</button>
-					</div>
+					<button
+						type="button"
+						onClick={() =>
+							exportWeeklyHoursCsv(weeklyHours, `${rangeFrom}_to_${rangeTo}`)
+						}
+						disabled={weeklyHours.length === 0}
+						className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border shrink-0 self-start ${
+							isDarkTheme ? "border-zinc-700 text-white" : "border-zinc-300 text-zinc-900"
+						} disabled:opacity-50`}
+					>
+						<Download size={14} /> CSV
+					</button>
 				</div>
+
+				<div className="flex flex-wrap gap-2">
+					{(
+						[
+							["this_week", "This week"],
+							["7d", "7 days"],
+							["this_month", "This month"],
+							["30d", "30 days"],
+							["month", "Month"],
+							["custom", "Custom"],
+						] as const
+					).map(([key, label]) => (
+						<button
+							key={key}
+							type="button"
+							onClick={() => applyHoursPreset(key)}
+							className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
+								hoursPreset === key
+									? isDarkTheme
+										? "bg-white text-black border-white"
+										: "bg-zinc-900 text-white border-zinc-900"
+									: isDarkTheme
+										? "border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+										: "border-zinc-300 text-zinc-700 hover:bg-zinc-100"
+							}`}
+						>
+							{label}
+						</button>
+					))}
+				</div>
+
+				<div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+					{hoursPreset === "month" ? (
+						<label className="block sm:col-span-3 min-w-0">
+							<span className={`text-[11px] uppercase tracking-wide ${muted}`}>Month</span>
+							<input
+								type="month"
+								value={monthValue}
+								onChange={(e) => applyHoursPreset("month", e.target.value)}
+								className={`mt-1 w-full min-w-0 rounded-xl border px-2.5 py-2.5 sm:py-2 text-sm ${input}`}
+								aria-label="Select month"
+							/>
+						</label>
+					) : (
+						<>
+							<label className="block min-w-0">
+								<span className={`text-[11px] uppercase tracking-wide ${muted}`}>From</span>
+								<input
+									type="date"
+									value={rangeFrom}
+									onChange={(e) => {
+										setHoursPreset("custom");
+										setRangeFrom(e.target.value);
+									}}
+									className={`mt-1 w-full min-w-0 rounded-xl border px-2.5 py-2.5 sm:py-2 text-sm ${input}`}
+									aria-label="Range start date"
+								/>
+							</label>
+							<label className="block min-w-0">
+								<span className={`text-[11px] uppercase tracking-wide ${muted}`}>To</span>
+								<input
+									type="date"
+									value={rangeTo}
+									onChange={(e) => {
+										setHoursPreset("custom");
+										setRangeTo(e.target.value);
+									}}
+									className={`mt-1 w-full min-w-0 rounded-xl border px-2.5 py-2.5 sm:py-2 text-sm ${input}`}
+									aria-label="Range end date"
+								/>
+							</label>
+							<div className="hidden sm:block" />
+						</>
+					)}
+				</div>
+
 				{weeklyHours.length === 0 ? (
-					<p className={`text-sm ${muted}`}>No time logs for this week yet.</p>
+					<p className={`text-sm ${muted}`}>No time logs for this date range.</p>
 				) : (
-					<WeeklyHoursTables
-						rows={weeklyHours}
-						isDarkTheme={isDarkTheme}
-						muted={muted}
-						input={input}
-					/>
+					<WeeklyHoursTables rows={weeklyHours} isDarkTheme={isDarkTheme} muted={muted} />
 				)}
 			</section>
 
