@@ -2,6 +2,7 @@ import type { RestaurantStaffMember, StaffBadge, WeeklyStaffHours } from "@minut
 import { getErrorMessage } from "@minute-menus/errors";
 import {
 	Check,
+	ChevronDown,
 	Copy,
 	Download,
 	Loader2,
@@ -16,7 +17,7 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import type React from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
 	exportWeeklyHoursCsv,
@@ -29,6 +30,9 @@ import { supabaseService } from "../services/supabaseService";
 export interface TeamViewProps {
 	isDarkTheme: boolean;
 }
+
+const SHIFT_PAGE_SIZE = 10;
+const DESKTOP_MQ = "(min-width: 640px)";
 
 function mondayOfWeek(date = new Date()): string {
 	const d = new Date(date);
@@ -47,6 +51,28 @@ function shortClockPath(slug: string, badgeToken: string): string {
 	return `/clock/${slug}?badge=${badgeToken.slice(0, 8)}…`;
 }
 
+function localDateKey(iso: string): string {
+	const d = new Date(iso);
+	const y = d.getFullYear();
+	const m = String(d.getMonth() + 1).padStart(2, "0");
+	const day = String(d.getDate()).padStart(2, "0");
+	return `${y}-${m}-${day}`;
+}
+
+function useIsDesktop(): boolean {
+	const [isDesktop, setIsDesktop] = useState(() =>
+		typeof window !== "undefined" ? window.matchMedia(DESKTOP_MQ).matches : true,
+	);
+	useEffect(() => {
+		const mq = window.matchMedia(DESKTOP_MQ);
+		const sync = () => setIsDesktop(mq.matches);
+		sync();
+		mq.addEventListener("change", sync);
+		return () => mq.removeEventListener("change", sync);
+	}, []);
+	return isDesktop;
+}
+
 async function copyText(text: string): Promise<boolean> {
 	try {
 		await navigator.clipboard.writeText(text);
@@ -56,16 +82,187 @@ async function copyText(text: string): Promise<boolean> {
 	}
 }
 
+type ShiftRow = {
+	row: WeeklyStaffHours;
+	shift: WeeklyStaffHours["shifts"][number];
+	key: string;
+};
+
+const ClockInOutReport: React.FC<{
+	rows: WeeklyStaffHours[];
+	isDarkTheme: boolean;
+	muted: string;
+	input: string;
+}> = ({ rows, isDarkTheme, muted, input }) => {
+	const [dateFilter, setDateFilter] = useState("");
+	const [page, setPage] = useState(1);
+	const border = isDarkTheme ? "border-t border-zinc-800" : "border-t border-zinc-100";
+	const text = isDarkTheme ? "text-white" : "text-zinc-900";
+	const cardBorder = isDarkTheme ? "border-zinc-800" : "border-zinc-200";
+	const cardBg = isDarkTheme ? "bg-zinc-950/50" : "bg-zinc-50";
+
+	const filtered = useMemo(() => {
+		const all: ShiftRow[] = rows.flatMap((row) =>
+			row.shifts.map((shift) => ({
+				row,
+				shift,
+				key: `${row.staffId}-${shift.clockInAt}`,
+			})),
+		);
+		all.sort(
+			(a, b) => new Date(b.shift.clockInAt).getTime() - new Date(a.shift.clockInAt).getTime(),
+		);
+		if (!dateFilter) return all;
+		return all.filter((item) => localDateKey(item.shift.clockInAt) === dateFilter);
+	}, [rows, dateFilter]);
+
+	const totalPages = Math.max(1, Math.ceil(filtered.length / SHIFT_PAGE_SIZE));
+	const safePage = Math.min(page, totalPages);
+	const pageRows = filtered.slice((safePage - 1) * SHIFT_PAGE_SIZE, safePage * SHIFT_PAGE_SIZE);
+
+	useEffect(() => {
+		setPage(1);
+	}, [dateFilter, rows]);
+
+	if (filtered.length === 0 && !dateFilter) return null;
+
+	return (
+		<div>
+			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+				<h3 className={`text-xs font-bold uppercase tracking-widest ${muted}`}>Clock in / out</h3>
+				<div className="flex items-center gap-2">
+					<input
+						type="date"
+						value={dateFilter}
+						onChange={(e) => setDateFilter(e.target.value)}
+						className={`w-full sm:w-auto min-w-0 rounded-xl border px-2.5 py-2 text-sm ${input}`}
+						aria-label="Filter clock rows by date"
+					/>
+					{dateFilter && (
+						<button
+							type="button"
+							onClick={() => setDateFilter("")}
+							className={`shrink-0 text-xs px-2 py-2 rounded-xl border ${
+								isDarkTheme ? "border-zinc-700 text-zinc-300" : "border-zinc-200 text-zinc-600"
+							}`}
+						>
+							Clear
+						</button>
+					)}
+				</div>
+			</div>
+
+			{filtered.length === 0 ? (
+				<p className={`text-sm ${muted}`}>No clock rows for this date.</p>
+			) : (
+				<>
+					<ul className="sm:hidden space-y-2">
+						{pageRows.map(({ row, shift, key }) => (
+							<li key={key} className={`rounded-xl border p-3.5 ${cardBorder} ${cardBg}`}>
+								<div className="flex items-start justify-between gap-2">
+									<div className="min-w-0">
+										<p className={`font-medium truncate ${text}`}>{row.staffName}</p>
+										<p className={`text-xs ${muted}`}>{formatShiftDate(shift.clockInAt)}</p>
+									</div>
+									<p className={`shrink-0 font-mono text-sm tabular-nums ${text}`}>
+										{shift.hours.toFixed(1)}h
+									</p>
+								</div>
+								<div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+									<div>
+										<p className={`text-[10px] uppercase tracking-wide ${muted}`}>In</p>
+										<p className={`font-mono tabular-nums ${text}`}>
+											{formatShiftTime(shift.clockInAt)}
+										</p>
+									</div>
+									<div>
+										<p className={`text-[10px] uppercase tracking-wide ${muted}`}>Out</p>
+										<p className={`font-mono tabular-nums ${muted}`}>
+											{formatShiftClockOut(shift.clockOutAt)}
+										</p>
+									</div>
+								</div>
+							</li>
+						))}
+					</ul>
+					<div className="hidden sm:block overflow-x-auto">
+						<table className="w-full text-sm min-w-[520px]">
+							<thead>
+								<tr className={`text-left text-xs uppercase tracking-wide ${muted}`}>
+									<th className="pb-2 pr-3 font-medium">Staff</th>
+									<th className="pb-2 pr-3 font-medium">Date</th>
+									<th className="pb-2 pr-3 font-medium">Clock in</th>
+									<th className="pb-2 pr-3 font-medium">Clock out</th>
+									<th className="pb-2 text-right font-medium">Hours</th>
+								</tr>
+							</thead>
+							<tbody>
+								{pageRows.map(({ row, shift, key }) => (
+									<tr key={key} className={border}>
+										<td className={`py-2.5 pr-3 ${text}`}>{row.staffName}</td>
+										<td className={`py-2.5 pr-3 ${muted}`}>{formatShiftDate(shift.clockInAt)}</td>
+										<td className={`py-2.5 pr-3 font-mono tabular-nums ${text}`}>
+											{formatShiftTime(shift.clockInAt)}
+										</td>
+										<td className={`py-2.5 pr-3 font-mono tabular-nums ${muted}`}>
+											{formatShiftClockOut(shift.clockOutAt)}
+										</td>
+										<td className={`py-2.5 text-right font-mono tabular-nums ${text}`}>
+											{shift.hours.toFixed(1)}h
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					</div>
+
+					{filtered.length > SHIFT_PAGE_SIZE && (
+						<div className="mt-3 flex items-center justify-between gap-3">
+							<p className={`text-xs ${muted}`}>
+								{(safePage - 1) * SHIFT_PAGE_SIZE + 1}–
+								{Math.min(safePage * SHIFT_PAGE_SIZE, filtered.length)} of {filtered.length}
+							</p>
+							<div className="flex items-center gap-2">
+								<button
+									type="button"
+									disabled={safePage <= 1}
+									onClick={() => setPage((p) => Math.max(1, p - 1))}
+									className={`px-3 py-1.5 rounded-lg text-xs font-bold border disabled:opacity-40 ${
+										isDarkTheme ? "border-zinc-700 text-white" : "border-zinc-300 text-zinc-900"
+									}`}
+								>
+									Prev
+								</button>
+								<span className={`text-xs tabular-nums ${muted}`}>
+									{safePage}/{totalPages}
+								</span>
+								<button
+									type="button"
+									disabled={safePage >= totalPages}
+									onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+									className={`px-3 py-1.5 rounded-lg text-xs font-bold border disabled:opacity-40 ${
+										isDarkTheme ? "border-zinc-700 text-white" : "border-zinc-300 text-zinc-900"
+									}`}
+								>
+									Next
+								</button>
+							</div>
+						</div>
+					)}
+				</>
+			)}
+		</div>
+	);
+};
+
 const WeeklyHoursTables: React.FC<{
 	rows: WeeklyStaffHours[];
 	isDarkTheme: boolean;
 	muted: string;
-}> = ({ rows, isDarkTheme, muted }) => {
+	input: string;
+}> = ({ rows, isDarkTheme, muted, input }) => {
 	const border = isDarkTheme ? "border-t border-zinc-800" : "border-t border-zinc-100";
 	const text = isDarkTheme ? "text-white" : "text-zinc-900";
-	const shiftRows = rows.flatMap((row) =>
-		row.shifts.map((shift) => ({ row, shift, key: `${row.staffId}-${shift.clockInAt}` })),
-	);
 	const cardBorder = isDarkTheme ? "border-zinc-800" : "border-zinc-200";
 	const cardBg = isDarkTheme ? "bg-zinc-950/50" : "bg-zinc-50";
 
@@ -115,72 +312,7 @@ const WeeklyHoursTables: React.FC<{
 				</table>
 			</div>
 
-			{shiftRows.length > 0 && (
-				<div>
-					<h3 className={`text-xs font-bold uppercase tracking-widest mb-3 ${muted}`}>
-						Clock in / out
-					</h3>
-					<ul className="sm:hidden space-y-2">
-						{shiftRows.map(({ row, shift, key }) => (
-							<li key={key} className={`rounded-xl border p-3.5 ${cardBorder} ${cardBg}`}>
-								<div className="flex items-start justify-between gap-2">
-									<div className="min-w-0">
-										<p className={`font-medium truncate ${text}`}>{row.staffName}</p>
-										<p className={`text-xs ${muted}`}>{formatShiftDate(shift.clockInAt)}</p>
-									</div>
-									<p className={`shrink-0 font-mono text-sm tabular-nums ${text}`}>
-										{shift.hours.toFixed(1)}h
-									</p>
-								</div>
-								<div className="mt-3 grid grid-cols-2 gap-3 text-sm">
-									<div>
-										<p className={`text-[10px] uppercase tracking-wide ${muted}`}>In</p>
-										<p className={`font-mono tabular-nums ${text}`}>
-											{formatShiftTime(shift.clockInAt)}
-										</p>
-									</div>
-									<div>
-										<p className={`text-[10px] uppercase tracking-wide ${muted}`}>Out</p>
-										<p className={`font-mono tabular-nums ${muted}`}>
-											{formatShiftClockOut(shift.clockOutAt)}
-										</p>
-									</div>
-								</div>
-							</li>
-						))}
-					</ul>
-					<div className="hidden sm:block overflow-x-auto">
-						<table className="w-full text-sm min-w-[520px]">
-							<thead>
-								<tr className={`text-left text-xs uppercase tracking-wide ${muted}`}>
-									<th className="pb-2 pr-3 font-medium">Staff</th>
-									<th className="pb-2 pr-3 font-medium">Date</th>
-									<th className="pb-2 pr-3 font-medium">Clock in</th>
-									<th className="pb-2 pr-3 font-medium">Clock out</th>
-									<th className="pb-2 text-right font-medium">Hours</th>
-								</tr>
-							</thead>
-							<tbody>
-								{shiftRows.map(({ row, shift, key }) => (
-									<tr key={key} className={border}>
-										<td className={`py-2.5 pr-3 ${text}`}>{row.staffName}</td>
-										<td className={`py-2.5 pr-3 ${muted}`}>{formatShiftDate(shift.clockInAt)}</td>
-										<td className={`py-2.5 pr-3 font-mono tabular-nums ${text}`}>
-											{formatShiftTime(shift.clockInAt)}
-										</td>
-										<td className={`py-2.5 pr-3 font-mono tabular-nums ${muted}`}>
-											{formatShiftClockOut(shift.clockOutAt)}
-										</td>
-										<td className={`py-2.5 text-right font-mono tabular-nums ${text}`}>
-											{shift.hours.toFixed(1)}h
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
-				</div>
-			)}
+			<ClockInOutReport rows={rows} isDarkTheme={isDarkTheme} muted={muted} input={input} />
 		</div>
 	);
 };
@@ -358,6 +490,7 @@ const BadgeCard: React.FC<{
 };
 
 export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
+	const isDesktop = useIsDesktop();
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -367,6 +500,8 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 	const [weeklyHours, setWeeklyHours] = useState<WeeklyStaffHours[]>([]);
 	const [weekStart, setWeekStart] = useState(mondayOfWeek());
 	const [printBadge, setPrintBadge] = useState<StaffBadge | null>(null);
+	const [badgesExpanded, setBadgesExpanded] = useState(false);
+	const [staffExpanded, setStaffExpanded] = useState(false);
 
 	const [newStaffName, setNewStaffName] = useState("");
 	const [newStaffPhone, setNewStaffPhone] = useState("");
@@ -383,6 +518,8 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 		: "bg-zinc-50 border-zinc-300 text-zinc-900";
 	const innerBorder = isDarkTheme ? "border-zinc-800" : "border-zinc-200";
 	const theme: ThemeBits = { isDarkTheme, card, muted, input, text, innerBorder };
+	const showBadges = isDesktop || badgesExpanded;
+	const showStaff = isDesktop || staffExpanded;
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -561,16 +698,31 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 				</div>
 			)}
 
-			{/* Wide: badges + staff side by side; narrow: stacked */}
+			{/* Wide: badges + staff side by side; narrow: stacked (collapsed by default on mobile) */}
 			<div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_minmax(300px,380px)] gap-5 items-start">
 				<section className={`rounded-2xl border p-4 sm:p-6 space-y-4 min-w-0 ${card}`}>
 					<div className="flex items-center justify-between gap-3">
-						<div className="min-w-0">
-							<h2 className={`text-base sm:text-lg font-semibold ${text}`}>QR Badges</h2>
-							<p className={`text-xs mt-0.5 ${muted}`}>
-								{badges.length}/6 · print once, reassign anytime
-							</p>
-						</div>
+						<button
+							type="button"
+							onClick={() => {
+								if (!isDesktop) setBadgesExpanded((v) => !v);
+							}}
+							className="min-w-0 flex-1 flex items-center gap-2 text-left sm:cursor-default"
+							aria-expanded={showBadges}
+						>
+							<div className="min-w-0 flex-1">
+								<h2 className={`text-base sm:text-lg font-semibold ${text}`}>QR Badges</h2>
+								<p className={`text-xs mt-0.5 ${muted}`}>
+									{badges.length}/6 · print once, reassign anytime
+								</p>
+							</div>
+							<ChevronDown
+								size={18}
+								className={`sm:hidden shrink-0 transition-transform ${muted} ${
+									showBadges ? "rotate-180" : ""
+								}`}
+							/>
+						</button>
 						<button
 							type="button"
 							onClick={() => void handleAddBadge()}
@@ -585,180 +737,200 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 						</button>
 					</div>
 
-					{badges.length === 0 ? (
-						<p className={`text-sm ${muted}`}>
-							Add badges for your staff stickers (print once, reuse forever).
-						</p>
-					) : (
-						<div className="grid gap-3 grid-cols-1 md:grid-cols-2 2xl:grid-cols-3">
-							{badges.map((badge) => (
-								<BadgeCard
-									key={badge.id}
-									badge={badge}
-									slug={slug}
-									activeStaff={activeStaff}
-									assignValue={assignStaffId[badge.id] ?? ""}
-									saving={saving}
-									theme={theme}
-									onAssignChange={(staffId) =>
-										setAssignStaffId((prev) => ({ ...prev, [badge.id]: staffId }))
-									}
-									onSave={() => void handleAssign(badge.id)}
-									onPrint={() => setPrintBadge(badge)}
-									onDelete={() => void handleDeleteBadge(badge)}
-								/>
-							))}
-						</div>
-					)}
+					{showBadges &&
+						(badges.length === 0 ? (
+							<p className={`text-sm ${muted}`}>
+								Add badges for your staff stickers (print once, reuse forever).
+							</p>
+						) : (
+							<div className="grid gap-3 grid-cols-1 md:grid-cols-2 2xl:grid-cols-3">
+								{badges.map((badge) => (
+									<BadgeCard
+										key={badge.id}
+										badge={badge}
+										slug={slug}
+										activeStaff={activeStaff}
+										assignValue={assignStaffId[badge.id] ?? ""}
+										saving={saving}
+										theme={theme}
+										onAssignChange={(staffId) =>
+											setAssignStaffId((prev) => ({ ...prev, [badge.id]: staffId }))
+										}
+										onSave={() => void handleAssign(badge.id)}
+										onPrint={() => setPrintBadge(badge)}
+										onDelete={() => void handleDeleteBadge(badge)}
+									/>
+								))}
+							</div>
+						))}
 				</section>
 
 				<section
 					className={`rounded-2xl border p-4 sm:p-5 space-y-4 min-w-0 xl:sticky xl:top-4 ${card}`}
 				>
-					<div className="min-w-0">
-						<h2 className={`text-base sm:text-lg font-semibold flex items-center gap-2 ${text}`}>
-							<Users size={18} className="shrink-0 opacity-70" />
-							Staff
-						</h2>
-						<p className={`text-xs mt-0.5 ${muted}`}>
-							{activeStaff.length} active
-							{staff.length > activeStaff.length
-								? ` · ${staff.length - activeStaff.length} inactive`
-								: ""}
-						</p>
-					</div>
-
-					<div className="grid grid-cols-1 gap-2">
-						<input
-							type="text"
-							placeholder="Name"
-							value={newStaffName}
-							onChange={(e) => setNewStaffName(e.target.value)}
-							className={`w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm ${input}`}
+					<button
+						type="button"
+						onClick={() => {
+							if (!isDesktop) setStaffExpanded((v) => !v);
+						}}
+						className="w-full min-w-0 flex items-center gap-2 text-left sm:cursor-default"
+						aria-expanded={showStaff}
+					>
+						<div className="min-w-0 flex-1">
+							<h2 className={`text-base sm:text-lg font-semibold flex items-center gap-2 ${text}`}>
+								<Users size={18} className="shrink-0 opacity-70" />
+								Staff
+							</h2>
+							<p className={`text-xs mt-0.5 ${muted}`}>
+								{activeStaff.length} active
+								{staff.length > activeStaff.length
+									? ` · ${staff.length - activeStaff.length} inactive`
+									: ""}
+							</p>
+						</div>
+						<ChevronDown
+							size={18}
+							className={`sm:hidden shrink-0 transition-transform ${muted} ${
+								showStaff ? "rotate-180" : ""
+							}`}
 						/>
-						<input
-							type="tel"
-							placeholder="Mobile (optional)"
-							value={newStaffPhone}
-							onChange={(e) => setNewStaffPhone(e.target.value)}
-							className={`w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm ${input}`}
-						/>
-						<button
-							type="button"
-							onClick={() => void handleAddStaff()}
-							disabled={saving || !newStaffName.trim()}
-							className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold ${
-								isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white"
-							} disabled:opacity-50`}
-						>
-							<Plus size={14} /> Add staff
-						</button>
-					</div>
+					</button>
 
-					{staff.length === 0 ? (
-						<p className={`text-sm ${muted}`}>No staff yet. Add someone to assign a badge.</p>
-					) : (
-						<ul className="space-y-2">
-							{staff.map((s) => {
-								const isEditing = editingStaffId === s.id;
-								return (
-									<li
-										key={s.id}
-										className={`rounded-xl border p-3 min-w-0 ${innerBorder} ${
-											s.active ? "" : "opacity-60"
-										}`}
-									>
-										{isEditing ? (
-											<div className="flex flex-col gap-2">
-												<input
-													type="text"
-													value={editStaffName}
-													onChange={(e) => setEditStaffName(e.target.value)}
-													placeholder="Name"
-													className={`w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm ${input}`}
-												/>
-												<input
-													type="tel"
-													value={editStaffPhone}
-													onChange={(e) => setEditStaffPhone(e.target.value)}
-													placeholder="Mobile (optional)"
-													className={`w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm ${input}`}
-												/>
-												<div className="flex items-center gap-2">
-													<button
-														type="button"
-														onClick={() => void handleSaveStaff()}
-														disabled={saving || !editStaffName.trim()}
-														className={`px-3 py-2 rounded-xl text-xs font-bold ${
-															isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white"
-														} disabled:opacity-50`}
-													>
-														Save
-													</button>
-													<button
-														type="button"
-														onClick={cancelEditStaff}
-														disabled={saving}
-														className={`p-2 rounded-xl border ${
-															isDarkTheme
-																? "border-zinc-700 text-zinc-400"
-																: "border-zinc-200 text-zinc-500"
-														}`}
-														title="Cancel"
-														aria-label="Cancel edit"
-													>
-														<X size={14} />
-													</button>
-												</div>
-											</div>
-										) : (
-											<div className="flex items-start justify-between gap-2">
-												<div className="min-w-0">
-													<p className={`font-medium break-words ${text}`}>
-														{s.name}
-														{!s.active && (
-															<span className="ml-2 text-xs font-normal text-zinc-500">
-																(inactive)
-															</span>
-														)}
-													</p>
-													<p className={`text-xs mt-0.5 truncate ${muted}`}>
-														{s.phone || "No mobile number"}
-													</p>
-												</div>
-												<div className="flex items-center gap-1 shrink-0">
-													<button
-														type="button"
-														onClick={() => startEditStaff(s)}
-														disabled={saving}
-														className={`p-2 rounded-xl border ${
-															isDarkTheme
-																? "border-zinc-700 text-zinc-300 hover:bg-zinc-800"
-																: "border-zinc-200 text-zinc-600 hover:bg-zinc-100"
-														}`}
-														title="Edit"
-														aria-label={`Edit ${s.name}`}
-													>
-														<Pencil size={14} />
-													</button>
-													{s.active && (
-														<button
-															type="button"
-															onClick={() => void handleDeactivate(s.id)}
-															className="p-2 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10"
-															title="Deactivate"
-															aria-label={`Deactivate ${s.name}`}
-														>
-															<UserMinus size={14} />
-														</button>
-													)}
-												</div>
-											</div>
-										)}
-									</li>
-								);
-							})}
-						</ul>
+					{showStaff && (
+						<>
+							<div className="grid grid-cols-1 gap-2">
+								<input
+									type="text"
+									placeholder="Name"
+									value={newStaffName}
+									onChange={(e) => setNewStaffName(e.target.value)}
+									className={`w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm ${input}`}
+								/>
+								<input
+									type="tel"
+									placeholder="Mobile (optional)"
+									value={newStaffPhone}
+									onChange={(e) => setNewStaffPhone(e.target.value)}
+									className={`w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm ${input}`}
+								/>
+								<button
+									type="button"
+									onClick={() => void handleAddStaff()}
+									disabled={saving || !newStaffName.trim()}
+									className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold ${
+										isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white"
+									} disabled:opacity-50`}
+								>
+									<Plus size={14} /> Add staff
+								</button>
+							</div>
+
+							{staff.length === 0 ? (
+								<p className={`text-sm ${muted}`}>No staff yet. Add someone to assign a badge.</p>
+							) : (
+								<ul className="space-y-2">
+									{staff.map((s) => {
+										const isEditing = editingStaffId === s.id;
+										return (
+											<li
+												key={s.id}
+												className={`rounded-xl border p-3 min-w-0 ${innerBorder} ${
+													s.active ? "" : "opacity-60"
+												}`}
+											>
+												{isEditing ? (
+													<div className="flex flex-col gap-2">
+														<input
+															type="text"
+															value={editStaffName}
+															onChange={(e) => setEditStaffName(e.target.value)}
+															placeholder="Name"
+															className={`w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm ${input}`}
+														/>
+														<input
+															type="tel"
+															value={editStaffPhone}
+															onChange={(e) => setEditStaffPhone(e.target.value)}
+															placeholder="Mobile (optional)"
+															className={`w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm ${input}`}
+														/>
+														<div className="flex items-center gap-2">
+															<button
+																type="button"
+																onClick={() => void handleSaveStaff()}
+																disabled={saving || !editStaffName.trim()}
+																className={`px-3 py-2 rounded-xl text-xs font-bold ${
+																	isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white"
+																} disabled:opacity-50`}
+															>
+																Save
+															</button>
+															<button
+																type="button"
+																onClick={cancelEditStaff}
+																disabled={saving}
+																className={`p-2 rounded-xl border ${
+																	isDarkTheme
+																		? "border-zinc-700 text-zinc-400"
+																		: "border-zinc-200 text-zinc-500"
+																}`}
+																title="Cancel"
+																aria-label="Cancel edit"
+															>
+																<X size={14} />
+															</button>
+														</div>
+													</div>
+												) : (
+													<div className="flex items-start justify-between gap-2">
+														<div className="min-w-0">
+															<p className={`font-medium break-words ${text}`}>
+																{s.name}
+																{!s.active && (
+																	<span className="ml-2 text-xs font-normal text-zinc-500">
+																		(inactive)
+																	</span>
+																)}
+															</p>
+															<p className={`text-xs mt-0.5 truncate ${muted}`}>
+																{s.phone || "No mobile number"}
+															</p>
+														</div>
+														<div className="flex items-center gap-1 shrink-0">
+															<button
+																type="button"
+																onClick={() => startEditStaff(s)}
+																disabled={saving}
+																className={`p-2 rounded-xl border ${
+																	isDarkTheme
+																		? "border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+																		: "border-zinc-200 text-zinc-600 hover:bg-zinc-100"
+																}`}
+																title="Edit"
+																aria-label={`Edit ${s.name}`}
+															>
+																<Pencil size={14} />
+															</button>
+															{s.active && (
+																<button
+																	type="button"
+																	onClick={() => void handleDeactivate(s.id)}
+																	className="p-2 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10"
+																	title="Deactivate"
+																	aria-label={`Deactivate ${s.name}`}
+																>
+																	<UserMinus size={14} />
+																</button>
+															)}
+														</div>
+													</div>
+												)}
+											</li>
+										);
+									})}
+								</ul>
+							)}
+						</>
 					)}
 				</section>
 			</div>
@@ -795,7 +967,12 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 				{weeklyHours.length === 0 ? (
 					<p className={`text-sm ${muted}`}>No time logs for this week yet.</p>
 				) : (
-					<WeeklyHoursTables rows={weeklyHours} isDarkTheme={isDarkTheme} muted={muted} />
+					<WeeklyHoursTables
+						rows={weeklyHours}
+						isDarkTheme={isDarkTheme}
+						muted={muted}
+						input={input}
+					/>
 				)}
 			</section>
 
