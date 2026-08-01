@@ -70,7 +70,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { SUPPORTED_CURRENCIES, formatPriceInCurrency, getSymbolForCurrency } from "@minute-menus/currency";
+import {
+  SUPPORTED_CURRENCIES,
+  detectUserCurrency,
+  formatPrice,
+  formatPriceInCurrency,
+  getSymbolForCurrency,
+} from "@minute-menus/currency";
 import { getErrorMessage } from "@minute-menus/errors";
 import { compressDataUrl } from "@minute-menus/menu-persistence";
 import { supabaseService } from "../services/supabaseService";
@@ -124,6 +130,11 @@ const PaywallModal: React.FC<PaywallModalProps> = ({
   isProcessing,
   error,
 }) => {
+  const checkoutCurrency = detectUserCurrency();
+  const annualLabel = formatPrice(120, checkoutCurrency);
+  const monthlyLabel = formatPrice(12, checkoutCurrency);
+  const annualPerMonthLabel = formatPrice(10, checkoutCurrency);
+
   return (
     <div className={`fixed inset-0 z-[100] backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300 ${isDarkTheme ? 'bg-black/80' : 'bg-white/80'}`}>
       <div className={`border w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row ${isDarkTheme ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-300'}`}>
@@ -167,6 +178,9 @@ const PaywallModal: React.FC<PaywallModalProps> = ({
               Feature Locked
             </p>
             <h3 className={`text-xl font-bold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{trigger}</h3>
+            <p className={`text-[11px] mt-2 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-400'}`}>
+              Prices shown in {checkoutCurrency} based on your location
+            </p>
           </div>
 
           <div className="space-y-4">
@@ -177,14 +191,16 @@ const PaywallModal: React.FC<PaywallModalProps> = ({
             >
               <div className="text-left">
                 <div className={`font-bold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>Annual Plan</div>
-                <div className={`text-xs ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>Billed $120/year</div>
+                <div className={`text-xs ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>
+                  Billed {annualLabel}/year
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <span className="bg-green-900/30 text-green-400 text-[10px] font-bold px-2 py-1 rounded">
                   SAVE 17%
                 </span>
                 <span className={`text-xl font-bold ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
-                  $10
+                  {annualPerMonthLabel}
                   <span className={`text-xs font-normal ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>/mo</span>
                 </span>
               </div>
@@ -200,7 +216,7 @@ const PaywallModal: React.FC<PaywallModalProps> = ({
                 <div className={isDarkTheme ? 'text-zinc-600 text-xs' : 'text-zinc-400 text-xs'}>Cancel anytime</div>
               </div>
               <span className={`text-xl font-bold ${isDarkTheme ? 'text-black' : 'text-white'}`}>
-                $12
+                {monthlyLabel}
                 <span className={`text-xs font-normal ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-400'}`}>/mo</span>
               </span>
             </button>
@@ -974,13 +990,18 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       const token = sessionData.session?.access_token;
       if (!token) throw new Error("Please sign in again.");
 
+      const checkoutCurrency = detectUserCurrency();
       const orderRes = await fetch(PAYMENT_API_PATHS.createPlusOrder, {
         method: "POST",
         headers: {
           "content-type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ plan, restaurantId: restaurantDetails.id }),
+        body: JSON.stringify({
+          plan,
+          restaurantId: restaurantDetails.id,
+          currency: checkoutCurrency,
+        }),
       });
       if (!orderRes.ok) {
         const err = await orderRes.json() as { error?: string };

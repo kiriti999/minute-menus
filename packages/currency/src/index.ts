@@ -105,42 +105,113 @@ const EXCHANGE_RATES: Record<string, number> = {
     ILS: 3.67,
 };
 
+const TIMEZONE_TO_CURRENCY: Array<{ match: string; currency: string }> = [
+    { match: "Asia/Kolkata", currency: "INR" },
+    { match: "Asia/Calcutta", currency: "INR" },
+    { match: "Asia/Dubai", currency: "AED" },
+    { match: "Asia/Singapore", currency: "SGD" },
+    { match: "Asia/Tokyo", currency: "JPY" },
+    { match: "Asia/Seoul", currency: "KRW" },
+    { match: "Asia/Shanghai", currency: "CNY" },
+    { match: "Asia/Hong_Kong", currency: "HKD" },
+    { match: "Asia/Bangkok", currency: "THB" },
+    { match: "Asia/Jakarta", currency: "IDR" },
+    { match: "Asia/Manila", currency: "PHP" },
+    { match: "Asia/Kuala_Lumpur", currency: "MYR" },
+    { match: "Europe/London", currency: "GBP" },
+    { match: "Europe/", currency: "EUR" },
+    { match: "America/Toronto", currency: "CAD" },
+    { match: "America/Vancouver", currency: "CAD" },
+    { match: "America/Sao_Paulo", currency: "BRL" },
+    { match: "America/Mexico_City", currency: "MXN" },
+    { match: "Australia/", currency: "AUD" },
+    { match: "Pacific/Auckland", currency: "NZD" },
+    { match: "Africa/Johannesburg", currency: "ZAR" },
+    { match: "America/New_York", currency: "USD" },
+    { match: "America/Chicago", currency: "USD" },
+    { match: "America/Denver", currency: "USD" },
+    { match: "America/Los_Angeles", currency: "USD" },
+];
+
+const regionFromLocale = (localeTag: string): string | undefined => {
+    try {
+        const LocaleCtor = (Intl as unknown as { Locale?: new (tag: string) => { region?: string } }).Locale;
+        if (LocaleCtor) {
+            const region = new LocaleCtor(localeTag).region;
+            if (region) return region.toUpperCase();
+        }
+    } catch {
+        /* fall through */
+    }
+    const parts = localeTag.split(/[-_]/);
+    const maybe = parts[1]?.toUpperCase();
+    return maybe && maybe.length === 2 ? maybe : undefined;
+};
+
 /**
- * Detect user's currency based on browser locale.
+ * Detect visitor currency from browser locale, then timezone.
+ * Used for Plus checkout pricing when an owner visits the paywall.
  */
 export const detectUserCurrency = (): string => {
     try {
-        // Try to get from browser's locale
-        const locale = navigator.language || "en-US";
-        const countryCode = locale.split("-")[1]?.toUpperCase();
-
-        if (countryCode && COUNTRY_TO_CURRENCY[countryCode]) {
-            return COUNTRY_TO_CURRENCY[countryCode];
+        const locale =
+            (typeof navigator !== "undefined" && (navigator.languages?.[0] || navigator.language)) ||
+            "en-US";
+        const region = regionFromLocale(locale);
+        if (region && COUNTRY_TO_CURRENCY[region]) {
+            return COUNTRY_TO_CURRENCY[region];
         }
 
-        // Fallback: try to infer from timezone
-        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-        if (timezone.includes("Asia/Kolkata") || timezone.includes("Asia/Calcutta")) {
-            return "INR";
-        }
-        if (timezone.includes("Europe/London")) {
-            return "GBP";
-        }
-        if (timezone.includes("Europe/")) {
-            return "EUR";
-        }
-        if (timezone.includes("Asia/Tokyo")) {
-            return "JPY";
-        }
-        if (timezone.includes("Australia/")) {
-            return "AUD";
+        const timezone =
+            typeof Intl !== "undefined"
+                ? Intl.DateTimeFormat().resolvedOptions().timeZone
+                : "";
+        for (const row of TIMEZONE_TO_CURRENCY) {
+            if (timezone.includes(row.match)) return row.currency;
         }
 
-        // Default to USD
         return "USD";
     } catch {
         return "USD";
     }
+};
+
+/** Zero-decimal currencies for Razorpay amount encoding. */
+const ZERO_DECIMAL_CURRENCIES = new Set([
+    "BIF", "CLP", "DJF", "GNF", "JPY", "KMF", "KRW", "MGA", "PYG", "RWF", "UGX", "VND", "VUV", "XAF", "XOF", "XPF",
+]);
+
+export type PlusPlanId = "annual" | "monthly";
+
+/** Base Plus catalog in USD — converted per visitor region at checkout. */
+export const PLUS_USD_PRICES: Record<PlusPlanId, number> = {
+    annual: 120,
+    monthly: 12,
+};
+
+export const normalizeCheckoutCurrency = (code: string | undefined | null): string => {
+    const upper = (code ?? "USD").trim().toUpperCase();
+    if (EXCHANGE_RATES[upper]) return upper;
+    return "USD";
+};
+
+/**
+ * Convert USD catalog price into major units for the visitor currency
+ * (rounded sensibly for zero-decimal currencies).
+ */
+export const getPlusPlanAmount = (plan: PlusPlanId, currency: string): number => {
+    const usd = PLUS_USD_PRICES[plan];
+    const target = normalizeCheckoutCurrency(currency);
+    const converted = convertFromUSD(usd, target);
+    if (ZERO_DECIMAL_CURRENCIES.has(target)) return Math.round(converted);
+    return Math.round(converted * 100) / 100;
+};
+
+/** Razorpay expects the smallest currency unit (paise/cents), except zero-decimal. */
+export const toRazorpayAmountSubunits = (amountMajor: number, currency: string): number => {
+    const target = normalizeCheckoutCurrency(currency);
+    if (ZERO_DECIMAL_CURRENCIES.has(target)) return Math.round(amountMajor);
+    return Math.round(amountMajor * 100);
 };
 
 /**

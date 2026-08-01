@@ -1,21 +1,23 @@
 /**
  * POST /api/create-plus-order
- * Owner-authenticated. Creates a Razorpay order for Plus tier upgrade (USD).
+ * Owner-authenticated. Creates a Razorpay order for Plus upgrade in the
+ * visitor's regional currency (converted from the USD catalog).
  */
 
+import {
+	getPlusPlanAmount,
+	normalizeCheckoutCurrency,
+	toRazorpayAmountSubunits,
+	type PlusPlanId,
+} from "@minute-menus/currency";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Razorpay from "razorpay";
 
-type PlusPlanId = "annual" | "monthly";
-
-const PLUS_PLAN_PRICING: Record<PlusPlanId, { amount: number; label: string }> = {
-	annual: { amount: 120, label: "Plus — Annual Plan" },
-	monthly: { amount: 12, label: "Plus — Monthly Plan" },
+const PLUS_PLAN_LABELS: Record<PlusPlanId, string> = {
+	annual: "Plus — Annual Plan",
+	monthly: "Plus — Monthly Plan",
 };
-
-/** Plus catalog is priced in USD regardless of restaurant menu currency. */
-const PLUS_CURRENCY = "USD";
 
 let adminClient: SupabaseClient | null = null;
 
@@ -55,7 +57,7 @@ const getRazorpayCredentials = (): { keyId: string; keySecret: string } | null =
 };
 
 const createRazorpayOrder = async (input: {
-	amount: number;
+	amountSubunits: number;
 	currency: string;
 	receipt: string;
 	notes: Record<string, string>;
@@ -63,35 +65,41 @@ const createRazorpayOrder = async (input: {
 	const creds = getRazorpayCredentials();
 	if (!creds) throw new Error("Razorpay not configured");
 
-	const amountSmallest = Math.round(input.amount * 100);
 	const currency = input.currency.toUpperCase();
 	const razorpay = new Razorpay({ key_id: creds.keyId, key_secret: creds.keySecret });
 	const order = await razorpay.orders.create({
-		amount: amountSmallest,
+		amount: input.amountSubunits,
 		currency,
 		receipt: input.receipt,
 		notes: input.notes,
 	});
 
-	return { orderId: order.id, amount: amountSmallest, currency, keyId: creds.keyId };
+	return { orderId: order.id, amount: input.amountSubunits, currency, keyId: creds.keyId };
 };
 
 const getErrorDetail = (err: unknown): string =>
 	err instanceof Error ? err.message : String(err);
 
+const isPlusPlanId = (value: unknown): value is PlusPlanId =>
+	value === "annual" || value === "monthly";
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
 	if (req.method === "OPTIONS") return res.status(200).end();
 	if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-	const { plan, restaurantId } = req.body as {
-		plan?: PlusPlanId;
+	const { plan, restaurantId, currency: rawCurrency } = req.body as {
+		plan?: unknown;
 		restaurantId?: string;
+		currency?: string;
 	};
 
-	const pricing = plan ? PLUS_PLAN_PRICING[plan] : undefined;
-	if (!pricing || !restaurantId) {
+	if (!isPlusPlanId(plan) || !restaurantId) {
 		return res.status(400).json({ error: "A valid plan and restaurantId are required" });
 	}
+
+	const currency = normalizeCheckoutCurrency(rawCurrency);
+	const amountMajor = getPlusPlanAmount(plan, currency);
+	const amountSubunits = toRazorpayAmountSubunits(amountMajor, currency);
 
 	const token = getBearerToken(req);
 	if (!token) return res.status(401).json({ error: "Missing authorization token" });
@@ -112,12 +120,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 		}
 
 		const result = await createRazorpayOrder({
-			amount: pricing.amount,
-			currency: PLUS_CURRENCY,
+			amountSubunits,
+			currency,
 			receipt: `plus_${restaurantId.slice(0, 8)}_${Date.now()}`,
-			notes: { restaurantId, plan: plan!, planName: pricing.label, ownerId: user.id },
+			notes: {
+				restaurantId,
+				plan,
+				planName: PLUS_PLAN_LABELS[plan],
+				ownerId: user.id,
+				amountMajor: String(amountMajor),
+				catalogCurrency: "USD",
+			},
 		});
-		return res.status(200).json(result);
+		return res.status(200).json({ ...result, amountMajor });
 	} catch (e) {
 		const msg = getErrorDetail(e);
 		console.error("[create-plus-order] failed", msg);
