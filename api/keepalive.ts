@@ -11,6 +11,7 @@
 import { createLogger } from "../lib/server/logger";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { ensureDishMediaStorage } from "../lib/ensure-dish-media-storage";
+import { expirePlusSubscriptions } from "../lib/server/plusSubscriptions";
 import { getSupabaseAdmin } from "../lib/supabase-admin";
 
 const log = createLogger("keepalive");
@@ -35,5 +36,12 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
         return res.status(500).json({ ok: false, error: error.message });
     }
 
-    return res.status(200).json({ ok: true });
+    let expiredPlus = 0;
+    try {
+        expiredPlus = await expirePlusSubscriptions(admin);
+    } catch (error) {
+        log.error("expire plus failed", { message: error instanceof Error ? error.message : String(error) });
+    }
+
+    return res.status(200).json({ ok: true, expiredPlus });
 }

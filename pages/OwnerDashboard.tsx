@@ -73,7 +73,6 @@ import {
 import { SUPPORTED_CURRENCIES, formatPriceInCurrency, getSymbolForCurrency } from "@minute-menus/currency";
 import { getErrorMessage } from "@minute-menus/errors";
 import { compressDataUrl } from "@minute-menus/menu-persistence";
-import { generateAnalyticsReport } from "@minute-menus/ai";
 import { supabaseService } from "../services/supabaseService";
 import { supabase } from "../lib/supabase";
 import { openRazorpayCheckout } from "../lib/loadRazorpayCheckout";
@@ -150,7 +149,7 @@ const PaywallModal: React.FC<PaywallModalProps> = ({
                 <Check size={14} /> AI-Powered Analysis
               </li>
               <li className="flex items-center gap-2">
-                <Check size={14} /> Data Export (CSV/PDF)
+                <Check size={14} /> Data Export (CSV)
               </li>
             </ul>
           </div>
@@ -971,10 +970,17 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     setIsUpgrading(true);
     setUpgradeError(null);
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Please sign in again.");
+
       const orderRes = await fetch(PAYMENT_API_PATHS.createPlusOrder, {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ plan, restaurantId: restaurantDetails.id, currency: restaurantDetails.currency }),
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ plan, restaurantId: restaurantDetails.id }),
       });
       if (!orderRes.ok) {
         const err = await orderRes.json() as { error?: string };
@@ -996,7 +1002,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
       const confirmRes = await fetch(PAYMENT_API_PATHS.confirmPlusPayment, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ ...payment, restaurantId: restaurantDetails.id, plan }),
       });
       if (!confirmRes.ok) {
@@ -1016,25 +1025,46 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   };
 
   const triggerPaywall = (reason: string) => {
-    if (userTier === UserTier.FREE) {
-      const seenKey = `mm_paywall_seen_${reason}`;
-      if (sessionStorage.getItem(seenKey)) return false; // already shown this session
-      sessionStorage.setItem(seenKey, "1");
-      setPaywallTrigger(reason);
-      return true;
-    }
-    return false;
+    if (userTier !== UserTier.FREE) return false;
+    setPaywallTrigger(reason);
+    return true;
   };
 
   const handleGenerateInsights = async () => {
     if (triggerPaywall("AI Analysis")) return;
+    if (!restaurantDetails) return;
     setIsLoadingInsights(true);
     try {
       const report = await supabaseService.buildAnalyticsReport(timeWindow);
       setAnalyticsReport(report);
-      const name = restaurantDetails?.name ?? "the restaurant";
-      const text = await generateAnalyticsReport(report, name);
-      setInsights(text);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Please sign in again.");
+
+      const res = await fetch("/api/parse-invoice", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          action: "analytics-report",
+          restaurantId: restaurantDetails.id,
+          restaurantName: restaurantDetails.name,
+          report,
+        }),
+      });
+      if (res.status === 402) {
+        setUserTier(UserTier.FREE);
+        setPaywallTrigger("AI Analysis");
+        return;
+      }
+      if (!res.ok) {
+        const err = await res.json() as { error?: string };
+        throw new Error(err.error ?? "Failed to generate report");
+      }
+      const payload = await res.json() as { text?: string };
+      setInsights(payload.text ?? "Failed to generate report. Please try again.");
     } catch (err) {
       console.error("Analytics report error:", err);
       setInsights("Failed to generate report. Please try again.");
@@ -2545,16 +2575,6 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                               type="number"
                               value={dish.price || ""}
                               placeholder="0"
-                              onFocus={(e) => {
-                                if (userTier === UserTier.FREE) {
-                                  const seen = sessionStorage.getItem("mm_paywall_seen_Smart Pricing");
-                                  if (!seen) {
-                                    e.target.blur();
-                                    sessionStorage.setItem("mm_paywall_seen_Smart Pricing", "1");
-                                    setPaywallTrigger("Smart Pricing");
-                                  }
-                                }
-                              }}
                               onChange={(e) => {
                                 const val = parseFloat(e.target.value);
                                 handleDishUpdate(selectedCategoryIdx, idx, "price", isNaN(val) ? 0 : Math.max(0, val));

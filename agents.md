@@ -101,7 +101,7 @@ When adding a new AI call:
 
 The file is thousands of lines with inline subcomponents. **Search for the section you need** instead of reading top to bottom. Loading and save UI should use `@minute-menus/ui`. Preserve the inline-component pattern unless extracting clearly reduces duplication.
 
-User tier defaults to FREE; upgrade flow is simulated until payment integration is completed.
+User tier defaults to FREE; Plus upgrades go through Razorpay (`create-plus-order` + `confirm-payment?action=confirm-plus`) with owner auth. Gates must stay enforced for Free (no sessionStorage “show once” bypass). `getTier` respects `current_period_end`; keepalive expires lapsed Plus rows.
 
 ---
 

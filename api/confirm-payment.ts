@@ -275,6 +275,25 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
 type PlusPlanId = "annual" | "monthly";
 const PLAN_PERIOD_DAYS: Record<PlusPlanId, number> = { annual: 365, monthly: 30 };
 
+type AdminUser = { id: string };
+type AuthUserResult = { data: { user: AdminUser | null }; error: { message: string } | null };
+
+const getBearerToken = (req: VercelRequest): string | null => {
+    const header = req.headers.authorization;
+    if (!header?.startsWith("Bearer ")) return null;
+    return header.slice("Bearer ".length).trim() || null;
+};
+
+const getUserFromAccessToken = async (
+    client: SupabaseClient,
+    accessToken: string,
+): Promise<AdminUser | null> => {
+    const auth = client.auth as { getUser(jwt?: string): Promise<AuthUserResult> };
+    const { data, error } = await auth.getUser(accessToken);
+    if (error || !data.user) return null;
+    return data.user;
+};
+
 const handleConfirmPlus = async (req: VercelRequest, res: VercelResponse) => {
     const {
         razorpay_order_id, razorpay_payment_id, razorpay_signature, restaurantId, plan,
@@ -291,6 +310,23 @@ const handleConfirmPlus = async (req: VercelRequest, res: VercelResponse) => {
         return res.status(400).json({ error: "Missing required fields" });
     }
 
+    const token = getBearerToken(req);
+    if (!token) return res.status(401).json({ error: "Missing authorization token" });
+
+    const admin = requireSupabaseAdmin();
+    const user = await getUserFromAccessToken(admin, token);
+    if (!user) return res.status(401).json({ error: "Invalid or expired session" });
+
+    const { data: restaurant, error: restErr } = await admin
+        .from("restaurants")
+        .select("id")
+        .eq("id", restaurantId)
+        .eq("owner_id", user.id)
+        .maybeSingle();
+    if (restErr || !restaurant) {
+        return res.status(403).json({ error: "Not allowed for this restaurant" });
+    }
+
     const outcome = safeVerifyRazorpaySignature({
         orderId: razorpay_order_id,
         paymentId: razorpay_payment_id,
@@ -303,7 +339,7 @@ const handleConfirmPlus = async (req: VercelRequest, res: VercelResponse) => {
     const periodEnd = new Date();
     periodEnd.setDate(periodEnd.getDate() + periodDays);
 
-    const { error } = await requireSupabaseAdmin()
+    const { error } = await admin
         .from("subscriptions")
         .upsert(
             {

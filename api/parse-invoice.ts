@@ -502,6 +502,98 @@ ${JSON.stringify(menuPayload)}`,
 	return tips;
 };
 
+const isActivePlus = (row: { tier: string | null; current_period_end: string | null } | null): boolean => {
+	if (!row || row.tier !== "plus") return false;
+	if (!row.current_period_end) return true;
+	return new Date(row.current_period_end).getTime() > Date.now();
+};
+
+const generateAnalyticsNarrative = async (
+	apiKey: string,
+	restaurantName: string,
+	report: unknown,
+): Promise<string> => {
+	const anthropic = new Anthropic({ apiKey });
+	const response = await anthropic.messages.create({
+		model: "claude-sonnet-4-5",
+		max_tokens: 1024,
+		messages: [
+			{
+				role: "user",
+				content: `You are the analytics engine for Minute Menus, a restaurant digital menu platform.
+Analyze this snapshot for "${restaurantName}" and write a structured performance report.
+
+DATA:
+${JSON.stringify(report, null, 2)}
+
+Use EXACTLY these section headings (## prefix), each 3-4 sentences max. Use the actual numbers. Be direct and action-oriented with no filler.
+
+## Executive Summary
+## Revenue & Orders
+## Menu Performance
+## Subscription Health
+## Recommendations
+Exactly 3 numbered actions the owner should take THIS WEEK. Each must reference a specific metric from the data.`,
+			},
+		],
+	});
+	const block = response.content[0];
+	if (block.type !== "text" || !block.text.trim()) {
+		throw new Error("AI returned an empty analytics report");
+	}
+	return block.text;
+};
+
+const handleAnalyticsReport = async (req: VercelRequest, res: VercelResponse): Promise<VercelResponse> => {
+	const body = (req.body ?? {}) as {
+		restaurantId?: string;
+		restaurantName?: string;
+		report?: unknown;
+	};
+	const { restaurantId, restaurantName, report } = body;
+	if (!restaurantId || report == null || typeof report !== "object") {
+		return res.status(400).json({ error: "restaurantId and report are required" });
+	}
+
+	const token = getBearerToken(req);
+	if (!token) return res.status(401).json({ error: "Missing authorization token" });
+
+	const admin = requireSupabaseAdmin();
+	const user = await getUserFromAccessToken(admin, token);
+	if (!user) return res.status(401).json({ error: "Invalid or expired session" });
+
+	const { data: owned, error: ownErr } = await admin
+		.from("restaurants")
+		.select("id, name")
+		.eq("id", restaurantId)
+		.eq("owner_id", user.id)
+		.maybeSingle();
+	if (ownErr || !owned) {
+		return res.status(403).json({ error: "Not allowed for this restaurant" });
+	}
+
+	const { data: sub } = await admin
+		.from("subscriptions")
+		.select("tier, current_period_end")
+		.eq("restaurant_id", restaurantId)
+		.maybeSingle();
+	if (!isActivePlus(sub)) {
+		return res.status(402).json({ error: "Plus plan required for AI Analysis" });
+	}
+
+	const apiKey = process.env.ANTHROPIC_API_KEY?.trim();
+	if (!apiKey) {
+		return res.status(503).json({ error: "AI is not configured on the server" });
+	}
+
+	const text = await generateAnalyticsNarrative(
+		apiKey,
+		restaurantName?.trim() || owned.name,
+		report,
+	);
+	return res.status(200).json({ text });
+};
+
 const handleStorageGuide = async (req: VercelRequest, res: VercelResponse): Promise<VercelResponse> => {
 	const body = (req.body ?? {}) as {
 		restaurantId?: string;
@@ -561,6 +653,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
     const action = (req.body as { action?: string } | null)?.action ?? "parse-invoice";
+    if (action === "analytics-report") {
+        try {
+            return await handleAnalyticsReport(req, res);
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            console.error("[parse-invoice] analytics-report failed", message);
+            return res.status(502).json({ error: "Failed to generate analytics report", detail: message });
+        }
+    }
     if (action === "storage-guide") {
         try {
             return await handleStorageGuide(req, res);

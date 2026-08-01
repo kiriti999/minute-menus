@@ -209,21 +209,18 @@ export class SupabaseService {
         const rid = restaurantId ?? (await this.getRestaurantId());
         const { data } = await this.client
             .from("subscriptions")
-            .select("tier")
+            .select("tier, current_period_end")
             .eq("restaurant_id", rid)
-            .single();
+            .maybeSingle();
 
-        return data?.tier === "plus" ? UserTier.PLUS : UserTier.FREE;
-    }
-
-    async setTier(tier: UserTier, restaurantId?: string): Promise<void> {
-        const rid = restaurantId ?? (await this.getRestaurantId());
-        await this.client
-            .from("subscriptions")
-            .upsert(
-                { restaurant_id: rid, tier: tier === UserTier.PLUS ? "plus" : "free" },
-                { onConflict: "restaurant_id" },
-            );
+        if (data?.tier !== "plus") return UserTier.FREE;
+        if (
+            data.current_period_end &&
+            new Date(data.current_period_end).getTime() <= Date.now()
+        ) {
+            return UserTier.FREE;
+        }
+        return UserTier.PLUS;
     }
 
     // ── Aggregated Metrics ───────────────────────────────────────────────────────
