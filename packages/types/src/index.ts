@@ -83,7 +83,13 @@ export interface DishPerformance {
   id: string;
   name: string;
   views: number;
+  /** Units sold from orders in the period. */
+  unitsSold: number;
+  /** Revenue from those units. */
+  revenue: number;
+  /** @deprecated Use unitsSold — kept for chart compatibility. */
   conversions: number;
+  /** Units sold / views (%). */
   conversionRate: number;
   watchTime: number;
 }
@@ -362,7 +368,10 @@ export interface AggregatedMetrics {
   totalWatchTime: number; // seconds
   avgWatchDuration: number; // seconds
   completionRate: number; // percentage
+  /** Top seller by units sold (sales). */
   mostPopularDishId: string;
+  /** Most viewed dish by watch sessions. */
+  mostViewedDishId: string;
   engagementRate: number;
 
   // Sales Metrics
@@ -373,6 +382,7 @@ export interface AggregatedMetrics {
   // Graph Data
   hourlyTraffic: { hour: string; views: number }[];
   conversionFunnel: { stage: string; count: number; fill: string }[];
+  /** Ranked by sales (units sold, then revenue). */
   dishPerformance: DishPerformance[];
 }
 

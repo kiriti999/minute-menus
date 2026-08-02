@@ -283,18 +283,20 @@ class DataService {
 
     const dishPerformance: DishPerformance[] = Array.from(dishMap.entries()).map(([id, stats]) => {
         const dish = allDishes.find(d => d.id === id);
-        // Calculate specific conversions for dish if it was in an order (complex matching omitted for simplified demo)
         return {
             id,
             name: dish ? dish.name : 'Unknown Dish',
-            conversionRate: stats.views > 0 ? (stats.completions / stats.views) * 100 : 0,
+            conversionRate: 0,
             views: stats.views,
             watchTime: stats.watchTime,
-            conversions: stats.completions // mapped from completed watch sessions
+            unitsSold: 0,
+            revenue: 0,
+            conversions: 0,
         };
-    }).sort((a, b) => b.views - a.views);
+    }).sort((a, b) => b.unitsSold - a.unitsSold || b.views - a.views);
 
     const mostPopularDishId = dishPerformance.length > 0 ? dishPerformance[0].id : '';
+    const mostViewedDishId = [...dishPerformance].sort((a, b) => b.views - a.views)[0]?.id ?? '';
 
     // 4. Hourly Traffic (For "Peak Activity") & Views Graph
     const hourMap = new Map<string, number>();
@@ -346,6 +348,7 @@ class DataService {
         avgWatchDuration,
         completionRate,
         mostPopularDishId,
+        mostViewedDishId,
         engagementRate,
         totalOrders,
         avgOrderTime,
@@ -359,12 +362,13 @@ class DataService {
   // --- CSV Export ---
   getCSVData(): string {
       const metrics = this.getAggregatedMetrics('30d');
-      const headers = ['Item Name', 'Total Views', 'Watch Time (s)', 'Completions', 'Est. Conversion Rate'];
+      const headers = ['Item Name', 'Total Views', 'Watch Time (s)', 'Units Sold', 'Revenue', 'View-to-Sale Rate'];
       const rows = metrics.dishPerformance.map(d => [
-          d.name,
+          `"${d.name.replace(/"/g, '""')}"`,
           d.views.toString(),
           d.watchTime.toFixed(1),
-          d.conversions.toString(),
+          d.unitsSold.toString(),
+          d.revenue.toFixed(2),
           d.conversionRate.toFixed(1) + '%'
       ]);
 

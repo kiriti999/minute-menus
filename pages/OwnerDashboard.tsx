@@ -1703,30 +1703,42 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
             {/* Key Metrics Grid - Connected to Real Data */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mb-8 md:mb-12">
-              {[
-                {
-                  label: "Avg Order Time",
-                  value: `${Math.floor(metrics.avgOrderTime / 60)}m ${(metrics.avgOrderTime % 60).toFixed(0)}s`,
-                  sub: "From App Open",
-                },
-                {
-                  label: "Conversion Rate",
-                  value: `${metrics.conversionRate.toFixed(1)}%`,
-                  sub: "Orders / Est. Sessions",
-                },
-                {
-                  label: "Total Views",
-                  value: metrics.totalViews,
-                  sub: `Past ${timeWindow}`,
-                },
-                {
-                  label: "Top Performer",
-                  value:
-                    metrics.dishPerformance[0]?.name.substring(0, 15) + "..." ||
-                    "-",
-                  sub: "Highest Engagement",
-                },
-              ].map((metric, i) => (
+              {(() => {
+                const topSeller = metrics.dishPerformance.find((d) => d.unitsSold > 0);
+                const mostViewed =
+                  metrics.dishPerformance.find((d) => d.id === metrics.mostViewedDishId) ??
+                  [...metrics.dishPerformance].sort((a, b) => b.views - a.views)[0];
+                const shortName = (name?: string) => {
+                  if (!name) return "—";
+                  return name.length > 15 ? `${name.slice(0, 15)}…` : name;
+                };
+                return [
+                  {
+                    label: "Avg Order Time",
+                    value: `${Math.floor(metrics.avgOrderTime / 60)}m ${(metrics.avgOrderTime % 60).toFixed(0)}s`,
+                    sub: "From App Open",
+                  },
+                  {
+                    label: "Conversion Rate",
+                    value: `${metrics.conversionRate.toFixed(1)}%`,
+                    sub: "Orders / Est. Sessions",
+                  },
+                  {
+                    label: "Most Viewed",
+                    value: shortName(mostViewed?.views ? mostViewed.name : undefined),
+                    sub: mostViewed?.views
+                      ? `${mostViewed.views} view${mostViewed.views === 1 ? "" : "s"} · Past ${timeWindow}`
+                      : `Past ${timeWindow}`,
+                  },
+                  {
+                    label: "Top Performer",
+                    value: shortName(topSeller?.name),
+                    sub: topSeller
+                      ? `${topSeller.unitsSold} sold · Highest sales`
+                      : "No sales yet",
+                  },
+                ];
+              })().map((metric, i) => (
                 <div
                   key={i}
                   onClick={() => triggerPaywall("Detailed Analytics")}
@@ -1975,14 +1987,14 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 )}
               </div>
 
-              {/* 3. Top 5 Items Performance */}
+              {/* 3. Top 5 by sales */}
               <div
                 className={`border p-4 md:p-6 rounded relative group cursor-pointer overflow-hidden ${isDarkTheme ? 'bg-black border-zinc-800' : 'bg-white border-zinc-300'}`}
                 onClick={() => triggerPaywall("Detailed Analytics")}
               >
                 <div className="flex justify-between items-center mb-8 relative z-20">
                   <h3 className={`text-sm font-bold uppercase tracking-widest ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>
-                    Top 5 Items Performance
+                    Top 5 by Sales
                   </h3>
                   {userTier === UserTier.FREE && (
                     <Lock size={16} className="text-zinc-500" />
@@ -1992,7 +2004,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                   className={`h-64 w-full transition-all duration-500 ${userTier === UserTier.FREE ? "filter blur-md opacity-40 pointer-events-none" : ""}`}
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={metrics.dishPerformance.slice(0, 5)}>
+                    <BarChart
+                      data={metrics.dishPerformance
+                        .filter((d) => d.unitsSold > 0)
+                        .slice(0, 5)}
+                    >
                       <CartesianGrid
                         strokeDasharray="3 3"
                         stroke="#333"
@@ -2013,6 +2029,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                         tick={{ fontSize: 10 }}
                         tickLine={false}
                         axisLine={false}
+                        allowDecimals={false}
                       />
                       <Tooltip
                         contentStyle={{
@@ -2022,18 +2039,18 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                         }}
                       />
                       <Bar
-                        dataKey="views"
+                        dataKey="unitsSold"
                         fill="#fff"
                         barSize={20}
                         radius={[4, 4, 0, 0]}
-                        name="Views"
+                        name="Units sold"
                       />
                       <Bar
-                        dataKey="conversions"
+                        dataKey="views"
                         fill="#333"
                         barSize={20}
                         radius={[4, 4, 0, 0]}
-                        name="Orders/Conversions"
+                        name="Views"
                       />
                     </BarChart>
                   </ResponsiveContainer>

@@ -242,7 +242,7 @@ export class SupabaseService {
                     .gte("created_at", since),
                 this.client
                     .from("orders")
-                    .select("*")
+                    .select("time_to_order, items")
                     .eq("restaurant_id", rid)
                     .gte("created_at", since),
                 this.client.from("dishes").select("id, name").eq("restaurant_id", rid),
@@ -333,19 +333,22 @@ export class SupabaseService {
 
     async getCSVData(): Promise<string> {
         const metrics = await this.getAggregatedMetrics("30d");
+        // Views = reel watch sessions. Units Sold / Revenue = real orders only.
         const headers = [
             "Item Name",
             "Total Views",
             "Watch Time (s)",
-            "Completions",
-            "Est. Conversion Rate",
+            "Units Sold",
+            "Revenue",
+            "View-to-Sale Rate",
         ];
         const rows = metrics.dishPerformance.map((d) => [
-            d.name,
+            `"${d.name.replace(/"/g, '""')}"`,
             d.views.toString(),
             d.watchTime.toFixed(1),
-            d.conversions.toString(),
-            d.conversionRate.toFixed(1) + "%",
+            d.unitsSold.toString(),
+            d.revenue.toFixed(2),
+            `${d.conversionRate.toFixed(1)}%`,
         ]);
         const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
         return `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
