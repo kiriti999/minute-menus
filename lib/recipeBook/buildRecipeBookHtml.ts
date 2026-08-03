@@ -58,13 +58,19 @@ function collectDressingsForText(text: string, into: Set<string>): void {
 function withMenuFields(entry: RecipeEntry, dish: RecipeBookDish): RecipeEntry {
 	return {
 		...entry,
+		// Always show the live menu editor title (curated dishName is matching-only).
+		dishName: dish.name,
 		category: dish.category || entry.category,
 		menuDescription: dish.description || undefined,
 		menuIngredients: dish.ingredients || undefined,
 	};
 }
 
-/** Build recipe list from live menu only; dressing cards only when a menu dish uses them. */
+/**
+ * Build recipe list from the latest menu pull.
+ * Card titles / descriptions / ingredients always come from `menuDishes`
+ * (live editor). Curated RECIPE_BOOK only supplies kitchen method + hacks.
+ */
 export function buildRecipeEntries(menuDishes: RecipeBookDish[]): RecipeEntry[] {
 	const seen = new Set<string>();
 	const fromMenu: RecipeEntry[] = [];

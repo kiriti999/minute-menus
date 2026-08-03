@@ -295,7 +295,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 	// ── Juices ────────────────────────────────────────────────────────────────
 	{
 		dishName: "ABC Immunity Booster",
-		aliases: ["ABC Juice"],
+		aliases: ["ABC Juice", "ABC Immunity Booster"],
 		category: "Fresh Juices",
 		yieldNote: "1 serve chilled",
 		ingredients: "Apple · beetroot · carrot · lemon · ginger (see menu ingredients)",
@@ -307,7 +307,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 	},
 	{
 		dishName: "Orange Immunity Boost",
-		aliases: ["Orange Juice Cold Pressed"],
+		aliases: ["Orange Juice Cold Pressed", "Orange Immunity Boost"],
 		category: "Fresh Juices",
 		yieldNote: "1 serve",
 		ingredients: "Fresh oranges only",
@@ -318,7 +318,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 	},
 	{
 		dishName: "Watermelon Hydrator",
-		aliases: ["Watermelon Juice"],
+		aliases: ["Watermelon Juice", "Watermelon Hydrator"],
 		category: "Fresh Juices",
 		yieldNote: "1 serve",
 		ingredients: "Watermelon flesh · optional ice",
@@ -329,7 +329,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 	},
 	{
 		dishName: "Green Glow Detox",
-		aliases: ["Apple Carrot Celery Cold Pressed"],
+		aliases: ["Apple Carrot Celery Cold Pressed", "Green Glow Detox"],
 		category: "Fresh Juices",
 		yieldNote: "1 serve",
 		ingredients: "Apple · carrot · celery · lemon",
@@ -339,8 +339,64 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		],
 	},
 	{
-		dishName: "Mango refresh",
-		aliases: ["Alphonso Mango Refresh", "Mango Juice", "Mango Refresh"],
+		dishName: "Carrot Apple Energy",
+		aliases: ["Apple Carrot Cold Pressed", "Carrot Apple Energy"],
+		category: "Fresh Juices",
+		yieldNote: "1 serve",
+		ingredients: "Apple · carrot · lemon (see menu ingredients)",
+		method: "Wash, chop, juice or blend + strain. Serve cold.",
+		hacks: [
+			{ title: "Carrot first", detail: "Juice carrot before apple so pulp clears easier between batches." },
+		],
+	},
+	{
+		dishName: "Crisp Apple Vitality",
+		aliases: ["Apple Cold Pressed", "Crisp Apple Vitality"],
+		category: "Fresh Juices",
+		yieldNote: "1 serve",
+		ingredients: "Fresh apples · lemon optional",
+		method: "Juice apples; lemon splash to slow browning. Chill.",
+		hacks: [
+			{ title: "Apple grade", detail: "Use firm juice apples; soft fruit for oats — split purchase." },
+		],
+	},
+	{
+		dishName: "Beta-Glow Carrot",
+		aliases: ["Carrot Juice Cold Pressed", "Beta-Glow Carrot"],
+		category: "Fresh Juices",
+		yieldNote: "1 serve",
+		ingredients: "Carrots · optional ginger/lemon",
+		method: "Juice carrots; finish ginger/lemon if on menu.",
+		hacks: [
+			{ title: "Peel only if dirty", detail: "Scrub well instead of peeling — less waste, more colour." },
+		],
+	},
+	{
+		dishName: "Apple Pomegranate Boost",
+		aliases: [
+			"Apple Pomegranate Cold Pressed",
+			"Pomegranate Cold Pressed",
+			"Apple Carrot Pomegranate Cold Pressed",
+			"Apple Pomegranate Boost",
+			"Heart & Glow Blend",
+		],
+		category: "Fresh Juices",
+		yieldNote: "1 serve",
+		ingredients: "Apple · pomegranate · optional carrot (see menu)",
+		method: "Juice/blend; strain seeds if needed. Serve cold.",
+		hacks: [
+			{ title: "Arils", detail: "Buy ready arils in season rush — faster than whole fruit for volume." },
+		],
+	},
+	{
+		dishName: "Seasonal Mango Refresh",
+		aliases: [
+			"Mango refresh",
+			"Alphonso Mango Refresh",
+			"Mango Juice",
+			"Mango Refresh",
+			"Seasonal Mango Refresh",
+		],
 		category: "Fresh Juices",
 		yieldNote: "1 serve",
 		ingredients: "Mango pulp · water · ice",
@@ -351,7 +407,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 	},
 	{
 		dishName: "Sweet Lime Digestive",
-		aliases: ["Mosambi Cold Pressed"],
+		aliases: ["Mosambi Cold Pressed", "Sweet Lime Digestive"],
 		category: "Fresh Juices",
 		yieldNote: "1 serve",
 		ingredients: "Mosambi (sweet lime)",
@@ -362,7 +418,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 	},
 	{
 		dishName: "Tropical Electrolyte Cooler",
-		aliases: ["Tropical Pina Colada Cold Pressed", "Pineapple Juice"],
+		aliases: ["Tropical Pina Colada Cold Pressed", "Pineapple Juice", "Pineapple Energizer", "Tropical Electrolyte Cooler"],
 		category: "Fresh Juices",
 		yieldNote: "1 serve",
 		ingredients: "Pineapple · coconut water · lime · mint",
@@ -444,14 +500,87 @@ export function normalizeDishKey(name: string): string {
 	return n(name);
 }
 
-/** Find curated recipe for a live menu dish name. */
-export function findRecipeForDish(dishName: string): RecipeEntry | undefined {
-	const key = n(dishName);
-	for (const r of RECIPE_BOOK) {
-		if (n(r.dishName) === key) return r;
-		if (r.aliases?.some((a) => n(a) === key)) return r;
+const MATCH_STOP = new Set([
+	"with",
+	"and",
+	"the",
+	"cold",
+	"pressed",
+	"fresh",
+	"juice",
+	"milk",
+	"shake",
+	"salad",
+	"wrap",
+	"bowl",
+	"oats",
+	"overnight",
+]);
+
+function significantTokens(name: string): Set<string> {
+	return new Set(
+		n(name)
+			.split(/[^a-z0-9]+/)
+			.filter((t) => t.length >= 3 && !MATCH_STOP.has(t)),
+	);
+}
+
+function recipeMatchNames(recipe: RecipeEntry): string[] {
+	return [recipe.dishName, ...(recipe.aliases ?? [])];
+}
+
+/** Higher score = better match. 0 = no usable match. */
+function scoreRecipeMatch(menuName: string, recipe: RecipeEntry): number {
+	if (recipe.category === "Dressings") return 0;
+	const menuKey = n(menuName);
+	const candidates = recipeMatchNames(recipe).map(n);
+
+	if (candidates.some((c) => c === menuKey)) return 10_000;
+
+	let best = 0;
+	for (const c of candidates) {
+		if (c.length >= 8 && (menuKey.includes(c) || c.includes(menuKey))) {
+			best = Math.max(best, 5_000 + Math.min(c.length, menuKey.length));
+		}
 	}
-	return undefined;
+	if (best > 0) return best;
+
+	const menuTokens = significantTokens(menuName);
+	if (menuTokens.size === 0) return 0;
+
+	for (const c of candidates) {
+		const recipeTokens = significantTokens(c);
+		if (recipeTokens.size === 0) continue;
+		let overlap = 0;
+		for (const t of menuTokens) {
+			if (recipeTokens.has(t)) overlap += 1;
+		}
+		const denom = Math.max(menuTokens.size, recipeTokens.size);
+		const ratio = overlap / denom;
+		// Need real overlap — avoid weak single-token collisions across categories.
+		if (overlap >= 2 || (overlap === 1 && denom <= 2 && ratio >= 0.5)) {
+			best = Math.max(best, Math.round(ratio * 1000) + overlap * 10);
+		}
+	}
+	return best;
+}
+
+/**
+ * Find curated kitchen recipe for a live menu dish.
+ * Exact / alias first, then token overlap so renames still get hacks
+ * without hand-updating aliases. Card titles always come from the live menu.
+ */
+export function findRecipeForDish(dishName: string): RecipeEntry | undefined {
+	let best: RecipeEntry | undefined;
+	let bestScore = 0;
+	for (const r of RECIPE_BOOK) {
+		const score = scoreRecipeMatch(dishName, r);
+		if (score > bestScore) {
+			bestScore = score;
+			best = r;
+		}
+	}
+	return bestScore > 0 ? best : undefined;
 }
 
 /** Fallback card from menu description/ingredients when no curated recipe exists. */
