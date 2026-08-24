@@ -17,6 +17,7 @@ import { useRestaurantSlugRoute } from "./hooks/useRestaurantSlugRoute";
 import { CustomerApp } from "./pages/CustomerApp";
 import { LoginPage } from "./pages/LoginPage";
 import { OwnerDashboard } from "./pages/OwnerDashboard";
+import { QrLandingPage } from "./pages/QrLandingPage";
 import { RecipeBookPage } from "./pages/RecipeBookPage";
 import { StaffClockPage } from "./pages/StaffClockPage";
 import { AppMode } from "@minute-menus/types";
@@ -26,6 +27,11 @@ function parseClockRoute(): { slug: string; badge: string | null } | null {
     if (!match) return null;
     const badge = new URLSearchParams(window.location.search).get("badge");
     return { slug: match[1].toLowerCase(), badge };
+}
+
+function parseGoRoute(): string | null {
+    const match = window.location.pathname.match(/^\/go\/([a-z0-9-]+)$/i);
+    return match ? match[1].toLowerCase() : null;
 }
 
 const App: React.FC = () => {
@@ -152,6 +158,11 @@ const App: React.FC = () => {
     const clockRoute = parseClockRoute();
     if (clockRoute) {
         return <StaffClockPage slug={clockRoute.slug} badgeToken={clockRoute.badge} />;
+    }
+
+    const goSlug = parseGoRoute();
+    if (goSlug) {
+        return <QrLandingPage slug={goSlug} />;
     }
 
     if (slugLoading) {

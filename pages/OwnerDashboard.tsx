@@ -253,6 +253,9 @@ interface QrCodeModalProps {
   restaurantName: string;
   onSlugUpdated: (newSlug: string) => void;
   isDarkTheme: boolean;
+  initialZomatoUrl: string | null;
+  initialSwiggyUrl: string | null;
+  initialDirectionsUrl: string | null;
 }
 
 const QrCodeModal: React.FC<QrCodeModalProps> = ({
@@ -261,6 +264,9 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
   restaurantName,
   onSlugUpdated,
   isDarkTheme,
+  initialZomatoUrl,
+  initialSwiggyUrl,
+  initialDirectionsUrl,
 }) => {
   const [color, setColor] = useState("#000000");
   const [copied, setCopied] = useState(false);
@@ -271,6 +277,15 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isFixingSlug, setIsFixingSlug] = useState(false);
   const qrRef = useRef<HTMLDivElement>(null);
+
+  // Link configuration state
+  const [zomatoUrl, setZomatoUrl] = useState(initialZomatoUrl ?? "");
+  const [swiggyUrl, setSwiggyUrl] = useState(initialSwiggyUrl ?? "");
+  const [directionsUrl, setDirectionsUrl] = useState(initialDirectionsUrl ?? "");
+  const [isSavingLinks, setIsSavingLinks] = useState(false);
+  const [linksError, setLinksError] = useState<string | null>(null);
+  const [linksSaved, setLinksSaved] = useState(false);
+  const [showLinkConfig, setShowLinkConfig] = useState(false);
 
   // Check if slug is a UUID (legacy format)
   const isUuidSlug = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentSlug);
@@ -290,8 +305,11 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
     }
   }, []);
 
-  // Generate the restaurant URL - use production URL if set, otherwise window.location.origin
+  // Generate URLs
   const baseUrl = import.meta.env.VITE_SITE_URL || window.location.origin;
+  // QR code encodes the landing page (not the direct menu)
+  const qrUrl = `${baseUrl}/go/${currentSlug}`;
+  // Direct menu URL shown as label
   const restaurantUrl = `${baseUrl}/${currentSlug}`;
 
   const handleSaveSlug = async () => {
@@ -321,9 +339,28 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
   };
 
   const handleCopyUrl = async () => {
-    await navigator.clipboard.writeText(restaurantUrl);
+    await navigator.clipboard.writeText(qrUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSaveLinks = async () => {
+    setIsSavingLinks(true);
+    setLinksError(null);
+    setLinksSaved(false);
+    try {
+      await supabaseService.updateRestaurantLinks({
+        zomato_url: zomatoUrl.trim() || null,
+        swiggy_url: swiggyUrl.trim() || null,
+        directions_url: directionsUrl.trim() || null,
+      });
+      setLinksSaved(true);
+      setTimeout(() => setLinksSaved(false), 2500);
+    } catch (err) {
+      setLinksError(getErrorMessage(err, "Failed to save links"));
+    } finally {
+      setIsSavingLinks(false);
+    }
   };
 
   const handleDownloadPNG = () => {
@@ -377,7 +414,7 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
           {/* QR Code Display */}
           <div ref={qrRef} className="bg-white p-6 rounded-xl shadow-xl mb-6">
             <QRCodeCanvas
-              value={restaurantUrl}
+              value={qrUrl}
               size={200}
               bgColor="#ffffff"
               fgColor={color}
@@ -387,7 +424,7 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
             {/* Hidden SVG for download */}
             <div className="hidden">
               <QRCodeSVG
-                value={restaurantUrl}
+                value={qrUrl}
                 size={400}
                 bgColor="#ffffff"
                 fgColor={color}
@@ -432,35 +469,43 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
                 </div>
               </div>
             ) : (
-              <div className={`rounded-lg p-3 flex items-center justify-between gap-2 ${isDarkTheme ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
-                <code className={`text-sm truncate flex-1 ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                  {restaurantUrl}
-                </code>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className={`p-1.5 rounded transition-colors ${isDarkTheme ? 'hover:bg-zinc-700 text-zinc-400 hover:text-white' : 'hover:bg-zinc-200 text-zinc-500 hover:text-zinc-900'}`}
-                    title="Edit URL"
-                  >
-                    <Edit2 size={14} />
-                  </button>
-                  <button
-                    onClick={handleCopyUrl}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${isDarkTheme ? 'bg-zinc-700 hover:bg-zinc-600 text-white' : 'bg-zinc-200 hover:bg-zinc-300 text-zinc-900'}`}
-                  >
-                    {copied ? (
-                      <>
-                        <Check size={14} />
-                        Copied!
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={14} />
-                        Copy
-                      </>
-                    )}
-                  </button>
+              <div className="space-y-1.5">
+                <div className={`rounded-lg p-3 flex items-center justify-between gap-2 ${isDarkTheme ? 'bg-zinc-800' : 'bg-zinc-100'}`}>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-[10px] uppercase tracking-widest mb-0.5 ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-400'}`}>QR Scans → Landing Page</p>
+                    <code className={`text-xs truncate block ${isDarkTheme ? 'text-zinc-300' : 'text-zinc-700'}`}>
+                      {qrUrl}
+                    </code>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className={`p-1.5 rounded transition-colors ${isDarkTheme ? 'hover:bg-zinc-700 text-zinc-400 hover:text-white' : 'hover:bg-zinc-200 text-zinc-500 hover:text-zinc-900'}`}
+                      title="Edit URL"
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                    <button
+                      onClick={handleCopyUrl}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium transition-colors ${isDarkTheme ? 'bg-zinc-700 hover:bg-zinc-600 text-white' : 'bg-zinc-200 hover:bg-zinc-300 text-zinc-900'}`}
+                    >
+                      {copied ? (
+                        <>
+                          <Check size={14} />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={14} />
+                          Copy
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
+                <p className={`text-[10px] ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-400'}`}>
+                  Direct menu: <span className={isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}>{restaurantUrl}</span>
+                </p>
               </div>
             )}
           </div>
@@ -488,6 +533,54 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
                   />
                 ))}
               </div>
+            </div>
+
+            {/* Configure Landing Page Links */}
+            <div className={`rounded-lg border ${isDarkTheme ? 'border-zinc-800' : 'border-zinc-200'}`}>
+              <button
+                onClick={() => setShowLinkConfig((v) => !v)}
+                className={`w-full flex items-center justify-between px-4 py-3 text-sm font-medium transition-colors rounded-lg ${isDarkTheme ? 'text-zinc-300 hover:text-white' : 'text-zinc-700 hover:text-zinc-900'}`}
+              >
+                <span>Configure Landing Page Links</span>
+                <span className={`text-xs transition-transform duration-200 ${showLinkConfig ? 'rotate-180' : ''}`}>▾</span>
+              </button>
+              {showLinkConfig && (
+                <div className={`px-4 pb-4 space-y-3 border-t ${isDarkTheme ? 'border-zinc-800' : 'border-zinc-200'}`}>
+                  <p className={`text-[10px] pt-3 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>
+                    Customers scanning this QR code will see these options. Leave a field blank to hide that button.
+                  </p>
+                  {[
+                    { label: "Zomato URL", value: zomatoUrl, setter: setZomatoUrl, placeholder: "https://www.zomato.com/..." },
+                    { label: "Swiggy URL", value: swiggyUrl, setter: setSwiggyUrl, placeholder: "https://www.swiggy.com/..." },
+                    { label: "Directions URL (Google Maps)", value: directionsUrl, setter: setDirectionsUrl, placeholder: "https://share.google/..." },
+                  ].map(({ label, value, setter, placeholder }) => (
+                    <div key={label}>
+                      <label className={`block text-[10px] uppercase tracking-widest mb-1 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>{label}</label>
+                      <input
+                        type="url"
+                        value={value}
+                        onChange={(e) => setter(e.target.value)}
+                        placeholder={placeholder}
+                        className={`w-full rounded px-3 py-2 text-xs outline-none border transition-colors ${isDarkTheme ? 'bg-zinc-800 border-zinc-700 text-white placeholder-zinc-600 focus:border-zinc-500' : 'bg-zinc-50 border-zinc-200 text-zinc-900 placeholder-zinc-400 focus:border-zinc-400'}`}
+                      />
+                    </div>
+                  ))}
+                  {linksError && <p className="text-red-400 text-xs">{linksError}</p>}
+                  <button
+                    onClick={handleSaveLinks}
+                    disabled={isSavingLinks}
+                    className={`w-full py-2 rounded font-medium text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2 ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
+                  >
+                    {isSavingLinks ? (
+                      <><div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />Saving...</>
+                    ) : linksSaved ? (
+                      <><Check size={14} />Saved!</>
+                    ) : (
+                      "Save Links"
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Download Buttons */}
@@ -826,6 +919,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     name: string;
     slug: string;
     currency: string;
+    zomato_url: string | null;
+    swiggy_url: string | null;
+    directions_url: string | null;
   } | null>(null);
 
   // Show first-time setup modal when restaurant was created with default name
@@ -1529,6 +1625,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           restaurantName={restaurantDetails.name}
           onSlugUpdated={(newSlug) => setRestaurantDetails(prev => prev ? { ...prev, slug: newSlug } : null)}
           isDarkTheme={isDarkTheme}
+          initialZomatoUrl={restaurantDetails.zomato_url}
+          initialSwiggyUrl={restaurantDetails.swiggy_url}
+          initialDirectionsUrl={restaurantDetails.directions_url}
         />
       )}
 

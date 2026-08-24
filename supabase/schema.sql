@@ -40,6 +40,11 @@ create table if not exists restaurants (
 -- Migration: Add currency column if upgrading existing DB
 -- ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS currency text NOT NULL DEFAULT 'USD';
 
+-- Migration: Add delivery platform + directions link columns (QR landing page)
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS zomato_url text;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS swiggy_url text;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS directions_url text;
+
 alter table restaurants enable row level security;
 
 create policy "Owner can manage their restaurant"

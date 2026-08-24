@@ -403,15 +403,24 @@ export class SupabaseService {
         name: string;
         slug: string;
         currency: string;
+        zomato_url: string | null;
+        swiggy_url: string | null;
+        directions_url: string | null;
     } | null> {
         const { data, error } = await this.client
             .from("restaurants")
-            .select("id, name, slug, currency")
+            .select("id, name, slug, currency, zomato_url, swiggy_url, directions_url")
             .eq("slug", slug)
             .maybeSingle();
 
         if (error || !data) return null;
-        return { ...data, currency: data.currency || "USD" };
+        return {
+            ...data,
+            currency: data.currency || "USD",
+            zomato_url: data.zomato_url ?? null,
+            swiggy_url: data.swiggy_url ?? null,
+            directions_url: data.directions_url ?? null,
+        };
     }
 
     /**
@@ -433,16 +442,30 @@ export class SupabaseService {
     /**
      * Get restaurant details including name (for QR code display).
      */
-    async getRestaurantDetails(): Promise<{ id: string; name: string; slug: string; currency: string }> {
+    async getRestaurantDetails(): Promise<{
+        id: string;
+        name: string;
+        slug: string;
+        currency: string;
+        zomato_url: string | null;
+        swiggy_url: string | null;
+        directions_url: string | null;
+    }> {
         const rid = await this.getRestaurantId();
         const { data, error } = await this.client
             .from("restaurants")
-            .select("id, name, slug, currency")
+            .select("id, name, slug, currency, zomato_url, swiggy_url, directions_url")
             .eq("id", rid)
             .single();
 
         if (error || !data) throw new Error("Restaurant not found");
-        return { ...data, currency: data.currency || "USD" };
+        return {
+            ...data,
+            currency: data.currency || "USD",
+            zomato_url: data.zomato_url ?? null,
+            swiggy_url: data.swiggy_url ?? null,
+            directions_url: data.directions_url ?? null,
+        };
     }
 
     /**
@@ -508,6 +531,23 @@ export class SupabaseService {
         const { error } = await this.client
             .from("restaurants")
             .update({ currency })
+            .eq("id", rid);
+        if (error) throw error;
+    }
+
+    /**
+     * Update the restaurant's delivery platform and directions links.
+     * Used by the QR Code Studio to configure the landing page.
+     */
+    async updateRestaurantLinks(links: {
+        zomato_url: string | null;
+        swiggy_url: string | null;
+        directions_url: string | null;
+    }): Promise<void> {
+        const rid = await this.getRestaurantId();
+        const { error } = await this.client
+            .from("restaurants")
+            .update(links)
             .eq("id", rid);
         if (error) throw error;
     }

@@ -14,6 +14,9 @@ export type Database = {
                     slug: string;
                     currency: string;
                     created_at: string;
+                    zomato_url: string | null;
+                    swiggy_url: string | null;
+                    directions_url: string | null;
                 };
                 Insert: {
                     id?: string;
@@ -22,6 +25,9 @@ export type Database = {
                     slug: string;
                     currency?: string;
                     created_at?: string;
+                    zomato_url?: string | null;
+                    swiggy_url?: string | null;
+                    directions_url?: string | null;
                 };
                 Update: {
                     id?: string;
@@ -30,6 +36,9 @@ export type Database = {
                     slug?: string;
                     currency?: string;
                     created_at?: string;
+                    zomato_url?: string | null;
+                    swiggy_url?: string | null;
+                    directions_url?: string | null;
                 };
                 Relationships: [];
             };
