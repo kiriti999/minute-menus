@@ -35,15 +35,9 @@ function parseGoRoute(): string | null {
     return match ? match[1].toLowerCase() : null;
 }
 
-function parseRecipeBookRoute(pathname: string): { slug: string | null } | null {
+function parseRecipeBookRoute(pathname: string): string | null {
     const match = pathname.match(/^\/([a-z0-9-]+)\/recipe-book\/?$/i);
-    if (match) {
-        return { slug: match[1].toLowerCase() };
-    }
-    if (/^\/recipe-book\/?$/i.test(pathname)) {
-        return { slug: null };
-    }
-    return null;
+    return match ? match[1].toLowerCase() : null;
 }
 
 function parseMenuListRoute(pathname: string): string | null {
@@ -146,24 +140,12 @@ const App: React.FC = () => {
         return <LoadingScreen />;
     }
 
-    const recipeBookRoute = parseRecipeBookRoute(path);
-    if (recipeBookRoute) {
-        if (!recipeBookRoute.slug && !isAuthenticated) {
-            return (
-                <LoginPage
-                    onLoginSuccess={() => {
-                        setMode(AppMode.OWNER);
-                        window.history.replaceState({}, "", "/recipe-book");
-                        setPath("/recipe-book");
-                    }}
-                    targetMode={AppMode.OWNER}
-                />
-            );
-        }
+    const recipeBookSlug = parseRecipeBookRoute(path);
+    if (recipeBookSlug) {
         return (
             <RecipeBookPage
                 key={path}
-                slug={recipeBookRoute.slug}
+                slug={recipeBookSlug}
                 isAuthenticated={isAuthenticated}
                 isDarkTheme={isDarkTheme}
                 onBack={() => {
@@ -171,13 +153,9 @@ const App: React.FC = () => {
                         window.history.pushState({}, "", "/");
                         setPath("/");
                         setMode(AppMode.OWNER);
-                    } else if (recipeBookRoute.slug) {
-                        // Full navigation so slugRoute hook re-runs and loads the customer menu
-                        window.location.href = `/${recipeBookRoute.slug}`;
                     } else {
-                        window.history.pushState({}, "", "/");
-                        setPath("/");
-                        setMode(AppMode.LANDING);
+                        // Full navigation so slugRoute hook re-runs and loads the customer menu
+                        window.location.href = `/${recipeBookSlug}`;
                     }
                 }}
             />

@@ -11,31 +11,17 @@ import { supabaseService } from "../services/supabaseService";
 export interface RecipeBookPageProps {
 	isDarkTheme: boolean;
 	onBack: () => void;
-	slug?: string | null;
+	slug: string;
 	isAuthenticated?: boolean;
 }
 
-async function fetchMenuAndRestaurant(slug?: string | null) {
-	if (slug) {
-		const restaurant = await supabaseService.getRestaurantBySlug(slug);
-		if (!restaurant) {
-			throw new Error(`Restaurant "${slug}" not found`);
-		}
-		const menu = await supabaseService.getMenu(restaurant.id);
-		return {
-			menu,
-			restaurantName: restaurant.name || "Recipe book",
-			resolvedSlug: restaurant.slug,
-		};
-	}
-	const [menu, details] = await Promise.all([
-		supabaseService.getMenu(),
-		supabaseService.getRestaurantDetails(),
-	]);
+async function fetchMenuAndRestaurant(slug: string) {
+	const restaurant = await supabaseService.getRestaurantBySlug(slug);
+	if (!restaurant) throw new Error(`Restaurant "${slug}" not found`);
+	const menu = await supabaseService.getMenu(restaurant.id);
 	return {
 		menu,
-		restaurantName: details.name || "Recipe book",
-		resolvedSlug: details.slug,
+		restaurantName: restaurant.name || "Recipe book",
 	};
 }
 
@@ -54,7 +40,7 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 	const [refreshing, setRefreshing] = useState(false);
 	const [loadedAt, setLoadedAt] = useState<Date | null>(null);
 	const [fetchTick, setFetchTick] = useState(0);
-	const [currentSlug, setCurrentSlug] = useState<string | null>(slug ?? null);
+	const [currentSlug] = useState<string>(slug);
 	const frameRef = useRef<HTMLIFrameElement>(null);
 	const requestId = useRef(0);
 
@@ -64,12 +50,8 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 		else setLoading(true);
 		setError("");
 		try {
-			const { menu, restaurantName, resolvedSlug } = await fetchMenuAndRestaurant(slug);
+			const { menu, restaurantName } = await fetchMenuAndRestaurant(slug);
 			if (id !== requestId.current) return;
-			if (resolvedSlug && !slug) {
-				window.history.replaceState({}, "", `/${resolvedSlug}/recipe-book`);
-			}
-			setCurrentSlug(resolvedSlug);
 			setHtml(
 				buildRecipeBookHtml({
 					restaurantName,
