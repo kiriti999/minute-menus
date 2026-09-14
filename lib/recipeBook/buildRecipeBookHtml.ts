@@ -27,10 +27,10 @@ export function dishesFromMenu(menu: Category[]): RecipeBookDish[] {
 	for (const cat of menu) {
 		for (const dish of cat.items) {
 			rows.push({
-				name: dish.name,
-				category: cat.title,
-				ingredients: dish.ingredients?.trim() ?? "",
-				description: dish.description?.trim() ?? "",
+				name: String(dish.name ?? "").trim(),
+				category: String(cat.title ?? "").trim(),
+				ingredients: String(dish.ingredients ?? "").trim(),
+				description: String(dish.description ?? "").trim(),
 			});
 		}
 	}
@@ -55,101 +55,167 @@ function collectDressingsForText(text: string, into: Set<string>): void {
 	}
 }
 
-function withMenuFields(entry: RecipeEntry, dish: RecipeBookDish): RecipeEntry {
+/** Printable card — live menu fields are never taken from curated RECIPE_BOOK. */
+export type RecipeCardModel = {
+	title: string;
+	category: string;
+	/** Live menu editor description (customer-facing). */
+	liveDescription: string;
+	/** Live menu editor ingredients. */
+	liveIngredients: string;
+	/** Curated kitchen portion guide (optional). */
+	kitchenBuild: string;
+	/** Curated kitchen method (optional). */
+	kitchenMethod: string;
+	yieldNote?: string;
+	hacks: RecipeEntry["hacks"];
+	isDressing: boolean;
+};
+
+function cardFromLiveDish(dish: RecipeBookDish, kitchen: RecipeEntry): RecipeCardModel {
 	return {
-		...entry,
-		// Always show the live menu editor title (curated dishName is matching-only).
-		dishName: dish.name,
-		category: dish.category || entry.category,
-		menuDescription: dish.description || undefined,
-		menuIngredients: dish.ingredients || undefined,
+		title: dish.name,
+		category: dish.category || kitchen.category || "Menu",
+		liveDescription: dish.description,
+		liveIngredients: dish.ingredients,
+		kitchenBuild: kitchen.ingredients.trim(),
+		kitchenMethod: kitchen.method.trim(),
+		yieldNote: kitchen.yieldNote,
+		hacks: kitchen.hacks,
+		isDressing: false,
+	};
+}
+
+function cardFromDressing(entry: RecipeEntry): RecipeCardModel {
+	return {
+		title: entry.dishName,
+		category: "Dressings",
+		liveDescription: "",
+		liveIngredients: "",
+		kitchenBuild: entry.ingredients.trim(),
+		kitchenMethod: entry.method.trim(),
+		yieldNote: entry.yieldNote,
+		hacks: entry.hacks,
+		isDressing: true,
 	};
 }
 
 /**
- * Build recipe list from the latest menu pull.
- * Card titles / descriptions / ingredients always come from `menuDishes`
- * (live editor). Curated RECIPE_BOOK only supplies kitchen method + hacks.
+ * Build cards from the latest menu pull.
+ * Title / description / ingredients always come from live menu rows.
+ * Curated RECIPE_BOOK only supplies kitchen build, method, and hacks.
  */
-export function buildRecipeEntries(menuDishes: RecipeBookDish[]): RecipeEntry[] {
+export function buildRecipeCards(menuDishes: RecipeBookDish[]): RecipeCardModel[] {
 	const seen = new Set<string>();
-	const fromMenu: RecipeEntry[] = [];
+	const fromMenu: RecipeCardModel[] = [];
 	const neededDressingKeys = new Set<string>();
 
 	for (const d of menuDishes) {
 		const key = d.name.trim().toLowerCase();
 		if (!key || seen.has(key)) continue;
 		seen.add(key);
+
 		const curated = findRecipeForDish(d.name);
-		if (curated) {
-			fromMenu.push(withMenuFields(curated, d));
-			collectDressingsForText(
-				`${d.ingredients} ${d.description} ${curated.ingredients} ${curated.method} ${curated.yieldNote ?? ""}`,
-				neededDressingKeys,
-			);
-			continue;
-		}
-		fromMenu.push(
-			withMenuFields(recipeFromMenuFields(d.name, d.category, d.ingredients, d.description), d),
+		const kitchen =
+			curated ??
+			recipeFromMenuFields(d.name, d.category, d.ingredients, d.description);
+		fromMenu.push(cardFromLiveDish(d, kitchen));
+		collectDressingsForText(
+			`${d.ingredients} ${d.description} ${kitchen.ingredients} ${kitchen.method}`,
+			neededDressingKeys,
 		);
-		collectDressingsForText(`${d.ingredients} ${d.description}`, neededDressingKeys);
 	}
 
 	const dressings = RECIPE_BOOK.filter(
 		(r) => r.category === "Dressings" && neededDressingKeys.has(r.dishName.toLowerCase()),
-	);
+	).map(cardFromDressing);
+
 	return [...dressings, ...fromMenu];
 }
 
-function groupByCategory(entries: RecipeEntry[]): { category: string; items: RecipeEntry[] }[] {
+/** @deprecated Use buildRecipeCards — kept for any older imports. */
+export function buildRecipeEntries(menuDishes: RecipeBookDish[]): RecipeEntry[] {
+	return buildRecipeCards(menuDishes).map((c) => ({
+		dishName: c.title,
+		category: c.category,
+		menuDescription: c.liveDescription || undefined,
+		menuIngredients: c.liveIngredients || undefined,
+		ingredients: c.kitchenBuild,
+		method: c.kitchenMethod,
+		yieldNote: c.yieldNote,
+		hacks: c.hacks,
+	}));
+}
+
+function groupByCategory(cards: RecipeCardModel[]): { category: string; items: RecipeCardModel[] }[] {
 	const order: string[] = [];
-	const map = new Map<string, RecipeEntry[]>();
-	for (const e of entries) {
-		const cat = e.category || "Menu";
+	const map = new Map<string, RecipeCardModel[]>();
+	for (const c of cards) {
+		const cat = c.category || "Menu";
 		if (!map.has(cat)) {
 			map.set(cat, []);
 			order.push(cat);
 		}
-		map.get(cat)!.push(e);
+		map.get(cat)!.push(c);
 	}
 	return order.map((category) => ({ category, items: map.get(category)! }));
 }
 
-function renderCard(entry: RecipeEntry): string {
-	const hacks = entry.hacks
+function fieldBlock(label: string, value: string, emptyHint: string): string {
+	if (value) {
+		return `<p class="label">${escapeHtml(label)}</p><p class="body menu-field">${escapeHtml(value)}</p>`;
+	}
+	return `<p class="label">${escapeHtml(label)}</p><p class="body muted">${escapeHtml(emptyHint)}</p>`;
+}
+
+function renderCard(card: RecipeCardModel): string {
+	const hacks = card.hacks
 		.map(
 			(h) =>
 				`<li><strong>${escapeHtml(h.title)}:</strong> ${escapeHtml(h.detail)}</li>`,
 		)
 		.join("");
-	const yieldLine = entry.yieldNote
-		? `<p class="yield">${escapeHtml(entry.yieldNote)}</p>`
+	const yieldLine = card.yieldNote
+		? `<p class="yield">${escapeHtml(card.yieldNote)}</p>`
 		: "";
-	const menuDesc = entry.menuDescription
-		? `<p class="label">Menu description</p><p class="body menu-field">${escapeHtml(entry.menuDescription)}</p>`
-		: `<p class="label">Menu description</p><p class="body muted">Not set in menu editor</p>`;
-	const menuIng = entry.menuIngredients
-		? `<p class="label">Menu ingredients</p><p class="body menu-field">${escapeHtml(entry.menuIngredients)}</p>`
-		: `<p class="label">Menu ingredients</p><p class="body muted">Not set in menu editor</p>`;
-	const kitchenBuild =
-		entry.category === "Dressings"
-			? ""
-			: `<p class="label">Kitchen build (portion guide)</p>
-  <p class="body">${escapeHtml(entry.ingredients)}</p>
-  <p class="label">Easy method</p>
-  <p class="body">${escapeHtml(entry.method)}</p>`;
-	const dressingBuild =
-		entry.category === "Dressings"
-			? `<p class="label">Batch recipe</p>
-  <p class="body">${escapeHtml(entry.ingredients)}</p>
-  <p class="label">Easy method</p>
-  <p class="body">${escapeHtml(entry.method)}</p>`
+
+	if (card.isDressing) {
+		return `
+<article class="card">
+  <h3>${escapeHtml(card.title)}</h3>
+  ${yieldLine}
+  <p class="label">Batch recipe</p>
+  <p class="body">${escapeHtml(card.kitchenBuild)}</p>
+  <p class="label">Kitchen method</p>
+  <p class="body">${escapeHtml(card.kitchenMethod)}</p>
+  <p class="label">Kitchen hacks</p>
+  <ul class="hacks">${hacks}</ul>
+</article>`;
+	}
+
+	const liveDesc = fieldBlock(
+		"Description (from menu)",
+		card.liveDescription,
+		"Not set in menu editor — save a description on this dish, then refresh.",
+	);
+	const liveIng = fieldBlock(
+		"Ingredients (from menu)",
+		card.liveIngredients,
+		"Not set in menu editor — save ingredients on this dish, then refresh.",
+	);
+	const kitchen =
+		card.kitchenBuild || card.kitchenMethod
+			? `${card.kitchenBuild ? `<p class="label">Kitchen build (portion guide)</p><p class="body">${escapeHtml(card.kitchenBuild)}</p>` : ""}
+  ${card.kitchenMethod ? `<p class="label">Kitchen method</p><p class="body">${escapeHtml(card.kitchenMethod)}</p>` : ""}`
 			: "";
+
 	return `
 <article class="card">
-  <h3>${escapeHtml(entry.dishName)}</h3>
+  <h3>${escapeHtml(card.title)}</h3>
   ${yieldLine}
-  ${entry.category === "Dressings" ? dressingBuild : `${menuDesc}${menuIng}${kitchenBuild}`}
+  ${liveDesc}
+  ${liveIng}
+  ${kitchen}
   <p class="label">Kitchen hacks</p>
   <ul class="hacks">${hacks}</ul>
 </article>`;
@@ -162,12 +228,12 @@ export function buildRecipeBookHtml(opts: {
 	/** Hide in-document nav when embedded in the app shell. */
 	embedded?: boolean;
 }): string {
-	const entries = buildRecipeEntries(opts.menuDishes);
-	const groups = groupByCategory(entries);
+	const cards = buildRecipeCards(opts.menuDishes);
+	const groups = groupByCategory(cards);
 	const sections = groups
 		.map((g) => {
-			const cards = g.items.map(renderCard).join("\n");
-			return `<section><h2>${escapeHtml(g.category)}</h2><div class="grid">${cards}</div></section>`;
+			const cardHtml = g.items.map(renderCard).join("\n");
+			return `<section><h2>${escapeHtml(g.category)}</h2><div class="grid">${cardHtml}</div></section>`;
 		})
 		.join("\n");
 
@@ -269,6 +335,7 @@ export function buildRecipeBookHtml(opts: {
       .wrap { max-width: none; padding: 0; }
       .no-print { display: none !important; }
       .card { box-shadow: none; }
+      .menu-field { background: #f0f7f4 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
   </style>
 </head>
@@ -279,8 +346,9 @@ export function buildRecipeBookHtml(opts: {
       <h1>${name} — Kitchen Recipe Book</h1>
       <p class="meta">Live menu description &amp; ingredients · kitchen builds · hacks · printable A4</p>
       <div class="banner">
-        <strong>From your menu:</strong> each dish shows the exact <strong>description</strong> and <strong>ingredients</strong> saved in the menu editor.
-        Below that: kitchen portion guide and hacks. Salad bowls <strong>300–350g</strong>; dressing in a <strong>120ml</strong> side cup; oats <strong>250–280g</strong>.
+        <strong>From your saved menu:</strong> green boxes are the exact <strong>description</strong> and <strong>ingredients</strong> from the menu editor (after Save Changes).
+        Grey kitchen build / method text is station guidance only — not the customer-facing description.
+        Salad bowls <strong>300–350g</strong>; dressing <strong>120ml</strong> side cup; oats <strong>250–280g</strong>.
       </div>
     </header>
     ${sections}

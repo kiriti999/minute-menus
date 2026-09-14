@@ -18,6 +18,7 @@ import { CustomerApp } from "./pages/CustomerApp";
 import { LoginPage } from "./pages/LoginPage";
 import { OwnerDashboard } from "./pages/OwnerDashboard";
 import { QrLandingPage } from "./pages/QrLandingPage";
+import { MenuListPage } from "./pages/MenuListPage";
 import { RecipeBookPage } from "./pages/RecipeBookPage";
 import { StaffClockPage } from "./pages/StaffClockPage";
 import { AppMode } from "@minute-menus/types";
@@ -31,6 +32,22 @@ function parseClockRoute(): { slug: string; badge: string | null } | null {
 
 function parseGoRoute(): string | null {
     const match = window.location.pathname.match(/^\/go\/([a-z0-9-]+)$/i);
+    return match ? match[1].toLowerCase() : null;
+}
+
+function parseRecipeBookRoute(pathname: string): { slug: string | null } | null {
+    const match = pathname.match(/^\/([a-z0-9-]+)\/recipe-book\/?$/i);
+    if (match) {
+        return { slug: match[1].toLowerCase() };
+    }
+    if (/^\/recipe-book\/?$/i.test(pathname)) {
+        return { slug: null };
+    }
+    return null;
+}
+
+function parseMenuListRoute(pathname: string): string | null {
+    const match = pathname.match(/^\/([a-z0-9-]+)\/menu\/?$/i);
     return match ? match[1].toLowerCase() : null;
 }
 
@@ -129,8 +146,9 @@ const App: React.FC = () => {
         return <LoadingScreen />;
     }
 
-    if (/^\/recipe-book\/?$/i.test(path)) {
-        if (!isAuthenticated) {
+    const recipeBookRoute = parseRecipeBookRoute(path);
+    if (recipeBookRoute) {
+        if (!recipeBookRoute.slug && !isAuthenticated) {
             return (
                 <LoginPage
                     onLoginSuccess={() => {
@@ -145,11 +163,36 @@ const App: React.FC = () => {
         return (
             <RecipeBookPage
                 key={path}
+                slug={recipeBookRoute.slug}
+                isAuthenticated={isAuthenticated}
                 isDarkTheme={isDarkTheme}
                 onBack={() => {
-                    window.history.pushState({}, "", "/");
-                    setPath("/");
-                    setMode(AppMode.OWNER);
+                    if (isAuthenticated) {
+                        window.history.pushState({}, "", "/");
+                        setPath("/");
+                        setMode(AppMode.OWNER);
+                    } else if (recipeBookRoute.slug) {
+                        // Full navigation so slugRoute hook re-runs and loads the customer menu
+                        window.location.href = `/${recipeBookRoute.slug}`;
+                    } else {
+                        window.history.pushState({}, "", "/");
+                        setPath("/");
+                        setMode(AppMode.LANDING);
+                    }
+                }}
+            />
+        );
+    }
+
+    const menuListSlug = parseMenuListRoute(path);
+    if (menuListSlug) {
+        return (
+            <MenuListPage
+                key={path}
+                slug={menuListSlug}
+                isDarkTheme={isDarkTheme}
+                onBack={() => {
+                    window.location.href = `/${menuListSlug}`;
                 }}
             />
         );

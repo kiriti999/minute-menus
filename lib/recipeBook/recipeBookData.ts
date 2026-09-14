@@ -583,22 +583,20 @@ export function findRecipeForDish(dishName: string): RecipeEntry | undefined {
 	return bestScore > 0 ? best : undefined;
 }
 
-/** Fallback card from menu description/ingredients when no curated recipe exists. */
+/** Fallback kitchen guidance when no curated recipe exists. Live description is NOT copied here. */
 export function recipeFromMenuFields(
 	dishName: string,
 	category: string,
 	ingredients: string,
-	description: string,
+	_description: string,
 ): RecipeEntry {
 	const ing = ingredients.trim() || "See menu ingredients / station mise";
-	const desc = description.trim();
 	return {
 		dishName,
 		category: category || "Menu",
 		ingredients: ing,
-		method: desc
-			? `Prep from listed ingredients. ${desc} Keep portions consistent; chill or heat as category requires.`
-			: "Prep from listed ingredients. Standardise portion weight; label and date prep containers.",
+		method:
+			"Prep from the menu ingredients above. Keep portions consistent; chill or heat as the category requires. Label and date prep containers.",
 		hacks: [
 			{
 				title: "Buy once, use many",

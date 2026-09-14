@@ -22,6 +22,7 @@ import {
   EyeOff,
   Image as ImageIcon,
   LayoutDashboard,
+  LayoutList,
   Link as LinkIcon,
   Lock,
   LogOut,
@@ -1509,12 +1510,20 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         <span className="font-medium">Print Designs</span>
       </button>
       <a
-        href="/recipe-book"
+        href={restaurantDetails?.slug ? `/${restaurantDetails.slug}/recipe-book` : "/recipe-book"}
         onClick={() => setIsMobileMenuOpen(false)}
         className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-300 ${isDarkTheme ? "text-zinc-500 hover:text-white hover:bg-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200"}`}
       >
         <BookOpen size={18} />
         <span className="font-medium">Recipe Book</span>
+      </a>
+      <a
+        href={restaurantDetails?.slug ? `/${restaurantDetails.slug}/menu` : "#"}
+        onClick={() => setIsMobileMenuOpen(false)}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-300 ${isDarkTheme ? "text-zinc-500 hover:text-white hover:bg-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200"}`}
+      >
+        <LayoutList size={18} />
+        <span className="font-medium">Menu List</span>
       </a>
       <button
         onClick={() => {

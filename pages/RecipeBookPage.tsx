@@ -11,14 +11,42 @@ import { supabaseService } from "../services/supabaseService";
 export interface RecipeBookPageProps {
 	isDarkTheme: boolean;
 	onBack: () => void;
+	slug?: string | null;
+	isAuthenticated?: boolean;
+}
+
+async function fetchMenuAndRestaurant(slug?: string | null) {
+	if (slug) {
+		const restaurant = await supabaseService.getRestaurantBySlug(slug);
+		if (!restaurant) {
+			throw new Error(`Restaurant "${slug}" not found`);
+		}
+		const menu = await supabaseService.getMenu(restaurant.id);
+		return {
+			menu,
+			restaurantName: restaurant.name || "Recipe book",
+			resolvedSlug: restaurant.slug,
+		};
+	}
+	const [menu, details] = await Promise.all([
+		supabaseService.getMenu(),
+		supabaseService.getRestaurantDetails(),
+	]);
+	return {
+		menu,
+		restaurantName: details.name || "Recipe book",
+		resolvedSlug: details.slug,
+	};
 }
 
 /**
- * Logged-in printable recipe book — always fetches the latest menu when opened or revisited.
+ * Printable recipe book — always fetches the latest menu when opened or revisited.
  */
 export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 	isDarkTheme,
 	onBack,
+	slug,
+	isAuthenticated,
 }) => {
 	const [html, setHtml] = useState("");
 	const [error, setError] = useState("");
@@ -26,6 +54,7 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 	const [refreshing, setRefreshing] = useState(false);
 	const [loadedAt, setLoadedAt] = useState<Date | null>(null);
 	const [fetchTick, setFetchTick] = useState(0);
+	const [currentSlug, setCurrentSlug] = useState<string | null>(slug ?? null);
 	const frameRef = useRef<HTMLIFrameElement>(null);
 	const requestId = useRef(0);
 
@@ -35,14 +64,15 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 		else setLoading(true);
 		setError("");
 		try {
-			const [menu, details] = await Promise.all([
-				supabaseService.getMenu(),
-				supabaseService.getRestaurantDetails(),
-			]);
+			const { menu, restaurantName, resolvedSlug } = await fetchMenuAndRestaurant(slug);
 			if (id !== requestId.current) return;
+			if (resolvedSlug && !slug) {
+				window.history.replaceState({}, "", `/${resolvedSlug}/recipe-book`);
+			}
+			setCurrentSlug(resolvedSlug);
 			setHtml(
 				buildRecipeBookHtml({
-					restaurantName: details.name || "Recipe book",
+					restaurantName,
 					menuDishes: dishesFromMenu(menu),
 					embedded: true,
 				}),
@@ -59,7 +89,7 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 				setRefreshing(false);
 			}
 		}
-	}, []);
+	}, [slug]);
 
 	// Fresh pull whenever the page is opened / remounted, or fetchTick bumps.
 	useEffect(() => {
@@ -133,12 +163,12 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 					className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold border ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
 				>
 					<ArrowLeft size={16} />
-					Dashboard
+					{isAuthenticated ? "Dashboard" : "Menu"}
 				</button>
 				<div className="flex-1 min-w-0">
 					<p className="text-sm font-semibold truncate">Kitchen Recipe Book</p>
 					<p className={`text-[11px] ${isDarkTheme ? "text-zinc-400" : "text-zinc-500"}`}>
-						/recipe-book · {updatedLabel}
+						{currentSlug ? `/${currentSlug}/recipe-book` : "/recipe-book"} · {updatedLabel}
 					</p>
 				</div>
 				<button
