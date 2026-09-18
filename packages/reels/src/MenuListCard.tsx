@@ -1,7 +1,8 @@
 import { Check, Flame, Leaf, Plus, Sparkles } from "lucide-react";
 import type React from "react";
-import { formatPriceCompactInCurrency } from "@minute-menus/currency";
-import type { Dish } from "@minute-menus/types";
+import { useState } from "react";
+import { formatPriceCompactInCurrency, getEffectivePrice, resolveDiscountPercent } from "@minute-menus/currency";
+import type { Dish, DishVariant } from "@minute-menus/types";
 import { ExpandableText } from "./ExpandableText";
 import {
     dishBenefitLine,
@@ -13,10 +14,12 @@ interface MenuListCardProps {
     dish: Dish;
     currency?: string;
     isSoldOut?: boolean;
-    onAdd: (dish: Dish) => void;
+    onAdd: (dish: Dish, variantId?: string) => void;
     isDarkTheme?: boolean;
-    /** Units already in the cart for this dish. */
+    /** Units already in the cart for this dish (across all variants). */
     quantity?: number;
+    /** Category-level discount percent, used if dish has no item-level discount. */
+    categoryDiscountPercent?: number;
 }
 
 export const MenuListCard: React.FC<MenuListCardProps> = ({
@@ -26,11 +29,26 @@ export const MenuListCard: React.FC<MenuListCardProps> = ({
     onAdd,
     isDarkTheme = true,
     quantity = 0,
+    categoryDiscountPercent = 0,
 }) => {
+    const hasVariants = dish.variants && dish.variants.length > 0;
+    const [selectedVariantId, setSelectedVariantId] = useState<string | undefined>(
+        hasVariants ? dish.variants![0].id : undefined,
+    );
+
     const ingredients = dishIngredientLine(dish);
     const benefits = dishBenefitLine(dish);
     const calories = dishCalorieLabel(dish);
     const inCart = quantity > 0;
+
+    const activeVariant: DishVariant | undefined = hasVariants
+        ? dish.variants!.find((v) => v.id === selectedVariantId) ?? dish.variants![0]
+        : undefined;
+    const basePrice = activeVariant ? activeVariant.price : dish.price;
+
+    const discountPct = resolveDiscountPercent(dish.discountPercent, categoryDiscountPercent);
+    const { original, final } = getEffectivePrice(basePrice, discountPct);
+    const hasDiscount = discountPct > 0;
 
     return (
         <article
@@ -60,6 +78,11 @@ export const MenuListCard: React.FC<MenuListCardProps> = ({
                         <span className="text-[9px] font-bold uppercase tracking-wider text-white">Sold out</span>
                     </div>
                 )}
+                {hasDiscount && !isSoldOut && (
+                    <div className="absolute bottom-0 left-0 right-0 bg-emerald-500/90 text-white text-[9px] font-bold text-center py-0.5">
+                        {discountPct}% OFF
+                    </div>
+                )}
             </div>
 
             <div className="min-w-0 flex-1 flex flex-col">
@@ -67,10 +90,50 @@ export const MenuListCard: React.FC<MenuListCardProps> = ({
                     <h3 className={`min-w-0 flex-1 font-semibold leading-snug line-clamp-2 ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
                         {dish.name}
                     </h3>
-                    <p className={`shrink-0 text-sm font-bold ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
-                        {formatPriceCompactInCurrency(dish.price, currency)}
-                    </p>
+                    <div className="shrink-0 text-right">
+                        {hasDiscount ? (
+                            <>
+                                <span className={`block text-[11px] line-through ${isDarkTheme ? "text-zinc-500" : "text-zinc-400"}`}>
+                                    {formatPriceCompactInCurrency(original, currency)}
+                                </span>
+                                <span className="block text-sm font-bold text-emerald-400">
+                                    {formatPriceCompactInCurrency(final, currency)}
+                                </span>
+                            </>
+                        ) : (
+                            <p className={`shrink-0 text-sm font-bold ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
+                                {formatPriceCompactInCurrency(final, currency)}
+                            </p>
+                        )}
+                    </div>
                 </div>
+
+                {/* Variant pills */}
+                {hasVariants && (
+                    <div className="flex flex-wrap gap-1 mt-1.5">
+                        {dish.variants!.map((v) => {
+                            const isSelected = v.id === selectedVariantId;
+                            return (
+                                <button
+                                    key={v.id}
+                                    type="button"
+                                    onClick={() => setSelectedVariantId(v.id)}
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-colors ${
+                                        isSelected
+                                            ? isDarkTheme
+                                                ? "bg-white text-black border-white"
+                                                : "bg-zinc-900 text-white border-zinc-900"
+                                            : isDarkTheme
+                                                ? "bg-transparent text-zinc-400 border-zinc-700 hover:border-zinc-500"
+                                                : "bg-transparent text-zinc-500 border-zinc-300 hover:border-zinc-500"
+                                    }`}
+                                >
+                                    {v.name}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
 
                 <div className={`mt-2 space-y-2 text-[12px] leading-snug ${isDarkTheme ? "text-zinc-400" : "text-zinc-600"}`}>
                     {ingredients && (
@@ -112,7 +175,7 @@ export const MenuListCard: React.FC<MenuListCardProps> = ({
                         type="button"
                         disabled={isSoldOut}
                         onClick={() => {
-                            if (!isSoldOut) onAdd(dish);
+                            if (!isSoldOut) onAdd(dish, activeVariant?.id);
                         }}
                         className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wide transition-colors active:scale-[0.98] ${
                             isSoldOut

@@ -30,6 +30,7 @@ const toCategoryRows = (categories: Category[], restaurantId: string) =>
         restaurant_id: restaurantId,
         title: category.title,
         sort_order: index,
+        discount_percent: category.discountPercent ?? 0,
     }));
 
 const toDishRows = (categories: Category[], restaurantId: string) =>
@@ -52,6 +53,8 @@ const toDishRows = (categories: Category[], restaurantId: string) =>
             benefits: dish.benefits ?? "",
             calories: dish.calories ?? null,
             sort_order: index,
+            variants: dish.variants && dish.variants.length > 0 ? dish.variants : [],
+            discount_percent: dish.discountPercent ?? 0,
         })),
     );
 

@@ -35,6 +35,7 @@ import {
   Package,
   PauseCircle,
   Play,
+  Percent,
   Plus,
   Printer,
   QrCode,
@@ -96,6 +97,7 @@ import {
   type MealPlan,
   type RefundRequest,
   type TicketReason,
+  type DishVariant,
   TICKET_REASON_LABELS,
   TIME_SLOT_LABELS,
   UserTier,
@@ -2396,6 +2398,31 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 )}
 
                 <div className="flex items-center gap-2 shrink-0">
+                  {/* Category Discount */}
+                  <div className={`flex items-center gap-1.5 border rounded-lg px-2.5 py-1.5 ${isDarkTheme ? 'bg-zinc-900 border-zinc-700' : 'bg-zinc-50 border-zinc-300'}`}>
+                    <Percent size={12} className={isDarkTheme ? 'text-zinc-500' : 'text-zinc-400'} />
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      placeholder="0"
+                      title="Category discount %"
+                      value={menuItems[selectedCategoryIdx]?.discountPercent || ""}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10);
+                        const newMenu = [...menuItems];
+                        newMenu[selectedCategoryIdx] = {
+                          ...newMenu[selectedCategoryIdx],
+                          discountPercent: e.target.value === "" ? 0 : Math.min(100, Math.max(0, isNaN(val) ? 0 : val)),
+                        };
+                        setMenuItems(newMenu);
+                        setUnsavedChanges(true);
+                      }}
+                      className={`w-10 bg-transparent text-right font-mono focus:outline-none text-sm ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}
+                    />
+                    <span className={`text-xs font-bold ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-400'}`}>% off all</span>
+                  </div>
                   <button
                     type="button"
                     onClick={() => handleRequestDeleteCategory(selectedCategoryIdx)}
@@ -2731,8 +2758,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                           </div>
                         </div>
                         <div className={`flex items-center justify-between border rounded-lg px-3 py-2 ${isDarkTheme ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-300'}`}>
+                          <label className={`text-xs font-bold uppercase tracking-widest ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>Daily Stock (SKU)</label>
                           <div>
-                            <label className={`text-xs font-bold uppercase tracking-widest ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>Daily Stock (SKU)</label>
                             <p className={`text-[10px] mt-0.5 font-mono ${isDarkTheme ? 'text-zinc-700' : 'text-zinc-400'}`}>Leave blank for unlimited</p>
                           </div>
                           <input
@@ -2752,6 +2779,151 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                             }}
                             className={`w-20 bg-transparent text-right font-mono focus:outline-none py-0.5 pr-1 text-sm border-none ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}
                           />
+                        </div>
+
+                        {/* Item-level discount */}
+                        <div className={`flex items-center justify-between border rounded-lg px-3 py-2 ${isDarkTheme ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-300'}`}>
+                          <div>
+                            <label className={`text-xs font-bold uppercase tracking-widest ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>Item Discount</label>
+                            <p className={`text-[10px] mt-0.5 ${isDarkTheme ? 'text-zinc-700' : 'text-zinc-400'}`}>Overrides category discount</p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              step={1}
+                              value={dish.discountPercent || ""}
+                              placeholder="0"
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10);
+                                handleDishUpdate(
+                                  selectedCategoryIdx,
+                                  idx,
+                                  "discountPercent",
+                                  e.target.value === "" ? 0 : Math.min(100, Math.max(0, isNaN(val) ? 0 : val)),
+                                );
+                              }}
+                              className={`w-16 bg-transparent text-right font-mono focus:outline-none py-0.5 text-sm ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}
+                            />
+                            <span className={`text-xs font-bold ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-400'}`}>%</span>
+                          </div>
+                        </div>
+                        {dish.discountPercent != null && dish.discountPercent > 0 && (() => {
+                          const refPrice = dish.variants?.[0]?.price ?? dish.price;
+                          const discounted = Math.round(refPrice * (1 - dish.discountPercent / 100) * 100) / 100;
+                          return (
+                            <p className={`text-[11px] font-mono text-right -mt-1 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                              {getSymbolForCurrency(restaurantDetails?.currency ?? "USD")}{refPrice.toFixed(2)} → {getSymbolForCurrency(restaurantDetails?.currency ?? "USD")}{discounted.toFixed(2)} ({dish.discountPercent}% off)
+                            </p>
+                          );
+                        })()}
+
+                        {/* Variants editor */}
+                        <div className={`border rounded-lg px-3 py-3 ${isDarkTheme ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-300'}`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className={`text-xs font-bold uppercase tracking-widest ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>Size Variants</label>
+                            <div className="flex gap-1.5">
+                              {/* Quick-add presets */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const presets = ["Small", "Medium", "Large"];
+                                  const existing = (dish.variants ?? []).map(v => v.name);
+                                  const toAdd = presets.filter(p => !existing.includes(p));
+                                  if (!toAdd.length) return;
+                                  const newVariants: DishVariant[] = [
+                                    ...(dish.variants ?? []),
+                                    ...toAdd.map(name => ({ id: crypto.randomUUID(), name, price: dish.price })),
+                                  ];
+                                  handleDishUpdate(selectedCategoryIdx, idx, "variants", newVariants);
+                                }}
+                                className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${isDarkTheme ? 'border-zinc-700 text-zinc-400 hover:bg-zinc-800' : 'border-zinc-300 text-zinc-500 hover:bg-zinc-100'}`}
+                              >
+                                S / M / L
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const presets = ["250ml", "500ml", "750ml"];
+                                  const existing = (dish.variants ?? []).map(v => v.name);
+                                  const toAdd = presets.filter(p => !existing.includes(p));
+                                  if (!toAdd.length) return;
+                                  const newVariants: DishVariant[] = [
+                                    ...(dish.variants ?? []),
+                                    ...toAdd.map(name => ({ id: crypto.randomUUID(), name, price: dish.price })),
+                                  ];
+                                  handleDishUpdate(selectedCategoryIdx, idx, "variants", newVariants);
+                                }}
+                                className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${isDarkTheme ? 'border-zinc-700 text-zinc-400 hover:bg-zinc-800' : 'border-zinc-300 text-zinc-500 hover:bg-zinc-100'}`}
+                              >
+                                ml sizes
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newVariants: DishVariant[] = [
+                                    ...(dish.variants ?? []),
+                                    { id: crypto.randomUUID(), name: "", price: dish.price },
+                                  ];
+                                  handleDishUpdate(selectedCategoryIdx, idx, "variants", newVariants);
+                                }}
+                                className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${isDarkTheme ? 'border-zinc-700 text-zinc-400 hover:bg-zinc-800 text-white' : 'border-zinc-300 text-zinc-500 hover:bg-zinc-100'}`}
+                              >
+                                + Add
+                              </button>
+                            </div>
+                          </div>
+                          {(dish.variants && dish.variants.length > 0) ? (
+                            <div className="flex flex-col gap-2">
+                              {dish.variants.map((variant, vi) => (
+                                <div key={variant.id} className="flex items-center gap-2">
+                                  <input
+                                    type="text"
+                                    value={variant.name}
+                                    placeholder="e.g. Small (250ml)"
+                                    onChange={(e) => {
+                                      const newVariants = dish.variants!.map((v, i) =>
+                                        i === vi ? { ...v, name: e.target.value } : v,
+                                      );
+                                      handleDishUpdate(selectedCategoryIdx, idx, "variants", newVariants);
+                                    }}
+                                    className={`flex-1 border rounded px-2 py-1 text-xs font-medium outline-none ${isDarkTheme ? 'bg-zinc-900 border-zinc-700 text-white placeholder-zinc-600 focus:border-zinc-500' : 'bg-white border-zinc-300 text-zinc-900 placeholder-zinc-400 focus:border-zinc-500'}`}
+                                  />
+                                  <div className="flex items-center gap-1">
+                                    <span className={`text-xs ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-400'}`}>{getSymbolForCurrency(restaurantDetails?.currency ?? "USD")}</span>
+                                    <input
+                                      type="number"
+                                      value={variant.price || ""}
+                                      placeholder="0"
+                                      step="0.50"
+                                      onChange={(e) => {
+                                        const val = parseFloat(e.target.value);
+                                        const newVariants = dish.variants!.map((v, i) =>
+                                          i === vi ? { ...v, price: isNaN(val) ? 0 : Math.max(0, val) } : v,
+                                        );
+                                        handleDishUpdate(selectedCategoryIdx, idx, "variants", newVariants);
+                                      }}
+                                      className={`w-16 border rounded px-2 py-1 text-xs font-mono text-right outline-none ${isDarkTheme ? 'bg-zinc-900 border-zinc-700 text-white focus:border-zinc-500' : 'bg-white border-zinc-300 text-zinc-900 focus:border-zinc-500'}`}
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newVariants = dish.variants!.filter((_, i) => i !== vi);
+                                      handleDishUpdate(selectedCategoryIdx, idx, "variants", newVariants);
+                                    }}
+                                    className={`p-1 rounded transition-colors ${isDarkTheme ? 'text-zinc-600 hover:text-red-400' : 'text-zinc-400 hover:text-red-500'}`}
+                                  >
+                                    <X size={13} />
+                                  </button>
+                                </div>
+                              ))}
+                              <p className={`text-[10px] mt-0.5 ${isDarkTheme ? 'text-zinc-700' : 'text-zinc-400'}`}>Base price is used if no variant is selected.</p>
+                            </div>
+                          ) : (
+                            <p className={`text-[11px] ${isDarkTheme ? 'text-zinc-700' : 'text-zinc-400'}`}>No variants — single price applies.</p>
+                          )}
                         </div>
                       </div>
                     </div>

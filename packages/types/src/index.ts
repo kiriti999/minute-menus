@@ -18,6 +18,14 @@ export interface RestaurantPublic {
 }
 
 // ── App domain types ─────────────────────────────────────────
+
+/** A named size/quantity option for a dish (e.g. Small 250ml, Medium 500ml). */
+export interface DishVariant {
+  id: string;     // stable client-generated uuid
+  name: string;   // e.g. "Small (250ml)" | "Medium" | "Large (750ml)"
+  price: number;  // price for this specific variant
+}
+
 export interface Dish {
   id: string;
   name: string;
@@ -39,19 +47,29 @@ export interface Dish {
     y: number; // percentage
     scale: number; // 1-3
   };
+  /** Named size/quantity variants (e.g. Small/Medium/Large with individual prices). */
+  variants?: DishVariant[];
+  /** Item-level discount percentage (0-100). Takes priority over category discount. 0 = no discount. */
+  discountPercent?: number;
 }
 
 export interface Category {
   id: string;
   title: string;
   items: Dish[];
+  /** Category-level discount percentage (0-100). Applies to all dishes that have no item-level discount. */
+  discountPercent?: number;
 }
 
 export interface OrderItem {
   dishId: string;
   quantity: number;
   name: string;
-  price: number;
+  price: number; // effective price (after discount, per variant if applicable)
+  /** Variant id selected (if dish has variants). */
+  variantId?: string;
+  /** Variant display name (e.g. "Medium (500ml)"). */
+  variantName?: string;
   /** GST rate applied to this line (e.g. 0.05 for 5% Indian restaurant GST). */
   gstRate?: number;
   /** Total GST for this line (unit price × qty × gstRate). */

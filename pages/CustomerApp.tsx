@@ -434,9 +434,11 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   };
   // ---------------------------
 
-  const handleAddToOrder = (dish: Dish) => {
+  const handleAddToOrder = (dish: Dish, variantId?: string) => {
     if (dish.manualSoldOut) return;
-    const currentCartQty = cart.find((i) => i.dishId === dish.id)?.quantity ?? 0;
+    // Cart key is dishId + optional variantId so different sizes are separate lines
+    const cartKey = variantId ? `${dish.id}__${variantId}` : dish.id;
+    const currentCartQty = cart.find((i) => i.dishId === cartKey)?.quantity ?? 0;
     const soldQty = soldCounts[dish.id] ?? 0;
     if (
       dish.stockQuantity != null &&
@@ -444,16 +446,32 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     ) {
       return; // already at or over limit
     }
+
+    // Resolve variant price and discount
+    const activeVariant = variantId ? dish.variants?.find((v) => v.id === variantId) : undefined;
+    const basePrice = activeVariant ? activeVariant.price : dish.price;
+    // Import getEffectivePrice/resolveDiscountPercent inline to keep CustomerApp self-contained
+    const catDiscount = displayCategories.find((c) => c.items.some((d) => d.id === dish.id))?.discountPercent ?? 0;
+    const discPct = (dish.discountPercent && dish.discountPercent > 0) ? dish.discountPercent : catDiscount;
+    const effectivePrice = discPct > 0 ? Math.round(basePrice * (1 - discPct / 100) * 100) / 100 : basePrice;
+
     setCart((prev) => {
-      const existing = prev.find((i) => i.dishId === dish.id);
+      const existing = prev.find((i) => i.dishId === cartKey);
       if (existing) {
         return prev.map((i) =>
-          i.dishId === dish.id ? { ...i, quantity: i.quantity + 1 } : i,
+          i.dishId === cartKey ? { ...i, quantity: i.quantity + 1 } : i,
         );
       }
       return [
         ...prev,
-        { dishId: dish.id, quantity: 1, name: dish.name, price: dish.price },
+        {
+          dishId: cartKey,
+          quantity: 1,
+          name: dish.name,
+          price: effectivePrice,
+          variantId,
+          variantName: activeVariant?.name,
+        },
       ];
     });
   };
@@ -803,8 +821,13 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     [cart],
   );
   const cartQtyByDish = useMemo(() => {
+    // Sum quantities across all variants of the same dish
     const map: Record<string, number> = {};
-    for (const item of cart) map[item.dishId] = item.quantity;
+    for (const item of cart) {
+      // cartKey is either dishId or dishId__variantId; strip the variant suffix
+      const realDishId = item.dishId.split("__")[0];
+      map[realDishId] = (map[realDishId] ?? 0) + item.quantity;
+    }
     return map;
   }, [cart]);
   const deliveryAddressSummary = useMemo(() => {
@@ -1309,6 +1332,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                         onAdd={handleAddToOrder}
                         isDarkTheme={isDarkTheme}
                         quantity={cartQtyByDish[dish.id] ?? 0}
+                        categoryDiscountPercent={cat.discountPercent ?? 0}
                       />
                     ))}
                   </div>
@@ -1323,6 +1347,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                         onAdd={handleAddToOrder}
                         isDarkTheme={isDarkTheme}
                         quantity={cartQtyByDish[dish.id] ?? 0}
+                        categoryDiscountPercent={cat.discountPercent ?? 0}
                       />
                     ))}
                   </div>
@@ -2141,9 +2166,12 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                     className="flex justify-between items-start border-b border-zinc-900 pb-4 last:border-0 gap-4"
                   >
                     <div className="flex-1">
-                      <p className="font-medium text-white text-lg mb-2">
+                      <p className="font-medium text-white text-lg mb-0.5">
                         {item.name}
                       </p>
+                      {item.variantName && (
+                        <p className="text-xs text-zinc-500 mb-2">{item.variantName}</p>
+                      )}
 
                       {/* Quantity Editor */}
                       <div className="flex items-center gap-3 bg-zinc-900 w-fit rounded-full px-1 py-1">

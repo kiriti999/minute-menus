@@ -1299,3 +1299,12 @@ end;
 $$;
 
 grant execute on function next_sales_invoice_label to authenticated;
+
+-- ─────────────────────────────────────────────
+-- 22. VARIANTS & DISCOUNTS
+-- Dish variants (e.g. Small/Medium/Large with individual prices) stored as JSONB.
+-- Discount percentages (0-100) at dish and category level.
+-- ─────────────────────────────────────────────
+ALTER TABLE dishes     ADD COLUMN IF NOT EXISTS variants         jsonb NOT NULL DEFAULT '[]';
+ALTER TABLE dishes     ADD COLUMN IF NOT EXISTS discount_percent int   NOT NULL DEFAULT 0;
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS discount_percent int   NOT NULL DEFAULT 0;

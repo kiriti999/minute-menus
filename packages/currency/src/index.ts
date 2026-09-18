@@ -363,3 +363,36 @@ export const formatPriceCompactInCurrency = (price: number, currencyCode: string
 export const getSymbolForCurrency = (currencyCode: string): string => {
     return SUPPORTED_CURRENCIES.find(c => c.code === currencyCode)?.symbol ?? "$";
 };
+
+/**
+ * Resolve which discount percent applies to a dish.
+ * Item-level discount takes priority over category-level.
+ * Returns 0 if no discount applies.
+ */
+export const resolveDiscountPercent = (
+    dishDiscountPercent: number | undefined,
+    categoryDiscountPercent: number | undefined,
+): number => {
+    if (dishDiscountPercent !== undefined && dishDiscountPercent > 0) {
+        return Math.min(100, Math.max(0, dishDiscountPercent));
+    }
+    if (categoryDiscountPercent !== undefined && categoryDiscountPercent > 0) {
+        return Math.min(100, Math.max(0, categoryDiscountPercent));
+    }
+    return 0;
+};
+
+/**
+ * Compute the effective (final) price after applying a discount percentage.
+ * Returns `{ original, final, discountPercent }`.
+ * When discountPercent is 0, original === final.
+ */
+export const getEffectivePrice = (
+    price: number,
+    discountPercent: number,
+): { original: number; final: number; discountPercent: number } => {
+    const pct = Math.min(100, Math.max(0, discountPercent));
+    if (pct <= 0) return { original: price, final: price, discountPercent: 0 };
+    const final = Math.round(price * (1 - pct / 100) * 100) / 100;
+    return { original: price, final, discountPercent: pct };
+};

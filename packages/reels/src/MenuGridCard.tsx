@@ -1,7 +1,8 @@
 import { Check, Flame, Leaf, Plus, Sparkles } from "lucide-react";
 import type React from "react";
-import { formatPriceCompactInCurrency } from "@minute-menus/currency";
-import type { Dish } from "@minute-menus/types";
+import { useState } from "react";
+import { formatPriceCompactInCurrency, getEffectivePrice, resolveDiscountPercent } from "@minute-menus/currency";
+import type { Dish, DishVariant } from "@minute-menus/types";
 import { ExpandableText } from "./ExpandableText";
 import {
     dishBenefitLine,
@@ -13,10 +14,12 @@ interface MenuGridCardProps {
     dish: Dish;
     currency?: string;
     isSoldOut?: boolean;
-    onAdd: (dish: Dish) => void;
+    onAdd: (dish: Dish, variantId?: string) => void;
     isDarkTheme?: boolean;
-    /** Units already in the cart for this dish. */
+    /** Units already in the cart for this dish (across all variants). */
     quantity?: number;
+    /** Category-level discount percent, used if dish has no item-level discount. */
+    categoryDiscountPercent?: number;
 }
 
 const NutritionRow: React.FC<{
@@ -55,15 +58,32 @@ export const MenuGridCard: React.FC<MenuGridCardProps> = ({
     onAdd,
     isDarkTheme = true,
     quantity = 0,
+    categoryDiscountPercent = 0,
 }) => {
+    const hasVariants = dish.variants && dish.variants.length > 0;
+    const [selectedVariantId, setSelectedVariantId] = useState<string | undefined>(
+        hasVariants ? dish.variants![0].id : undefined,
+    );
+
     const ingredients = dishIngredientLine(dish);
     const benefits = dishBenefitLine(dish);
     const calories = dishCalorieLabel(dish);
     const inCart = quantity > 0;
 
+    // Resolve active variant and base price
+    const activeVariant: DishVariant | undefined = hasVariants
+        ? dish.variants!.find((v) => v.id === selectedVariantId) ?? dish.variants![0]
+        : undefined;
+    const basePrice = activeVariant ? activeVariant.price : dish.price;
+
+    // Resolve discount
+    const discountPct = resolveDiscountPercent(dish.discountPercent, categoryDiscountPercent);
+    const { original, final } = getEffectivePrice(basePrice, discountPct);
+    const hasDiscount = discountPct > 0;
+
     const handleAdd = () => {
         if (isSoldOut) return;
-        onAdd(dish);
+        onAdd(dish, activeVariant?.id);
     };
 
     return (
@@ -99,9 +119,16 @@ export const MenuGridCard: React.FC<MenuGridCardProps> = ({
                         </span>
                     </div>
                 )}
+
+                {hasDiscount && !isSoldOut && (
+                    <div className="absolute top-2 left-2 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        {discountPct}% OFF
+                    </div>
+                )}
             </div>
 
             <div className="flex min-h-0 flex-1 flex-col gap-2.5 p-3">
+                {/* Name + price */}
                 <div className="flex items-start justify-between gap-2">
                     <h3
                         className={`min-w-0 flex-1 text-sm font-bold leading-snug line-clamp-2 ${
@@ -110,10 +137,50 @@ export const MenuGridCard: React.FC<MenuGridCardProps> = ({
                     >
                         {dish.name}
                     </h3>
-                    <span className={`shrink-0 text-sm font-bold ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
-                        {formatPriceCompactInCurrency(dish.price, currency)}
-                    </span>
+                    <div className="shrink-0 text-right">
+                        {hasDiscount ? (
+                            <>
+                                <span className={`block text-[11px] line-through ${isDarkTheme ? "text-zinc-500" : "text-zinc-400"}`}>
+                                    {formatPriceCompactInCurrency(original, currency)}
+                                </span>
+                                <span className="block text-sm font-bold text-emerald-400">
+                                    {formatPriceCompactInCurrency(final, currency)}
+                                </span>
+                            </>
+                        ) : (
+                            <span className={`text-sm font-bold ${isDarkTheme ? "text-white" : "text-zinc-900"}`}>
+                                {formatPriceCompactInCurrency(final, currency)}
+                            </span>
+                        )}
+                    </div>
                 </div>
+
+                {/* Variant pills */}
+                {hasVariants && (
+                    <div className="flex flex-wrap gap-1.5">
+                        {dish.variants!.map((v) => {
+                            const isSelected = v.id === selectedVariantId;
+                            return (
+                                <button
+                                    key={v.id}
+                                    type="button"
+                                    onClick={() => setSelectedVariantId(v.id)}
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-colors ${
+                                        isSelected
+                                            ? isDarkTheme
+                                                ? "bg-white text-black border-white"
+                                                : "bg-zinc-900 text-white border-zinc-900"
+                                            : isDarkTheme
+                                                ? "bg-transparent text-zinc-400 border-zinc-700 hover:border-zinc-500"
+                                                : "bg-transparent text-zinc-500 border-zinc-300 hover:border-zinc-500"
+                                    }`}
+                                >
+                                    {v.name}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
 
                 <div
                     className={`space-y-1.5 rounded-lg border px-2.5 py-2 ${

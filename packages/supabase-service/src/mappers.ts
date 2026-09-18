@@ -1,8 +1,8 @@
-import type { Category, DailyOrder, DailyOrderStatus, Dish } from "@minute-menus/types";
+import type { Category, DailyOrder, DailyOrderStatus, Dish, DishVariant } from "@minute-menus/types";
 
 /** Maps a raw DB row to the app-level Category + Dish shape */
 export const rowsToCategoryTree = (
-    categoryRows: Array<{ id: string; title: string; sort_order: number }>,
+    categoryRows: Array<{ id: string; title: string; sort_order: number; discount_percent?: number | null }>,
     dishRows: Array<{
         id: string;
         category_id: string;
@@ -20,6 +20,8 @@ export const rowsToCategoryTree = (
         benefits?: string | null;
         calories?: number | null;
         sort_order?: number;
+        variants?: unknown;
+        discount_percent?: number | null;
     }>,
 ): Category[] =>
     categoryRows
@@ -27,6 +29,7 @@ export const rowsToCategoryTree = (
         .map((cat) => ({
             id: cat.id,
             title: cat.title,
+            discountPercent: cat.discount_percent ?? 0,
             items: dishRows
                 .filter((d) => d.category_id === cat.id)
                 .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
@@ -48,6 +51,8 @@ export const rowsToCategoryTree = (
                         mediaTransform: d.media_transform as Dish["mediaTransform"],
                         stockQuantity: d.stock_quantity ?? undefined,
                         manualSoldOut: d.manual_sold_out ?? false,
+                        variants: Array.isArray(d.variants) ? (d.variants as DishVariant[]) : [],
+                        discountPercent: d.discount_percent ?? 0,
                     }),
                 ),
         }));

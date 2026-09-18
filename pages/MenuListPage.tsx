@@ -1,5 +1,5 @@
 import { LoadingScreen } from "@minute-menus/ui";
-import { formatPriceInCurrency } from "@minute-menus/currency";
+import { formatPriceInCurrency, getEffectivePrice, resolveDiscountPercent } from "@minute-menus/currency";
 import type { Category, Dish } from "@minute-menus/types";
 import { ArrowLeft, Printer, RefreshCw } from "lucide-react";
 import type React from "react";
@@ -36,10 +36,11 @@ async function fetchMenuList(slug: string): Promise<{ categories: Category[]; re
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-const DishRow: React.FC<{ dish: Dish; currency: string; isDarkTheme: boolean }> = ({
+const DishRow: React.FC<{ dish: Dish; currency: string; isDarkTheme: boolean; categoryDiscountPercent?: number }> = ({
 	dish,
 	currency,
 	isDarkTheme,
+	categoryDiscountPercent = 0,
 }) => {
 	const soldOut = dish.manualSoldOut || (dish.stockQuantity !== undefined && dish.stockQuantity <= 0);
 	const mutedText = isDarkTheme ? "text-zinc-500" : "text-zinc-400";
@@ -48,38 +49,78 @@ const DishRow: React.FC<{ dish: Dish; currency: string; isDarkTheme: boolean }> 
 		: isDarkTheme
 		? "text-white"
 		: "text-zinc-900";
-	const priceText = dish.price > 0
-		? formatPriceInCurrency(dish.price, currency)
-		: "—";
+
+	const hasVariants = dish.variants && dish.variants.length > 0;
+	const discountPct = resolveDiscountPercent(dish.discountPercent, categoryDiscountPercent);
 
 	return (
 		<div
-			className={`flex items-start justify-between gap-4 py-3 border-b border-dashed ${
+			className={`py-3 border-b border-dashed ${
 				isDarkTheme ? "border-zinc-800" : "border-zinc-200"
 			} last:border-b-0`}
 		>
-			<div className="flex-1 min-w-0">
-				<span className={`font-medium text-sm leading-snug ${nameClass}`}>
-					{dish.name}
-					{soldOut && (
-						<span className={`ml-2 text-[10px] font-bold uppercase tracking-wider ${isDarkTheme ? "text-red-500/70" : "text-red-400"}`}>
-							Sold out
-						</span>
+			<div className="flex items-start justify-between gap-4">
+				<div className="flex-1 min-w-0">
+					<span className={`font-medium text-sm leading-snug ${nameClass}`}>
+						{dish.name}
+						{soldOut && (
+							<span className={`ml-2 text-[10px] font-bold uppercase tracking-wider ${isDarkTheme ? "text-red-500/70" : "text-red-400"}`}>
+								Sold out
+							</span>
+						)}
+						{discountPct > 0 && !soldOut && (
+							<span className="ml-2 text-[9px] font-bold bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full">
+								{discountPct}% OFF
+							</span>
+						)}
+					</span>
+					{dish.description && (
+						<p className={`text-xs mt-0.5 leading-relaxed line-clamp-2 ${mutedText}`}>
+							{dish.description}
+						</p>
 					)}
-				</span>
-				{dish.description && (
-					<p className={`text-xs mt-0.5 leading-relaxed line-clamp-2 ${mutedText}`}>
-						{dish.description}
-					</p>
+				</div>
+
+				{/* Price column — show base price if has variants (variants listed below) */}
+				{!hasVariants && (
+					<div className="flex-shrink-0 text-right pt-0.5">
+						{(() => {
+							const { original, final } = getEffectivePrice(dish.price, discountPct);
+							if (discountPct > 0 && dish.price > 0) return (
+								<>
+									<span className={`block text-[11px] line-through ${mutedText}`}>{formatPriceInCurrency(original, currency)}</span>
+									<span className="block text-sm font-semibold text-emerald-400">{formatPriceInCurrency(final, currency)}</span>
+								</>
+							);
+							return <span className={`text-sm font-semibold tabular-nums ${soldOut ? mutedText : isDarkTheme ? "text-zinc-200" : "text-zinc-800"}`}>{dish.price > 0 ? formatPriceInCurrency(dish.price, currency) : "—"}</span>;
+						})()}
+					</div>
 				)}
 			</div>
-			<span
-				className={`flex-shrink-0 text-sm font-semibold tabular-nums pt-0.5 ${
-					soldOut ? mutedText : isDarkTheme ? "text-zinc-200" : "text-zinc-800"
-				}`}
-			>
-				{priceText}
-			</span>
+
+			{/* Variant rows */}
+			{hasVariants && (
+				<div className="mt-1.5 pl-2 flex flex-col gap-0.5">
+					{dish.variants!.map((variant) => {
+						const { original, final } = getEffectivePrice(variant.price, discountPct);
+						return (
+							<div key={variant.id} className="flex items-center justify-between">
+								<span className={`text-xs ${mutedText}`}>{variant.name}</span>
+								<div className="flex items-center gap-2">
+									{discountPct > 0 ? (
+										<>
+											<span className={`text-xs line-through ${mutedText}`}>{formatPriceInCurrency(original, currency)}</span>
+											<span className="text-xs font-semibold text-emerald-400">{formatPriceInCurrency(final, currency)}</span>
+										</>
+									) : (
+										<span className={`text-xs font-semibold tabular-nums ${isDarkTheme ? "text-zinc-300" : "text-zinc-700"}`}>{formatPriceInCurrency(variant.price, currency)}</span>
+									)}
+								</div>
+							</div>
+						);
+					})}
+				</div>
+			)}
 		</div>
 	);
 };
@@ -94,7 +135,7 @@ const CategorySection: React.FC<{
 	return (
 		<section className="mb-8 print:mb-6 print:break-inside-avoid-page">
 			<div
-				className={`px-4 py-2 mb-1 rounded-md ${
+				className={`px-4 py-2 mb-1 rounded-md flex items-center justify-between ${
 					isDarkTheme
 						? "bg-zinc-800/60 text-zinc-200"
 						: "bg-zinc-100 text-zinc-700"
@@ -103,6 +144,11 @@ const CategorySection: React.FC<{
 				<h2 className="text-xs font-bold uppercase tracking-[0.18em]">
 					{category.title}
 				</h2>
+				{(category.discountPercent ?? 0) > 0 && (
+					<span className="text-[9px] font-bold bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full">
+						{category.discountPercent}% OFF
+					</span>
+				)}
 			</div>
 			<div className="px-1">
 				{category.items.map((dish) => (
@@ -111,6 +157,7 @@ const CategorySection: React.FC<{
 						dish={dish}
 						currency={currency}
 						isDarkTheme={isDarkTheme}
+						categoryDiscountPercent={category.discountPercent ?? 0}
 					/>
 				))}
 			</div>
