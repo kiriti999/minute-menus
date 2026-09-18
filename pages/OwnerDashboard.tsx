@@ -992,6 +992,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     itemCount: number;
   } | null>(null);
   const [isDeletingCategory, setIsDeletingCategory] = useState(false);
+  const [customMlDishId, setCustomMlDishId] = useState<string | null>(null);
+  const [customMlValue, setCustomMlValue] = useState<string>("");
 
   useEffect(() => {
     if (!activeOptionsDishId) return;
@@ -1218,6 +1220,34 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     };
     setMenuItems(newMenu);
     setUnsavedChanges(true);
+  };
+
+  const handleAddCustomMl = (catIndex: number, dishIndex: number, dish: Dish) => {
+    if (!customMlValue.trim()) return;
+    const parts = customMlValue.includes(",") || customMlValue.includes(";")
+      ? customMlValue.split(/[,;]+/).map((s) => s.trim()).filter(Boolean)
+      : [customMlValue.trim()];
+
+    const existingNames = new Set((dish.variants ?? []).map((v) => v.name.trim().toLowerCase()));
+    const toAdd: string[] = [];
+
+    for (const part of parts) {
+      const cleaned = part.replace(/\s*ml$/i, "");
+      const formatted = /^\d+(\.\d+)?$/.test(cleaned) ? `${cleaned}ml` : part;
+      if (!existingNames.has(formatted.toLowerCase())) {
+        toAdd.push(formatted);
+        existingNames.add(formatted.toLowerCase());
+      }
+    }
+
+    if (toAdd.length > 0) {
+      const newVariants: DishVariant[] = [
+        ...(dish.variants ?? []),
+        ...toAdd.map((name) => ({ id: crypto.randomUUID(), name, price: dish.price })),
+      ];
+      handleDishUpdate(catIndex, dishIndex, "variants", newVariants);
+    }
+    setCustomMlValue("");
   };
 
   const handleDuplicateDish = (catIndex: number, dishIndex: number) => {
@@ -2845,19 +2875,24 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                               <button
                                 type="button"
                                 onClick={() => {
-                                  const presets = ["250ml", "500ml", "750ml"];
-                                  const existing = (dish.variants ?? []).map(v => v.name);
-                                  const toAdd = presets.filter(p => !existing.includes(p));
-                                  if (!toAdd.length) return;
-                                  const newVariants: DishVariant[] = [
-                                    ...(dish.variants ?? []),
-                                    ...toAdd.map(name => ({ id: crypto.randomUUID(), name, price: dish.price })),
-                                  ];
-                                  handleDishUpdate(selectedCategoryIdx, idx, "variants", newVariants);
+                                  if (customMlDishId === dish.id) {
+                                    setCustomMlDishId(null);
+                                  } else {
+                                    setCustomMlDishId(dish.id);
+                                    setCustomMlValue("");
+                                  }
                                 }}
-                                className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${isDarkTheme ? 'border-zinc-700 text-zinc-400 hover:bg-zinc-800' : 'border-zinc-300 text-zinc-500 hover:bg-zinc-100'}`}
+                                className={`px-2 py-0.5 rounded text-[10px] font-semibold border transition-colors ${
+                                  customMlDishId === dish.id
+                                    ? isDarkTheme
+                                      ? 'bg-zinc-800 border-zinc-500 text-white'
+                                      : 'bg-zinc-200 border-zinc-500 text-zinc-900'
+                                    : isDarkTheme
+                                      ? 'border-zinc-700 text-zinc-400 hover:bg-zinc-800'
+                                      : 'border-zinc-300 text-zinc-500 hover:bg-zinc-100'
+                                }`}
                               >
-                                ml sizes
+                                {customMlDishId === dish.id ? 'Close ml' : '+ ml'}
                               </button>
                               <button
                                 type="button"
@@ -2874,6 +2909,69 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                               </button>
                             </div>
                           </div>
+
+                          {customMlDishId === dish.id && (
+                            <div className={`mb-3 p-2.5 rounded-lg border flex flex-col gap-2 ${isDarkTheme ? 'bg-zinc-900/90 border-zinc-700' : 'bg-zinc-50 border-zinc-300'}`}>
+                              <div className="flex items-center justify-between">
+                                <span className={`text-[10px] font-semibold uppercase tracking-wider ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                                  Add ml size variants
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => { setCustomMlDishId(null); setCustomMlValue(""); }}
+                                  className={`p-0.5 rounded transition-colors ${isDarkTheme ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-900'}`}
+                                  title="Close"
+                                >
+                                  <X size={13} />
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="text"
+                                  autoFocus
+                                  value={customMlValue}
+                                  onChange={(e) => setCustomMlValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      handleAddCustomMl(selectedCategoryIdx, idx, dish);
+                                    }
+                                  }}
+                                  placeholder="Type ml (e.g. 330 or 250, 500)"
+                                  className={`flex-1 border rounded px-2 py-1 text-xs outline-none ${isDarkTheme ? 'bg-zinc-950 border-zinc-700 text-white placeholder-zinc-600 focus:border-zinc-500' : 'bg-white border-zinc-300 text-zinc-900 placeholder-zinc-400 focus:border-zinc-500'}`}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddCustomMl(selectedCategoryIdx, idx, dish)}
+                                  className="px-2.5 py-1 rounded text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
+                                >
+                                  Add
+                                </button>
+                              </div>
+                              <div className="flex items-center gap-1 flex-wrap pt-0.5">
+                                <span className={`text-[10px] ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-400'}`}>Quick:</span>
+                                {[100, 200, 250, 330, 500, 750, 1000].map((ml) => (
+                                  <button
+                                    key={ml}
+                                    type="button"
+                                    onClick={() => {
+                                      const mlStr = `${ml}ml`;
+                                      const existing = (dish.variants ?? []).map(v => v.name.toLowerCase());
+                                      if (existing.includes(mlStr.toLowerCase())) return;
+                                      const newVariants: DishVariant[] = [
+                                        ...(dish.variants ?? []),
+                                        { id: crypto.randomUUID(), name: mlStr, price: dish.price },
+                                      ];
+                                      handleDishUpdate(selectedCategoryIdx, idx, "variants", newVariants);
+                                    }}
+                                    className={`px-1.5 py-0.5 rounded text-[10px] font-mono border transition-colors ${isDarkTheme ? 'border-zinc-800 text-zinc-400 hover:border-zinc-600 hover:text-white hover:bg-zinc-800' : 'border-zinc-200 text-zinc-600 hover:border-zinc-400 hover:bg-zinc-100'}`}
+                                  >
+                                    +{ml}ml
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                           {(dish.variants && dish.variants.length > 0) ? (
                             <div className="flex flex-col gap-2">
                               {dish.variants.map((variant, vi) => (
