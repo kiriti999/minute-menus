@@ -29,7 +29,7 @@ export const rowsToCategoryTree = (
         .map((cat) => ({
             id: cat.id,
             title: cat.title,
-            discountPercent: cat.discount_percent ?? 0,
+            discountPercent: cat.discount_percent && cat.discount_percent > 0 ? cat.discount_percent : undefined,
             items: dishRows
                 .filter((d) => d.category_id === cat.id)
                 .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
@@ -52,7 +52,7 @@ export const rowsToCategoryTree = (
                         stockQuantity: d.stock_quantity ?? undefined,
                         manualSoldOut: d.manual_sold_out ?? false,
                         variants: Array.isArray(d.variants) ? (d.variants as DishVariant[]) : [],
-                        discountPercent: d.discount_percent ?? 0,
+                        discountPercent: d.discount_percent && d.discount_percent > 0 ? d.discount_percent : undefined,
                     }),
                 ),
         }));

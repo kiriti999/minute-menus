@@ -2436,20 +2436,20 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                       min={0}
                       max={100}
                       step={1}
-                      placeholder="0"
-                      title="Category discount %"
-                      value={menuItems[selectedCategoryIdx]?.discountPercent || ""}
+                      placeholder="None"
+                      title="Category discount % (optional)"
+                      value={menuItems[selectedCategoryIdx]?.discountPercent && menuItems[selectedCategoryIdx].discountPercent! > 0 ? menuItems[selectedCategoryIdx].discountPercent : ""}
                       onChange={(e) => {
                         const val = parseInt(e.target.value, 10);
                         const newMenu = [...menuItems];
                         newMenu[selectedCategoryIdx] = {
                           ...newMenu[selectedCategoryIdx],
-                          discountPercent: e.target.value === "" ? 0 : Math.min(100, Math.max(0, isNaN(val) ? 0 : val)),
+                          discountPercent: e.target.value === "" || isNaN(val) || val <= 0 ? undefined : Math.min(100, val),
                         };
                         setMenuItems(newMenu);
                         setUnsavedChanges(true);
                       }}
-                      className={`w-10 bg-transparent text-right font-mono focus:outline-none text-sm ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}
+                      className={`w-12 bg-transparent text-right font-mono focus:outline-none text-sm ${isDarkTheme ? 'text-white placeholder-zinc-600' : 'text-zinc-900 placeholder-zinc-400'}`}
                     />
                     <span className={`text-xs font-bold ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-400'}`}>% off all</span>
                   </div>
@@ -2811,11 +2811,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                           />
                         </div>
 
-                        {/* Item-level discount */}
+                        {/* Item-level discount (optional) */}
                         <div className={`flex items-center justify-between border rounded-lg px-3 py-2 ${isDarkTheme ? 'bg-zinc-950 border-zinc-800' : 'bg-zinc-50 border-zinc-300'}`}>
                           <div>
                             <label className={`text-xs font-bold uppercase tracking-widest ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>Item Discount</label>
-                            <p className={`text-[10px] mt-0.5 ${isDarkTheme ? 'text-zinc-700' : 'text-zinc-400'}`}>Overrides category discount</p>
+                            <p className={`text-[10px] mt-0.5 ${isDarkTheme ? 'text-zinc-700' : 'text-zinc-400'}`}>Optional · overrides category</p>
                           </div>
                           <div className="flex items-center gap-1">
                             <input
@@ -2823,18 +2823,18 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                               min={0}
                               max={100}
                               step={1}
-                              value={dish.discountPercent || ""}
-                              placeholder="0"
+                              value={dish.discountPercent && dish.discountPercent > 0 ? dish.discountPercent : ""}
+                              placeholder="None"
                               onChange={(e) => {
                                 const val = parseInt(e.target.value, 10);
                                 handleDishUpdate(
                                   selectedCategoryIdx,
                                   idx,
                                   "discountPercent",
-                                  e.target.value === "" ? 0 : Math.min(100, Math.max(0, isNaN(val) ? 0 : val)),
+                                  e.target.value === "" || isNaN(val) || val <= 0 ? undefined : Math.min(100, val),
                                 );
                               }}
-                              className={`w-16 bg-transparent text-right font-mono focus:outline-none py-0.5 text-sm ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}
+                              className={`w-16 bg-transparent text-right font-mono focus:outline-none py-0.5 text-sm ${isDarkTheme ? 'text-white placeholder-zinc-600' : 'text-zinc-900 placeholder-zinc-400'}`}
                             />
                             <span className={`text-xs font-bold ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-400'}`}>%</span>
                           </div>

@@ -63,7 +63,13 @@ const upsertDishRows = async (
     rows: ReturnType<typeof toDishRows>,
 ): Promise<void> => {
     for (const batch of chunkArray(rows, DISH_UPSERT_CHUNK)) {
-        const { error } = await client.from("dishes").upsert(batch, { onConflict: "id" });
+        let { error } = await client.from("dishes").upsert(batch, { onConflict: "id" });
+        if (error && (error.message?.includes("discount_percent") || error.message?.includes("variants"))) {
+            // Strip newly added columns if DB schema cache has not yet refreshed
+            const fallbackBatch = batch.map(({ discount_percent, variants, ...rest }) => rest);
+            const retry = await client.from("dishes").upsert(fallbackBatch as any, { onConflict: "id" });
+            error = retry.error;
+        }
         if (error) throwStepError("Save dishes", error);
     }
 };
@@ -99,9 +105,15 @@ export const persistMenu = async (
     const safeCategories = normalizeMenuIds(categories);
     const withMedia = await uploadCategoryMedia(client, restaurantId, safeCategories);
 
-    const { error: categoryErr } = await client
+    const categoryRows = toCategoryRows(withMedia, restaurantId);
+    let { error: categoryErr } = await client
         .from("categories")
-        .upsert(toCategoryRows(withMedia, restaurantId), { onConflict: "id" });
+        .upsert(categoryRows, { onConflict: "id" });
+    if (categoryErr && categoryErr.message?.includes("discount_percent")) {
+        const fallbackRows = categoryRows.map(({ discount_percent, ...rest }) => rest);
+        const retry = await client.from("categories").upsert(fallbackRows as any, { onConflict: "id" });
+        categoryErr = retry.error;
+    }
     if (categoryErr) throwStepError("Save categories", categoryErr);
 
     await upsertDishRows(client, toDishRows(withMedia, restaurantId));
