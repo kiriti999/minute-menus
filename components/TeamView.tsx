@@ -491,7 +491,8 @@ const BadgeCard: React.FC<{
 
 export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 	const isDesktop = useIsDesktop();
-	const [loading, setLoading] = useState(true);
+	const [initialLoading, setInitialLoading] = useState(true);
+	const [hoursLoading, setHoursLoading] = useState(false);
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [slug, setSlug] = useState("");
@@ -532,23 +533,77 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 		if (preset === "month") setMonthValue(nextMonth);
 	};
 
-	const load = useCallback(async () => {
-		setLoading(true);
-		setError(null);
+	// Initial page load: fetches restaurant details, badges, staff, and initial hours once on mount
+	useEffect(() => {
+		let cancelled = false;
+		const init = async () => {
+			setInitialLoading(true);
+			setError(null);
+			try {
+				const from = rangeFrom <= rangeTo ? rangeFrom : rangeTo;
+				const to = rangeFrom <= rangeTo ? rangeTo : rangeFrom;
+				const toExclusive = addDaysIso(to, 1);
+				const [details, badgeRows, staffRows, hours] = await Promise.all([
+					supabaseService.getRestaurantDetails(),
+					supabaseService.listStaffBadges(),
+					supabaseService.listRestaurantStaff(),
+					supabaseService.getStaffHoursInRange(from, toExclusive),
+				]);
+				if (!cancelled) {
+					setSlug(details.slug);
+					setBadges(badgeRows);
+					setStaff(staffRows);
+					setWeeklyHours(hours);
+					const assign: Record<string, string> = {};
+					for (const b of badgeRows) {
+						if (b.assignedStaffId) assign[b.id] = b.assignedStaffId;
+					}
+					setAssignStaffId(assign);
+				}
+			} catch (err) {
+				if (!cancelled) setError(getErrorMessage(err));
+			} finally {
+				if (!cancelled) setInitialLoading(false);
+			}
+		};
+		void init();
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+
+	// When date range changes, ONLY reload hours without unmounting or reloading the view
+	useEffect(() => {
+		if (initialLoading) return;
+		let cancelled = false;
+		const fetchHours = async () => {
+			setHoursLoading(true);
+			try {
+				const from = rangeFrom <= rangeTo ? rangeFrom : rangeTo;
+				const to = rangeFrom <= rangeTo ? rangeTo : rangeFrom;
+				const toExclusive = addDaysIso(to, 1);
+				const hours = await supabaseService.getStaffHoursInRange(from, toExclusive);
+				if (!cancelled) setWeeklyHours(hours);
+			} catch (err) {
+				if (!cancelled) setError(getErrorMessage(err));
+			} finally {
+				if (!cancelled) setHoursLoading(false);
+			}
+		};
+		void fetchHours();
+		return () => {
+			cancelled = true;
+		};
+	}, [rangeFrom, rangeTo, initialLoading]);
+
+	const reloadStaffAndBadges = async () => {
 		try {
-			const details = await supabaseService.getRestaurantDetails();
-			setSlug(details.slug);
-			const from = rangeFrom <= rangeTo ? rangeFrom : rangeTo;
-			const to = rangeFrom <= rangeTo ? rangeTo : rangeFrom;
-			const toExclusive = addDaysIso(to, 1);
-			const [badgeRows, staffRows, hours] = await Promise.all([
+			const [badgeRows, staffRows] = await Promise.all([
 				supabaseService.listStaffBadges(),
 				supabaseService.listRestaurantStaff(),
-				supabaseService.getStaffHoursInRange(from, toExclusive),
 			]);
 			setBadges(badgeRows);
 			setStaff(staffRows);
-			setWeeklyHours(hours);
 			const assign: Record<string, string> = {};
 			for (const b of badgeRows) {
 				if (b.assignedStaffId) assign[b.id] = b.assignedStaffId;
@@ -556,14 +611,8 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 			setAssignStaffId(assign);
 		} catch (err) {
 			setError(getErrorMessage(err));
-		} finally {
-			setLoading(false);
 		}
-	}, [rangeFrom, rangeTo]);
-
-	useEffect(() => {
-		void load();
-	}, [load]);
+	};
 
 	useEffect(() => {
 		let style = document.getElementById("team-badge-print-style");
@@ -586,7 +635,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 		try {
 			const label = `Badge ${badges.length + 1}`;
 			await supabaseService.createStaffBadge(label);
-			await load();
+			await reloadStaffAndBadges();
 		} catch (err) {
 			setError(getErrorMessage(err));
 		} finally {
@@ -604,7 +653,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 		try {
 			if (printBadge?.id === badge.id) setPrintBadge(null);
 			await supabaseService.deleteStaffBadge(badge.id);
-			await load();
+			await reloadStaffAndBadges();
 		} catch (err) {
 			setError(getErrorMessage(err));
 		} finally {
@@ -622,7 +671,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 			});
 			setNewStaffName("");
 			setNewStaffPhone("");
-			await load();
+			await reloadStaffAndBadges();
 		} catch (err) {
 			setError(getErrorMessage(err));
 		} finally {
@@ -635,7 +684,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 		setSaving(true);
 		try {
 			await supabaseService.assignBadgeToStaff(badgeId, staffId);
-			await load();
+			await reloadStaffAndBadges();
 		} catch (err) {
 			setError(getErrorMessage(err));
 		} finally {
@@ -649,7 +698,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 		try {
 			await supabaseService.deactivateRestaurantStaff(staffId);
 			if (editingStaffId === staffId) setEditingStaffId(null);
-			await load();
+			await reloadStaffAndBadges();
 		} catch (err) {
 			setError(getErrorMessage(err));
 		} finally {
@@ -679,7 +728,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 				phone: editStaffPhone.trim() || null,
 			});
 			cancelEditStaff();
-			await load();
+			await reloadStaffAndBadges();
 		} catch (err) {
 			setError(getErrorMessage(err));
 		} finally {
@@ -689,7 +738,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 
 	const activeStaff = staff.filter((s) => s.active);
 
-	if (loading) {
+	if (initialLoading) {
 		return (
 			<div className="flex items-center justify-center h-64">
 				<Loader2 className="animate-spin text-zinc-400" size={28} />
@@ -955,6 +1004,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 						<h2 className={`text-base sm:text-lg font-semibold flex items-center gap-2 ${text}`}>
 							<QrCode size={18} className="shrink-0 opacity-70" />
 							Staff hours
+							{hoursLoading && <Loader2 size={15} className="animate-spin text-zinc-400" />}
 						</h2>
 						<p className={`text-xs mt-0.5 ${muted}`}>
 							{rangeFrom} → {rangeTo}
@@ -1049,11 +1099,13 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 					)}
 				</div>
 
-				{weeklyHours.length === 0 ? (
-					<p className={`text-sm ${muted}`}>No time logs for this date range.</p>
-				) : (
-					<WeeklyHoursTables rows={weeklyHours} isDarkTheme={isDarkTheme} muted={muted} />
-				)}
+				<div className={`transition-opacity duration-200 ${hoursLoading ? "opacity-50 pointer-events-none" : "opacity-100"}`}>
+					{weeklyHours.length === 0 ? (
+						<p className={`text-sm ${muted}`}>No time logs for this date range.</p>
+					) : (
+						<WeeklyHoursTables rows={weeklyHours} isDarkTheme={isDarkTheme} muted={muted} />
+					)}
+				</div>
 			</section>
 
 			{printBadge && slug && (
