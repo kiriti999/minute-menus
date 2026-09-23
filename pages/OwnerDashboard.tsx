@@ -2950,7 +2950,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                               </div>
                               <div className="flex items-center gap-1 flex-wrap pt-0.5">
                                 <span className={`text-[10px] ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-400'}`}>Quick:</span>
-                                {[100, 200, 250, 330, 500, 750, 1000].map((ml) => (
+                                {[100, 200, 250, 300, 330, 500, 750, 1000].map((ml) => (
                                   <button
                                     key={ml}
                                     type="button"
