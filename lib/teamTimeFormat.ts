@@ -10,6 +10,10 @@ export function formatShiftDate(iso: string): string {
 	});
 }
 
+export function formatShiftDay(iso: string): string {
+	return new Date(iso).toLocaleDateString(LOCALE, { weekday: "short" });
+}
+
 export function formatShiftTime(iso: string): string {
 	return new Date(iso).toLocaleTimeString(LOCALE, {
 		hour: "2-digit",

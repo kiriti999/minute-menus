@@ -23,6 +23,7 @@ import {
 	exportWeeklyHoursCsv,
 	formatShiftClockOut,
 	formatShiftDate,
+	formatShiftDay,
 	formatShiftTime,
 } from "../lib/teamTimeFormat";
 import { supabaseService } from "../services/supabaseService";
@@ -165,7 +166,9 @@ const ClockInOutReport: React.FC<{
 						<div className="flex items-start justify-between gap-2">
 							<div className="min-w-0">
 								<p className={`font-medium truncate ${text}`}>{row.staffName}</p>
-								<p className={`text-xs ${muted}`}>{formatShiftDate(shift.clockInAt)}</p>
+								<p className={`text-xs ${muted}`}>
+									{formatShiftDate(shift.clockInAt)} ({formatShiftDay(shift.clockInAt)})
+								</p>
 							</div>
 							<p className={`shrink-0 font-mono text-sm tabular-nums ${text}`}>
 								{shift.hours.toFixed(1)}h
@@ -194,6 +197,7 @@ const ClockInOutReport: React.FC<{
 						<tr className={`text-left text-xs uppercase tracking-wide ${muted}`}>
 							<th className="pb-2 pr-3 font-medium">Staff</th>
 							<th className="pb-2 pr-3 font-medium">Date</th>
+							<th className="pb-2 pr-3 font-medium">Day</th>
 							<th className="pb-2 pr-3 font-medium">Clock in</th>
 							<th className="pb-2 pr-3 font-medium">Clock out</th>
 							<th className="pb-2 text-right font-medium">Hours</th>
@@ -204,6 +208,7 @@ const ClockInOutReport: React.FC<{
 							<tr key={key} className={border}>
 								<td className={`py-2.5 pr-3 ${text}`}>{row.staffName}</td>
 								<td className={`py-2.5 pr-3 ${muted}`}>{formatShiftDate(shift.clockInAt)}</td>
+								<td className={`py-2.5 pr-3 ${muted}`}>{formatShiftDay(shift.clockInAt)}</td>
 								<td className={`py-2.5 pr-3 font-mono tabular-nums ${text}`}>
 									{formatShiftTime(shift.clockInAt)}
 								</td>
