@@ -883,18 +883,21 @@ export type Database = {
                     owner_id: string;
                     anthropic_api_key: string | null;
                     anthropic_model: string;
+                    telegram_chat_id: string | null;
                     updated_at: string;
                 };
                 Insert: {
                     owner_id: string;
                     anthropic_api_key?: string | null;
                     anthropic_model?: string;
+                    telegram_chat_id?: string | null;
                     updated_at?: string;
                 };
                 Update: {
                     owner_id?: string;
                     anthropic_api_key?: string | null;
                     anthropic_model?: string;
+                    telegram_chat_id?: string | null;
                     updated_at?: string;
                 };
                 Relationships: [];

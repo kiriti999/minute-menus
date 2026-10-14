@@ -91,6 +91,16 @@ export interface Order {
   timeToOrder: number; // seconds from app open to checkout
 }
 
+export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'completed';
+
+export interface KitchenOrder {
+  id: string;
+  items: OrderItem[];
+  totalAmount: number;
+  status: OrderStatus;
+  createdAt: string;
+}
+
 export interface AnalyticsMetric {
   timestamp: string;
   views: number;

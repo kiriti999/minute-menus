@@ -177,6 +177,23 @@ create policy "Owner can read their orders"
     )
   );
 
+create policy "Owner can update their orders"
+  on orders for update
+  using (
+    exists (
+      select 1 from restaurants r
+      where r.id = orders.restaurant_id
+        and r.owner_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1 from restaurants r
+      where r.id = orders.restaurant_id
+        and r.owner_id = auth.uid()
+    )
+  );
+
 -- Orders are recorded server-side only (after Razorpay signature verification),
 -- via the admin client in api/order/confirm-order.ts — no anon insert policy.
 
@@ -1267,8 +1284,11 @@ create table if not exists owner_settings (
   owner_id           uuid primary key references auth.users(id) on delete cascade,
   anthropic_api_key  text,
   anthropic_model    text not null default 'claude-haiku-4-5',
+  telegram_chat_id   text,
   updated_at         timestamptz not null default now()
 );
+
+alter table owner_settings add column if not exists telegram_chat_id text;
 
 alter table owner_settings enable row level security;
 

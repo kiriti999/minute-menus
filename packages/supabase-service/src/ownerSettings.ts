@@ -72,3 +72,33 @@ export async function getOwnerAnthropicApiKey(
 	if (!apiKey) return null;
 	return { apiKey, model: data?.anthropic_model ?? DEFAULT_OWNER_AI_MODEL };
 }
+
+export async function getOwnerTelegramChatId(client: Client, ownerId: string): Promise<string> {
+	const { data, error } = await client
+		.from("owner_settings")
+		.select("telegram_chat_id")
+		.eq("owner_id", ownerId)
+		.maybeSingle();
+	if (error) throw error;
+	return data?.telegram_chat_id ?? "";
+}
+
+export async function upsertOwnerTelegramChatId(
+	client: Client,
+	ownerId: string,
+	chatId: string,
+): Promise<void> {
+	const trimmed = chatId.trim();
+	if (!/^-?\d+$/.test(trimmed)) {
+		throw new Error("Telegram chat ID must be a number.");
+	}
+	const { error } = await client.from("owner_settings").upsert(
+		{
+			owner_id: ownerId,
+			telegram_chat_id: trimmed,
+			updated_at: new Date().toISOString(),
+		},
+		{ onConflict: "owner_id" },
+	);
+	if (error) throw error;
+}

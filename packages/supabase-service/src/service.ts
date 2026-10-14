@@ -13,10 +13,12 @@ import type {
     DailyOrder,
     DeliveryTicket,
     DishRecipeLine,
+    KitchenOrder,
     Ingredient,
     IngredientInvoice,
     InvoiceLineItem,
     MealPlan,
+    OrderStatus,
     OrderItem,
     PurchaseUnit,
     RestaurantOverhead,
@@ -209,6 +211,31 @@ export class SupabaseService {
                 newlySoldOutDishes.map((d) => this.sendSoldOutEmail(d.id, d.name, "stock")),
             );
         }
+
+    }
+
+    async getKitchenOrders(): Promise<KitchenOrder[]> {
+        const rid = await this.getRestaurantId();
+        const { data, error } = await this.client
+            .from("orders")
+            .select("id, items, total_amount, status, created_at")
+            .eq("restaurant_id", rid)
+            .order("created_at", { ascending: false })
+            .limit(100);
+        if (error) throw error;
+
+        return (data ?? []).map((order) => ({
+            id: order.id,
+            items: order.items as unknown as KitchenOrder["items"],
+            totalAmount: order.total_amount,
+            status: order.status as OrderStatus,
+            createdAt: order.created_at,
+        }));
+    }
+
+    async updateKitchenOrderStatus(orderId: string, status: OrderStatus): Promise<void> {
+        const { error } = await this.client.from("orders").update({ status }).eq("id", orderId);
+        if (error) throw error;
     }
 
     // ── Subscription Tier ────────────────────────────────────────────────────────
@@ -1524,5 +1551,19 @@ export class SupabaseService {
         if (!user) throw new Error("Not authenticated");
         const { upsertOwnerAnthropicKey } = await import("./ownerSettings");
         return upsertOwnerAnthropicKey(this.client, user.id, apiKey);
+    }
+
+    async getOwnerTelegramChatId() {
+        const { data: { user } } = await this.client.auth.getUser();
+        if (!user) throw new Error("Not authenticated");
+        const { getOwnerTelegramChatId } = await import("./ownerSettings");
+        return getOwnerTelegramChatId(this.client, user.id);
+    }
+
+    async saveOwnerTelegramChatId(chatId: string) {
+        const { data: { user } } = await this.client.auth.getUser();
+        if (!user) throw new Error("Not authenticated");
+        const { upsertOwnerTelegramChatId } = await import("./ownerSettings");
+        return upsertOwnerTelegramChatId(this.client, user.id, chatId);
     }
 }

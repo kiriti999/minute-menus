@@ -4,8 +4,10 @@ import { PrintDesignsView } from "../components/PrintDesignsView";
 import { TeamView } from "../components/TeamView";
 import { CounterBillView } from "../components/CounterBillView";
 import { SalesView } from "../components/SalesView";
+import { OrderQueueView } from "../components/OrderQueueView";
 import {
   AlertTriangle,
+  Bell,
   BookOpen,
   BrainCircuit,
   Calculator,
@@ -95,7 +97,9 @@ import {
   type DailyOrder,
   type DeliveryTicket,
   type Dish,
+  type KitchenOrder,
   type MealPlan,
+  type OrderStatus,
   type RefundRequest,
   type TicketReason,
   type DishVariant,
@@ -110,7 +114,7 @@ import {
   Spinner,
 } from "@minute-menus/ui";
 
-type ViewMode = "DASHBOARD" | "MENU" | "IMAGE_EDITOR" | "COSTING" | "PRINT_DESIGNS" | "CUSTOMERS" | "TEAM" | "SALES" | "COUNTER" | "SUBSCRIPTIONS";
+type ViewMode = "DASHBOARD" | "MENU" | "IMAGE_EDITOR" | "COSTING" | "PRINT_DESIGNS" | "CUSTOMERS" | "TEAM" | "SALES" | "COUNTER" | "ORDERS" | "SUBSCRIPTIONS";
 type SubTab = "plans" | "subscribers" | "tomorrow" | "tickets" | "refunds";
 type TimeWindow = "24h" | "7d" | "30d";
 
@@ -961,6 +965,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const [customerDirectory, setCustomerDirectory] = useState<CustomerDirectoryEntry[]>([]);
   const [custSearch, setCustSearch] = useState("");
   const [custPage, setCustPage] = useState(0);
+  const [kitchenOrders, setKitchenOrders] = useState<KitchenOrder[]>([]);
+  const [kitchenOrdersLoading, setKitchenOrdersLoading] = useState(false);
+  const [kitchenOrdersError, setKitchenOrdersError] = useState("");
+  const [telegramChatId, setTelegramChatId] = useState("");
+  const knownKitchenOrderIdsRef = useRef(new Set<string>());
 
   // Subscription Management State
   const [subTab, setSubTab] = useState<SubTab>("plans");
@@ -1048,10 +1057,60 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     supabaseService.getCustomerDirectory().then(setCustomerDirectory).catch(console.error);
   };
 
+  const playNewOrderSound = () => {
+    const audioContext = new AudioContext();
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.frequency.value = 880;
+    gain.gain.setValueAtTime(0.08, audioContext.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.35);
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start();
+    oscillator.stop(audioContext.currentTime + 0.35);
+    oscillator.addEventListener("ended", () => void audioContext.close());
+  };
+
+  const loadKitchenOrders = () => {
+    setKitchenOrdersLoading(true);
+    setKitchenOrdersError("");
+    supabaseService
+      .getKitchenOrders()
+      .then((orders) => {
+        const hasNewOrder = knownKitchenOrderIdsRef.current.size > 0
+          && orders.some((order) => !knownKitchenOrderIdsRef.current.has(order.id));
+        knownKitchenOrderIdsRef.current = new Set(orders.map((order) => order.id));
+        setKitchenOrders(orders);
+        if (hasNewOrder) playNewOrderSound();
+      })
+      .catch((error: unknown) => {
+        setKitchenOrdersError(`Failed to load orders: ${getErrorMessage(error)}`);
+      })
+      .finally(() => setKitchenOrdersLoading(false));
+  };
+
+  const handleOrderStatusChange = async (orderId: string, status: OrderStatus) => {
+    setKitchenOrdersError("");
+    try {
+      await supabaseService.updateKitchenOrderStatus(orderId, status);
+      setKitchenOrders((orders) =>
+        orders.map((order) => (order.id === orderId ? { ...order, status } : order)),
+      );
+    } catch (error) {
+      setKitchenOrdersError(`Failed to update order: ${getErrorMessage(error)}`);
+    }
+  };
+
+  const handleTelegramChatIdSave = async (chatId: string) => {
+    await supabaseService.saveOwnerTelegramChatId(chatId);
+    setTelegramChatId(chatId.trim());
+  };
+
   const refreshViewData = (view: ViewMode) => {
     if (view === "DASHBOARD") loadDashboardMetrics();
     if (view === "MENU" || view === "COSTING" || view === "IMAGE_EDITOR" || view === "PRINT_DESIGNS" || view === "COUNTER") loadMenuFromServer();
     if (view === "CUSTOMERS") loadCustomersData();
+    if (view === "ORDERS") loadKitchenOrders();
     if (view === "SUBSCRIPTIONS") loadSubscriptionData();
   };
 
@@ -1068,6 +1127,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       }
       loadRestaurantDetails();
       supabaseService.getTier().then(setUserTier).catch(console.error);
+      supabaseService.getOwnerTelegramChatId().then(setTelegramChatId).catch(console.error);
     });
   }, []);
 
@@ -1078,7 +1138,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   // Poll analytics/subscriptions only on tabs that use them
   useEffect(() => {
-    if (currentView !== "DASHBOARD" && currentView !== "SUBSCRIPTIONS") return;
+    if (currentView !== "DASHBOARD" && currentView !== "ORDERS" && currentView !== "SUBSCRIPTIONS") return;
     const interval = setInterval(() => refreshViewData(currentView), 30000);
     return () => clearInterval(interval);
   }, [currentView, timeWindow]);
@@ -1603,6 +1663,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       >
         <Receipt size={18} />
         <span className="font-medium">Sales</span>
+      </button>
+      <button
+        onClick={() => {
+          setCurrentView("ORDERS");
+          setIsMobileMenuOpen(false);
+        }}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-300 ${currentView === "ORDERS" ? (isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white") + " shadow-[0_0_15px_rgba(255,255,255,0.1)]" : isDarkTheme ? "text-zinc-500 hover:text-white hover:bg-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200"}`}
+      >
+        <Bell size={18} />
+        <span className="font-medium">Kitchen Orders</span>
       </button>
       <button
         onClick={() => {
@@ -3135,6 +3205,20 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             restaurantId={restaurantDetails.id}
             currency={restaurantDetails.currency}
             isDarkTheme={isDarkTheme}
+          />
+        )}
+
+        {currentView === "ORDERS" && restaurantDetails && (
+          <OrderQueueView
+            orders={kitchenOrders}
+            currency={restaurantDetails.currency}
+            isDarkTheme={isDarkTheme}
+            isLoading={kitchenOrdersLoading}
+            error={kitchenOrdersError}
+            telegramChatId={telegramChatId}
+            onSaveTelegramChatId={handleTelegramChatIdSave}
+            onUpdateOrderStatus={handleOrderStatusChange}
+            onTestSound={playNewOrderSound}
           />
         )}
 

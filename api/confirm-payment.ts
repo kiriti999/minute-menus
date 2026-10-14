@@ -6,6 +6,7 @@
 import crypto from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { sendTelegramOrderAlert } from "../lib/server/telegram";
 
 type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
@@ -164,8 +165,8 @@ const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse) => {
     }
 
     const today = new Date().toISOString().slice(0, 10);
-    await Promise.allSettled(
-        items.map((item) =>
+    await Promise.allSettled([
+        ...items.map((item) =>
             admin.rpc("increment_dish_stock", {
                 p_dish_id: item.dishId,
                 p_restaurant_id: restaurantId,
@@ -173,7 +174,14 @@ const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse) => {
                 p_quantity: item.quantity,
             }),
         ),
-    );
+        sendTelegramOrderAlert(admin, {
+            restaurantId,
+            orderId: order.id,
+            items,
+            total,
+            currency,
+        }),
+    ]);
 
     return res.status(200).json({ success: true, orderId: order.id });
 };
