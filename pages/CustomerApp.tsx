@@ -42,6 +42,7 @@ import { formatDisplayName } from "../lib/formatDisplayName";
 import { openRazorpayCheckout } from "../lib/loadRazorpayCheckout";
 import { PAYMENT_API_PATHS } from "../lib/api/paymentRouteRewrites";
 import { ButtonSpinner } from "@minute-menus/ui";
+import { getErrorMessage } from "@minute-menus/errors";
 import type { Category, CustomerAddress, CustomerProfile, CustomerSubscription, DailyOrder, Dish, MealPlan, OrderItem, SubDeliveryType, DeliveryFeeMode, TicketReason, TimeSlot, WeeklyOperatingHours, RestaurantAvailability } from "@minute-menus/types";
 import { getAvailabilityStatus, TICKET_REASON_LABELS, TIME_SLOT_LABELS } from "@minute-menus/types";
 import { CustomerAddressLocate } from "../components/CustomerAddressLocate";
@@ -579,8 +580,9 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       fillDetailsFromProfile(profile);
       setAuthStep("details");
     } catch (error) {
-      setAuthStep("auth");
-      setAuthError(error instanceof Error ? error.message : "Unable to load your address details.");
+      console.error("Address load failed", error);
+      setAuthStep("details");
+      setAuthError(getErrorMessage(error, "Unable to load your address details."));
     }
   };
 
