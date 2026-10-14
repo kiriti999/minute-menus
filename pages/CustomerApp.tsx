@@ -43,7 +43,8 @@ import { openRazorpayCheckout } from "../lib/loadRazorpayCheckout";
 import { PAYMENT_API_PATHS } from "../lib/api/paymentRouteRewrites";
 import { ButtonSpinner } from "@minute-menus/ui";
 import { getErrorMessage } from "@minute-menus/errors";
-import type { Category, CustomerAddress, CustomerProfile, CustomerSubscription, DailyOrder, Dish, MealPlan, OrderItem, SubDeliveryType, DeliveryFeeMode, TicketReason, TimeSlot, WeeklyOperatingHours, RestaurantAvailability } from "@minute-menus/types";
+import { CustomerOrdersPanel, CUSTOMER_STATUS_COPY } from "../components/CustomerOrdersPanel";
+import type { Category, CustomerAddress, CustomerOrder, CustomerProfile, CustomerSubscription, DailyOrder, Dish, MealPlan, OrderItem, SubDeliveryType, DeliveryFeeMode, TicketReason, TimeSlot, WeeklyOperatingHours, RestaurantAvailability } from "@minute-menus/types";
 import { getAvailabilityStatus, TICKET_REASON_LABELS, TIME_SLOT_LABELS } from "@minute-menus/types";
 import { CustomerAddressLocate } from "../components/CustomerAddressLocate";
 
@@ -152,6 +153,12 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   // ── Customer Auth & Profile (required before checkout) ─────────────────────
   type AuthStep = "auth" | "otp" | "details";
   const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null);
+  const [isOrdersPanelOpen, setIsOrdersPanelOpen] = useState(false);
+  const [myOrders, setMyOrders] = useState<CustomerOrder[]>([]);
+  const [myOrdersLoading, setMyOrdersLoading] = useState(false);
+  const [myOrdersError, setMyOrdersError] = useState("");
+  const [orderToast, setOrderToast] = useState("");
+  const lastOrderStatusRef = useRef<Map<string, string>>(new Map());
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authStep, setAuthStep] = useState<AuthStep>("auth");
   const [authLoading, setAuthLoading] = useState(false);
@@ -167,6 +174,10 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   // Details step fields
   const [detailsName, setDetailsName] = useState("");
   const [detailsPhone, setDetailsPhone] = useState("");
+  const [verifiedPhone, setVerifiedPhone] = useState("");
+  const [phoneOtpSent, setPhoneOtpSent] = useState(false);
+  const [phoneOtpCode, setPhoneOtpCode] = useState("");
+  const [phoneOtpLoading, setPhoneOtpLoading] = useState(false);
   const [detailsAddressLine1, setDetailsAddressLine1] = useState("");
   const [detailsAddressLine2, setDetailsAddressLine2] = useState("");
   const [detailsStreet, setDetailsStreet] = useState("");
@@ -252,6 +263,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       if (profile) {
         setDetailsName(profile.name ?? "");
         setDetailsPhone(profile.phone ?? "");
+        setVerifiedPhone(profile.phoneVerified ? profile.phone ?? "" : "");
         setDetailsAddressLine1(profile.addressLine1 ?? "");
         setDetailsAddressLine2(profile.addressLine2 ?? "");
         setDetailsStreet(profile.street ?? "");
@@ -280,6 +292,50 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
 
     return () => subscription.unsubscribe();
   }, [isAuthModalOpen]);
+
+  // Poll the customer's orders (fast while the panel is open or an order is in flight)
+  // and announce status changes with a toast.
+  const hasActiveOrder = myOrders.some((order) => order.status !== "completed" && order.status !== "rejected");
+  useEffect(() => {
+    if (!customerProfile) {
+      setMyOrders([]);
+      lastOrderStatusRef.current = new Map();
+      return;
+    }
+    let cancelled = false;
+    const load = async (showSpinner: boolean) => {
+      if (showSpinner) setMyOrdersLoading(true);
+      try {
+        const orders = await supabaseService.getMyOrders();
+        if (cancelled) return;
+        const previous = lastOrderStatusRef.current;
+        const changed = orders.find((order) => previous.has(order.id) && previous.get(order.id) !== order.status);
+        if (changed) {
+          setOrderToast(`${changed.restaurantName}: ${CUSTOMER_STATUS_COPY[changed.status].message}`);
+        }
+        lastOrderStatusRef.current = new Map(orders.map((order) => [order.id, order.status]));
+        setMyOrders(orders);
+        setMyOrdersError("");
+      } catch (error) {
+        if (!cancelled) setMyOrdersError(`Could not load orders: ${getErrorMessage(error)}`);
+      } finally {
+        if (!cancelled && showSpinner) setMyOrdersLoading(false);
+      }
+    };
+    void load(true);
+    const pollMs = isOrdersPanelOpen || hasActiveOrder ? 10_000 : 60_000;
+    const timer = window.setInterval(() => void load(false), pollMs);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [customerProfile?.userId, isOrdersPanelOpen, hasActiveOrder]);
+
+  useEffect(() => {
+    if (!orderToast) return;
+    const timer = window.setTimeout(() => setOrderToast(""), 8000);
+    return () => window.clearTimeout(timer);
+  }, [orderToast]);
 
   // Product limit removed for multi-category restaurant menus — show all categories.
   const displayCategories = useMemo(
@@ -522,6 +578,9 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const fillDetailsFromProfile = (profile: CustomerProfile) => {
     setDetailsName(profile.name ?? "");
     setDetailsPhone(profile.phone ?? "");
+    setVerifiedPhone(profile.phoneVerified ? profile.phone ?? "" : "");
+    setPhoneOtpSent(false);
+    setPhoneOtpCode("");
     setDetailsAddressLine1(profile.addressLine1 ?? "");
     setDetailsAddressLine2(profile.addressLine2 ?? "");
     setDetailsStreet(profile.street ?? "");
@@ -681,6 +740,44 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     }
   };
 
+  const isDetailsPhoneVerified = (() => {
+    try {
+      return !!verifiedPhone && supabaseService.normalizePhone(detailsPhone) === verifiedPhone;
+    } catch {
+      return false;
+    }
+  })();
+
+  const handleSendPhoneOtp = async () => {
+    setPhoneOtpLoading(true);
+    setAuthError("");
+    try {
+      await supabaseService.sendPhoneOTP(detailsPhone);
+      setPhoneOtpSent(true);
+      setPhoneOtpCode("");
+    } catch (e) {
+      setAuthError(getErrorMessage(e));
+    } finally {
+      setPhoneOtpLoading(false);
+    }
+  };
+
+  const handleVerifyPhoneOtp = async () => {
+    setPhoneOtpLoading(true);
+    setAuthError("");
+    try {
+      const normalized = await supabaseService.verifyPhoneOTP(detailsPhone, phoneOtpCode.trim());
+      setVerifiedPhone(normalized);
+      setDetailsPhone(normalized);
+      setPhoneOtpSent(false);
+      setPhoneOtpCode("");
+    } catch (e) {
+      setAuthError(getErrorMessage(e));
+    } finally {
+      setPhoneOtpLoading(false);
+    }
+  };
+
   // Details step: phone + address
   const handleDetailsSubmit = async () => {
     const detailsErr = deliveryDetailsError({
@@ -694,6 +791,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       pincode: detailsPincode,
     });
     if (detailsErr) { setAuthError(detailsErr); return; }
+    if (!isDetailsPhoneVerified) { setAuthError("Please verify your mobile number with the OTP."); return; }
 
     setAuthLoading(true);
     setAuthError("");
@@ -703,7 +801,6 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
 
       await supabaseService.updateCustomerProfile(customer.userId, {
         name: detailsName.trim(),
-        phone: detailsPhone.trim(),
         addressLine1: detailsAddressLine1.trim(),
         addressLine2: detailsAddressLine2.trim(),
         street: detailsStreet.trim(),
@@ -742,6 +839,9 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     setOtpCode("");
     setDetailsName("");
     setDetailsPhone("");
+    setVerifiedPhone("");
+    setPhoneOtpSent(false);
+    setPhoneOtpCode("");
     setDetailsAddressLine1("");
     setDetailsAddressLine2("");
     setDetailsStreet("");
@@ -812,9 +912,13 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         })
         .filter((d): d is { id: string; name: string } => d !== null);
 
+      const { data: confirmSession } = await supabase.auth.getSession();
       const confirmRes = await fetch(PAYMENT_API_PATHS.confirmOrder, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          ...(confirmSession.session ? { authorization: `Bearer ${confirmSession.session.access_token}` } : {}),
+        },
         body: JSON.stringify({
           ...payment,
           restaurantId,
@@ -1215,11 +1319,12 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
             {/* User Account Button */}
             {customerProfile ? (
               <button
-                onClick={handleCustomerSignOut}
-                className={`p-2.5 rounded-full backdrop-blur-md border transition-colors shadow-lg ${isDarkTheme ? 'bg-black/40 border-white/20 hover:bg-black/60' : 'bg-white/40 border-black/20 hover:bg-white/60'}`}
-                title={`Signed in as ${customerProfile.email} — tap to sign out`}
+                onClick={() => setIsOrdersPanelOpen(true)}
+                className={`relative p-2.5 rounded-full backdrop-blur-md border transition-colors shadow-lg ${isDarkTheme ? 'bg-black/40 border-white/20 hover:bg-black/60' : 'bg-white/40 border-black/20 hover:bg-white/60'}`}
+                title={`Signed in as ${customerProfile.email} — view my orders`}
               >
                 <User size={18} className={isDarkTheme ? 'text-white' : 'text-zinc-800'} />
+                {hasActiveOrder && <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-amber-500" />}
               </button>
             ) : (
               <button
@@ -1436,6 +1541,26 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       </div>
 
       {/* === Customer Auth Modal (Multi-step) === */}
+      <CustomerOrdersPanel
+        isOpen={isOrdersPanelOpen}
+        isDarkTheme={isDarkTheme}
+        email={customerProfile?.email ?? ""}
+        orders={myOrders}
+        isLoading={myOrdersLoading}
+        error={myOrdersError}
+        currency={currency}
+        onClose={() => setIsOrdersPanelOpen(false)}
+        onSignOut={() => { setIsOrdersPanelOpen(false); void handleCustomerSignOut(); }}
+      />
+      {orderToast && (
+        <button
+          type="button"
+          onClick={() => { setOrderToast(""); setIsOrdersPanelOpen(true); }}
+          className="fixed left-1/2 top-4 z-[80] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-xl bg-indigo-600 px-4 py-3 text-left text-sm font-medium text-white shadow-2xl"
+        >
+          {orderToast}
+        </button>
+      )}
       {isAuthModalOpen && (
         <div className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-xl flex items-end sm:items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-zinc-950 border border-zinc-800 rounded-2xl animate-in slide-in-from-bottom-4 duration-300 max-h-[90vh] overflow-y-auto">
@@ -1615,11 +1740,45 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                         <input
                           type="tel"
                           value={detailsPhone}
-                          onChange={(e) => setDetailsPhone(e.target.value)}
+                          onChange={(e) => { setDetailsPhone(e.target.value); setPhoneOtpSent(false); }}
                           placeholder="+91 98765 43210"
                           className="w-full bg-zinc-900 border border-zinc-700 text-white pl-10 pr-4 py-2.5 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
                         />
                       </div>
+                      {isDetailsPhoneVerified ? (
+                        <p className="mt-1.5 text-xs font-bold text-emerald-400">✓ Mobile number verified</p>
+                      ) : (
+                        <div className="mt-2 space-y-2">
+                          {phoneOtpSent && (
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                value={phoneOtpCode}
+                                onChange={(e) => setPhoneOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                placeholder="6-digit OTP"
+                                className="flex-1 min-w-0 bg-zinc-900 border border-zinc-700 text-white px-3 py-2 rounded text-sm outline-none focus:border-zinc-500"
+                              />
+                              <button
+                                type="button"
+                                onClick={handleVerifyPhoneOtp}
+                                disabled={phoneOtpLoading || phoneOtpCode.length < 6}
+                                className="px-3 py-2 bg-white text-black rounded text-xs font-bold uppercase disabled:opacity-50"
+                              >
+                                Verify
+                              </button>
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={handleSendPhoneOtp}
+                            disabled={phoneOtpLoading || !detailsPhone.trim()}
+                            className="text-xs font-bold uppercase tracking-widest text-white underline underline-offset-2 disabled:opacity-50"
+                          >
+                            {phoneOtpSent ? "Resend OTP" : "Send OTP"}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 

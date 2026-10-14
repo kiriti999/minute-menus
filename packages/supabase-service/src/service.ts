@@ -8,6 +8,7 @@ import type {
     Category,
     CustomerAddress,
     CustomerDirectoryEntry,
+    CustomerOrder,
     CustomerProfile,
     CustomerSubscription,
     DailyOrder,
@@ -38,6 +39,42 @@ import { UserTier } from "@minute-menus/types";
 import type { Json } from "@minute-menus/types/db";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@minute-menus/types/db";
+
+const ORDER_COLUMNS =
+    "id, items, total_amount, status, rejection_reason, created_at, confirmed_at, ready_at, completed_at, rejected_at";
+
+const ORDER_STATUS_STAMP: Partial<Record<OrderStatus, "confirmed_at" | "preparing_at" | "ready_at" | "completed_at" | "rejected_at">> = {
+    confirmed: "confirmed_at",
+    preparing: "preparing_at",
+    ready: "ready_at",
+    completed: "completed_at",
+    rejected: "rejected_at",
+};
+
+const mapOrderRow = (order: {
+    id: string;
+    items: Json;
+    total_amount: number;
+    status: string;
+    rejection_reason: string | null;
+    created_at: string;
+    confirmed_at: string | null;
+    ready_at: string | null;
+    completed_at: string | null;
+    rejected_at: string | null;
+}): KitchenOrder => ({
+    id: order.id,
+    items: order.items as unknown as KitchenOrder["items"],
+    totalAmount: order.total_amount,
+    status: order.status as OrderStatus,
+    rejectionReason: order.rejection_reason ?? undefined,
+    createdAt: order.created_at,
+    confirmedAt: order.confirmed_at ?? undefined,
+    readyAt: order.ready_at ?? undefined,
+    completedAt: order.completed_at ?? undefined,
+    rejectedAt: order.rejected_at ?? undefined,
+});
+
 import { mapDailyOrders, rowsToCategoryTree } from "./mappers";
 import { createRestaurantContext } from "./restaurantContext";
 
@@ -220,32 +257,55 @@ export class SupabaseService {
         const rid = await this.getRestaurantId();
         const { data, error } = await this.client
             .from("orders")
-            .select("id, items, total_amount, status, rejection_reason, created_at")
+            .select(ORDER_COLUMNS)
             .eq("restaurant_id", rid)
             .order("created_at", { ascending: false })
             .limit(100);
         if (error) throw error;
-
-        return (data ?? []).map((order) => ({
-            id: order.id,
-            items: order.items as unknown as KitchenOrder["items"],
-            totalAmount: order.total_amount,
-            status: order.status as OrderStatus,
-            rejectionReason: order.rejection_reason ?? undefined,
-            createdAt: order.created_at,
-        }));
+        return (data ?? []).map(mapOrderRow);
     }
 
     async updateKitchenOrderStatus(
         orderId: string,
         status: OrderStatus,
         rejectionReason?: string,
-    ): Promise<void> {
+    ): Promise<string> {
+        const now = new Date().toISOString();
+        const stampColumn = ORDER_STATUS_STAMP[status];
         const { error } = await this.client
             .from("orders")
-            .update({ status, rejection_reason: rejectionReason ?? null })
+            .update({
+                status,
+                rejection_reason: rejectionReason ?? null,
+                ...(stampColumn ? { [stampColumn]: now } : {}),
+            })
             .eq("id", orderId);
         if (error) throw error;
+        return now;
+    }
+
+    async getMyOrders(): Promise<CustomerOrder[]> {
+        const { data: userData } = await this.client.auth.getUser();
+        const uid = userData.user?.id;
+        if (!uid) return [];
+        const { data, error } = await this.client
+            .from("orders")
+            .select(`${ORDER_COLUMNS}, restaurant_id`)
+            .eq("customer_user_id", uid)
+            .order("created_at", { ascending: false })
+            .limit(50);
+        if (error) throw error;
+        const rows = data ?? [];
+        const restaurantIds = [...new Set(rows.map((row) => row.restaurant_id))];
+        const { data: restaurants } = restaurantIds.length
+            ? await this.client.from("restaurants").select("id, name").in("id", restaurantIds)
+            : { data: [] };
+        const names = new Map((restaurants ?? []).map((r) => [r.id, r.name]));
+        return rows.map((row) => ({
+            ...mapOrderRow(row),
+            restaurantId: row.restaurant_id,
+            restaurantName: names.get(row.restaurant_id) ?? "Restaurant",
+        }));
     }
 
     // ── Subscription Tier ────────────────────────────────────────────────────────
@@ -1147,6 +1207,41 @@ export class SupabaseService {
         return true;
     }
 
+    /** Normalizes an Indian mobile number to E.164 (+91XXXXXXXXXX). Throws if invalid. */
+    normalizePhone(raw: string): string {
+        const digits = raw.replace(/[^\d+]/g, "").replace(/^\+/, "");
+        const national = digits.length === 12 && digits.startsWith("91") ? digits.slice(2) : digits;
+        if (!/^[6-9]\d{9}$/.test(national)) throw new Error("Enter a valid 10-digit mobile number.");
+        return `+91${national}`;
+    }
+
+    private async postPhoneOtp(action: string, body: Record<string, string>): Promise<{ phone: string }> {
+        const { data: { session } } = await this.client.auth.getSession();
+        if (!session) throw new Error("Please sign in first.");
+        const response = await fetch(`/api/confirm-payment?action=${action}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+            body: JSON.stringify(body),
+        });
+        const payload = (await response.json().catch(() => ({}))) as { error?: string; phone?: string };
+        if (!response.ok) throw new Error(payload.error ?? "Request failed. Please try again.");
+        return { phone: payload.phone ?? "" };
+    }
+
+    /** Sends a WhatsApp OTP (server-side, Meta Cloud API) to confirm ownership of the number. */
+    async sendPhoneOTP(phone: string): Promise<string> {
+        const normalized = this.normalizePhone(phone);
+        await this.postPhoneOtp("send-phone-otp", { phone: normalized });
+        return normalized;
+    }
+
+    /** Verifies the WhatsApp OTP; the server records the verified number on the customer profile. */
+    async verifyPhoneOTP(phone: string, token: string): Promise<string> {
+        const normalized = this.normalizePhone(phone);
+        await this.postPhoneOtp("verify-phone-otp", { phone: normalized, code: token });
+        return normalized;
+    }
+
     /**
      * Resend OTP verification email.
      */
@@ -1194,6 +1289,7 @@ export class SupabaseService {
             email: data.email,
             emailVerified: data.email_verified,
             phone: data.phone ?? undefined,
+            phoneVerified: data.phone_verified,
             name: data.name ?? undefined,
             addressLine1: data.address_line1 ?? undefined,
             addressLine2: data.address_line2 ?? undefined,
@@ -1269,6 +1365,7 @@ export class SupabaseService {
         return !!(
             profile.emailVerified &&
             profile.phone &&
+            profile.phoneVerified &&
             profile.name &&
             profile.addressLine1 &&
             profile.addressLine2 &&

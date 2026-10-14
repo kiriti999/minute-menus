@@ -1144,8 +1144,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     stopTestSound();
   }, []);
 
-  const loadKitchenOrders = () => {
-    setKitchenOrdersLoading(true);
+  const loadKitchenOrders = (silent = false) => {
+    if (!silent) setKitchenOrdersLoading(true);
     setKitchenOrdersError("");
     supabaseService
       .getKitchenOrders()
@@ -1180,9 +1180,19 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   ) => {
     setKitchenOrdersError("");
     try {
-      await supabaseService.updateKitchenOrderStatus(orderId, status, rejectionReason);
+      const stamp = await supabaseService.updateKitchenOrderStatus(orderId, status, rejectionReason);
       setKitchenOrders((orders) =>
-        orders.map((order) => (order.id === orderId ? { ...order, status } : order)),
+        orders.map((order) => (order.id === orderId
+          ? {
+              ...order,
+              status,
+              rejectionReason,
+              ...(status === "confirmed" ? { confirmedAt: stamp } : {}),
+              ...(status === "ready" ? { readyAt: stamp } : {}),
+              ...(status === "completed" ? { completedAt: stamp } : {}),
+              ...(status === "rejected" ? { rejectedAt: stamp } : {}),
+            }
+          : order)),
       );
       if (status === "confirmed" || status === "rejected") {
         ringingOrderIdsRef.current.delete(orderId);
@@ -1198,11 +1208,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     setTelegramChatId(chatId.trim());
   };
 
-  const refreshViewData = (view: ViewMode) => {
+  const refreshViewData = (view: ViewMode, silent = false) => {
     if (view === "DASHBOARD") loadDashboardMetrics();
     if (view === "MENU" || view === "COSTING" || view === "IMAGE_EDITOR" || view === "PRINT_DESIGNS" || view === "COUNTER") loadMenuFromServer();
     if (view === "CUSTOMERS") loadCustomersData();
-    if (view === "ORDERS") loadKitchenOrders();
+    if (view === "ORDERS") loadKitchenOrders(silent);
     if (view === "SUBSCRIPTIONS") loadSubscriptionData();
   };
 
@@ -1231,7 +1241,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   // Poll analytics/subscriptions only on tabs that use them
   useEffect(() => {
     if (currentView !== "DASHBOARD" && currentView !== "ORDERS" && currentView !== "SUBSCRIPTIONS") return;
-    const interval = setInterval(() => refreshViewData(currentView), 30000);
+    const pollMs = currentView === "ORDERS" ? 10000 : 30000;
+    const interval = setInterval(() => refreshViewData(currentView, true), pollMs);
     return () => clearInterval(interval);
   }, [currentView, timeWindow]);
 

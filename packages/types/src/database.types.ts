@@ -179,6 +179,12 @@ export type Database = {
                     payment_id: string | null;
                     time_to_order: number;
                     created_at: string;
+                    customer_user_id: string | null;
+                    confirmed_at: string | null;
+                    preparing_at: string | null;
+                    ready_at: string | null;
+                    completed_at: string | null;
+                    rejected_at: string | null;
                 };
                 Insert: {
                     id?: string;
@@ -193,6 +199,12 @@ export type Database = {
                     payment_id?: string | null;
                     time_to_order?: number;
                     created_at?: string;
+                    customer_user_id?: string | null;
+                    confirmed_at?: string | null;
+                    preparing_at?: string | null;
+                    ready_at?: string | null;
+                    completed_at?: string | null;
+                    rejected_at?: string | null;
                 };
                 Update: {
                     id?: string;
@@ -207,6 +219,12 @@ export type Database = {
                     payment_id?: string | null;
                     time_to_order?: number;
                     created_at?: string;
+                    customer_user_id?: string | null;
+                    confirmed_at?: string | null;
+                    preparing_at?: string | null;
+                    ready_at?: string | null;
+                    completed_at?: string | null;
+                    rejected_at?: string | null;
                 };
                 Relationships: [];
             };
@@ -512,6 +530,7 @@ export type Database = {
                     user_id: string;
                     email: string;
                     email_verified: boolean;
+                    phone_verified: boolean;
                     phone: string | null;
                     name: string | null;
                     address_line1: string | null;
@@ -533,6 +552,7 @@ export type Database = {
                     user_id: string;
                     email: string;
                     email_verified?: boolean;
+                    phone_verified?: boolean;
                     phone?: string | null;
                     name?: string | null;
                     address_line1?: string | null;
@@ -554,6 +574,7 @@ export type Database = {
                     user_id?: string;
                     email?: string;
                     email_verified?: boolean;
+                    phone_verified?: boolean;
                     phone?: string | null;
                     name?: string | null;
                     address_line1?: string | null;

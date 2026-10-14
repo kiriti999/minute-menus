@@ -1,5 +1,5 @@
 /**
- * POST /api/confirm-payment?action=confirm-order|confirm-subscription|confirm-plus|verify
+ * POST /api/confirm-payment?action=confirm-order|confirm-subscription|confirm-plus|verify|send-phone-otp|verify-phone-otp
  * Confirms a Razorpay payment and records the order/subscription server-side.
  */
 
@@ -290,6 +290,8 @@ const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse) => {
     const { subtotal, gstAmount, total } = computeCartTotals(items, currency);
     const itemsWithGst = enrichItemsWithGst(items, currency);
     const admin = requireSupabaseAdmin();
+    const customerToken = getBearerToken(req);
+    const customer = customerToken ? await getUserFromAccessToken(admin, customerToken) : null;
     try {
         await assertRestaurantCanAcceptOrders(admin, restaurantId);
     } catch (error) {
@@ -307,6 +309,7 @@ const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse) => {
             status: "pending",
             payment_provider: "razorpay",
             payment_id: razorpay_payment_id,
+            customer_user_id: customer?.id ?? null,
         })
         .select("id")
         .single();
@@ -546,12 +549,126 @@ const handleVerify = async (req: VercelRequest, res: VercelResponse) => {
     return res.status(200).json({ verified: true });
 };
 
+// ── WhatsApp phone OTP (Meta Cloud API) ───────────────────────────────────────
+const OTP_TTL_MS = 10 * 60 * 1000;
+const OTP_RESEND_MS = 30 * 1000;
+const OTP_MAX_ATTEMPTS = 5;
+
+const normalizeIndianMobile = (raw: unknown): string | null => {
+    const digits = String(raw ?? "").replace(/\D/g, "");
+    const national = digits.length === 12 && digits.startsWith("91") ? digits.slice(2) : digits;
+    return /^[6-9]\d{9}$/.test(national) ? `+91${national}` : null;
+};
+
+const hashOtp = (userId: string, phone: string, code: string): string =>
+    crypto
+        .createHmac("sha256", process.env.SUPABASE_SERVICE_ROLE_KEY ?? "")
+        .update(`${userId}:${phone}:${code}`)
+        .digest("hex");
+
+const sendWhatsAppOtp = async (phone: string, code: string): Promise<void> => {
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    const template = process.env.WHATSAPP_OTP_TEMPLATE;
+    if (!phoneNumberId || !accessToken || !template) {
+        throw new Error("WhatsApp OTP is not configured on the server.");
+    }
+    const response = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+            messaging_product: "whatsapp",
+            to: phone.replace("+", ""),
+            type: "template",
+            template: {
+                name: template,
+                language: { code: process.env.WHATSAPP_OTP_TEMPLATE_LANG || "en" },
+                components: [
+                    { type: "body", parameters: [{ type: "text", text: code }] },
+                    { type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: code }] },
+                ],
+            },
+        }),
+    });
+    if (!response.ok) {
+        console.error("[whatsapp-otp] send failed", response.status, await response.text());
+        throw new Error("Could not send the WhatsApp message. Please try again.");
+    }
+};
+
+const authenticateCustomer = async (req: VercelRequest, res: VercelResponse, admin: SupabaseClient) => {
+    const token = getBearerToken(req);
+    const user = token ? await getUserFromAccessToken(admin, token) : null;
+    if (!user) res.status(401).json({ error: "Please sign in first." });
+    return user;
+};
+
+const handleSendPhoneOtp = async (req: VercelRequest, res: VercelResponse) => {
+    const admin = requireSupabaseAdmin();
+    const user = await authenticateCustomer(req, res, admin);
+    if (!user) return;
+    const phone = normalizeIndianMobile((req.body as { phone?: string })?.phone);
+    if (!phone) return res.status(400).json({ error: "Enter a valid 10-digit mobile number." });
+
+    const { data: existing } = await admin.from("phone_otps").select("created_at").eq("user_id", user.id).maybeSingle();
+    if (existing && Date.now() - new Date(existing.created_at as string).getTime() < OTP_RESEND_MS) {
+        return res.status(429).json({ error: "Please wait 30 seconds before requesting another code." });
+    }
+
+    const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, "0");
+    const { error } = await admin.from("phone_otps").upsert({
+        user_id: user.id,
+        phone,
+        code_hash: hashOtp(user.id, phone, code),
+        expires_at: new Date(Date.now() + OTP_TTL_MS).toISOString(),
+        attempts: 0,
+        created_at: new Date().toISOString(),
+    });
+    if (error) throw error;
+
+    await sendWhatsAppOtp(phone, code);
+    return res.status(200).json({ sent: true, phone });
+};
+
+const handleVerifyPhoneOtp = async (req: VercelRequest, res: VercelResponse) => {
+    const admin = requireSupabaseAdmin();
+    const user = await authenticateCustomer(req, res, admin);
+    if (!user) return;
+    const body = req.body as { phone?: string; code?: string };
+    const phone = normalizeIndianMobile(body?.phone);
+    const code = String(body?.code ?? "").trim();
+    if (!phone || !/^\d{6}$/.test(code)) return res.status(400).json({ error: "Enter the 6-digit code." });
+
+    const { data: row } = await admin.from("phone_otps").select("*").eq("user_id", user.id).maybeSingle();
+    if (!row || row.phone !== phone) return res.status(400).json({ error: "Request a new code first." });
+    if (new Date(row.expires_at as string).getTime() < Date.now() || (row.attempts as number) >= OTP_MAX_ATTEMPTS) {
+        return res.status(400).json({ error: "This code has expired. Request a new one." });
+    }
+
+    const expected = Buffer.from(row.code_hash as string);
+    const actual = Buffer.from(hashOtp(user.id, phone, code));
+    if (expected.length !== actual.length || !crypto.timingSafeEqual(expected, actual)) {
+        await admin.from("phone_otps").update({ attempts: (row.attempts as number) + 1 }).eq("user_id", user.id);
+        return res.status(400).json({ error: "Incorrect code." });
+    }
+
+    const { error } = await admin
+        .from("customer_profiles")
+        .update({ phone, phone_verified: true, updated_at: new Date().toISOString() })
+        .eq("user_id", user.id);
+    if (error) throw error;
+    await admin.from("phone_otps").delete().eq("user_id", user.id);
+    return res.status(200).json({ verified: true, phone });
+};
+
 // ── Router ────────────────────────────────────────────────────────────────────
 const ROUTES: Record<string, (req: VercelRequest, res: VercelResponse) => Promise<unknown>> = {
     "confirm-order": handleConfirmOrder,
     "confirm-subscription": handleConfirmSubscription,
     "confirm-plus": handleConfirmPlus,
     verify: handleVerify,
+    "send-phone-otp": handleSendPhoneOtp,
+    "verify-phone-otp": handleVerifyPhoneOtp,
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

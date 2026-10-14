@@ -174,7 +174,22 @@ alter table orders add column if not exists gst_amount numeric(10, 2) not null d
 alter table orders add column if not exists rejection_reason text;
 alter type order_status add value if not exists 'rejected';
 
+-- Customer link + per-stage timestamps (kitchen SLA timers / audit reports)
+alter table orders add column if not exists customer_user_id uuid references auth.users(id) on delete set null;
+alter table orders add column if not exists confirmed_at timestamptz;
+alter table orders add column if not exists preparing_at timestamptz;
+alter table orders add column if not exists ready_at timestamptz;
+alter table orders add column if not exists completed_at timestamptz;
+alter table orders add column if not exists rejected_at timestamptz;
+create index if not exists orders_customer_user_id_idx on orders (customer_user_id, created_at desc);
+
 alter table orders enable row level security;
+
+drop policy if exists "Customer can read own orders" on orders;
+create policy "Customer can read own orders"
+  on orders for select
+  to authenticated
+  using (customer_user_id = auth.uid());
 
 create policy "Owner can read their orders"
   on orders for select
@@ -809,6 +824,7 @@ create table if not exists customer_profiles (
   email            text not null,
   email_verified   boolean not null default false,
   phone            text,
+  phone_verified   boolean not null default false,
   name             text,
   -- Address fields
   address_line1    text,    -- apartment/building name, house number
@@ -848,6 +864,39 @@ create index if not exists idx_customer_profiles_user on customer_profiles(user_
 -- ─────────────────────────────────────────────
 -- MIGRATION: run these on existing databases:
 -- CREATE TABLE IF NOT EXISTS customer_profiles (...);  -- full definition above
+alter table customer_profiles add column if not exists phone_verified boolean not null default false;
+
+-- WhatsApp OTP challenges: server-only (RLS on, no policies = service role access only)
+create table if not exists phone_otps (
+  user_id     uuid primary key references auth.users(id) on delete cascade,
+  phone       text not null,
+  code_hash   text not null,
+  expires_at  timestamptz not null,
+  attempts    int not null default 0,
+  created_at  timestamptz not null default now()
+);
+alter table phone_otps enable row level security;
+
+-- Only the server (service role) may set phone/phone_verified on customer profiles
+create or replace function public.guard_phone_verified()
+returns trigger language plpgsql as $$
+begin
+  if coalesce(auth.role(), '') <> 'service_role' then
+    if tg_op = 'INSERT' then
+      new.phone_verified := false;
+      new.phone := null;
+    else
+      new.phone_verified := old.phone_verified;
+      new.phone := old.phone;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists guard_phone_verified on customer_profiles;
+create trigger guard_phone_verified
+  before insert or update on customer_profiles
+  for each row execute function public.guard_phone_verified();
 -- ─────────────────────────────────────────────
 
 -- ─────────────────────────────────────────────

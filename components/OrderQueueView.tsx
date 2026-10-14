@@ -9,6 +9,7 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   preparing: "Preparing",
   ready: "Ready",
   completed: "Completed",
+  rejected: "Rejected",
 };
 
 const NEXT_STATUS: Record<OrderStatus, OrderStatus | null> = {
@@ -42,6 +43,39 @@ interface OrderQueueViewProps {
   isTestSoundPlaying: boolean;
 }
 
+const formatDuration = (ms: number): string => {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(seconds)}` : `${pad(minutes)}:${pad(seconds)}`;
+};
+
+const elapsedBetween = (from: string, to: string | undefined, now: number): number =>
+  (to ? new Date(to).getTime() : now) - new Date(from).getTime();
+
+const OrderTimers = ({ order, now, mutedText }: { order: KitchenOrder; now: number; mutedText: string }) => {
+  if (order.status === "rejected") return null;
+  const acceptEnd = order.confirmedAt;
+  const finishEnd = order.completedAt;
+  const isOpen = order.status !== "completed";
+  return (
+    <div className={`mt-3 flex flex-wrap gap-x-6 gap-y-1 font-mono text-xs ${mutedText}`}>
+      <span>
+        Accept: <b className={order.status === "pending" ? "text-amber-500" : ""}>
+          {order.status === "pending" || acceptEnd ? formatDuration(elapsedBetween(order.createdAt, acceptEnd, now)) : "—"}
+        </b>
+      </span>
+      <span>
+        {isOpen ? "Elapsed" : "Total"}: <b className={isOpen ? "text-amber-500" : "text-green-500"}>
+          {formatDuration(elapsedBetween(order.createdAt, finishEnd, now))}
+        </b>
+      </span>
+    </div>
+  );
+};
+
 const formatOrderTime = (createdAt: string): string =>
   new Intl.DateTimeFormat(undefined, {
     hour: "numeric",
@@ -68,6 +102,12 @@ export const OrderQueueView = ({
   const [rejectingOrderId, setRejectingOrderId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string>(REJECTION_REASONS[0]);
   const [currentPage, setCurrentPage] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => setChatId(telegramChatId), [telegramChatId]);
 
@@ -143,7 +183,7 @@ export const OrderQueueView = ({
       </section>
 
       {error && <p className="mb-4 rounded border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-500">{error}</p>}
-      {isLoading ? (
+      {isLoading && orders.length === 0 ? (
         <p className={mutedText}>Loading orders...</p>
       ) : orders.length === 0 ? (
         <p className={mutedText}>No paid orders yet.</p>
@@ -175,6 +215,7 @@ export const OrderQueueView = ({
                     </li>
                   ))}
                 </ul>
+                <OrderTimers order={order} now={now} mutedText={mutedText} />
                 {order.status === "rejected" && order.rejectionReason && (
                   <p className="mt-3 text-sm text-red-500">Reason: {order.rejectionReason}</p>
                 )}

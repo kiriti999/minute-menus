@@ -145,8 +145,11 @@ const computeCartTotals = (items: CartLine[], currency: string) => {
     return { subtotal, gstAmount, total: round2(subtotal + gstAmount) };
 };
 
-const getErrorDetail = (err: unknown): string =>
-    err instanceof Error ? err.message : String(err);
+const getErrorDetail = (err: unknown): string => {
+    if (err instanceof Error) return err.message;
+    const rz = err as { error?: { description?: string }; statusCode?: number; message?: string };
+    return rz?.error?.description ?? rz?.message ?? JSON.stringify(err);
+};
 
 // ── Handlers ────────────────────────────────────────────────────────────────
 const handleCartOrder = async (req: VercelRequest, res: VercelResponse) => {

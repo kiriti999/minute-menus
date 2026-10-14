@@ -163,6 +163,15 @@ export interface KitchenOrder {
   status: OrderStatus;
   rejectionReason?: string;
   createdAt: string;
+  confirmedAt?: string;
+  readyAt?: string;
+  completedAt?: string;
+  rejectedAt?: string;
+}
+
+export interface CustomerOrder extends KitchenOrder {
+  restaurantId: string;
+  restaurantName: string;
 }
 
 export interface AnalyticsMetric {
@@ -487,6 +496,7 @@ export interface CustomerProfile {
   email: string;
   emailVerified: boolean;
   phone?: string;
+  phoneVerified?: boolean;
   name?: string;
   // Address fields
   addressLine1?: string;   // apartment/building name, house number
