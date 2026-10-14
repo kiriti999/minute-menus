@@ -1162,7 +1162,8 @@ export class SupabaseService {
      * Get current authenticated customer user.
      */
     async getCurrentCustomer(): Promise<{ userId: string; email: string } | null> {
-        const { data: { user } } = await this.client.auth.getUser();
+        const { data: { session } } = await this.client.auth.getSession();
+        const user = session?.user;
         if (!user) return null;
         return { userId: user.id, email: user.email ?? "" };
     }
@@ -1241,7 +1242,8 @@ export class SupabaseService {
      * Creates profile if not exists, otherwise returns existing.
      */
     async ensureCustomerProfile(): Promise<CustomerProfile | null> {
-        const { data: { user } } = await this.client.auth.getUser();
+        const { data: { session } } = await this.client.auth.getSession();
+        const user = session?.user;
         if (!user) return null;
 
         // Check if profile exists

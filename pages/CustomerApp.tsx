@@ -565,8 +565,9 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     }
 
     try {
-      const { data: { user }, error } = await supabase.auth.getUser();
+      const { data: { session }, error } = await supabase.auth.getSession();
       if (error) throw error;
+      const user = session?.user;
       if (!user) {
         setAuthStep("auth");
         return;
