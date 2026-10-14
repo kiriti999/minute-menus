@@ -155,6 +155,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const [authStep, setAuthStep] = useState<AuthStep>("auth");
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [addressActionError, setAddressActionError] = useState("");
   // Auth step fields
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
@@ -553,32 +554,36 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   };
 
   const handleAddAddress = async () => {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error) {
-      setAuthError("Unable to verify your login. Please try again.");
-      return;
-    }
-    if (!user) {
-      setDetailsPurpose("checkout");
-      setAuthStep("auth");
-      setAuthError("");
-      setIsAuthModalOpen(true);
+    setAddressActionError("");
+    if (customerProfile) {
+      openDeliveryDetails(
+        supabaseService.isProfileComplete(customerProfile) ? "edit" : "checkout",
+        customerProfile,
+      );
       return;
     }
 
-    const profile = await supabaseService.ensureCustomerProfile();
-    if (!profile) {
-      setAuthError("Your customer profile could not be loaded. Please sign in again.");
-      setDetailsPurpose("checkout");
-      setAuthStep("auth");
-      setIsAuthModalOpen(true);
-      return;
+    try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      if (!user) {
+        setDetailsPurpose("checkout");
+        setAuthStep("auth");
+        setAuthError("");
+        setIsAuthModalOpen(true);
+        return;
+      }
+
+      const profile = await supabaseService.ensureCustomerProfile();
+      if (!profile) throw new Error("Your customer profile could not be loaded. Please sign in again.");
+      setCustomerProfile(profile);
+      openDeliveryDetails(
+        supabaseService.isProfileComplete(profile) ? "edit" : "checkout",
+        profile,
+      );
+    } catch (error) {
+      setAddressActionError(error instanceof Error ? error.message : "Unable to load your address details.");
     }
-    setCustomerProfile(profile);
-    openDeliveryDetails(
-      supabaseService.isProfileComplete(profile) ? "edit" : "checkout",
-      profile,
-    );
   };
 
   const handleConfirmOrder = async () => {
@@ -2318,6 +2323,9 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                       {deliveryAddressSummary ? "Edit" : "Add"}
                     </button>
                   </div>
+                  {addressActionError && (
+                    <p className="mt-2 text-xs text-red-400">{addressActionError}</p>
+                  )}
                 </div>
               )}
               {showGst && cart.length > 0 && (
