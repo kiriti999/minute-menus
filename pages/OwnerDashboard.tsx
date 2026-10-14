@@ -970,6 +970,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const [kitchenOrdersError, setKitchenOrdersError] = useState("");
   const [telegramChatId, setTelegramChatId] = useState("");
   const knownKitchenOrderIdsRef = useRef(new Set<string>());
+  const ringingOrderIdsRef = useRef(new Set<string>());
+  const ringtoneAudioContextRef = useRef<AudioContext | null>(null);
+  const ringtoneIntervalRef = useRef<number | null>(null);
 
   // Subscription Management State
   const [subTab, setSubTab] = useState<SubTab>("plans");
@@ -1057,13 +1060,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     supabaseService.getCustomerDirectory().then(setCustomerDirectory).catch(console.error);
   };
 
-  const playNewOrderSound = () => {
-    const audioContext = new AudioContext();
-    const startTime = audioContext.currentTime;
+  const scheduleRingtoneCycle = (audioContext: AudioContext) => {
+    const startTime = audioContext.currentTime + 0.05;
     const melody = [880, 660, 880];
     const cycleDuration = 0.9;
     const noteDuration = 0.28;
-    void audioContext.resume();
 
     for (let cycle = 0; cycle < 6; cycle += 1) {
       melody.forEach((frequency, noteIndex) => {
@@ -1081,9 +1082,39 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         oscillator.stop(noteStart + noteDuration);
       });
     }
+  };
 
+  const stopOrderRingtone = () => {
+    if (ringtoneIntervalRef.current !== null) {
+      window.clearInterval(ringtoneIntervalRef.current);
+      ringtoneIntervalRef.current = null;
+    }
+    if (ringtoneAudioContextRef.current) {
+      void ringtoneAudioContextRef.current.close();
+      ringtoneAudioContextRef.current = null;
+    }
+  };
+
+  const startOrderRingtone = () => {
+    if (ringtoneIntervalRef.current !== null) return;
+    const audioContext = new AudioContext();
+    ringtoneAudioContextRef.current = audioContext;
+    void audioContext.resume();
+    scheduleRingtoneCycle(audioContext);
+    ringtoneIntervalRef.current = window.setInterval(
+      () => scheduleRingtoneCycle(audioContext),
+      5400,
+    );
+  };
+
+  const playNewOrderSound = () => {
+    const audioContext = new AudioContext();
+    void audioContext.resume();
+    scheduleRingtoneCycle(audioContext);
     window.setTimeout(() => void audioContext.close(), 6000);
   };
+
+  useEffect(() => () => stopOrderRingtone(), []);
 
   const loadKitchenOrders = () => {
     setKitchenOrdersLoading(true);
@@ -1091,11 +1122,22 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     supabaseService
       .getKitchenOrders()
       .then((orders) => {
-        const hasNewOrder = knownKitchenOrderIdsRef.current.size > 0
-          && orders.some((order) => !knownKitchenOrderIdsRef.current.has(order.id));
+        const newOrders = knownKitchenOrderIdsRef.current.size > 0
+          ? orders.filter((order) => !knownKitchenOrderIdsRef.current.has(order.id))
+          : [];
+        newOrders.forEach((order) => ringingOrderIdsRef.current.add(order.id));
+        const activeOrderIds = new Set(
+          orders
+            .filter((order) => order.status !== "confirmed" && order.status !== "rejected")
+            .map((order) => order.id),
+        );
+        ringingOrderIdsRef.current.forEach((orderId) => {
+          if (!activeOrderIds.has(orderId)) ringingOrderIdsRef.current.delete(orderId);
+        });
         knownKitchenOrderIdsRef.current = new Set(orders.map((order) => order.id));
         setKitchenOrders(orders);
-        if (hasNewOrder) playNewOrderSound();
+        if (newOrders.length > 0) startOrderRingtone();
+        if (ringingOrderIdsRef.current.size === 0) stopOrderRingtone();
       })
       .catch((error: unknown) => {
         setKitchenOrdersError(`Failed to load orders: ${getErrorMessage(error)}`);
@@ -1114,6 +1156,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       setKitchenOrders((orders) =>
         orders.map((order) => (order.id === orderId ? { ...order, status } : order)),
       );
+      if (status === "confirmed" || status === "rejected") {
+        ringingOrderIdsRef.current.delete(orderId);
+        if (ringingOrderIdsRef.current.size === 0) stopOrderRingtone();
+      }
     } catch (error) {
       setKitchenOrdersError(`Failed to update order: ${getErrorMessage(error)}`);
     }
