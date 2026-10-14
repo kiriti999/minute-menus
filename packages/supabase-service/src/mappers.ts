@@ -16,6 +16,7 @@ export const rowsToCategoryTree = (
         media_transform: unknown;
         stock_quantity?: number | null;
         manual_sold_out?: boolean | null;
+        is_active?: boolean | null;
         ingredients?: string | null;
         benefits?: string | null;
         calories?: number | null;
@@ -51,6 +52,7 @@ export const rowsToCategoryTree = (
                         mediaTransform: d.media_transform as Dish["mediaTransform"],
                         stockQuantity: d.stock_quantity ?? undefined,
                         manualSoldOut: d.manual_sold_out ?? false,
+                        isActive: d.is_active ?? true,
                         variants: Array.isArray(d.variants) ? (d.variants as DishVariant[]) : [],
                         discountPercent: d.discount_percent && d.discount_percent > 0 ? d.discount_percent : undefined,
                     }),

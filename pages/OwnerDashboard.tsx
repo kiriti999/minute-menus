@@ -20,6 +20,7 @@ import {
   Download,
   Edit2,
   EyeOff,
+  Eye,
   Image as ImageIcon,
   LayoutDashboard,
   LayoutList,
@@ -1298,6 +1299,22 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         setMenuItems(menuItems);
         console.error("Failed to toggle sold-out:", err);
         alert(`Failed to update sold-out status: ${getErrorMessage(err)}`);
+      });
+  };
+
+  const handleToggleDishActive = (catIndex: number, dishIndex: number) => {
+    const dish = menuItems[catIndex].items[dishIndex];
+    const newValue = dish.isActive === false;
+    const newMenu = [...menuItems];
+    newMenu[catIndex].items[dishIndex] = { ...dish, isActive: newValue };
+    setMenuItems(newMenu);
+    setActiveOptionsDishId(null);
+    supabaseService
+      .toggleDishActive(dish.id, newValue)
+      .catch((err: unknown) => {
+        setMenuItems(menuItems);
+        console.error("Failed to update item visibility:", err);
+        alert(`Failed to update item visibility: ${getErrorMessage(err)}`);
       });
   };
 
@@ -2593,6 +2610,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                             >
                               <EyeOff size={14} />
                               {dish.manualSoldOut ? "Mark Available" : "Mark Sold Out"}
+                            </button>
+                            <button
+                              onClick={() => handleToggleDishActive(selectedCategoryIdx, idx)}
+                              className={`w-full px-4 py-3 text-left text-sm flex items-center gap-3 border-b ${dish.isActive === false
+                                ? isDarkTheme ? 'text-green-400 hover:bg-zinc-800 hover:text-green-300 border-zinc-800' : 'text-green-600 hover:bg-zinc-100 hover:text-green-700 border-zinc-200'
+                                : isDarkTheme ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white border-zinc-800' : 'text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 border-zinc-200'
+                                }`}
+                            >
+                              {dish.isActive === false ? <Eye size={14} /> : <EyeOff size={14} />}
+                              {dish.isActive === false ? "Enable Item" : "Disable Item"}
                             </button>
                             <button
                               onClick={() => handleDeleteDish(selectedCategoryIdx, idx)}

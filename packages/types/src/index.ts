@@ -42,6 +42,7 @@ export interface Dish {
   prepTime: number; // minutes
   stockQuantity?: number; // max orderable units per day (undefined = unlimited)
   manualSoldOut?: boolean; // owner can force sold-out at any time
+  isActive?: boolean; // owner can hide the item from customer menus
   mediaTransform?: {
     x: number; // percentage
     y: number; // percentage

@@ -81,6 +81,7 @@ export type Database = {
                     media_transform: Json | null;
                     stock_quantity: number | null;
                     manual_sold_out: boolean;
+                    is_active: boolean;
                     ingredients?: string;
                     benefits?: string;
                     calories?: number | null;
@@ -102,6 +103,7 @@ export type Database = {
                     media_transform?: Json | null;
                     stock_quantity?: number | null;
                     manual_sold_out?: boolean;
+                    is_active?: boolean;
                     ingredients?: string;
                     benefits?: string;
                     calories?: number | null;
@@ -123,6 +125,7 @@ export type Database = {
                     media_transform?: Json | null;
                     stock_quantity?: number | null;
                     manual_sold_out?: boolean;
+                    is_active?: boolean;
                     ingredients?: string;
                     benefits?: string;
                     calories?: number | null;

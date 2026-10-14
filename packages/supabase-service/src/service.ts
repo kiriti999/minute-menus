@@ -90,6 +90,14 @@ export class SupabaseService {
         }
     }
 
+    async toggleDishActive(dishId: string, active: boolean): Promise<void> {
+        const { error } = await this.client
+            .from("dishes")
+            .update({ is_active: active })
+            .eq("id", dishId);
+        if (error) throw new Error(`Failed to update item visibility: ${error.message}`);
+    }
+
     /**
      * Sends a sold-out notification email to the restaurant owner.
      * POSTs to the Vercel API route /api/sold-out-email which uses

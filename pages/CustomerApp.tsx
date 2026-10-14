@@ -264,7 +264,16 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   }, [isAuthModalOpen]);
 
   // Product limit removed for multi-category restaurant menus — show all categories.
-  const displayCategories = menuCategories;
+  const displayCategories = useMemo(
+    () =>
+      menuCategories
+        .map((category) => ({
+          ...category,
+          items: category.items.filter((dish) => dish.isActive !== false),
+        }))
+        .filter((category) => category.items.length > 0),
+    [menuCategories],
+  );
 
   const flatDishes = useMemo(
     () => displayCategories.flatMap((cat) => cat.items),
@@ -867,7 +876,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   };
 
   const loadDishesForPlan = (plan: MealPlan) => {
-    const dishes = menuCategories.flatMap((c) => c.items).filter((d) => plan.dishIds.includes(d.id));
+    const dishes = displayCategories.flatMap((c) => c.items).filter((d) => plan.dishIds.includes(d.id));
     setPlanDishes(dishes);
   };
 

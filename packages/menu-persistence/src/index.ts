@@ -49,6 +49,7 @@ const toDishRows = (categories: Category[], restaurantId: string) =>
             media_transform: dish.mediaTransform ?? null,
             stock_quantity: dish.stockQuantity ?? null,
             manual_sold_out: dish.manualSoldOut ?? false,
+            is_active: dish.isActive ?? true,
             ingredients: dish.ingredients ?? "",
             benefits: dish.benefits ?? "",
             calories: dish.calories ?? null,
