@@ -552,6 +552,35 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     setIsAuthModalOpen(true);
   };
 
+  const handleAddAddress = async () => {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error) {
+      setAuthError("Unable to verify your login. Please try again.");
+      return;
+    }
+    if (!user) {
+      setDetailsPurpose("checkout");
+      setAuthStep("auth");
+      setAuthError("");
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    const profile = await supabaseService.ensureCustomerProfile();
+    if (!profile) {
+      setAuthError("Your customer profile could not be loaded. Please sign in again.");
+      setDetailsPurpose("checkout");
+      setAuthStep("auth");
+      setIsAuthModalOpen(true);
+      return;
+    }
+    setCustomerProfile(profile);
+    openDeliveryDetails(
+      supabaseService.isProfileComplete(profile) ? "edit" : "checkout",
+      profile,
+    );
+  };
+
   const handleConfirmOrder = async () => {
     // Check if profile is complete for checkout
     if (!customerProfile) {
@@ -2283,19 +2312,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                     </div>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (!customerProfile) {
-                          setDetailsPurpose("checkout");
-                          setAuthStep("auth");
-                          setAuthError("");
-                          setIsAuthModalOpen(true);
-                          return;
-                        }
-                        openDeliveryDetails(
-                          supabaseService.isProfileComplete(customerProfile) ? "edit" : "checkout",
-                          customerProfile,
-                        );
-                      }}
+                      onClick={() => void handleAddAddress()}
                       className="shrink-0 text-[11px] font-bold uppercase tracking-wider text-white underline underline-offset-2 hover:text-zinc-300"
                     >
                       {deliveryAddressSummary ? "Edit" : "Add"}
