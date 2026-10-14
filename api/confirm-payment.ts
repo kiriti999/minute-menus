@@ -78,6 +78,7 @@ type OrderItemInput = {
     quantity: number;
     name: string;
     price: number;
+    variantName?: string;
 };
 
 const computeCartTotals = (items: Array<{ price: number; quantity: number }>, currency: string) => {

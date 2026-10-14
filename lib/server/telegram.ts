@@ -6,6 +6,7 @@ const log = createLogger("telegram");
 type OrderItem = {
     name: string;
     quantity: number;
+    variantName?: string;
 };
 
 type OrderAlert = {
@@ -17,7 +18,9 @@ type OrderAlert = {
 };
 
 const buildOrderMessage = (restaurantName: string, alert: OrderAlert): string => {
-    const itemLines = alert.items.map((item) => `- ${item.quantity} x ${item.name}`).join("\n");
+    const itemLines = alert.items
+        .map((item) => `- ${item.quantity} x ${item.name}${item.variantName ? ` — ${item.variantName.toUpperCase()}` : ""}`)
+        .join("\n");
     return [
         `New paid order for ${restaurantName}`,
         `Order #${alert.orderId.slice(0, 8)}`,

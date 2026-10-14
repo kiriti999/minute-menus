@@ -168,7 +168,12 @@ export const OrderQueueView = ({
                   </span>
                 </div>
                 <ul className={`mt-4 space-y-1 text-sm ${text}`}>
-                  {order.items.map((item, index) => <li key={`${item.dishId}-${index}`}>{item.quantity} x {item.name}</li>)}
+                  {order.items.map((item, index) => (
+                    <li key={`${item.dishId}-${index}`}>
+                      {item.quantity} x {item.name}
+                      {item.variantName ? ` — ${item.variantName.toUpperCase()}` : ""}
+                    </li>
+                  ))}
                 </ul>
                 {order.status === "rejected" && order.rejectionReason && (
                   <p className="mt-3 text-sm text-red-500">Reason: {order.rejectionReason}</p>
