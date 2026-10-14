@@ -969,10 +969,13 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const [kitchenOrdersLoading, setKitchenOrdersLoading] = useState(false);
   const [kitchenOrdersError, setKitchenOrdersError] = useState("");
   const [telegramChatId, setTelegramChatId] = useState("");
+  const [isTestSoundPlaying, setIsTestSoundPlaying] = useState(false);
   const knownKitchenOrderIdsRef = useRef(new Set<string>());
   const ringingOrderIdsRef = useRef(new Set<string>());
   const ringtoneAudioContextRef = useRef<AudioContext | null>(null);
   const ringtoneIntervalRef = useRef<number | null>(null);
+  const testAudioContextRef = useRef<AudioContext | null>(null);
+  const testSoundTimeoutRef = useRef<number | null>(null);
 
   // Subscription Management State
   const [subTab, setSubTab] = useState<SubTab>("plans");
@@ -1107,14 +1110,35 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     );
   };
 
-  const playNewOrderSound = () => {
-    const audioContext = new AudioContext();
-    void audioContext.resume();
-    scheduleRingtoneCycle(audioContext);
-    window.setTimeout(() => void audioContext.close(), 6000);
+  const stopTestSound = () => {
+    if (testSoundTimeoutRef.current !== null) {
+      window.clearTimeout(testSoundTimeoutRef.current);
+      testSoundTimeoutRef.current = null;
+    }
+    if (testAudioContextRef.current) {
+      void testAudioContextRef.current.close();
+      testAudioContextRef.current = null;
+    }
+    setIsTestSoundPlaying(false);
   };
 
-  useEffect(() => () => stopOrderRingtone(), []);
+  const toggleTestSound = () => {
+    if (testAudioContextRef.current) {
+      stopTestSound();
+      return;
+    }
+    const audioContext = new AudioContext();
+    testAudioContextRef.current = audioContext;
+    setIsTestSoundPlaying(true);
+    void audioContext.resume();
+    scheduleRingtoneCycle(audioContext);
+    testSoundTimeoutRef.current = window.setTimeout(stopTestSound, 6000);
+  };
+
+  useEffect(() => () => {
+    stopOrderRingtone();
+    stopTestSound();
+  }, []);
 
   const loadKitchenOrders = () => {
     setKitchenOrdersLoading(true);
@@ -3282,7 +3306,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             telegramChatId={telegramChatId}
             onSaveTelegramChatId={handleTelegramChatIdSave}
             onUpdateOrderStatus={handleOrderStatusChange}
-            onTestSound={playNewOrderSound}
+            onTestSound={toggleTestSound}
+            isTestSoundPlaying={isTestSoundPlaying}
           />
         )}
 

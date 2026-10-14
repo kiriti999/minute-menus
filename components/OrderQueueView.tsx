@@ -1,4 +1,4 @@
-import { Check, ChevronRight, Volume2 } from "lucide-react";
+import { Check, ChevronRight, Volume2, VolumeX } from "lucide-react";
 import { useEffect, useState } from "react";
 import { getErrorMessage } from "@minute-menus/errors";
 import type { KitchenOrder, OrderStatus } from "@minute-menus/types";
@@ -37,6 +37,7 @@ interface OrderQueueViewProps {
   onSaveTelegramChatId: (chatId: string) => Promise<void>;
   onUpdateOrderStatus: (orderId: string, status: OrderStatus, rejectionReason?: string) => Promise<void>;
   onTestSound: () => void;
+  isTestSoundPlaying: boolean;
 }
 
 const formatOrderTime = (createdAt: string): string =>
@@ -57,6 +58,7 @@ export const OrderQueueView = ({
   onSaveTelegramChatId,
   onUpdateOrderStatus,
   onTestSound,
+  isTestSoundPlaying,
 }: OrderQueueViewProps) => {
   const [chatId, setChatId] = useState(telegramChatId);
   const [isSavingChat, setIsSavingChat] = useState(false);
@@ -99,8 +101,8 @@ export const OrderQueueView = ({
           onClick={onTestSound}
           className={`flex items-center justify-center gap-2 rounded border px-4 py-2 text-sm font-medium ${isDarkTheme ? "border-zinc-700 text-white hover:bg-zinc-800" : "border-zinc-300 text-zinc-900 hover:bg-zinc-100"}`}
         >
-          <Volume2 size={15} />
-          Test sound
+          {isTestSoundPlaying ? <VolumeX size={15} /> : <Volume2 size={15} />}
+          {isTestSoundPlaying ? "Stop sound" : "Test sound"}
         </button>
       </header>
 
