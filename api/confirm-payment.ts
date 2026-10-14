@@ -571,7 +571,8 @@ const sendWhatsAppOtp = async (phone: string, code: string): Promise<void> => {
     const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
     const template = process.env.WHATSAPP_OTP_TEMPLATE;
     if (!phoneNumberId || !accessToken || !template) {
-        throw new Error("WhatsApp OTP is not configured on the server.");
+        console.error("[whatsapp-otp] missing WHATSAPP_PHONE_NUMBER_ID / WHATSAPP_ACCESS_TOKEN / WHATSAPP_OTP_TEMPLATE");
+        throw new Error("Phone verification is temporarily unavailable. Please try again later.");
     }
     const response = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
         method: "POST",
@@ -624,9 +625,19 @@ const handleSendPhoneOtp = async (req: VercelRequest, res: VercelResponse) => {
         attempts: 0,
         created_at: new Date().toISOString(),
     });
-    if (error) throw error;
+    if (error) {
+        console.error("[send-phone-otp] store failed", error.message);
+        return res.status(500).json({ error: "Could not start phone verification. Please try again." });
+    }
 
-    await sendWhatsAppOtp(phone, code);
+    try {
+        await sendWhatsAppOtp(phone, code);
+    } catch (sendError) {
+        // Drop the challenge so the user isn't blocked by the resend cooldown after a failed send.
+        await admin.from("phone_otps").delete().eq("user_id", user.id);
+        console.error("[send-phone-otp] delivery failed", getErrorDetail(sendError));
+        return res.status(503).json({ error: getErrorDetail(sendError) });
+    }
     return res.status(200).json({ sent: true, phone });
 };
 
