@@ -27,6 +27,8 @@ const REJECTION_REASONS = [
   "Other",
 ] as const;
 
+const ORDERS_PER_PAGE = 10;
+
 interface OrderQueueViewProps {
   orders: KitchenOrder[];
   currency: string;
@@ -65,8 +67,17 @@ export const OrderQueueView = ({
   const [chatError, setChatError] = useState("");
   const [rejectingOrderId, setRejectingOrderId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<string>(REJECTION_REASONS[0]);
+  const [currentPage, setCurrentPage] = useState(0);
 
   useEffect(() => setChatId(telegramChatId), [telegramChatId]);
+
+  const totalPages = Math.max(1, Math.ceil(orders.length / ORDERS_PER_PAGE));
+  const pageStart = currentPage * ORDERS_PER_PAGE;
+  const pageOrders = orders.slice(pageStart, pageStart + ORDERS_PER_PAGE);
+
+  useEffect(() => {
+    setCurrentPage((page) => Math.min(page, totalPages - 1));
+  }, [totalPages]);
 
   const saveChatId = async () => {
     setIsSavingChat(true);
@@ -137,8 +148,13 @@ export const OrderQueueView = ({
       ) : orders.length === 0 ? (
         <p className={mutedText}>No paid orders yet.</p>
       ) : (
-        <div className="space-y-3">
-          {orders.map((order) => {
+        <>
+          <div className={`mb-3 flex items-center justify-between text-sm ${mutedText}`}>
+            <span>Showing {pageStart + 1}–{Math.min(pageStart + ORDERS_PER_PAGE, orders.length)} of {orders.length} orders</span>
+            <span>Page {currentPage + 1} of {totalPages}</span>
+          </div>
+          <div className="space-y-3">
+          {pageOrders.map((order) => {
             const nextStatus = NEXT_STATUS[order.status];
             return (
               <article key={order.id} className={`rounded-xl border p-4 ${panel}`}>
@@ -216,7 +232,28 @@ export const OrderQueueView = ({
               </article>
             );
           })}
-        </div>
+          </div>
+          {totalPages > 1 && (
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={currentPage === 0}
+                onClick={() => setCurrentPage((page) => page - 1)}
+                className={`rounded border px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40 ${isDarkTheme ? "border-zinc-700 text-white hover:bg-zinc-800" : "border-zinc-300 text-zinc-900 hover:bg-zinc-100"}`}
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                disabled={currentPage === totalPages - 1}
+                onClick={() => setCurrentPage((page) => page + 1)}
+                className={`rounded border px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40 ${isDarkTheme ? "border-zinc-700 text-white hover:bg-zinc-800" : "border-zinc-300 text-zinc-900 hover:bg-zinc-100"}`}
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
