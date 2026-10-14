@@ -42,6 +42,7 @@ import type { Database } from "@minute-menus/types/db";
 
 const ORDER_COLUMNS =
     "id, items, total_amount, status, rejection_reason, created_at, confirmed_at, ready_at, completed_at, rejected_at";
+const CUSTOMER_PHONE_OTP_ENABLED = import.meta.env.VITE_CUSTOMER_PHONE_OTP_ENABLED !== "false";
 
 const ORDER_STATUS_STAMP: Partial<Record<OrderStatus, "confirmed_at" | "preparing_at" | "ready_at" | "completed_at" | "rejected_at">> = {
     confirmed: "confirmed_at",
@@ -1242,6 +1243,14 @@ export class SupabaseService {
         return normalized;
     }
 
+    /** Saves a customer phone without OTP when phone verification is disabled. */
+    async saveUnverifiedCustomerPhone(phone: string): Promise<void> {
+        if (CUSTOMER_PHONE_OTP_ENABLED) {
+            throw new Error("Phone verification is enabled.");
+        }
+        await this.postPhoneOtp("save-unverified-phone", { phone: phone.trim() });
+    }
+
     /**
      * Resend OTP verification email.
      */
@@ -1365,7 +1374,7 @@ export class SupabaseService {
         return !!(
             profile.emailVerified &&
             profile.phone &&
-            profile.phoneVerified &&
+            (profile.phoneVerified || !CUSTOMER_PHONE_OTP_ENABLED) &&
             profile.name &&
             profile.addressLine1 &&
             profile.addressLine2 &&

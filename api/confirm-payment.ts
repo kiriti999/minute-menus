@@ -672,6 +672,41 @@ const handleVerifyPhoneOtp = async (req: VercelRequest, res: VercelResponse) => 
     return res.status(200).json({ verified: true, phone });
 };
 
+const saveUnverifiedPhone = async (admin: SupabaseClient, userId: string, phone: string): Promise<boolean> => {
+    const { data: profile, error: profileError } = await admin
+        .from("customer_profiles")
+        .select("phone, phone_verified")
+        .eq("user_id", userId)
+        .maybeSingle();
+    if (profileError) throw profileError;
+    if (!profile) return false;
+    if (profile.phone === phone && profile.phone_verified) return true;
+
+    const { error } = await admin
+        .from("customer_profiles")
+        .update({ phone, phone_verified: false, updated_at: new Date().toISOString() })
+        .eq("user_id", userId);
+    if (error) throw error;
+    return true;
+};
+
+const handleSaveUnverifiedPhone = async (req: VercelRequest, res: VercelResponse) => {
+    if (process.env.VITE_CUSTOMER_PHONE_OTP_ENABLED !== "false") {
+        return res.status(403).json({ error: "Phone verification is enabled." });
+    }
+    const admin = requireSupabaseAdmin();
+    const user = await authenticateCustomer(req, res, admin);
+    if (!user) return;
+    const phone = String((req.body as { phone?: string })?.phone ?? "").trim();
+    if (!phone || phone.length > 64) {
+        return res.status(400).json({ error: "Enter a phone number of 64 characters or fewer." });
+    }
+    if (!await saveUnverifiedPhone(admin, user.id, phone)) {
+        return res.status(404).json({ error: "Customer profile not found." });
+    }
+    return res.status(200).json({ phone });
+};
+
 // ── Router ────────────────────────────────────────────────────────────────────
 const ROUTES: Record<string, (req: VercelRequest, res: VercelResponse) => Promise<unknown>> = {
     "confirm-order": handleConfirmOrder,
@@ -680,6 +715,7 @@ const ROUTES: Record<string, (req: VercelRequest, res: VercelResponse) => Promis
     verify: handleVerify,
     "send-phone-otp": handleSendPhoneOtp,
     "verify-phone-otp": handleVerifyPhoneOtp,
+    "save-unverified-phone": handleSaveUnverifiedPhone,
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

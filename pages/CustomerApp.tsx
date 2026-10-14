@@ -80,6 +80,7 @@ function formatDeliveryAddress(profile: CustomerProfile): string {
 
 /** Delivery is Hyderabad-area only — state is fixed in the address form. */
 const DEFAULT_DELIVERY_STATE = "Telangana";
+const CUSTOMER_PHONE_OTP_ENABLED = import.meta.env.VITE_CUSTOMER_PHONE_OTP_ENABLED !== "false";
 
 function deliveryDetailsError(fields: {
   name: string;
@@ -741,6 +742,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   };
 
   const isDetailsPhoneVerified = (() => {
+    if (!CUSTOMER_PHONE_OTP_ENABLED) return !!detailsPhone.trim();
     try {
       return !!verifiedPhone && supabaseService.normalizePhone(detailsPhone) === verifiedPhone;
     } catch {
@@ -791,13 +793,19 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       pincode: detailsPincode,
     });
     if (detailsErr) { setAuthError(detailsErr); return; }
-    if (!isDetailsPhoneVerified) { setAuthError("Please verify your mobile number with the OTP."); return; }
+    if (CUSTOMER_PHONE_OTP_ENABLED && !isDetailsPhoneVerified) {
+      setAuthError("Please verify your mobile number with the OTP.");
+      return;
+    }
 
     setAuthLoading(true);
     setAuthError("");
     try {
       const customer = await supabaseService.getCurrentCustomer();
       if (!customer) throw new Error("Not logged in");
+      if (!CUSTOMER_PHONE_OTP_ENABLED) {
+        await supabaseService.saveUnverifiedCustomerPhone(detailsPhone);
+      }
 
       await supabaseService.updateCustomerProfile(customer.userId, {
         name: detailsName.trim(),
@@ -1745,7 +1753,9 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                           className="w-full bg-zinc-900 border border-zinc-700 text-white pl-10 pr-4 py-2.5 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
                         />
                       </div>
-                      {isDetailsPhoneVerified ? (
+                      {!CUSTOMER_PHONE_OTP_ENABLED ? (
+                        <p className="mt-1.5 text-xs text-zinc-500">Phone verification is temporarily disabled.</p>
+                      ) : isDetailsPhoneVerified ? (
                         <p className="mt-1.5 text-xs font-bold text-emerald-400">✓ Mobile number verified</p>
                       ) : (
                         <div className="mt-2 space-y-2">
