@@ -1059,16 +1059,30 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   const playNewOrderSound = () => {
     const audioContext = new AudioContext();
-    const oscillator = audioContext.createOscillator();
-    const gain = audioContext.createGain();
-    oscillator.frequency.value = 880;
-    gain.gain.setValueAtTime(0.08, audioContext.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.35);
-    oscillator.connect(gain);
-    gain.connect(audioContext.destination);
-    oscillator.start();
-    oscillator.stop(audioContext.currentTime + 0.35);
-    oscillator.addEventListener("ended", () => void audioContext.close());
+    const startTime = audioContext.currentTime;
+    const melody = [880, 660, 880];
+    const cycleDuration = 0.9;
+    const noteDuration = 0.28;
+    void audioContext.resume();
+
+    for (let cycle = 0; cycle < 6; cycle += 1) {
+      melody.forEach((frequency, noteIndex) => {
+        const noteStart = startTime + cycle * cycleDuration + noteIndex * 0.2;
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        oscillator.type = "sine";
+        oscillator.frequency.value = frequency;
+        gain.gain.setValueAtTime(0.0001, noteStart);
+        gain.gain.exponentialRampToValueAtTime(0.12, noteStart + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, noteStart + noteDuration);
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+        oscillator.start(noteStart);
+        oscillator.stop(noteStart + noteDuration);
+      });
+    }
+
+    window.setTimeout(() => void audioContext.close(), 6000);
   };
 
   const loadKitchenOrders = () => {
