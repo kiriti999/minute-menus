@@ -6,8 +6,153 @@
 import crypto from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { sendTelegramOrderAlert } from "../lib/server/telegram";
-import { assertRestaurantCanAcceptOrders } from "../lib/server/availability";
+import type { RestaurantAvailability } from "@minute-menus/types";
+
+// ── Inlined helpers (Vercel cannot resolve lib/server imports for this route) ──
+
+// Runtime logic is inlined: Vercel functions cannot load value imports from the
+// TypeScript-source workspace package. Keep in sync with getAvailabilityStatus in @minute-menus/types.
+const DEFAULT_SLOT = [{ start: "09:00", end: "22:00" }];
+const DEFAULT_OPERATING_HOURS: RestaurantAvailability["operatingHours"] = {
+  0: DEFAULT_SLOT, 1: DEFAULT_SLOT, 2: DEFAULT_SLOT, 3: DEFAULT_SLOT, 4: DEFAULT_SLOT, 5: DEFAULT_SLOT, 6: DEFAULT_SLOT,
+};
+
+const toMinutes = (value: string): number => {
+  const [hour, minute] = value.split(":").map(Number);
+  return hour * 60 + minute;
+};
+
+function getAvailabilityStatus(availability: RestaurantAvailability, now = new Date()): { open: boolean; message: string } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: availability.timezone,
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  const weekday = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(
+    parts.find((part) => part.type === "weekday")?.value ?? "Sun",
+  );
+  const current =
+    Number(parts.find((part) => part.type === "hour")?.value ?? 0) * 60 +
+    Number(parts.find((part) => part.type === "minute")?.value ?? 0);
+  const hours = availability.operatingHours;
+  const openToday = (hours[weekday] ?? []).some((slot) => {
+    const start = toMinutes(slot.start);
+    const end = toMinutes(slot.end);
+    return end > start && current >= start && current < end;
+  });
+  const openFromYesterday = (hours[(weekday + 6) % 7] ?? []).some((slot) => {
+    const end = toMinutes(slot.end);
+    return end < toMinutes(slot.start) && current < end;
+  });
+  if (!availability.deliveryEnabled) return { open: false, message: "Ordering is temporarily unavailable." };
+  return openToday || openFromYesterday
+    ? { open: true, message: "" }
+    : { open: false, message: "The kitchen is currently closed." };
+}
+
+async function getRestaurantAvailability(
+  admin: SupabaseClient,
+  restaurantId: string,
+): Promise<RestaurantAvailability> {
+  const { data, error } = await admin
+    .from("restaurants")
+    .select("timezone, delivery_enabled, operating_hours")
+    .eq("id", restaurantId)
+    .single();
+  if (error || !data) throw new Error("Restaurant not found");
+  return {
+    timezone: data.timezone || "Asia/Kolkata",
+    deliveryEnabled: data.delivery_enabled ?? true,
+    operatingHours: (data.operating_hours as RestaurantAvailability["operatingHours"]) ?? DEFAULT_OPERATING_HOURS,
+  };
+}
+
+async function assertRestaurantCanAcceptOrders(
+  admin: SupabaseClient,
+  restaurantId: string,
+): Promise<void> {
+  const status = getAvailabilityStatus(await getRestaurantAvailability(admin, restaurantId));
+  if (!status.open) throw new Error(status.message);
+}
+
+
+const log = { warn: (...a: unknown[]) => console.warn("[telegram]", ...a), error: (...a: unknown[]) => console.error("[telegram]", ...a), info: (...a: unknown[]) => console.info("[telegram]", ...a) };
+
+type OrderItem = {
+    name: string;
+    quantity: number;
+    variantName?: string;
+};
+
+type OrderAlert = {
+    restaurantId: string;
+    orderId: string;
+    items: OrderItem[];
+    total: number;
+    currency: string;
+};
+
+const buildOrderMessage = (restaurantName: string, alert: OrderAlert): string => {
+    const itemLines = alert.items
+        .map((item) => `- ${item.quantity} x ${item.name}${item.variantName ? ` — ${item.variantName.toUpperCase()}` : ""}`)
+        .join("\n");
+    return [
+        `New paid order for ${restaurantName}`,
+        `Order #${alert.orderId.slice(0, 8)}`,
+        itemLines,
+        `Total: ${alert.currency.toUpperCase()} ${alert.total.toFixed(2)}`,
+        "Status: Pending",
+    ].join("\n");
+};
+
+const sendTelegramOrderAlert = async (
+    admin: SupabaseClient,
+    alert: OrderAlert,
+): Promise<void> => {
+    const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
+    if (!token) {
+        log.warn("TELEGRAM_BOT_TOKEN is not configured");
+        return;
+    }
+
+    try {
+        const { data: restaurant, error: restaurantError } = await admin
+            .from("restaurants")
+            .select("name, owner_id")
+            .eq("id", alert.restaurantId)
+            .single();
+        if (restaurantError) throw restaurantError;
+
+        const { data: settings, error: settingsError } = await admin
+            .from("owner_settings")
+            .select("telegram_chat_id")
+            .eq("owner_id", restaurant.owner_id)
+            .maybeSingle();
+        if (settingsError) throw settingsError;
+        if (!settings?.telegram_chat_id) {
+            log.warn("Telegram chat ID is not configured", { restaurantId: alert.restaurantId });
+            return;
+        }
+
+        const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+                chat_id: settings.telegram_chat_id,
+                text: buildOrderMessage(restaurant.name, alert),
+            }),
+        });
+        if (!response.ok) throw new Error(`Telegram returned HTTP ${response.status}`);
+    } catch (error) {
+        log.error("Failed to send order alert", {
+            restaurantId: alert.restaurantId,
+            message: error instanceof Error ? error.message : String(error),
+        });
+    }
+};
+
 
 type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
