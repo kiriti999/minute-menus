@@ -31,6 +31,8 @@ import type {
     TimeSlot,
     WatchSession,
     DeliveryFeeMode,
+    RestaurantAvailability,
+    DEFAULT_OPERATING_HOURS,
 } from "@minute-menus/types";
 import { UserTier } from "@minute-menus/types";
 import type { Json } from "@minute-menus/types/db";
@@ -449,10 +451,13 @@ export class SupabaseService {
         zomato_url: string | null;
         swiggy_url: string | null;
         directions_url: string | null;
+        timezone: string;
+        delivery_enabled: boolean;
+        operating_hours: RestaurantAvailability["operatingHours"];
     } | null> {
         const { data, error } = await this.client
             .from("restaurants")
-            .select("id, name, slug, currency, zomato_url, swiggy_url, directions_url")
+            .select("id, name, slug, currency, zomato_url, swiggy_url, directions_url, timezone, delivery_enabled, operating_hours")
             .eq("slug", slug)
             .maybeSingle();
 
@@ -463,6 +468,9 @@ export class SupabaseService {
             zomato_url: data.zomato_url ?? null,
             swiggy_url: data.swiggy_url ?? null,
             directions_url: data.directions_url ?? null,
+            timezone: data.timezone || "Asia/Kolkata",
+            delivery_enabled: data.delivery_enabled ?? true,
+            operating_hours: (data.operating_hours as RestaurantAvailability["operatingHours"]) ?? DEFAULT_OPERATING_HOURS,
         };
     }
 
@@ -493,11 +501,14 @@ export class SupabaseService {
         zomato_url: string | null;
         swiggy_url: string | null;
         directions_url: string | null;
+        timezone: string;
+        delivery_enabled: boolean;
+        operating_hours: RestaurantAvailability["operatingHours"];
     }> {
         const rid = await this.getRestaurantId();
         const { data, error } = await this.client
             .from("restaurants")
-            .select("id, name, slug, currency, zomato_url, swiggy_url, directions_url")
+            .select("id, name, slug, currency, zomato_url, swiggy_url, directions_url, timezone, delivery_enabled, operating_hours")
             .eq("id", rid)
             .single();
 
@@ -508,7 +519,20 @@ export class SupabaseService {
             zomato_url: data.zomato_url ?? null,
             swiggy_url: data.swiggy_url ?? null,
             directions_url: data.directions_url ?? null,
+            timezone: data.timezone || "Asia/Kolkata",
+            delivery_enabled: data.delivery_enabled ?? true,
+            operating_hours: (data.operating_hours as RestaurantAvailability["operatingHours"]) ?? DEFAULT_OPERATING_HOURS,
         };
+    }
+
+    async updateRestaurantAvailability(availability: RestaurantAvailability): Promise<void> {
+        const rid = await this.getRestaurantId();
+        const { error } = await this.client.from("restaurants").update({
+            timezone: availability.timezone,
+            delivery_enabled: availability.deliveryEnabled,
+            operating_hours: availability.operatingHours as unknown as Json,
+        }).eq("id", rid);
+        if (error) throw error;
     }
 
     /**

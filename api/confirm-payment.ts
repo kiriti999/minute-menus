@@ -7,6 +7,7 @@ import crypto from "node:crypto";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { sendTelegramOrderAlert } from "../lib/server/telegram";
+import { assertRestaurantCanAcceptOrders } from "../lib/server/availability";
 
 type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
@@ -143,6 +144,11 @@ const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse) => {
     const { subtotal, gstAmount, total } = computeCartTotals(items, currency);
     const itemsWithGst = enrichItemsWithGst(items, currency);
     const admin = requireSupabaseAdmin();
+    try {
+        await assertRestaurantCanAcceptOrders(admin, restaurantId);
+    } catch (error) {
+        return res.status(409).json({ error: getErrorDetail(error) });
+    }
     const { data: order, error: insertError } = await admin
         .from("orders")
         .insert({

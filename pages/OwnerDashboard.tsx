@@ -5,6 +5,7 @@ import { TeamView } from "../components/TeamView";
 import { CounterBillView } from "../components/CounterBillView";
 import { SalesView } from "../components/SalesView";
 import { OrderQueueView } from "../components/OrderQueueView";
+import { AvailabilitySettings } from "../components/AvailabilitySettings";
 import {
   AlertTriangle,
   Bell,
@@ -114,7 +115,7 @@ import {
   Spinner,
 } from "@minute-menus/ui";
 
-type ViewMode = "DASHBOARD" | "MENU" | "IMAGE_EDITOR" | "COSTING" | "PRINT_DESIGNS" | "CUSTOMERS" | "TEAM" | "SALES" | "COUNTER" | "ORDERS" | "SUBSCRIPTIONS";
+type ViewMode = "DASHBOARD" | "MENU" | "IMAGE_EDITOR" | "COSTING" | "PRINT_DESIGNS" | "CUSTOMERS" | "TEAM" | "SALES" | "COUNTER" | "ORDERS" | "SUBSCRIPTIONS" | "AVAILABILITY";
 type SubTab = "plans" | "subscribers" | "tomorrow" | "tickets" | "refunds";
 type TimeWindow = "24h" | "7d" | "30d";
 
@@ -930,6 +931,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     zomato_url: string | null;
     swiggy_url: string | null;
     directions_url: string | null;
+    timezone: string;
+    delivery_enabled: boolean;
+    operating_hours: Record<number, Array<{ start: string; end: string }>>;
   } | null>(null);
 
   // Show first-time setup modal when restaurant was created with default name
@@ -1771,6 +1775,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       >
         <Package size={18} />
         <span className="font-medium">Subscriptions</span>
+      </button>
+      <button
+        onClick={() => {
+          setCurrentView("AVAILABILITY");
+          setIsMobileMenuOpen(false);
+        }}
+        className={`w-full flex items-center gap-3 px-4 py-3 rounded-md transition-all duration-300 ${currentView === "AVAILABILITY" ? (isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white") : isDarkTheme ? "text-zinc-500 hover:text-white hover:bg-zinc-900" : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200"}`}
+      >
+        <Clock size={18} />
+        <span className="font-medium">Kitchen timings</span>
       </button>
 
       {/* QR Code Button - Standalone action */}
@@ -3310,6 +3324,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             isTestSoundPlaying={isTestSoundPlaying}
           />
         )}
+
+        {currentView === "AVAILABILITY" && <AvailabilitySettings isDarkTheme={isDarkTheme} />}
 
         {currentView === "CUSTOMERS" && (() => {
           const PAGE_SIZE = 20;

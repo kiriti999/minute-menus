@@ -42,8 +42,8 @@ import { formatDisplayName } from "../lib/formatDisplayName";
 import { openRazorpayCheckout } from "../lib/loadRazorpayCheckout";
 import { PAYMENT_API_PATHS } from "../lib/api/paymentRouteRewrites";
 import { ButtonSpinner } from "@minute-menus/ui";
-import type { Category, CustomerAddress, CustomerProfile, CustomerSubscription, DailyOrder, Dish, MealPlan, OrderItem, SubDeliveryType, DeliveryFeeMode, TicketReason, TimeSlot } from "@minute-menus/types";
-import { TICKET_REASON_LABELS, TIME_SLOT_LABELS } from "@minute-menus/types";
+import type { Category, CustomerAddress, CustomerProfile, CustomerSubscription, DailyOrder, Dish, MealPlan, OrderItem, SubDeliveryType, DeliveryFeeMode, TicketReason, TimeSlot, WeeklyOperatingHours, RestaurantAvailability } from "@minute-menus/types";
+import { getAvailabilityStatus, TICKET_REASON_LABELS, TIME_SLOT_LABELS } from "@minute-menus/types";
 import { CustomerAddressLocate } from "../components/CustomerAddressLocate";
 
 interface CustomerAppProps {
@@ -55,6 +55,9 @@ interface CustomerAppProps {
   restaurantId?: string | null;
   restaurantName?: string | null;
   currency?: string;
+  timezone: string;
+  deliveryEnabled: boolean;
+  operatingHours: WeeklyOperatingHours;
 }
 
 function formatDeliveryAddress(profile: CustomerProfile): string {
@@ -110,7 +113,20 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   restaurantId,
   restaurantName,
   currency = "USD",
+  timezone,
+  deliveryEnabled,
+  operatingHours,
 }) => {
+  const [availabilityTick, setAvailabilityTick] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setAvailabilityTick((value) => value + 1), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const availability = useMemo<RestaurantAvailability>(
+    () => ({ timezone, deliveryEnabled, operatingHours }),
+    [timezone, deliveryEnabled, operatingHours],
+  );
+  const orderingStatus = useMemo(() => getAvailabilityStatus(availability), [availability, availabilityTick]);
   // ── Cart (persisted to localStorage so it survives OAuth/refresh) ──────────
   const CART_KEY = `mm_cart_${restaurantId ?? "default"}`;
   const loadCart = (): OrderItem[] => {
@@ -444,7 +460,10 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   // ---------------------------
 
   const handleAddToOrder = (dish: Dish, variantId?: string) => {
-    if (dish.manualSoldOut) return;
+    if (dish.manualSoldOut || !orderingStatus.open) {
+      if (!orderingStatus.open) alert(orderingStatus.message);
+      return;
+    }
     // Cart key is dishId + optional variantId so different sizes are separate lines
     const cartKey = variantId ? `${dish.id}__${variantId}` : dish.id;
     const currentCartQty = cart.find((i) => i.dishId === cartKey)?.quantity ?? 0;
@@ -703,6 +722,10 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   };
 
   const processOrderPayment = async (profile: CustomerProfile) => {
+    if (!orderingStatus.open) {
+      alert(orderingStatus.message);
+      return;
+    }
     if (!restaurantId) {
       alert("Restaurant not found. Please scan the QR code again.");
       return;
@@ -1216,6 +1239,12 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       </div>
 
       {!menuLoading && displayCategories.length > 0 && (
+        <>
+        {!orderingStatus.open && (
+          <div className="fixed top-[4.5rem] left-4 right-4 z-50 rounded-xl border border-amber-500/40 bg-amber-500/15 px-4 py-3 text-center text-sm text-amber-100">
+            {orderingStatus.message}
+          </div>
+        )}
         <div
           ref={categoryNavRef}
           className={`fixed top-[4.5rem] sm:top-20 left-0 right-0 z-40 pointer-events-none ${
@@ -1304,6 +1333,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
             </div>
           </div>
         </div>
+        </>
       )}
 
       {/* === Menu browse === */}

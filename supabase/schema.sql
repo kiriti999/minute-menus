@@ -34,6 +34,9 @@ create table if not exists restaurants (
   name       text not null,
   slug       text not null unique,
   currency   text not null default 'USD',
+  timezone   text not null default 'Asia/Kolkata',
+  delivery_enabled boolean not null default true,
+  operating_hours jsonb not null default '{"0":[{"start":"09:00","end":"22:00"}],"1":[{"start":"09:00","end":"22:00"}],"2":[{"start":"09:00","end":"22:00"}],"3":[{"start":"09:00","end":"22:00"}],"4":[{"start":"09:00","end":"22:00"}],"5":[{"start":"09:00","end":"22:00"}],"6":[{"start":"09:00","end":"22:00"}]}',
   created_at timestamptz not null default now()
 );
 
@@ -44,6 +47,9 @@ create table if not exists restaurants (
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS zomato_url text;
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS swiggy_url text;
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS directions_url text;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS timezone text NOT NULL DEFAULT 'Asia/Kolkata';
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS delivery_enabled boolean NOT NULL DEFAULT true;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS operating_hours jsonb NOT NULL DEFAULT '{"0":[{"start":"09:00","end":"22:00"}],"1":[{"start":"09:00","end":"22:00"}],"2":[{"start":"09:00","end":"22:00"}],"3":[{"start":"09:00","end":"22:00"}],"4":[{"start":"09:00","end":"22:00"}],"5":[{"start":"09:00","end":"22:00"}],"6":[{"start":"09:00","end":"22:00"}]}';
 
 alter table restaurants enable row level security;
 

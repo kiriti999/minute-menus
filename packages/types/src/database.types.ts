@@ -13,6 +13,9 @@ export type Database = {
                     name: string;
                     slug: string;
                     currency: string;
+                    timezone: string;
+                    delivery_enabled: boolean;
+                    operating_hours: Json;
                     created_at: string;
                     zomato_url: string | null;
                     swiggy_url: string | null;
@@ -24,6 +27,9 @@ export type Database = {
                     name: string;
                     slug: string;
                     currency?: string;
+                    timezone?: string;
+                    delivery_enabled?: boolean;
+                    operating_hours?: Json;
                     created_at?: string;
                     zomato_url?: string | null;
                     swiggy_url?: string | null;
@@ -35,6 +41,9 @@ export type Database = {
                     name?: string;
                     slug?: string;
                     currency?: string;
+                    timezone?: string;
+                    delivery_enabled?: boolean;
+                    operating_hours?: Json;
                     created_at?: string;
                     zomato_url?: string | null;
                     swiggy_url?: string | null;

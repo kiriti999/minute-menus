@@ -6,6 +6,7 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Razorpay from "razorpay";
+import { assertRestaurantCanAcceptOrders } from "../lib/server/availability";
 
 // ── Supabase admin (inline — no lib imports) ─────────────────────────────────
 let adminClient: SupabaseClient | null = null;
@@ -96,6 +97,7 @@ const handleCartOrder = async (req: VercelRequest, res: VercelResponse) => {
     }
 
     try {
+        await assertRestaurantCanAcceptOrders(requireSupabaseAdmin(), restaurantId);
         const result = await createRazorpayOrder({
             amount: total,
             currency,
@@ -111,7 +113,7 @@ const handleCartOrder = async (req: VercelRequest, res: VercelResponse) => {
     } catch (e) {
         const msg = getErrorDetail(e);
         console.error("[create-razorpay-order] cart failed", msg);
-        const status = msg === "Razorpay not configured" ? 500 : 502;
+        const status = msg.includes("closed") || msg.includes("unavailable") ? 409 : msg === "Razorpay not configured" ? 500 : 502;
         return res.status(status).json({ error: "Failed to create payment order", detail: msg });
     }
 };

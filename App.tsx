@@ -235,6 +235,9 @@ const App: React.FC = () => {
                 restaurantId={restaurantId}
                 restaurantName={restaurantName}
                 currency={restaurantCurrency}
+                timezone={slugRoute.timezone}
+                deliveryEnabled={slugRoute.deliveryEnabled}
+                operatingHours={slugRoute.operatingHours}
             />
         );
     }

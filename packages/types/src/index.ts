@@ -9,6 +9,69 @@ export interface Restaurant {
   created_at: string;
 }
 
+export interface OperatingSlot {
+  start: string;
+  end: string;
+}
+
+export type WeeklyOperatingHours = Record<number, OperatingSlot[]>;
+
+export interface RestaurantAvailability {
+  timezone: string;
+  deliveryEnabled: boolean;
+  operatingHours: WeeklyOperatingHours;
+}
+
+export const DEFAULT_OPERATING_HOURS: WeeklyOperatingHours = {
+  0: [{ start: "09:00", end: "22:00" }],
+  1: [{ start: "09:00", end: "22:00" }],
+  2: [{ start: "09:00", end: "22:00" }],
+  3: [{ start: "09:00", end: "22:00" }],
+  4: [{ start: "09:00", end: "22:00" }],
+  5: [{ start: "09:00", end: "22:00" }],
+  6: [{ start: "09:00", end: "22:00" }],
+};
+
+export function getAvailabilityStatus(
+  availability: RestaurantAvailability,
+  now = new Date(),
+): { open: boolean; deliveryEnabled: boolean; message: string } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: availability.timezone,
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(now);
+  const weekday = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(
+    parts.find((part) => part.type === "weekday")?.value ?? "Sun",
+  );
+  const currentMinutes =
+    Number(parts.find((part) => part.type === "hour")?.value ?? 0) * 60 +
+    Number(parts.find((part) => part.type === "minute")?.value ?? 0);
+  const isOpen = (availability.operatingHours[weekday] ?? []).some((slot) => {
+    const start = toMinutes(slot.start);
+    const end = toMinutes(slot.end);
+    return end > start && currentMinutes >= start && currentMinutes < end;
+  });
+  const previousWeekday = (weekday + 6) % 7;
+  const isOpenFromPreviousDay = (availability.operatingHours[previousWeekday] ?? []).some((slot) => {
+    const start = toMinutes(slot.start);
+    const end = toMinutes(slot.end);
+    return end < start && currentMinutes < end;
+  });
+  const kitchenOpen = isOpen || isOpenFromPreviousDay;
+  if (!availability.deliveryEnabled) return { open: false, deliveryEnabled: false, message: "Ordering is temporarily unavailable." };
+  return kitchenOpen
+    ? { open: true, deliveryEnabled: true, message: "" }
+    : { open: false, deliveryEnabled: true, message: "The kitchen is currently closed." };
+}
+
+function toMinutes(value: string): number {
+  const [hour, minute] = value.split(":").map(Number);
+  return hour * 60 + minute;
+}
+
 // Public-facing restaurant info (no owner details)
 export interface RestaurantPublic {
   id: string;
