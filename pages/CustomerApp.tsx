@@ -2328,11 +2328,13 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
               </div>
               <button
                 className="w-full bg-white text-black py-4 rounded font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                disabled={cart.length === 0 || isOrdering}
+                disabled={cart.length === 0 || isOrdering || !deliveryAddressSummary}
                 onClick={handleConfirmOrder}
               >
                 {isOrdering ? (
                   <Loader2 className="animate-spin" size={18} />
+                ) : !deliveryAddressSummary && cart.length > 0 ? (
+                  "ADD ADDRESS TO CONTINUE"
                 ) : (
                   "CONFIRM ORDER"
                 )}
