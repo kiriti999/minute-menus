@@ -555,11 +555,12 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
 
   const handleAddAddress = async () => {
     setAddressActionError("");
+    setDetailsPurpose("checkout");
+    setAuthError("");
+    setIsAuthModalOpen(true);
     if (customerProfile) {
-      openDeliveryDetails(
-        supabaseService.isProfileComplete(customerProfile) ? "edit" : "checkout",
-        customerProfile,
-      );
+      fillDetailsFromProfile(customerProfile);
+      setAuthStep("details");
       return;
     }
 
@@ -567,22 +568,18 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error) throw error;
       if (!user) {
-        setDetailsPurpose("checkout");
         setAuthStep("auth");
-        setAuthError("");
-        setIsAuthModalOpen(true);
         return;
       }
 
       const profile = await supabaseService.ensureCustomerProfile();
       if (!profile) throw new Error("Your customer profile could not be loaded. Please sign in again.");
       setCustomerProfile(profile);
-      openDeliveryDetails(
-        supabaseService.isProfileComplete(profile) ? "edit" : "checkout",
-        profile,
-      );
+      fillDetailsFromProfile(profile);
+      setAuthStep("details");
     } catch (error) {
-      setAddressActionError(error instanceof Error ? error.message : "Unable to load your address details.");
+      setAuthStep("auth");
+      setAuthError(error instanceof Error ? error.message : "Unable to load your address details.");
     }
   };
 
