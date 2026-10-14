@@ -1,5 +1,6 @@
 import { Check, ChevronRight, Volume2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { getErrorMessage } from "@minute-menus/errors";
 import type { KitchenOrder, OrderStatus } from "@minute-menus/types";
 
 const STATUS_LABELS: Record<OrderStatus, string> = {
@@ -71,7 +72,7 @@ export const OrderQueueView = ({
     try {
       await onSaveTelegramChatId(chatId);
     } catch (saveError) {
-      setChatError(saveError instanceof Error ? saveError.message : "Failed to save Telegram chat ID.");
+      setChatError(`Failed to save Telegram chat ID: ${getErrorMessage(saveError)}`);
     } finally {
       setIsSavingChat(false);
     }
