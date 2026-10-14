@@ -218,7 +218,7 @@ export class SupabaseService {
         const rid = await this.getRestaurantId();
         const { data, error } = await this.client
             .from("orders")
-            .select("id, items, total_amount, status, created_at")
+            .select("id, items, total_amount, status, rejection_reason, created_at")
             .eq("restaurant_id", rid)
             .order("created_at", { ascending: false })
             .limit(100);
@@ -229,12 +229,20 @@ export class SupabaseService {
             items: order.items as unknown as KitchenOrder["items"],
             totalAmount: order.total_amount,
             status: order.status as OrderStatus,
+            rejectionReason: order.rejection_reason ?? undefined,
             createdAt: order.created_at,
         }));
     }
 
-    async updateKitchenOrderStatus(orderId: string, status: OrderStatus): Promise<void> {
-        const { error } = await this.client.from("orders").update({ status }).eq("id", orderId);
+    async updateKitchenOrderStatus(
+        orderId: string,
+        status: OrderStatus,
+        rejectionReason?: string,
+    ): Promise<void> {
+        const { error } = await this.client
+            .from("orders")
+            .update({ status, rejection_reason: rejectionReason ?? null })
+            .eq("id", orderId);
         if (error) throw error;
     }
 

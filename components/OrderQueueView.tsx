@@ -16,7 +16,15 @@ const NEXT_STATUS: Record<OrderStatus, OrderStatus | null> = {
   preparing: "ready",
   ready: "completed",
   completed: null,
+  rejected: null,
 };
+
+const REJECTION_REASONS = [
+  "Item unavailable",
+  "Kitchen closed",
+  "Unable to fulfil order",
+  "Other",
+] as const;
 
 interface OrderQueueViewProps {
   orders: KitchenOrder[];
@@ -26,7 +34,7 @@ interface OrderQueueViewProps {
   error: string;
   telegramChatId: string;
   onSaveTelegramChatId: (chatId: string) => Promise<void>;
-  onUpdateOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
+  onUpdateOrderStatus: (orderId: string, status: OrderStatus, rejectionReason?: string) => Promise<void>;
   onTestSound: () => void;
 }
 
@@ -52,6 +60,8 @@ export const OrderQueueView = ({
   const [chatId, setChatId] = useState(telegramChatId);
   const [isSavingChat, setIsSavingChat] = useState(false);
   const [chatError, setChatError] = useState("");
+  const [rejectingOrderId, setRejectingOrderId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState<string>(REJECTION_REASONS[0]);
 
   useEffect(() => setChatId(telegramChatId), [telegramChatId]);
 
@@ -65,6 +75,11 @@ export const OrderQueueView = ({
     } finally {
       setIsSavingChat(false);
     }
+  };
+
+  const rejectOrder = async (orderId: string) => {
+    await onUpdateOrderStatus(orderId, "rejected", rejectionReason);
+    setRejectingOrderId(null);
   };
 
   const text = isDarkTheme ? "text-white" : "text-zinc-900";
@@ -91,7 +106,7 @@ export const OrderQueueView = ({
       <section className={`mb-8 rounded-xl border p-4 ${panel}`}>
         <h2 className={`font-medium ${text}`}>Telegram alerts</h2>
         <p className={`mt-1 text-sm ${mutedText}`}>
-          Send <code className="font-mono">/start</code> to your configured Telegram bot, then enter your Telegram chat ID.
+          Send <code className="font-mono">/start</code> once to your configured Telegram bot. It will not reply until a paid order is placed; retrieve its chat ID with Telegram's getUpdates API, then enter it here.
         </p>
         <div className="mt-4 flex flex-col gap-2 sm:flex-row">
           <input
@@ -129,24 +144,41 @@ export const OrderQueueView = ({
                     <p className={`font-medium ${text}`}>Order #{order.id.slice(0, 8)}</p>
                     <p className={`mt-1 text-sm ${mutedText}`}>{formatOrderTime(order.createdAt)}</p>
                   </div>
-                  <span className={`w-fit rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${order.status === "completed" ? "bg-green-500/15 text-green-500" : "bg-amber-500/15 text-amber-500"}`}>
+                  <span className={`w-fit rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wide ${order.status === "completed" ? "bg-green-500/15 text-green-500" : order.status === "rejected" ? "bg-red-500/15 text-red-500" : "bg-amber-500/15 text-amber-500"}`}>
                     {STATUS_LABELS[order.status]}
                   </span>
                 </div>
                 <ul className={`mt-4 space-y-1 text-sm ${text}`}>
                   {order.items.map((item, index) => <li key={`${item.dishId}-${index}`}>{item.quantity} x {item.name}</li>)}
                 </ul>
+                {order.status === "rejected" && order.rejectionReason && (
+                  <p className="mt-3 text-sm text-red-500">Reason: {order.rejectionReason}</p>
+                )}
                 <div className="mt-4 flex items-center justify-between gap-4">
                   <span className={`font-medium ${text}`}>{currency.toUpperCase()} {order.totalAmount.toFixed(2)}</span>
                   {nextStatus ? (
-                    <button
-                      type="button"
-                      onClick={() => void onUpdateOrderStatus(order.id, nextStatus)}
-                      className="flex items-center gap-1 rounded bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500"
-                    >
-                      Mark {STATUS_LABELS[nextStatus]}
-                      <ChevronRight size={15} />
-                    </button>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void onUpdateOrderStatus(order.id, nextStatus)}
+                        className="flex items-center gap-1 rounded bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-500"
+                      >
+                        Mark {STATUS_LABELS[nextStatus]}
+                        <ChevronRight size={15} />
+                      </button>
+                      {(order.status === "pending" || order.status === "confirmed") && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRejectingOrderId(order.id);
+                            setRejectionReason(REJECTION_REASONS[0]);
+                          }}
+                          className="rounded border border-red-500/50 px-3 py-2 text-sm font-medium text-red-500 hover:bg-red-500/10"
+                        >
+                          Reject
+                        </button>
+                      )}
+                    </div>
                   ) : (
                     <span className="flex items-center gap-1 text-sm font-medium text-green-500">
                       <Check size={15} />
@@ -154,6 +186,30 @@ export const OrderQueueView = ({
                     </span>
                   )}
                 </div>
+                {rejectingOrderId === order.id && (
+                  <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/5 p-3">
+                    <label className={`block text-sm font-medium ${text}`} htmlFor={`reject-reason-${order.id}`}>
+                      Rejection reason
+                    </label>
+                    <select
+                      id={`reject-reason-${order.id}`}
+                      value={rejectionReason}
+                      onChange={(event) => setRejectionReason(event.target.value)}
+                      className={`mt-2 w-full rounded border px-3 py-2 text-sm ${isDarkTheme ? "border-zinc-700 bg-black text-white" : "border-zinc-300 bg-white text-zinc-900"}`}
+                    >
+                      {REJECTION_REASONS.map((reason) => <option key={reason}>{reason}</option>)}
+                    </select>
+                    <p className="mt-2 text-xs text-red-500">This marks the paid order as rejected. Refunds must be handled separately.</p>
+                    <div className="mt-3 flex justify-end gap-2">
+                      <button type="button" onClick={() => setRejectingOrderId(null)} className={`rounded px-3 py-2 text-sm ${mutedText}`}>
+                        Cancel
+                      </button>
+                      <button type="button" onClick={() => void rejectOrder(order.id)} className="rounded bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-500">
+                        Confirm rejection
+                      </button>
+                    </div>
+                  </div>
+                )}
               </article>
             );
           })}

@@ -91,13 +91,14 @@ export interface Order {
   timeToOrder: number; // seconds from app open to checkout
 }
 
-export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'completed';
+export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'completed' | 'rejected';
 
 export interface KitchenOrder {
   id: string;
   items: OrderItem[];
   totalAmount: number;
   status: OrderStatus;
+  rejectionReason?: string;
   createdAt: string;
 }
 

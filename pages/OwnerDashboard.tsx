@@ -1089,10 +1089,14 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       .finally(() => setKitchenOrdersLoading(false));
   };
 
-  const handleOrderStatusChange = async (orderId: string, status: OrderStatus) => {
+  const handleOrderStatusChange = async (
+    orderId: string,
+    status: OrderStatus,
+    rejectionReason?: string,
+  ) => {
     setKitchenOrdersError("");
     try {
-      await supabaseService.updateKitchenOrderStatus(orderId, status);
+      await supabaseService.updateKitchenOrderStatus(orderId, status, rejectionReason);
       setKitchenOrders((orders) =>
         orders.map((order) => (order.id === orderId ? { ...order, status } : order)),
       );

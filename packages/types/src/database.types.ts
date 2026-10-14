@@ -165,6 +165,7 @@ export type Database = {
                     gst_amount: number;
                     total_amount: number;
                     status: string;
+                    rejection_reason: string | null;
                     payment_provider: string | null;
                     payment_id: string | null;
                     time_to_order: number;
@@ -178,6 +179,7 @@ export type Database = {
                     gst_amount?: number;
                     total_amount?: number;
                     status?: string;
+                    rejection_reason?: string | null;
                     payment_provider?: string | null;
                     payment_id?: string | null;
                     time_to_order?: number;
@@ -191,6 +193,7 @@ export type Database = {
                     gst_amount?: number;
                     total_amount?: number;
                     status?: string;
+                    rejection_reason?: string | null;
                     payment_provider?: string | null;
                     payment_id?: string | null;
                     time_to_order?: number;

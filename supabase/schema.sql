@@ -141,7 +141,7 @@ create policy "Public can read dishes"
 -- payment_provider: 'razorpay' (India) | 'clover' (US/CA)
 -- ─────────────────────────────────────────────
 do $$ begin
-  create type order_status as enum ('pending', 'confirmed', 'preparing', 'ready', 'completed');
+  create type order_status as enum ('pending', 'confirmed', 'preparing', 'ready', 'completed', 'rejected');
 exception when duplicate_object then null; end $$;
 do $$ begin
   create type payment_provider as enum ('razorpay', 'clover');
@@ -155,6 +155,7 @@ create table if not exists orders (
   gst_amount          numeric(10, 2) not null default 0,
   total_amount        numeric(10, 2) not null default 0,
   status              order_status not null default 'pending',
+  rejection_reason   text,
   payment_provider    payment_provider,
   payment_id          text,
   time_to_order       numeric(10, 2) not null default 0,
@@ -164,6 +165,8 @@ create table if not exists orders (
 -- Migration for existing deployments
 alter table orders add column if not exists subtotal_amount numeric(10, 2);
 alter table orders add column if not exists gst_amount numeric(10, 2) not null default 0;
+alter table orders add column if not exists rejection_reason text;
+alter type order_status add value if not exists 'rejected';
 
 alter table orders enable row level security;
 
