@@ -88,10 +88,12 @@ export async function upsertOwnerTelegramChatId(
 	ownerId: string,
 	chatId: string,
 ): Promise<void> {
-	const trimmed = chatId.trim();
-	if (!/^-?\d+$/.test(trimmed)) {
+	const entered = chatId.trim();
+	if (!/^-?\d+$/.test(entered)) {
 		throw new Error("Telegram chat ID must be a number.");
 	}
+	// Group/channel IDs are "-100…"; owners often paste them without the minus sign.
+	const trimmed = /^100\d{10}$/.test(entered) ? `-${entered}` : entered;
 	const { error } = await client.from("owner_settings").upsert(
 		{
 			owner_id: ownerId,

@@ -107,6 +107,12 @@ const buildOrderMessage = (restaurantName: string, alert: OrderAlert): string =>
     ].join("\n");
 };
 
+// Group/channel IDs are "-100…"; owners often paste them without the minus sign.
+const normalizeTelegramChatId = (raw: string): string => {
+    const id = raw.trim();
+    return /^100\d{10}$/.test(id) ? `-${id}` : id;
+};
+
 const sendTelegramOrderAlert = async (
     admin: SupabaseClient,
     alert: OrderAlert,
@@ -140,11 +146,13 @@ const sendTelegramOrderAlert = async (
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({
-                chat_id: settings.telegram_chat_id,
+                chat_id: normalizeTelegramChatId(settings.telegram_chat_id),
                 text: buildOrderMessage(restaurant.name, alert),
             }),
         });
-        if (!response.ok) throw new Error(`Telegram returned HTTP ${response.status}`);
+        if (!response.ok) {
+            throw new Error(`Telegram returned HTTP ${response.status}: ${await response.text()}`);
+        }
     } catch (error) {
         log.error("Failed to send order alert", {
             restaurantId: alert.restaurantId,
