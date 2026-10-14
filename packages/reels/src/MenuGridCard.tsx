@@ -14,6 +14,7 @@ interface MenuGridCardProps {
     dish: Dish;
     currency?: string;
     isSoldOut?: boolean;
+    disabled?: boolean;
     onAdd: (dish: Dish, variantId?: string) => void;
     isDarkTheme?: boolean;
     /** Units already in the cart for this dish (across all variants). */
@@ -55,6 +56,7 @@ export const MenuGridCard: React.FC<MenuGridCardProps> = ({
     dish,
     currency = "USD",
     isSoldOut = false,
+    disabled = false,
     onAdd,
     isDarkTheme = true,
     quantity = 0,
@@ -211,10 +213,10 @@ export const MenuGridCard: React.FC<MenuGridCardProps> = ({
 
                 <button
                     type="button"
-                    disabled={isSoldOut}
+                    disabled={isSoldOut || disabled}
                     onClick={handleAdd}
                     className={`mt-auto w-full rounded-lg py-2 text-[10px] font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors active:scale-[0.98] ${
-                        isSoldOut
+                        isSoldOut || disabled
                             ? isDarkTheme
                                 ? "bg-zinc-800 text-zinc-500"
                                 : "bg-zinc-100 text-zinc-400"

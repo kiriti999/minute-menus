@@ -1241,13 +1241,15 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       {!menuLoading && displayCategories.length > 0 && (
         <>
         {!orderingStatus.open && (
-          <div className="fixed top-[4.5rem] left-4 right-4 z-50 rounded-xl border border-amber-500/40 bg-amber-500/15 px-4 py-3 text-center text-sm text-amber-100">
+          <div className="fixed top-[4.5rem] left-4 right-4 z-50 mx-auto max-w-lg rounded-xl border border-amber-500/40 bg-amber-950/95 px-4 py-2.5 text-center text-xs font-medium text-amber-100 shadow-lg backdrop-blur-md">
             {orderingStatus.message}
           </div>
         )}
         <div
           ref={categoryNavRef}
-          className={`fixed top-[4.5rem] sm:top-20 left-0 right-0 z-40 pointer-events-none ${
+          className={`fixed left-0 right-0 z-40 pointer-events-none ${
+            orderingStatus.open ? "top-[4.5rem] sm:top-20" : "top-[7.3rem] sm:top-[7.8rem]"
+          } ${
             isDarkTheme
               ? "bg-zinc-950/95 border-b border-zinc-800"
               : "bg-white/95 border-b border-zinc-200"
@@ -1339,7 +1341,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       {/* === Menu browse === */}
       <div
         ref={containerRef}
-        className={`h-full w-full overflow-y-auto overscroll-contain scroll-smooth pt-[7.5rem] sm:pt-[8.5rem] pb-24 ${isDarkTheme ? "bg-zinc-950" : "bg-white"}`}
+        className={`h-full w-full overflow-y-auto overscroll-contain scroll-smooth ${orderingStatus.open ? "pt-[7.5rem] sm:pt-[8.5rem]" : "pt-[10.3rem] sm:pt-[11rem]"} pb-24 ${isDarkTheme ? "bg-zinc-950" : "bg-white"}`}
       >
         {menuLoading ? (
           <div className={`flex items-center justify-center py-20 text-sm ${isDarkTheme ? "text-zinc-500" : "text-zinc-400"}`}>
@@ -1368,6 +1370,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                         dish={dish}
                         currency={currency}
                         isSoldOut={renderDishSoldOut(dish)}
+                        disabled={!orderingStatus.open}
                         onAdd={handleAddToOrder}
                         isDarkTheme={isDarkTheme}
                         quantity={cartQtyByDish[dish.id] ?? 0}
@@ -1383,6 +1386,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                         dish={dish}
                         currency={currency}
                         isSoldOut={renderDishSoldOut(dish)}
+                        disabled={!orderingStatus.open}
                         onAdd={handleAddToOrder}
                         isDarkTheme={isDarkTheme}
                         quantity={cartQtyByDish[dish.id] ?? 0}

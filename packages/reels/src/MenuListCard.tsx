@@ -14,6 +14,7 @@ interface MenuListCardProps {
     dish: Dish;
     currency?: string;
     isSoldOut?: boolean;
+    disabled?: boolean;
     onAdd: (dish: Dish, variantId?: string) => void;
     isDarkTheme?: boolean;
     /** Units already in the cart for this dish (across all variants). */
@@ -26,6 +27,7 @@ export const MenuListCard: React.FC<MenuListCardProps> = ({
     dish,
     currency = "USD",
     isSoldOut = false,
+    disabled = false,
     onAdd,
     isDarkTheme = true,
     quantity = 0,
@@ -173,12 +175,12 @@ export const MenuListCard: React.FC<MenuListCardProps> = ({
                 <div className="mt-auto pt-2 flex justify-end">
                     <button
                         type="button"
-                        disabled={isSoldOut}
+                        disabled={isSoldOut || disabled}
                         onClick={() => {
                             if (!isSoldOut) onAdd(dish, activeVariant?.id);
                         }}
                         className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wide transition-colors active:scale-[0.98] ${
-                            isSoldOut
+                            isSoldOut || disabled
                                 ? isDarkTheme
                                     ? "bg-zinc-800 text-zinc-500"
                                     : "bg-zinc-100 text-zinc-400"
