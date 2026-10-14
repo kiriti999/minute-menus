@@ -120,7 +120,7 @@ export const MenuListCard: React.FC<MenuListCardProps> = ({
                                     key={v.id}
                                     type="button"
                                     onClick={() => setSelectedVariantId(v.id)}
-                                    className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border transition-colors ${
+                                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border transition-colors ${
                                         isSelected
                                             ? isDarkTheme
                                                 ? "bg-white text-black border-white"
