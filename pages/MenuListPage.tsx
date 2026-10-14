@@ -105,7 +105,7 @@ const DishRow: React.FC<{ dish: Dish; currency: string; isDarkTheme: boolean; ca
 						const { original, final } = getEffectivePrice(variant.price, discountPct);
 						return (
 							<div key={variant.id} className="flex items-center justify-between">
-								<span className={`text-xs ${mutedText}`}>{variant.name}</span>
+								<span className={`text-xs font-bold uppercase ${mutedText}`}>{variant.name}</span>
 								<div className="flex items-center gap-2">
 									{discountPct > 0 ? (
 										<>
