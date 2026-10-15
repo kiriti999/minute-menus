@@ -189,6 +189,7 @@ const App: React.FC = () => {
                 key={path}
                 slug={myOrdersSlug}
                 isDarkTheme={isDarkTheme}
+                onToggleTheme={toggleTheme}
                 onBack={() => {
                     window.location.href = `/${myOrdersSlug}`;
                 }}

@@ -1,7 +1,7 @@
 import { getErrorMessage } from "@minute-menus/errors";
 import type { CustomerOrder } from "@minute-menus/types";
 import { LoadingScreen } from "@minute-menus/ui";
-import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, Download, Loader2, LogOut } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, Download, Loader2, LogOut, Moon, Sun } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { CUSTOMER_STATUS_COPY } from "../components/orderStatus";
@@ -14,6 +14,7 @@ export interface MyOrdersPageProps {
 	slug: string;
 	isDarkTheme: boolean;
 	onBack: () => void;
+	onToggleTheme: () => void;
 }
 
 const formatOrderDate = (value: string): string =>
@@ -110,7 +111,7 @@ const Pagination: React.FC<{ page: number; totalPages: number; onChange: (page: 
 	);
 };
 
-export const MyOrdersPage: React.FC<MyOrdersPageProps> = ({ slug, isDarkTheme, onBack }) => {
+export const MyOrdersPage: React.FC<MyOrdersPageProps> = ({ slug, isDarkTheme, onBack, onToggleTheme }) => {
 	const [restaurant, setRestaurant] = useState<{ name: string; currency: string } | null>(null);
 	const [email, setEmail] = useState<string | null | undefined>(undefined);
 	const [page, setPage] = useState(1);
@@ -172,20 +173,32 @@ export const MyOrdersPage: React.FC<MyOrdersPageProps> = ({ slug, isDarkTheme, o
 	if (email === undefined) return <LoadingScreen label="Loading your orders..." />;
 
 	const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+	const iconBtn = isDarkTheme ? "bg-black/40 border-white/20 hover:bg-black/60 text-white" : "bg-white/40 border-black/20 hover:bg-white/60 text-zinc-800";
 	const shell = isDarkTheme ? "bg-zinc-950 text-white" : "bg-white text-zinc-900";
 
 	return (
 		<div className={`h-screen w-full overflow-y-auto ${shell}`}>
 			<header className={`sticky top-0 z-10 border-b backdrop-blur-md ${isDarkTheme ? "border-zinc-800 bg-zinc-950/95" : "border-zinc-200 bg-white/95"}`}>
-				<div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-4">
-					<button type="button" onClick={onBack} className="flex items-center gap-2 text-sm hover:opacity-80">
-						<ArrowLeft size={18} /> {restaurant?.name ?? "Back"}
+				<div className="flex min-h-[4.5rem] items-center justify-between gap-3 px-4 py-3 sm:min-h-20 sm:px-8 lg:px-10">
+					<button type="button" onClick={onBack} className="group flex min-w-0 max-w-[min(100%,18rem)] items-center gap-3 transition-opacity hover:opacity-90 sm:max-w-xs">
+						<div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-sm ring-1 sm:h-10 sm:w-10 ${isDarkTheme ? "bg-white text-black ring-white/20" : "bg-zinc-900 text-white ring-zinc-900/10"}`}>
+							<span className="text-sm font-bold sm:text-base">{restaurant?.name?.charAt(0) ?? "M"}</span>
+						</div>
+						<p className="truncate text-left text-base font-bold leading-tight tracking-tight sm:text-lg">{restaurant?.name ?? "Menu"}</p>
 					</button>
-					{email && (
-						<button type="button" onClick={() => void handleSignOut()} className="flex items-center gap-2 text-xs opacity-70 hover:opacity-100">
-							<LogOut size={14} /> Sign out
+					<div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+						<button type="button" onClick={onBack} title="Back to menu" className={`rounded-full border p-2.5 shadow-lg ${iconBtn}`}>
+							<ArrowLeft size={18} />
 						</button>
-					)}
+						{email && (
+							<button type="button" onClick={() => void handleSignOut()} title={`Sign out ${email}`} className={`rounded-full border p-2.5 shadow-lg ${iconBtn}`}>
+								<LogOut size={18} />
+							</button>
+						)}
+						<button type="button" onClick={onToggleTheme} className={`rounded-full border p-2.5 shadow-lg ${iconBtn}`}>
+							{isDarkTheme ? <Sun size={18} /> : <Moon size={18} />}
+						</button>
+					</div>
 				</div>
 			</header>
 
