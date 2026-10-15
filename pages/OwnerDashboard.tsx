@@ -1958,7 +1958,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
       {/* Mobile Navigation Overlay */}
       {isMobileMenuOpen && (
-        <div className={`fixed inset-0 z-[60] backdrop-blur-xl flex flex-col animate-in slide-in-from-right duration-300 ${isDarkTheme ? 'bg-black/95' : 'bg-white/95'}`}>
+        <div className={`fixed inset-0 z-[60] overflow-y-auto overscroll-y-contain backdrop-blur-xl flex flex-col animate-in slide-in-from-right duration-300 ${isDarkTheme ? 'bg-black/95' : 'bg-white/95'}`}>
           <div className="p-4 flex justify-end">
             <button
               onClick={() => setIsMobileMenuOpen(false)}
