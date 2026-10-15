@@ -715,6 +715,82 @@ const handleSaveUnverifiedPhone = async (req: VercelRequest, res: VercelResponse
     return res.status(200).json({ phone });
 };
 
+// ── Automatic refund for rejected orders ─────────────────────────────────────
+type RefundableOrder = {
+    id: string;
+    restaurant_id: string;
+    status: string;
+    total_amount: number;
+    payment_provider: string | null;
+    payment_id: string | null;
+    refund_id: string | null;
+};
+
+const issueRazorpayRefund = async (order: RefundableOrder): Promise<string> => {
+    const creds = getRazorpayCredentials();
+    if (!creds) throw new Error("Razorpay not configured");
+    const auth = Buffer.from(`${creds.keyId}:${creds.keySecret}`).toString("base64");
+    const response = await fetch(`https://api.razorpay.com/v1/payments/${order.payment_id}/refunds`, {
+        method: "POST",
+        headers: {
+            Authorization: `Basic ${auth}`,
+            "Content-Type": "application/json",
+            "X-Refund-Idempotency": order.id,
+        },
+        body: JSON.stringify({
+            amount: Math.round(Number(order.total_amount) * 100),
+            speed: "normal",
+            notes: { orderId: order.id, reason: "Order rejected by kitchen" },
+        }),
+    });
+    const body = (await response.json().catch(() => ({}))) as { id?: string; error?: { description?: string } };
+    if (!response.ok || !body.id) throw new Error(body.error?.description ?? `Razorpay refund failed (${response.status})`);
+    return body.id;
+};
+
+const loadOrderForOwner = async (
+    admin: SupabaseClient,
+    orderId: string,
+    ownerId: string,
+): Promise<RefundableOrder | null> => {
+    const { data: order } = await admin
+        .from("orders")
+        .select("id, restaurant_id, status, total_amount, payment_provider, payment_id, refund_id")
+        .eq("id", orderId)
+        .maybeSingle();
+    if (!order) return null;
+    const { data: restaurant } = await admin
+        .from("restaurants")
+        .select("id")
+        .eq("id", order.restaurant_id)
+        .eq("owner_id", ownerId)
+        .maybeSingle();
+    return restaurant ? (order as RefundableOrder) : null;
+};
+
+const handleRefundOrder = async (req: VercelRequest, res: VercelResponse) => {
+    const admin = requireSupabaseAdmin();
+    const token = getBearerToken(req);
+    const user = token ? await getUserFromAccessToken(admin, token) : null;
+    if (!user) return res.status(401).json({ error: "Please sign in again." });
+    const orderId = String((req.body as { orderId?: string })?.orderId ?? "");
+    const order = orderId ? await loadOrderForOwner(admin, orderId, user.id) : null;
+    if (!order) return res.status(404).json({ error: "Order not found." });
+    if (order.status !== "rejected") return res.status(409).json({ error: "Only rejected orders are refunded." });
+    if (order.refund_id) return res.status(200).json({ refunded: true, refundId: order.refund_id });
+    if (order.payment_provider !== "razorpay" || !order.payment_id) {
+        return res.status(200).json({ refunded: false, reason: "No online payment to refund." });
+    }
+    try {
+        const refundId = await issueRazorpayRefund(order);
+        await admin.from("orders").update({ refund_id: refundId, refunded_at: new Date().toISOString() }).eq("id", order.id);
+        return res.status(200).json({ refunded: true, refundId });
+    } catch (error) {
+        console.error("[confirm-payment/refund-order]", getErrorDetail(error));
+        return res.status(502).json({ error: `Refund failed: ${getErrorDetail(error)}` });
+    }
+};
+
 // ── Router ────────────────────────────────────────────────────────────────────
 const ROUTES: Record<string, (req: VercelRequest, res: VercelResponse) => Promise<unknown>> = {
     "confirm-order": handleConfirmOrder,
@@ -724,6 +800,7 @@ const ROUTES: Record<string, (req: VercelRequest, res: VercelResponse) => Promis
     "send-phone-otp": handleSendPhoneOtp,
     "verify-phone-otp": handleVerifyPhoneOtp,
     "save-unverified-phone": handleSaveUnverifiedPhone,
+    "refund-order": handleRefundOrder,
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

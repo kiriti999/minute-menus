@@ -172,6 +172,8 @@ create table if not exists orders (
 alter table orders add column if not exists subtotal_amount numeric(10, 2);
 alter table orders add column if not exists gst_amount numeric(10, 2) not null default 0;
 alter table orders add column if not exists rejection_reason text;
+alter table orders add column if not exists refund_id text;
+alter table orders add column if not exists refunded_at timestamptz;
 alter type order_status add value if not exists 'rejected';
 
 -- Customer link + per-stage timestamps (kitchen SLA timers / audit reports)

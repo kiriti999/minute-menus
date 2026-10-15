@@ -70,7 +70,7 @@ const OrderRow: React.FC<OrderRowProps> = ({ order, currency, isDarkTheme, isOpe
 				<div className={`flex flex-wrap items-center justify-between gap-3 border-t px-4 py-3 ${isDarkTheme ? "border-zinc-800" : "border-zinc-200"}`}>
 					{isRejected ? (
 						<p className="text-xs text-red-500">
-							{order.rejectionReason ? `Reason: ${order.rejectionReason}. ` : ""}Please contact {order.restaurantName} about a refund.
+							{order.rejectionReason ? `Reason: ${order.rejectionReason}. ` : ""}If you paid online, your refund is issued automatically to the original payment method (5-7 business days).
 						</p>
 					) : (
 						<>
