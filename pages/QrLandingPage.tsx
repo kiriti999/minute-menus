@@ -11,6 +11,7 @@ interface RestaurantLinks {
     name: string;
     zomato_url: string | null;
     swiggy_url: string | null;
+    magicpin_url: string | null;
     directions_url: string | null;
     menu_url: string;
 }
@@ -32,6 +33,7 @@ export const QrLandingPage: React.FC<QrLandingPageProps> = ({ slug }) => {
                     name: data.name,
                     zomato_url: data.zomato_url,
                     swiggy_url: data.swiggy_url,
+                    magicpin_url: data.magicpin_url,
                     directions_url: data.directions_url,
                     menu_url: `${baseUrl}/${data.slug}`,
                 });
@@ -122,6 +124,25 @@ export const QrLandingPage: React.FC<QrLandingPageProps> = ({ slug }) => {
                         <div className="text-left">
                             <div className="font-bold text-base leading-tight">Order on Swiggy</div>
                             <div className="text-xs text-zinc-500">Open in Swiggy app</div>
+                        </div>
+                        <ExternalLink size={16} className="ml-auto opacity-40 shrink-0" />
+                    </a>
+                )}
+
+                {/* Order on Magicpin — only shown if configured */}
+                {links.magicpin_url && (
+                    <a
+                        href={links.magicpin_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-4 w-full bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-700 border border-zinc-800 hover:border-zinc-600 text-white rounded-2xl px-5 py-4 transition-colors duration-150"
+                    >
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 bg-[#E91E63]/15">
+                            <span className="text-[#E91E63] font-black text-lg leading-none">M</span>
+                        </div>
+                        <div className="text-left">
+                            <div className="font-bold text-base leading-tight">Pay &amp; Save on Magicpin</div>
+                            <div className="text-xs text-zinc-500">Open in Magicpin app</div>
                         </div>
                         <ExternalLink size={16} className="ml-auto opacity-40 shrink-0" />
                     </a>

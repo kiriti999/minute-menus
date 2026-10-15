@@ -19,6 +19,7 @@ export type Database = {
                     created_at: string;
                     zomato_url: string | null;
                     swiggy_url: string | null;
+                    magicpin_url: string | null;
                     directions_url: string | null;
                 };
                 Insert: {
@@ -33,6 +34,7 @@ export type Database = {
                     created_at?: string;
                     zomato_url?: string | null;
                     swiggy_url?: string | null;
+                    magicpin_url?: string | null;
                     directions_url?: string | null;
                 };
                 Update: {
@@ -47,6 +49,7 @@ export type Database = {
                     created_at?: string;
                     zomato_url?: string | null;
                     swiggy_url?: string | null;
+                    magicpin_url?: string | null;
                     directions_url?: string | null;
                 };
                 Relationships: [];

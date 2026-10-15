@@ -264,6 +264,7 @@ interface QrCodeModalProps {
   isDarkTheme: boolean;
   initialZomatoUrl: string | null;
   initialSwiggyUrl: string | null;
+  initialMagicpinUrl: string | null;
   initialDirectionsUrl: string | null;
 }
 
@@ -275,6 +276,7 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
   isDarkTheme,
   initialZomatoUrl,
   initialSwiggyUrl,
+  initialMagicpinUrl,
   initialDirectionsUrl,
 }) => {
   const [color, setColor] = useState("#000000");
@@ -290,6 +292,7 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
   // Link configuration state
   const [zomatoUrl, setZomatoUrl] = useState(initialZomatoUrl ?? "");
   const [swiggyUrl, setSwiggyUrl] = useState(initialSwiggyUrl ?? "");
+  const [magicpinUrl, setMagicpinUrl] = useState(initialMagicpinUrl ?? "");
   const [directionsUrl, setDirectionsUrl] = useState(initialDirectionsUrl ?? "");
   const [isSavingLinks, setIsSavingLinks] = useState(false);
   const [linksError, setLinksError] = useState<string | null>(null);
@@ -361,6 +364,7 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
       await supabaseService.updateRestaurantLinks({
         zomato_url: zomatoUrl.trim() || null,
         swiggy_url: swiggyUrl.trim() || null,
+        magicpin_url: magicpinUrl.trim() || null,
         directions_url: directionsUrl.trim() || null,
       });
       setLinksSaved(true);
@@ -561,6 +565,7 @@ const QrCodeModal: React.FC<QrCodeModalProps> = ({
                   {[
                     { label: "Zomato URL", value: zomatoUrl, setter: setZomatoUrl, placeholder: "https://www.zomato.com/..." },
                     { label: "Swiggy URL", value: swiggyUrl, setter: setSwiggyUrl, placeholder: "https://www.swiggy.com/..." },
+                    { label: "Magicpin URL", value: magicpinUrl, setter: setMagicpinUrl, placeholder: "https://magicpin.in/..." },
                     { label: "Directions URL (Google Maps)", value: directionsUrl, setter: setDirectionsUrl, placeholder: "https://share.google/..." },
                   ].map(({ label, value, setter, placeholder }) => (
                     <div key={label}>
@@ -930,6 +935,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     currency: string;
     zomato_url: string | null;
     swiggy_url: string | null;
+    magicpin_url: string | null;
     directions_url: string | null;
     timezone: string;
     delivery_enabled: boolean;
@@ -1878,6 +1884,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           isDarkTheme={isDarkTheme}
           initialZomatoUrl={restaurantDetails.zomato_url}
           initialSwiggyUrl={restaurantDetails.swiggy_url}
+          initialMagicpinUrl={restaurantDetails.magicpin_url}
           initialDirectionsUrl={restaurantDetails.directions_url}
         />
       )}

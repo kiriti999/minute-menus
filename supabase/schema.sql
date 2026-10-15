@@ -46,6 +46,7 @@ create table if not exists restaurants (
 -- Migration: Add delivery platform + directions link columns (QR landing page)
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS zomato_url text;
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS swiggy_url text;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS magicpin_url text;
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS directions_url text;
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS timezone text NOT NULL DEFAULT 'Asia/Kolkata';
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS delivery_enabled boolean NOT NULL DEFAULT true;

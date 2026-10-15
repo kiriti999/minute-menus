@@ -562,6 +562,7 @@ export class SupabaseService {
         currency: string;
         zomato_url: string | null;
         swiggy_url: string | null;
+        magicpin_url: string | null;
         directions_url: string | null;
         timezone: string;
         delivery_enabled: boolean;
@@ -569,7 +570,7 @@ export class SupabaseService {
     } | null> {
         const { data, error } = await this.client
             .from("restaurants")
-            .select("id, name, slug, currency, zomato_url, swiggy_url, directions_url, timezone, delivery_enabled, operating_hours")
+            .select("id, name, slug, currency, zomato_url, swiggy_url, magicpin_url, directions_url, timezone, delivery_enabled, operating_hours")
             .eq("slug", slug)
             .maybeSingle();
 
@@ -579,6 +580,7 @@ export class SupabaseService {
             currency: data.currency || "USD",
             zomato_url: data.zomato_url ?? null,
             swiggy_url: data.swiggy_url ?? null,
+            magicpin_url: data.magicpin_url ?? null,
             directions_url: data.directions_url ?? null,
             timezone: data.timezone || "Asia/Kolkata",
             delivery_enabled: data.delivery_enabled ?? true,
@@ -612,6 +614,7 @@ export class SupabaseService {
         currency: string;
         zomato_url: string | null;
         swiggy_url: string | null;
+        magicpin_url: string | null;
         directions_url: string | null;
         timezone: string;
         delivery_enabled: boolean;
@@ -620,7 +623,7 @@ export class SupabaseService {
         const rid = await this.getRestaurantId();
         const { data, error } = await this.client
             .from("restaurants")
-            .select("id, name, slug, currency, zomato_url, swiggy_url, directions_url, timezone, delivery_enabled, operating_hours")
+            .select("id, name, slug, currency, zomato_url, swiggy_url, magicpin_url, directions_url, timezone, delivery_enabled, operating_hours")
             .eq("id", rid)
             .single();
 
@@ -630,6 +633,7 @@ export class SupabaseService {
             currency: data.currency || "USD",
             zomato_url: data.zomato_url ?? null,
             swiggy_url: data.swiggy_url ?? null,
+            magicpin_url: data.magicpin_url ?? null,
             directions_url: data.directions_url ?? null,
             timezone: data.timezone || "Asia/Kolkata",
             delivery_enabled: data.delivery_enabled ?? true,
@@ -721,6 +725,7 @@ export class SupabaseService {
     async updateRestaurantLinks(links: {
         zomato_url: string | null;
         swiggy_url: string | null;
+        magicpin_url: string | null;
         directions_url: string | null;
     }): Promise<void> {
         const rid = await this.getRestaurantId();
