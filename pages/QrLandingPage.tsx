@@ -1,6 +1,7 @@
 import { ExternalLink, MapPin, Zap } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
+import { brandInitials } from "../lib/brandInitials";
 import { supabaseService } from "../services/supabaseService";
 
 interface QrLandingPageProps {
@@ -67,7 +68,7 @@ export const QrLandingPage: React.FC<QrLandingPageProps> = ({ slug }) => {
             <div className="w-full max-w-sm mb-10 text-center">
                 <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-[0_0_40px_rgba(255,255,255,0.15)]">
                     <span className="text-black font-bold text-2xl">
-                        {links.name[0]?.toUpperCase() ?? "R"}
+                        {brandInitials(links.name)}
                     </span>
                 </div>
                 <h1 className="text-2xl font-bold text-white tracking-tight">{links.name}</h1>

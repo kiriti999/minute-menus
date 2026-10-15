@@ -5,6 +5,7 @@ import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, Download, Loader2, L
 import type React from "react";
 import { useCallback, useEffect, useState } from "react";
 import { CUSTOMER_STATUS_COPY } from "../components/orderStatus";
+import { brandInitials } from "../lib/brandInitials";
 import { downloadOrderInvoice, orderNumber } from "../lib/orderInvoicePdf";
 import { supabaseService } from "../services/supabaseService";
 
@@ -182,7 +183,7 @@ export const MyOrdersPage: React.FC<MyOrdersPageProps> = ({ slug, isDarkTheme, o
 				<div className="flex min-h-[4.5rem] items-center justify-between gap-3 px-4 py-3 sm:min-h-20 sm:px-8 lg:px-10">
 					<button type="button" onClick={onBack} className="group flex min-w-0 max-w-[min(100%,18rem)] items-center gap-3 transition-opacity hover:opacity-90 sm:max-w-xs">
 						<div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl shadow-sm ring-1 sm:h-10 sm:w-10 ${isDarkTheme ? "bg-white text-black ring-white/20" : "bg-zinc-900 text-white ring-zinc-900/10"}`}>
-							<span className="text-sm font-bold sm:text-base">{restaurant?.name?.charAt(0) ?? "M"}</span>
+							<span className="text-sm font-bold sm:text-base">{brandInitials(restaurant?.name)}</span>
 						</div>
 						<p className="truncate text-left text-base font-bold leading-tight tracking-tight sm:text-lg">{restaurant?.name ?? "Menu"}</p>
 					</button>

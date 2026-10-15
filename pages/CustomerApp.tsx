@@ -38,6 +38,7 @@ import {
 import { isDishSoldOut, MenuGridCard, MenuListCard } from "@minute-menus/reels";
 import { supabaseService } from "../services/supabaseService";
 import { supabase } from "../lib/supabase";
+import { brandInitials } from "../lib/brandInitials";
 import { formatDisplayName } from "../lib/formatDisplayName";
 import { openRazorpayCheckout } from "../lib/loadRazorpayCheckout";
 import { PAYMENT_API_PATHS } from "../lib/api/paymentRouteRewrites";
@@ -1271,7 +1272,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
               }`}
             >
               <span className="font-bold text-sm sm:text-base">
-                {displayRestaurantName ? displayRestaurantName.charAt(0) : "M"}
+                {brandInitials(displayRestaurantName)}
               </span>
             </div>
             <div className="min-w-0 text-left">
