@@ -1203,10 +1203,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     }
   };
 
-  const handleRefundOrder = async (orderId: string) => {
+  const handleRefundOrder = async (orderId: string, pin: string) => {
     setKitchenOrdersError("");
     try {
-      const refundId = await supabaseService.refundRejectedOrder(orderId);
+      const refundId = await supabaseService.refundRejectedOrder(orderId, pin);
       setKitchenOrders((orders) => orders.map((order) => (order.id === orderId ? { ...order, refundId } : order)));
     } catch (error) {
       setKitchenOrdersError(getErrorMessage(error));

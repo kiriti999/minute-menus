@@ -724,6 +724,7 @@ type RefundableOrder = {
     payment_provider: string | null;
     payment_id: string | null;
     refund_id: string | null;
+    rejected_at: string | null;
 };
 
 const issueRazorpayRefund = async (order: RefundableOrder): Promise<string> => {
@@ -755,7 +756,7 @@ const loadOrderForOwner = async (
 ): Promise<RefundableOrder | null> => {
     const { data: order } = await admin
         .from("orders")
-        .select("id, restaurant_id, status, total_amount, payment_provider, payment_id, refund_id")
+        .select("id, restaurant_id, status, total_amount, payment_provider, payment_id, refund_id, rejected_at")
         .eq("id", orderId)
         .maybeSingle();
     if (!order) return null;
@@ -768,6 +769,17 @@ const loadOrderForOwner = async (
     return restaurant ? (order as RefundableOrder) : null;
 };
 
+const AUTO_REFUND_WINDOW_MS = 60_000;
+
+// A manual retry needs the owner's secret PIN; the automatic refund fired right after rejection does not.
+const isRefundAuthorized = (order: RefundableOrder, pin: string): boolean => {
+    const rejectedAt = order.rejected_at ? Date.parse(order.rejected_at) : 0;
+    if (Date.now() - rejectedAt < AUTO_REFUND_WINDOW_MS) return true;
+    const expected = process.env.REFUND_PIN ?? "";
+    if (!/^\d{4}$/.test(expected) || !/^\d{4}$/.test(pin)) return false;
+    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(pin));
+};
+
 const handleRefundOrder = async (req: VercelRequest, res: VercelResponse) => {
     const admin = requireSupabaseAdmin();
     const token = getBearerToken(req);
@@ -778,6 +790,10 @@ const handleRefundOrder = async (req: VercelRequest, res: VercelResponse) => {
     if (!order) return res.status(404).json({ error: "Order not found." });
     if (order.status !== "rejected") return res.status(409).json({ error: "Only rejected orders are refunded." });
     if (order.refund_id) return res.status(200).json({ refunded: true, refundId: order.refund_id });
+    const pin = String((req.body as { pin?: string })?.pin ?? "");
+    if (!isRefundAuthorized(order, pin)) {
+        return res.status(403).json({ error: process.env.REFUND_PIN ? "Incorrect refund PIN." : "REFUND_PIN is not configured on the server." });
+    }
     if (order.payment_provider !== "razorpay" || !order.payment_id) {
         return res.status(200).json({ refunded: false, reason: "No online payment to refund." });
     }

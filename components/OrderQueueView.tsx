@@ -39,12 +39,12 @@ interface OrderQueueViewProps {
   telegramChatId: string;
   onSaveTelegramChatId: (chatId: string) => Promise<void>;
   onUpdateOrderStatus: (orderId: string, status: OrderStatus, rejectionReason?: string) => Promise<void>;
-  onRefundOrder: (orderId: string) => Promise<void>;
+  onRefundOrder: (orderId: string, pin: string) => Promise<void>;
   onTestSound: () => void;
   isTestSoundPlaying: boolean;
 }
 
-const RefundStatus = ({ order, onRefund }: { order: KitchenOrder; onRefund: (orderId: string) => Promise<void> }) => {
+const RefundStatus = ({ order, onRefund }: { order: KitchenOrder; onRefund: (orderId: string, pin: string) => Promise<void> }) => {
   const [busy, setBusy] = useState(false);
   if (order.refundId) return <span className="text-sm font-medium text-green-500">Refunded</span>;
   if (order.paymentProvider !== "razorpay") return <span className="text-sm text-red-500">Rejected</span>;
@@ -53,8 +53,10 @@ const RefundStatus = ({ order, onRefund }: { order: KitchenOrder; onRefund: (ord
       type="button"
       disabled={busy}
       onClick={async () => {
+        const pin = window.prompt("Enter the 4-digit refund PIN")?.trim() ?? "";
+        if (!pin) return;
         setBusy(true);
-        await onRefund(order.id);
+        await onRefund(order.id, pin);
         setBusy(false);
       }}
       className="rounded bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-60"

@@ -292,13 +292,13 @@ export class SupabaseService {
     }
 
     /** Asks the server to refund the Razorpay payment (if any) of a rejected order. */
-    async refundRejectedOrder(orderId: string): Promise<string | undefined> {
+    async refundRejectedOrder(orderId: string, pin?: string): Promise<string | undefined> {
         const { data: { session } } = await this.client.auth.getSession();
         if (!session) throw new Error("Please sign in again.");
         const response = await fetch("/api/confirm-payment?action=refund-order", {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
-            body: JSON.stringify({ orderId }),
+            body: JSON.stringify({ orderId, pin }),
         });
         const payload = (await response.json().catch(() => ({}))) as { error?: string; refundId?: string };
         if (!response.ok) {
