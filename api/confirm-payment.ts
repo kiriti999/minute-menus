@@ -731,7 +731,7 @@ const issueRazorpayRefund = async (order: RefundableOrder): Promise<string> => {
     const creds = getRazorpayCredentials();
     if (!creds) throw new Error("Razorpay not configured");
     const auth = Buffer.from(`${creds.keyId}:${creds.keySecret}`).toString("base64");
-    const response = await fetch(`https://api.razorpay.com/v1/payments/${order.payment_id}/refunds`, {
+    const response = await fetch(`https://api.razorpay.com/v1/payments/${order.payment_id}/refund`, {
         method: "POST",
         headers: {
             Authorization: `Basic ${auth}`,
@@ -745,6 +745,7 @@ const issueRazorpayRefund = async (order: RefundableOrder): Promise<string> => {
         }),
     });
     const body = (await response.json().catch(() => ({}))) as { id?: string; error?: { description?: string } };
+    if (!response.ok || !body.id) console.error("[refund] razorpay response", response.status, JSON.stringify(body));
     if (!response.ok || !body.id) throw new Error(body.error?.description ?? `Razorpay refund failed (${response.status})`);
     return body.id;
 };
