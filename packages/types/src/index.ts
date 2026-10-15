@@ -167,6 +167,8 @@ export interface KitchenOrder {
   readyAt?: string;
   completedAt?: string;
   rejectedAt?: string;
+  paymentProvider?: string;
+  refundId?: string;
 }
 
 export interface CustomerOrder extends KitchenOrder {

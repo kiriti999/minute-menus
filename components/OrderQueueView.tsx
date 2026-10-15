@@ -39,9 +39,30 @@ interface OrderQueueViewProps {
   telegramChatId: string;
   onSaveTelegramChatId: (chatId: string) => Promise<void>;
   onUpdateOrderStatus: (orderId: string, status: OrderStatus, rejectionReason?: string) => Promise<void>;
+  onRefundOrder: (orderId: string) => Promise<void>;
   onTestSound: () => void;
   isTestSoundPlaying: boolean;
 }
+
+const RefundStatus = ({ order, onRefund }: { order: KitchenOrder; onRefund: (orderId: string) => Promise<void> }) => {
+  const [busy, setBusy] = useState(false);
+  if (order.refundId) return <span className="text-sm font-medium text-green-500">Refunded</span>;
+  if (order.paymentProvider !== "razorpay") return <span className="text-sm text-red-500">Rejected</span>;
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={async () => {
+        setBusy(true);
+        await onRefund(order.id);
+        setBusy(false);
+      }}
+      className="rounded bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-60"
+    >
+      {busy ? "Refunding…" : "Retry refund"}
+    </button>
+  );
+};
 
 const formatDuration = (ms: number): string => {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
@@ -93,6 +114,7 @@ export const OrderQueueView = ({
   telegramChatId,
   onSaveTelegramChatId,
   onUpdateOrderStatus,
+  onRefundOrder,
   onTestSound,
   isTestSoundPlaying,
 }: OrderQueueViewProps) => {
@@ -244,6 +266,8 @@ export const OrderQueueView = ({
                         </button>
                       )}
                     </div>
+                  ) : order.status === "rejected" ? (
+                    <RefundStatus order={order} onRefund={onRefundOrder} />
                   ) : (
                     <span className="flex items-center gap-1 text-sm font-medium text-green-500">
                       <Check size={15} />
@@ -264,7 +288,7 @@ export const OrderQueueView = ({
                     >
                       {REJECTION_REASONS.map((reason) => <option key={reason}>{reason}</option>)}
                     </select>
-                    <p className="mt-2 text-xs text-red-500">This marks the paid order as rejected. Refunds must be handled separately.</p>
+                    <p className="mt-2 text-xs text-red-500">This marks the order as rejected. Online payments are refunded to the customer automatically.</p>
                     <div className="mt-3 flex justify-end gap-2">
                       <button type="button" onClick={() => setRejectingOrderId(null)} className={`rounded px-3 py-2 text-sm ${mutedText}`}>
                         Cancel

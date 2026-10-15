@@ -42,7 +42,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@minute-menus/types/db";
 
 const ORDER_COLUMNS =
-    "id, items, total_amount, status, rejection_reason, created_at, confirmed_at, ready_at, completed_at, rejected_at";
+    "id, items, total_amount, status, rejection_reason, created_at, confirmed_at, ready_at, completed_at, rejected_at, payment_provider, refund_id";
 const CUSTOMER_PHONE_OTP_ENABLED = import.meta.env.VITE_CUSTOMER_PHONE_OTP_ENABLED !== "false";
 
 const ORDER_STATUS_STAMP: Partial<Record<OrderStatus, "confirmed_at" | "preparing_at" | "ready_at" | "completed_at" | "rejected_at">> = {
@@ -64,6 +64,8 @@ const mapOrderRow = (order: {
     ready_at: string | null;
     completed_at: string | null;
     rejected_at: string | null;
+    payment_provider: string | null;
+    refund_id: string | null;
 }): KitchenOrder => ({
     id: order.id,
     items: order.items as unknown as KitchenOrder["items"],
@@ -75,6 +77,8 @@ const mapOrderRow = (order: {
     readyAt: order.ready_at ?? undefined,
     completedAt: order.completed_at ?? undefined,
     rejectedAt: order.rejected_at ?? undefined,
+    paymentProvider: order.payment_provider ?? undefined,
+    refundId: order.refund_id ?? undefined,
 });
 
 import { mapDailyOrders, rowsToCategoryTree } from "./mappers";
@@ -288,7 +292,7 @@ export class SupabaseService {
     }
 
     /** Asks the server to refund the Razorpay payment (if any) of a rejected order. */
-    private async refundRejectedOrder(orderId: string): Promise<void> {
+    async refundRejectedOrder(orderId: string): Promise<string | undefined> {
         const { data: { session } } = await this.client.auth.getSession();
         if (!session) throw new Error("Please sign in again.");
         const response = await fetch("/api/confirm-payment?action=refund-order", {
@@ -296,10 +300,11 @@ export class SupabaseService {
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
             body: JSON.stringify({ orderId }),
         });
-        const payload = (await response.json().catch(() => ({}))) as { error?: string };
+        const payload = (await response.json().catch(() => ({}))) as { error?: string; refundId?: string };
         if (!response.ok) {
-            throw new Error(`Order rejected, but the refund did not go through. ${payload.error ?? ""} Please refund it from the Razorpay dashboard.`.trim());
+            throw new Error(`Refund did not go through. ${payload.error ?? ""}`.trim());
         }
+        return payload.refundId;
     }
 
     private async withRestaurantNames(

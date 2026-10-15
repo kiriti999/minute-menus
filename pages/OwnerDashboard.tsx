@@ -1203,6 +1203,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     }
   };
 
+  const handleRefundOrder = async (orderId: string) => {
+    setKitchenOrdersError("");
+    try {
+      const refundId = await supabaseService.refundRejectedOrder(orderId);
+      setKitchenOrders((orders) => orders.map((order) => (order.id === orderId ? { ...order, refundId } : order)));
+    } catch (error) {
+      setKitchenOrdersError(getErrorMessage(error));
+    }
+  };
+
   const handleTelegramChatIdSave = async (chatId: string) => {
     await supabaseService.saveOwnerTelegramChatId(chatId);
     setTelegramChatId(chatId.trim());
@@ -3331,6 +3341,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             telegramChatId={telegramChatId}
             onSaveTelegramChatId={handleTelegramChatIdSave}
             onUpdateOrderStatus={handleOrderStatusChange}
+            onRefundOrder={handleRefundOrder}
             onTestSound={toggleTestSound}
             isTestSoundPlaying={isTestSoundPlaying}
           />
