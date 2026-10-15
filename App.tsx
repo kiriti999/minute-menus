@@ -19,6 +19,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { OwnerDashboard } from "./pages/OwnerDashboard";
 import { QrLandingPage } from "./pages/QrLandingPage";
 import { MenuListPage } from "./pages/MenuListPage";
+import { MyOrdersPage } from "./pages/MyOrdersPage";
 import { RecipeBookPage } from "./pages/RecipeBookPage";
 import { StaffClockPage } from "./pages/StaffClockPage";
 import { AppMode } from "@minute-menus/types";
@@ -42,6 +43,11 @@ function parseRecipeBookRoute(pathname: string): string | null {
 
 function parseMenuListRoute(pathname: string): string | null {
     const match = pathname.match(/^\/([a-z0-9-]+)\/menu\/?$/i);
+    return match ? match[1].toLowerCase() : null;
+}
+
+function parseMyOrdersRoute(pathname: string): string | null {
+    const match = pathname.match(/^\/([a-z0-9-]+)\/orders\/?$/i);
     return match ? match[1].toLowerCase() : null;
 }
 
@@ -171,6 +177,20 @@ const App: React.FC = () => {
                 isDarkTheme={isDarkTheme}
                 onBack={() => {
                     window.location.href = `/${menuListSlug}`;
+                }}
+            />
+        );
+    }
+
+    const myOrdersSlug = parseMyOrdersRoute(path);
+    if (myOrdersSlug) {
+        return (
+            <MyOrdersPage
+                key={path}
+                slug={myOrdersSlug}
+                isDarkTheme={isDarkTheme}
+                onBack={() => {
+                    window.location.href = `/${myOrdersSlug}`;
                 }}
             />
         );

@@ -172,6 +172,14 @@ export interface KitchenOrder {
 export interface CustomerOrder extends KitchenOrder {
   restaurantId: string;
   restaurantName: string;
+  /** Pre-tax subtotal recorded at checkout (absent on older orders). */
+  subtotalAmount?: number;
+  gstAmount?: number;
+}
+
+export interface CustomerOrderPage {
+  orders: CustomerOrder[];
+  total: number;
 }
 
 export interface AnalyticsMetric {

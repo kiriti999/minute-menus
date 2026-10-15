@@ -43,7 +43,8 @@ import { openRazorpayCheckout } from "../lib/loadRazorpayCheckout";
 import { PAYMENT_API_PATHS } from "../lib/api/paymentRouteRewrites";
 import { ButtonSpinner } from "@minute-menus/ui";
 import { getErrorMessage } from "@minute-menus/errors";
-import { CustomerOrdersPanel, CUSTOMER_STATUS_COPY } from "../components/CustomerOrdersPanel";
+import { CUSTOMER_STATUS_COPY, isOrderInFlight } from "../components/orderStatus";
+import { LiveOrderTracker } from "../components/LiveOrderTracker";
 import type { Category, CustomerAddress, CustomerOrder, CustomerProfile, CustomerSubscription, DailyOrder, Dish, MealPlan, OrderItem, SubDeliveryType, DeliveryFeeMode, TicketReason, TimeSlot, WeeklyOperatingHours, RestaurantAvailability } from "@minute-menus/types";
 import { getAvailabilityStatus, TICKET_REASON_LABELS, TIME_SLOT_LABELS } from "@minute-menus/types";
 import { CustomerAddressLocate } from "../components/CustomerAddressLocate";
@@ -154,10 +155,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   // ── Customer Auth & Profile (required before checkout) ─────────────────────
   type AuthStep = "auth" | "otp" | "details";
   const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null);
-  const [isOrdersPanelOpen, setIsOrdersPanelOpen] = useState(false);
   const [myOrders, setMyOrders] = useState<CustomerOrder[]>([]);
-  const [myOrdersLoading, setMyOrdersLoading] = useState(false);
-  const [myOrdersError, setMyOrdersError] = useState("");
   const [orderToast, setOrderToast] = useState("");
   const lastOrderStatusRef = useRef<Map<string, string>>(new Map());
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -294,9 +292,10 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     return () => subscription.unsubscribe();
   }, [isAuthModalOpen]);
 
-  // Poll the customer's orders (fast while the panel is open or an order is in flight)
-  // and announce status changes with a toast.
-  const hasActiveOrder = myOrders.some((order) => order.status !== "completed" && order.status !== "rejected");
+  // Poll the customer's orders (fast while an order is in flight) to drive the live
+  // header tracker and announce status changes with a toast.
+  const activeOrders = myOrders.filter((order) => isOrderInFlight(order.status));
+  const hasActiveOrder = activeOrders.length > 0;
   useEffect(() => {
     if (!customerProfile) {
       setMyOrders([]);
@@ -304,8 +303,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       return;
     }
     let cancelled = false;
-    const load = async (showSpinner: boolean) => {
-      if (showSpinner) setMyOrdersLoading(true);
+    const load = async () => {
       try {
         const orders = await supabaseService.getMyOrders();
         if (cancelled) return;
@@ -316,21 +314,17 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         }
         lastOrderStatusRef.current = new Map(orders.map((order) => [order.id, order.status]));
         setMyOrders(orders);
-        setMyOrdersError("");
       } catch (error) {
-        if (!cancelled) setMyOrdersError(`Could not load orders: ${getErrorMessage(error)}`);
-      } finally {
-        if (!cancelled && showSpinner) setMyOrdersLoading(false);
+        if (!cancelled) console.error("Could not load orders", error);
       }
     };
-    void load(true);
-    const pollMs = isOrdersPanelOpen || hasActiveOrder ? 10_000 : 60_000;
-    const timer = window.setInterval(() => void load(false), pollMs);
+    void load();
+    const timer = window.setInterval(() => void load(), hasActiveOrder ? 10_000 : 60_000);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [customerProfile?.userId, isOrdersPanelOpen, hasActiveOrder]);
+  }, [customerProfile?.userId, hasActiveOrder]);
 
   useEffect(() => {
     if (!orderToast) return;
@@ -839,30 +833,6 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     }
   };
 
-  const handleCustomerSignOut = async () => {
-    await supabaseService.customerSignOut();
-    setCustomerProfile(null);
-    setAuthEmail("");
-    setAuthPassword("");
-    setOtpCode("");
-    setDetailsName("");
-    setDetailsPhone("");
-    setVerifiedPhone("");
-    setPhoneOtpSent(false);
-    setPhoneOtpCode("");
-    setDetailsAddressLine1("");
-    setDetailsAddressLine2("");
-    setDetailsStreet("");
-    setDetailsArea("");
-    setDetailsLandmark("");
-    setDetailsCity("");
-    setDetailsState(DEFAULT_DELIVERY_STATE);
-    setDetailsPincode("");
-    setDetailsLat(undefined);
-    setDetailsLng(undefined);
-    setDetailsFormattedAddress("");
-  };
-
   const processOrderPayment = async (profile: CustomerProfile) => {
     if (!orderingStatus.open) {
       alert(orderingStatus.message);
@@ -1282,7 +1252,10 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   // ────────────────────────────────────────────────────────────────────
 
   return (
-    <div className={`h-screen w-full ${isDarkTheme ? 'bg-black text-white' : 'bg-white text-black'} overflow-hidden font-sans relative transition-colors duration-300`}>
+    <div
+      style={{ ["--trk" as string]: hasActiveOrder ? "2.5rem" : "0rem" }}
+      className={`h-screen w-full ${isDarkTheme ? 'bg-black text-white' : 'bg-white text-black'} overflow-hidden font-sans relative transition-colors duration-300`}
+    >
       {/* === Header === */}
       <div className={`fixed top-0 left-0 right-0 z-50 pointer-events-none ${isDarkTheme ? "bg-zinc-950/95" : "bg-white/95"} backdrop-blur-md border-b ${isDarkTheme ? "border-zinc-800" : "border-zinc-200"}`}>
         <div className="flex justify-between items-center min-h-[4.5rem] sm:min-h-20 px-4 py-3 sm:px-8 lg:px-10 pointer-events-auto">
@@ -1327,7 +1300,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
             {/* User Account Button */}
             {customerProfile ? (
               <button
-                onClick={() => setIsOrdersPanelOpen(true)}
+                onClick={() => { if (restaurantSlug) window.location.href = `/${restaurantSlug}/orders`; }}
                 className={`relative p-2.5 rounded-full backdrop-blur-md border transition-colors shadow-lg ${isDarkTheme ? 'bg-black/40 border-white/20 hover:bg-black/60' : 'bg-white/40 border-black/20 hover:bg-white/60'}`}
                 title={`Signed in as ${customerProfile.email} — view my orders`}
               >
@@ -1383,19 +1356,22 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
             </button>
           </div>
         </div>
+        {hasActiveOrder && (
+          <LiveOrderTracker order={activeOrders[0]} extraCount={activeOrders.length - 1} isDarkTheme={isDarkTheme} />
+        )}
       </div>
 
       {!menuLoading && displayCategories.length > 0 && (
         <>
         {!orderingStatus.open && (
-          <div className="fixed top-[4.5rem] left-4 right-4 z-50 mx-auto max-w-lg rounded-xl border border-amber-500/40 bg-amber-950/95 px-4 py-2.5 text-center text-xs font-medium text-amber-100 shadow-lg backdrop-blur-md">
+          <div className="fixed top-[calc(4.5rem_+_var(--trk))] left-4 right-4 z-50 mx-auto max-w-lg rounded-xl border border-amber-500/40 bg-amber-950/95 px-4 py-2.5 text-center text-xs font-medium text-amber-100 shadow-lg backdrop-blur-md">
             {orderingStatus.message}
           </div>
         )}
         <div
           ref={categoryNavRef}
           className={`fixed left-0 right-0 z-40 pointer-events-none ${
-            orderingStatus.open ? "top-[4.5rem] sm:top-20" : "top-[7.3rem] sm:top-[7.8rem]"
+            orderingStatus.open ? "top-[calc(4.5rem_+_var(--trk))] sm:top-[calc(5rem_+_var(--trk))]" : "top-[calc(7.3rem_+_var(--trk))] sm:top-[calc(7.8rem_+_var(--trk))]"
           } ${
             isDarkTheme
               ? "bg-zinc-950/95 border-b border-zinc-800"
@@ -1488,7 +1464,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       {/* === Menu browse === */}
       <div
         ref={containerRef}
-        className={`h-full w-full overflow-y-auto overscroll-contain scroll-smooth ${orderingStatus.open ? "pt-[7.5rem] sm:pt-[8.5rem]" : "pt-[10.3rem] sm:pt-[11rem]"} pb-24 ${isDarkTheme ? "bg-zinc-950" : "bg-white"}`}
+        className={`h-full w-full overflow-y-auto overscroll-contain scroll-smooth ${orderingStatus.open ? "pt-[calc(7.5rem_+_var(--trk))] sm:pt-[calc(8.5rem_+_var(--trk))]" : "pt-[calc(10.3rem_+_var(--trk))] sm:pt-[calc(11rem_+_var(--trk))]"} pb-24 ${isDarkTheme ? "bg-zinc-950" : "bg-white"}`}
       >
         {menuLoading ? (
           <div className={`flex items-center justify-center py-20 text-sm ${isDarkTheme ? "text-zinc-500" : "text-zinc-400"}`}>
@@ -1506,7 +1482,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                   key={cat.id}
                   id={`menu-cat-${cat.id}`}
                   data-category-id={cat.id}
-                  className={`scroll-mt-[7.5rem] sm:scroll-mt-[8.5rem] ${
+                  className={`scroll-mt-[calc(7.5rem_+_var(--trk))] sm:scroll-mt-[calc(8.5rem_+_var(--trk))] ${
                     isDarkTheme ? "border-t border-zinc-800/80 pt-28 md:pt-44 first:border-t-0 first:pt-0" : "border-t border-zinc-200 pt-28 md:pt-44 first:border-t-0 first:pt-0"
                   }`}
                 >
@@ -1549,21 +1525,10 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       </div>
 
       {/* === Customer Auth Modal (Multi-step) === */}
-      <CustomerOrdersPanel
-        isOpen={isOrdersPanelOpen}
-        isDarkTheme={isDarkTheme}
-        email={customerProfile?.email ?? ""}
-        orders={myOrders}
-        isLoading={myOrdersLoading}
-        error={myOrdersError}
-        currency={currency}
-        onClose={() => setIsOrdersPanelOpen(false)}
-        onSignOut={() => { setIsOrdersPanelOpen(false); void handleCustomerSignOut(); }}
-      />
       {orderToast && (
         <button
           type="button"
-          onClick={() => { setOrderToast(""); setIsOrdersPanelOpen(true); }}
+          onClick={() => setOrderToast("")}
           className="fixed left-1/2 top-4 z-[80] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 rounded-xl bg-indigo-600 px-4 py-3 text-left text-sm font-medium text-white shadow-2xl"
         >
           {orderToast}

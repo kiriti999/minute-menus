@@ -9,6 +9,7 @@ import type {
     CustomerAddress,
     CustomerDirectoryEntry,
     CustomerOrder,
+    CustomerOrderPage,
     CustomerProfile,
     CustomerSubscription,
     DailyOrder,
@@ -285,18 +286,13 @@ export class SupabaseService {
         return now;
     }
 
-    async getMyOrders(): Promise<CustomerOrder[]> {
-        const { data: userData } = await this.client.auth.getUser();
-        const uid = userData.user?.id;
-        if (!uid) return [];
-        const { data, error } = await this.client
-            .from("orders")
-            .select(`${ORDER_COLUMNS}, restaurant_id`)
-            .eq("customer_user_id", uid)
-            .order("created_at", { ascending: false })
-            .limit(50);
-        if (error) throw error;
-        const rows = data ?? [];
+    private async withRestaurantNames(
+        rows: Array<Parameters<typeof mapOrderRow>[0] & {
+            restaurant_id: string;
+            subtotal_amount: number | null;
+            gst_amount: number | null;
+        }>,
+    ): Promise<CustomerOrder[]> {
         const restaurantIds = [...new Set(rows.map((row) => row.restaurant_id))];
         const { data: restaurants } = restaurantIds.length
             ? await this.client.from("restaurants").select("id, name").in("id", restaurantIds)
@@ -306,7 +302,41 @@ export class SupabaseService {
             ...mapOrderRow(row),
             restaurantId: row.restaurant_id,
             restaurantName: names.get(row.restaurant_id) ?? "Restaurant",
+            subtotalAmount: row.subtotal_amount ?? undefined,
+            gstAmount: row.gst_amount ?? undefined,
         }));
+    }
+
+    /** Recent orders of the signed-in customer (used for live tracking). */
+    async getMyOrders(): Promise<CustomerOrder[]> {
+        const { data: userData } = await this.client.auth.getUser();
+        const uid = userData.user?.id;
+        if (!uid) return [];
+        const { data, error } = await this.client
+            .from("orders")
+            .select(`${ORDER_COLUMNS}, restaurant_id, subtotal_amount, gst_amount`)
+            .eq("customer_user_id", uid)
+            .order("created_at", { ascending: false })
+            .limit(50);
+        if (error) throw error;
+        return this.withRestaurantNames(data ?? []);
+    }
+
+    /** One page of finished (completed or rejected) orders, newest first. */
+    async getMyOrderHistory(page: number, pageSize: number): Promise<CustomerOrderPage> {
+        const { data: userData } = await this.client.auth.getUser();
+        const uid = userData.user?.id;
+        if (!uid) return { orders: [], total: 0 };
+        const from = Math.max(0, page - 1) * pageSize;
+        const { data, error, count } = await this.client
+            .from("orders")
+            .select(`${ORDER_COLUMNS}, restaurant_id, subtotal_amount, gst_amount`, { count: "exact" })
+            .eq("customer_user_id", uid)
+            .in("status", ["completed", "rejected"])
+            .order("created_at", { ascending: false })
+            .range(from, from + pageSize - 1);
+        if (error) throw error;
+        return { orders: await this.withRestaurantNames(data ?? []), total: count ?? 0 };
     }
 
     // ── Subscription Tier ────────────────────────────────────────────────────────
