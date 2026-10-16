@@ -3359,20 +3359,24 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
         )}
 
         {currentView === "SALES" && restaurantDetails && (
-          <SalesView
-            currency={restaurantDetails.currency}
-            isDarkTheme={isDarkTheme}
-            onNewBill={() => setCurrentView("COUNTER")}
-          />
+          <div className={`flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-10 animate-in fade-in duration-500 pb-24 ${isDarkTheme ? "bg-black" : "bg-zinc-50"}`}>
+            <SalesView
+              currency={restaurantDetails.currency}
+              isDarkTheme={isDarkTheme}
+              onNewBill={() => setCurrentView("COUNTER")}
+            />
+          </div>
         )}
 
         {currentView === "COUNTER" && restaurantDetails && (
-          <CounterBillView
-            menuItems={menuItems}
-            restaurantId={restaurantDetails.id}
-            currency={restaurantDetails.currency}
-            isDarkTheme={isDarkTheme}
-          />
+          <div className={`flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-10 animate-in fade-in duration-500 pb-24 ${isDarkTheme ? "bg-black" : "bg-zinc-50"}`}>
+            <CounterBillView
+              menuItems={menuItems}
+              restaurantId={restaurantDetails.id}
+              currency={restaurantDetails.currency}
+              isDarkTheme={isDarkTheme}
+            />
+          </div>
         )}
 
         {currentView === "ORDERS" && restaurantDetails && (
