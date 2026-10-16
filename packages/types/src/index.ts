@@ -263,12 +263,100 @@ export interface MealPlan {
   restaurantId: string;
   name: string;
   description: string;
+  pricingOptions: MealPlanPricingOption[];
   priceMonthly: number;
   deliveryFee: number;
   isActive: boolean;
   dishIds: string[];
   createdAt: string;
 }
+
+export type MealSlot = 'breakfast' | 'lunch' | 'dinner';
+
+export const MEAL_SLOT_LABELS: Record<MealSlot, string> = {
+  breakfast: 'Breakfast',
+  lunch: 'Lunch',
+  dinner: 'Dinner',
+};
+
+export const MEAL_SLOT_TIME_SLOTS: Record<MealSlot, TimeSlot> = {
+  breakfast: '08-09',
+  lunch: '12-14',
+  dinner: '19-21',
+};
+
+export const MEAL_SLOTS_BY_COUNT: Record<number, MealSlot[]> = {
+  1: ['lunch'],
+  2: ['lunch', 'dinner'],
+  3: ['breakfast', 'lunch', 'dinner'],
+};
+
+export interface MealPlanPricingOption {
+  durationDays: number;
+  mealsPerDay: number;
+  pricePerMeal: number;
+}
+
+export const DEFAULT_MEAL_PLAN_PRICING_OPTIONS: MealPlanPricingOption[] = [
+  ...[3, 7, 14, 28].flatMap((durationDays) =>
+    [1, 2, 3].map((mealsPerDay) => ({ durationDays, mealsPerDay, pricePerMeal: 0 })),
+  ),
+];
+
+export const normalizeMealPlanPricingOptions = (
+  value: unknown,
+  fallbackPricePerMeal = 0,
+): MealPlanPricingOption[] => {
+  if (!Array.isArray(value)) {
+    return DEFAULT_MEAL_PLAN_PRICING_OPTIONS.map((option) => ({
+      ...option,
+      pricePerMeal: fallbackPricePerMeal,
+    }));
+  }
+
+  return value.flatMap((entry) => {
+    if (typeof entry !== 'object' || entry === null) return [];
+    const option = entry as Record<string, unknown>;
+    const { durationDays, mealsPerDay, pricePerMeal } = option;
+    if (
+      typeof durationDays !== 'number' || !Number.isInteger(durationDays) || durationDays < 1 ||
+      typeof mealsPerDay !== 'number' || !MEAL_SLOTS_BY_COUNT[mealsPerDay] ||
+      typeof pricePerMeal !== 'number' || !Number.isFinite(pricePerMeal) || pricePerMeal < 0
+    ) return [];
+    return [{ durationDays, mealsPerDay, pricePerMeal }];
+  });
+};
+
+export const getMealPlanPricingOption = (
+  options: MealPlanPricingOption[],
+  durationDays: number,
+  mealsPerDay: number,
+): MealPlanPricingOption | undefined =>
+  options.find((option) =>
+    option.durationDays === durationDays &&
+    option.mealsPerDay === mealsPerDay &&
+    option.pricePerMeal > 0,
+  );
+
+export const normalizeMealRotations = (
+  value: unknown,
+  legacyLunchRotation: string[] = [],
+): Partial<Record<MealSlot, string[]>> => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return legacyLunchRotation.length ? { lunch: legacyLunchRotation } : {};
+  }
+  const rotations = value as Record<string, unknown>;
+  return (['breakfast', 'lunch', 'dinner'] as MealSlot[]).reduce(
+    (result, slot) => {
+      const dishes = rotations[slot];
+      if (Array.isArray(dishes) && dishes.every((dishId) => typeof dishId === 'string')) {
+        result[slot] = dishes;
+      }
+      return result;
+    },
+    {} as Partial<Record<MealSlot, string[]>>,
+  );
+};
 
 // ─── Menu Costing Types ───────────────────────────────────────────────────────
 
@@ -365,6 +453,9 @@ export interface CustomerSubscription {
   restaurantId: string;
   planId: string;
   planName: string;
+  durationDays: number;
+  mealsPerDay: number;
+  legacySchedule: boolean;
   customerName: string;
   phone: string;
   email?: string;
@@ -378,6 +469,7 @@ export interface CustomerSubscription {
   endDate: string;
   createdAt: string;
   rotationDishIds?: string[];
+  mealRotations: Partial<Record<MealSlot, string[]>>;
 }
 
 export interface DailyOrder {
@@ -385,6 +477,8 @@ export interface DailyOrder {
   subscriptionId: string;
   restaurantId: string;
   deliveryDate: string;
+  mealSlot: MealSlot;
+  timeSlot: TimeSlot;
   dishId?: string;
   dishName: string;
   status: DailyOrderStatus;

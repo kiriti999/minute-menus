@@ -296,6 +296,7 @@ export type Database = {
                     description: string;
                     price_monthly: number;
                     delivery_fee: number;
+                    pricing_options: Json;
                     is_active: boolean;
                     created_at: string;
                 };
@@ -306,6 +307,7 @@ export type Database = {
                     description?: string;
                     price_monthly?: number;
                     delivery_fee?: number;
+                    pricing_options?: Json;
                     is_active?: boolean;
                     created_at?: string;
                 };
@@ -316,6 +318,7 @@ export type Database = {
                     description?: string;
                     price_monthly?: number;
                     delivery_fee?: number;
+                    pricing_options?: Json;
                     is_active?: boolean;
                     created_at?: string;
                 };
@@ -335,7 +338,12 @@ export type Database = {
                     customer_name: string;
                     phone: string;
                     email: string | null;
+                    duration_days: number;
+                    meals_per_day: number;
+                    meal_rotations: Json;
+                    legacy_schedule: boolean;
                     delivery_type: "delivery" | "pickup";
+                    delivery_fee_mode: "upfront" | "cash_on_delivery";
                     time_slot: "08-09" | "12-14" | "19-21";
                     status: "active" | "paused" | "cancelled";
                     pause_until: string | null;
@@ -356,6 +364,10 @@ export type Database = {
                     customer_name: string;
                     phone: string;
                     email?: string | null;
+                    duration_days?: number;
+                    meals_per_day?: number;
+                    meal_rotations?: Json;
+                    legacy_schedule?: boolean;
                     delivery_type: "delivery" | "pickup";
                     delivery_fee_mode?: "upfront" | "cash_on_delivery";
                     time_slot: "08-09" | "12-14" | "19-21";
@@ -378,6 +390,10 @@ export type Database = {
                     customer_name?: string;
                     phone?: string;
                     email?: string | null;
+                    duration_days?: number;
+                    meals_per_day?: number;
+                    meal_rotations?: Json;
+                    legacy_schedule?: boolean;
                     delivery_type?: "delivery" | "pickup";
                     delivery_fee_mode?: "upfront" | "cash_on_delivery";
                     time_slot?: "08-09" | "12-14" | "19-21";
@@ -401,6 +417,8 @@ export type Database = {
                     subscription_id: string;
                     restaurant_id: string;
                     delivery_date: string;
+                    meal_slot: string;
+                    time_slot: "08-09" | "12-14" | "19-21";
                     dish_id: string | null;
                     dish_name: string;
                     status: "pending" | "delivered" | "cancelled" | "skipped";
@@ -414,6 +432,8 @@ export type Database = {
                     subscription_id: string;
                     restaurant_id: string;
                     delivery_date: string;
+                    meal_slot?: string;
+                    time_slot?: "08-09" | "12-14" | "19-21";
                     dish_id?: string | null;
                     dish_name?: string;
                     status?: "pending" | "delivered" | "cancelled" | "skipped";
@@ -427,6 +447,8 @@ export type Database = {
                     subscription_id?: string;
                     restaurant_id?: string;
                     delivery_date?: string;
+                    meal_slot?: string;
+                    time_slot?: "08-09" | "12-14" | "19-21";
                     dish_id?: string | null;
                     dish_name?: string;
                     status?: "pending" | "delivered" | "cancelled" | "skipped";
@@ -955,6 +977,7 @@ export type Database = {
                     p_restaurant_id: string;
                     p_delivery_date: string;
                     p_dish_id: string;
+                    p_meal_slot: string;
                 };
                 Returns: string;
             };

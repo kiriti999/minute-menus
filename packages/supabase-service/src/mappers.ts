@@ -1,4 +1,4 @@
-import type { Category, DailyOrder, DailyOrderStatus, Dish, DishVariant } from "@minute-menus/types";
+import type { Category, DailyOrder, DailyOrderStatus, Dish, DishVariant, MealSlot, TimeSlot } from "@minute-menus/types";
 
 /** Maps a raw DB row to the app-level Category + Dish shape */
 export const rowsToCategoryTree = (
@@ -66,6 +66,8 @@ export const mapDailyOrders = (
         subscription_id: string;
         restaurant_id: string;
         delivery_date: string;
+        meal_slot: string;
+        time_slot: string;
         dish_id: string | null;
         dish_name: string;
         status: string;
@@ -80,6 +82,8 @@ export const mapDailyOrders = (
         subscriptionId: r.subscription_id,
         restaurantId: r.restaurant_id,
         deliveryDate: r.delivery_date,
+        mealSlot: r.meal_slot as MealSlot,
+        timeSlot: r.time_slot as TimeSlot,
         dishId: r.dish_id ?? undefined,
         dishName: r.dish_name,
         status: r.status as DailyOrderStatus,

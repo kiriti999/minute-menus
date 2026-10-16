@@ -4,9 +4,18 @@
  */
 
 import crypto from "node:crypto";
+import { calculateTermMealPlanTax } from "@minute-menus/currency";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import type { RestaurantAvailability } from "@minute-menus/types";
+import Razorpay from "razorpay";
+import {
+    getMealPlanPricingOption,
+    MEAL_SLOTS_BY_COUNT,
+    normalizeMealPlanPricingOptions,
+    normalizeMealRotations,
+    type MealSlot,
+    type RestaurantAvailability,
+} from "@minute-menus/types";
 
 // ── Inlined helpers (Vercel cannot resolve lib/server imports for this route) ──
 
@@ -215,6 +224,28 @@ const safeVerifyRazorpaySignature = (input: {
     }
 };
 
+const matchesPaidSubscriptionOrder = async (input: {
+    orderId: string;
+    planId: string;
+    restaurantId: string;
+    durationDays: number;
+    mealsPerDay: number;
+    amount: number;
+    currency: string;
+}): Promise<boolean> => {
+    const creds = getRazorpayCredentials();
+    if (!creds) throw new Error("Razorpay not configured");
+    const order = await new Razorpay({ key_id: creds.keyId, key_secret: creds.keySecret })
+        .orders.fetch(input.orderId);
+    return order.status === "paid" &&
+        order.amount === Math.round(input.amount * 100) &&
+        order.currency === input.currency.toUpperCase() &&
+        order.notes?.planId === input.planId &&
+        order.notes?.restaurantId === input.restaurantId &&
+        order.notes?.durationDays === String(input.durationDays) &&
+        order.notes?.mealsPerDay === String(input.mealsPerDay);
+};
+
 const normalizeAction = (action: string | string[] | undefined): string => {
     if (!action) return "";
     return Array.isArray(action) ? action[0] ?? "" : action;
@@ -355,6 +386,7 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
         razorpay_order_id, razorpay_payment_id, razorpay_signature,
         restaurantId, planId, customerName, phone, email,
         deliveryType, deliveryFeeMode, timeSlot, rotationDishIds, currency = "INR",
+        durationDays, mealsPerDay, mealRotations,
     } = req.body as {
         razorpay_order_id?: string;
         razorpay_payment_id?: string;
@@ -368,12 +400,19 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
         deliveryFeeMode?: "upfront" | "cash_on_delivery";
         timeSlot?: "08-09" | "12-14" | "19-21";
         rotationDishIds?: string[];
+        durationDays?: number;
+        mealsPerDay?: number;
+        mealRotations?: Partial<Record<MealSlot, string[]>>;
         currency?: string;
     };
 
     if (
         !razorpay_order_id || !razorpay_payment_id || !razorpay_signature ||
-        !restaurantId || !planId || !customerName || !phone || !deliveryType || !deliveryFeeMode || !timeSlot
+        !restaurantId || !planId || !customerName || !phone ||
+        !["delivery", "pickup"].includes(deliveryType ?? "") ||
+        !["upfront", "cash_on_delivery"].includes(deliveryFeeMode ?? "") ||
+        typeof durationDays !== "number" || !Number.isInteger(durationDays) || durationDays < 1 ||
+        typeof mealsPerDay !== "number" || !MEAL_SLOTS_BY_COUNT[mealsPerDay]
     ) {
         return res.status(400).json({ error: "Missing required fields" });
     }
@@ -387,9 +426,10 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
         return res.status(outcome.status).json({ error: outcome.error });
     }
 
-    const { data: plan, error: planError } = await requireSupabaseAdmin()
+    const admin = requireSupabaseAdmin();
+    const { data: plan, error: planError } = await admin
         .from("meal_plans")
-        .select("price_monthly, delivery_fee")
+        .select("price_monthly, delivery_fee, pricing_options")
         .eq("id", planId)
         .eq("restaurant_id", restaurantId)
         .single();
@@ -398,21 +438,75 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
         return res.status(404).json({ error: "Plan not found" });
     }
 
-    const includeDelivery = deliveryType === "delivery" && deliveryFeeMode === "upfront";
-    const monthlySubtotal = round2(
-        Number(plan.price_monthly) + (includeDelivery ? Number(plan.delivery_fee) * 30 : 0),
+    const pricing = getMealPlanPricingOption(
+        normalizeMealPlanPricingOptions(plan.pricing_options, Number(plan.price_monthly) / 30),
+        durationDays,
+        mealsPerDay,
     );
-    const { subtotal, gstAmount } = computeCartTotals(
-        [{ price: monthlySubtotal, quantity: 1 }],
-        currency,
-    );
+    if (!pricing) {
+        return res.status(400).json({ error: "This term and meal count are not available for the selected plan" });
+    }
+
+    const slots = MEAL_SLOTS_BY_COUNT[mealsPerDay];
+    const rotations = normalizeMealRotations(mealRotations, rotationDishIds ?? []);
+    if (slots.some((slot) => !rotations[slot]?.length)) {
+        return res.status(400).json({ error: "Choose a dish rotation for every meal in the plan" });
+    }
+    const { data: planDishes, error: dishesError } = await admin
+        .from("meal_plan_dishes")
+        .select("dish_id")
+        .eq("plan_id", planId);
+    if (dishesError) return res.status(500).json({ error: "Failed to validate plan dishes" });
+    const allowedDishIds = new Set((planDishes ?? []).map((dish) => dish.dish_id));
+    if (slots.some((slot) => rotations[slot]?.some((dishId) => !allowedDishIds.has(dishId)))) {
+        return res.status(400).json({ error: "A selected dish is not included in this plan" });
+    }
 
     const startDate = new Date().toISOString().slice(0, 10);
+    const activeSub = await admin
+        .from("customer_subscriptions")
+        .select("id")
+        .eq("restaurant_id", restaurantId)
+        .eq("phone", phone)
+        .eq("status", "active")
+        .gte("end_date", startDate)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+    if (activeSub.error) {
+        console.error("[confirm-subscription] active subscription lookup failed", activeSub.error.message);
+        return res.status(500).json({ error: "Failed to check existing subscription" });
+    }
+    if (activeSub.data) {
+        return res.status(409).json({ error: "An active subscription already exists for this phone number" });
+    }
+
+    const breakdown = calculateTermMealPlanTax(
+        pricing.pricePerMeal,
+        durationDays,
+        mealsPerDay,
+        Number(plan.delivery_fee),
+        deliveryType === "delivery" && deliveryFeeMode === "upfront",
+        currency,
+    );
+    const paymentMatchesPlan = await matchesPaidSubscriptionOrder({
+        orderId: razorpay_order_id,
+        planId,
+        restaurantId,
+        durationDays,
+        mealsPerDay,
+        amount: breakdown.total,
+        currency,
+    });
+    if (!paymentMatchesPlan) {
+        return res.status(400).json({ error: "Payment does not match this subscription term and meal selection" });
+    }
+
     const end = new Date();
-    end.setDate(end.getDate() + 30);
+    end.setDate(end.getDate() + durationDays - 1);
     const endDate = end.toISOString().slice(0, 10);
 
-    const { data, error } = await requireSupabaseAdmin()
+    const { data, error } = await admin
         .from("customer_subscriptions")
         .insert({
             restaurant_id: restaurantId,
@@ -420,16 +514,20 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
             customer_name: customerName,
             phone,
             email: email ?? null,
+            duration_days: durationDays,
+            meals_per_day: mealsPerDay,
+            meal_rotations: rotations,
+            legacy_schedule: false,
             delivery_type: deliveryType,
             delivery_fee_mode: deliveryFeeMode,
-            time_slot: timeSlot,
+            time_slot: timeSlot ?? "12-14",
             start_date: startDate,
             end_date: endDate,
-            rotation_dish_ids: rotationDishIds ?? [],
+            rotation_dish_ids: rotations.lunch ?? rotations[slots[0]] ?? [],
             payment_provider: "razorpay",
             payment_id: razorpay_payment_id,
-            subtotal_amount: subtotal,
-            gst_amount: gstAmount,
+            subtotal_amount: breakdown.subtotal,
+            gst_amount: breakdown.gstAmount,
         })
         .select("id")
         .single();
@@ -463,6 +561,24 @@ const getUserFromAccessToken = async (
     const { data, error } = await auth.getUser(accessToken);
     if (error || !data.user) return null;
     return data.user;
+};
+
+// The plan in the request body is client-controlled; trust only the notes that
+// create-plus-order wrote onto the Razorpay order server-side.
+const matchesPaidPlusOrder = async (input: {
+    orderId: string;
+    plan: PlusPlanId;
+    restaurantId: string;
+    ownerId: string;
+}): Promise<boolean> => {
+    const creds = getRazorpayCredentials();
+    if (!creds) throw new Error("Razorpay not configured");
+    const order = await new Razorpay({ key_id: creds.keyId, key_secret: creds.keySecret })
+        .orders.fetch(input.orderId);
+    return order.status === "paid" &&
+        order.notes?.plan === input.plan &&
+        order.notes?.restaurantId === input.restaurantId &&
+        order.notes?.ownerId === input.ownerId;
 };
 
 const handleConfirmPlus = async (req: VercelRequest, res: VercelResponse) => {
@@ -505,6 +621,16 @@ const handleConfirmPlus = async (req: VercelRequest, res: VercelResponse) => {
     });
     if (!outcome.verified) {
         return res.status(outcome.status).json({ error: outcome.error });
+    }
+
+    const paymentMatchesPlan = await matchesPaidPlusOrder({
+        orderId: razorpay_order_id,
+        plan: plan as PlusPlanId,
+        restaurantId,
+        ownerId: user.id,
+    });
+    if (!paymentMatchesPlan) {
+        return res.status(400).json({ error: "Payment does not match the selected Plus plan" });
     }
 
     const periodEnd = new Date();

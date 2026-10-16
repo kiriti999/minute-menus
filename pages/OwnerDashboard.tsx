@@ -106,6 +106,10 @@ import {
   type DishVariant,
   TICKET_REASON_LABELS,
   TIME_SLOT_LABELS,
+  DEFAULT_MEAL_PLAN_PRICING_OPTIONS,
+  MEAL_SLOT_LABELS,
+  MEAL_SLOTS_BY_COUNT,
+  MEAL_SLOT_TIME_SLOTS,
   UserTier,
 } from "@minute-menus/types";
 import {
@@ -118,6 +122,32 @@ import {
 type ViewMode = "DASHBOARD" | "MENU" | "IMAGE_EDITOR" | "COSTING" | "PRINT_DESIGNS" | "CUSTOMERS" | "TEAM" | "SALES" | "COUNTER" | "ORDERS" | "SUBSCRIPTIONS" | "AVAILABILITY";
 type SubTab = "plans" | "subscribers" | "tomorrow" | "tickets" | "refunds";
 type TimeWindow = "24h" | "7d" | "30d";
+
+// Free-tier charts render blurred behind the paywall; feed them sample data so
+// removing the blur in devtools never reveals the owner's real Plus analytics.
+const previewDish = (id: string, name: string, unitsSold: number) => ({
+  id, name, unitsSold, views: unitsSold * 6, revenue: unitsSold * 250,
+  conversions: unitsSold, conversionRate: 16.7, watchTime: 8,
+});
+
+const LOCKED_CHART_PREVIEW: Pick<AggregatedMetrics, "hourlyTraffic" | "conversionFunnel" | "dishPerformance"> = {
+  hourlyTraffic: [4, 6, 3, 8, 14, 22, 18, 11, 9, 16, 24, 19].map((views, i) => ({
+    hour: `${String(i * 2).padStart(2, "0")}:00`,
+    views,
+  })),
+  conversionFunnel: [
+    { stage: "Menu Views", count: 120, fill: "#fff" },
+    { stage: "Engaged (>5s)", count: 70, fill: "#aaa" },
+    { stage: "Orders", count: 20, fill: "#4ade80" },
+  ],
+  dishPerformance: [
+    previewDish("preview-1", "Sample Dish A", 12),
+    previewDish("preview-2", "Sample Dish B", 9),
+    previewDish("preview-3", "Sample Dish C", 7),
+    previewDish("preview-4", "Sample Dish D", 5),
+    previewDish("preview-5", "Sample Dish E", 3),
+  ],
+};
 
 // --- Paywall Modal Component ---
 type PlusPlanId = "annual" | "monthly";
@@ -995,6 +1025,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const [deliveryTickets, setDeliveryTickets] = useState<DeliveryTicket[]>([]);
   const [refundRequests, setRefundRequests] = useState<RefundRequest[]>([]);
   const [editingPlan, setEditingPlan] = useState<Partial<MealPlan> | null>(null);
+  const [newRateDuration, setNewRateDuration] = useState("3");
+  const [newRateMeals, setNewRateMeals] = useState("1");
+  const [rateOptionError, setRateOptionError] = useState("");
 
   // Editor State
   const [selectedCategoryIdx, setSelectedCategoryIdx] = useState(0);
@@ -1325,6 +1358,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       setIsUpgrading(false);
     }
   };
+
+  const chartData = userTier === UserTier.PLUS && metrics ? metrics : LOCKED_CHART_PREVIEW;
 
   const triggerPaywall = (reason: string) => {
     if (userTier !== UserTier.FREE) return false;
@@ -2205,7 +2240,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                   className={`h-64 w-full transition-all duration-500 ${userTier === UserTier.FREE ? "filter blur-md opacity-40 pointer-events-none" : ""}`}
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={metrics.hourlyTraffic}>
+                    <LineChart data={chartData.hourlyTraffic}>
                       <CartesianGrid
                         strokeDasharray="3 3"
                         stroke="#333"
@@ -2280,7 +2315,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
-                      data={metrics.conversionFunnel}
+                      data={chartData.conversionFunnel}
                       layout="vertical"
                       margin={{ left: 20 }}
                     >
@@ -2319,7 +2354,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                         barSize={30}
                         radius={[0, 4, 4, 0]}
                       >
-                        {metrics.conversionFunnel.map((entry, index) => (
+                        {chartData.conversionFunnel.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.fill} />
                         ))}
                       </Bar>
@@ -2362,7 +2397,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 >
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
-                      data={metrics.dishPerformance
+                      data={chartData.dishPerformance
                         .filter((d) => d.unitsSold > 0)
                         .slice(0, 5)}
                     >
@@ -2447,7 +2482,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                   className={`h-64 w-full flex items-center justify-center transition-all duration-500 ${userTier === UserTier.FREE ? "filter blur-md opacity-40 pointer-events-none" : ""}`}
                 >
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={metrics.hourlyTraffic}>
+                    <BarChart data={chartData.hourlyTraffic}>
                       <CartesianGrid
                         strokeDasharray="3 3"
                         stroke={isDarkTheme ? "#333" : "#e4e4e7"}
@@ -3513,7 +3548,20 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
               </div>
               {subTab === "plans" && (
                 <button
-                  onClick={() => setEditingPlan({ name: "", description: "", priceMonthly: 0, deliveryFee: 0, isActive: true, dishIds: [] })}
+                  onClick={() => {
+                    setEditingPlan({
+                      name: "",
+                      description: "",
+                      priceMonthly: 0,
+                      deliveryFee: 0,
+                      isActive: true,
+                      dishIds: [],
+                      pricingOptions: DEFAULT_MEAL_PLAN_PRICING_OPTIONS.map((option) => ({ ...option })),
+                    });
+                    setNewRateDuration("3");
+                    setNewRateMeals("1");
+                    setRateOptionError("");
+                  }}
                   className={`flex items-center gap-2 px-5 py-2 rounded text-sm font-bold transition-colors ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
                 >
                   <Plus size={14} /> New Plan
@@ -3564,15 +3612,91 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                               className={`w-full px-3 py-2 rounded border text-sm outline-none ${isDarkTheme ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-zinc-50 border-zinc-300 text-zinc-900'}`} />
                           </div>
                         ))}
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className={`block text-xs font-bold uppercase tracking-widest mb-1.5 ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>Monthly Price ({restaurantDetails?.currency ?? "USD"})</label>
-                            <input type="number" min="0" value={editingPlan.priceMonthly ?? 0}
-                              onChange={(e) => setEditingPlan(prev => ({ ...prev!, priceMonthly: parseFloat(e.target.value) || 0 }))}
-                              className={`w-full px-3 py-2 rounded border text-sm outline-none ${isDarkTheme ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-zinc-50 border-zinc-300 text-zinc-900'}`} />
+                        <div>
+                          <label className={`block text-xs font-bold uppercase tracking-widest mb-1.5 ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                            Per-meal rates ({restaurantDetails?.currency ?? "USD"})
+                          </label>
+                          <p className={`text-xs mb-2 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>
+                            Durations and meals per day are restaurant-specific. 1 meal = lunch; 2 = lunch and dinner; 3 = breakfast, lunch, and dinner.
+                          </p>
+                          <div className="space-y-2">
+                            {[...(editingPlan.pricingOptions ?? DEFAULT_MEAL_PLAN_PRICING_OPTIONS)]
+                              .sort((a, b) => a.durationDays - b.durationDays || a.mealsPerDay - b.mealsPerDay)
+                              .map((option) => (
+                                <div key={`${option.durationDays}-${option.mealsPerDay}`} className="flex items-center gap-2">
+                                  <span className={`flex-1 text-xs ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>
+                                    {option.durationDays} days · {option.mealsPerDay} meal{option.mealsPerDay === 1 ? "" : "s"}/day
+                                  </span>
+                                  <input type="number" min="0" step="0.01" value={option.pricePerMeal}
+                                    aria-label={`Per-meal price for ${option.durationDays} days, ${option.mealsPerDay} meals per day`}
+                                    onChange={(e) => setEditingPlan((prev) => ({
+                                      ...prev!,
+                                      pricingOptions: (prev!.pricingOptions ?? DEFAULT_MEAL_PLAN_PRICING_OPTIONS).map((current) =>
+                                        current.durationDays === option.durationDays && current.mealsPerDay === option.mealsPerDay
+                                          ? { ...current, pricePerMeal: Math.max(0, Number(e.target.value) || 0) }
+                                          : current,
+                                      ),
+                                    }))}
+                                    className={`w-28 px-3 py-2 rounded border text-sm outline-none ${isDarkTheme ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-zinc-50 border-zinc-300 text-zinc-900'}`} />
+                                  <button type="button"
+                                    aria-label={`Remove ${option.durationDays}-day, ${option.mealsPerDay}-meal option`}
+                                    onClick={() => setEditingPlan((prev) => ({
+                                      ...prev!,
+                                      pricingOptions: (prev!.pricingOptions ?? DEFAULT_MEAL_PLAN_PRICING_OPTIONS)
+                                        .filter((current) => current !== option),
+                                    }))}
+                                    className={`p-2 rounded ${isDarkTheme ? 'text-zinc-500 hover:text-red-400' : 'text-zinc-500 hover:text-red-500'}`}>
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              ))}
                           </div>
+                          <div className="flex items-end gap-2 mt-3">
+                            <label className="flex-1">
+                              <span className={`block text-[10px] uppercase tracking-widest mb-1 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>Duration (days)</span>
+                              <input type="number" min="1" step="1" value={newRateDuration}
+                                onChange={(e) => setNewRateDuration(e.target.value)}
+                                className={`w-full px-3 py-2 rounded border text-sm outline-none ${isDarkTheme ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-zinc-50 border-zinc-300 text-zinc-900'}`} />
+                            </label>
+                            <label className="flex-1">
+                              <span className={`block text-[10px] uppercase tracking-widest mb-1 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>Meals per day</span>
+                              <select value={newRateMeals} onChange={(e) => setNewRateMeals(e.target.value)}
+                                className={`w-full px-3 py-2 rounded border text-sm outline-none ${isDarkTheme ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-zinc-50 border-zinc-300 text-zinc-900'}`}>
+                                {[1, 2, 3].map((count) => <option key={count} value={count}>{count}</option>)}
+                              </select>
+                            </label>
+                            <button type="button"
+                              onClick={() => {
+                                const durationDays = Number(newRateDuration);
+                                const mealsPerDay = Number(newRateMeals);
+                                const options = editingPlan.pricingOptions ?? DEFAULT_MEAL_PLAN_PRICING_OPTIONS;
+                                if (!Number.isInteger(durationDays) || durationDays < 1) {
+                                  setRateOptionError("Duration must be a positive whole number of days.");
+                                  return;
+                                }
+                                if (options.some((option) => option.durationDays === durationDays && option.mealsPerDay === mealsPerDay)) {
+                                  setRateOptionError("That duration and meal count already exists.");
+                                  return;
+                                }
+                                setRateOptionError("");
+                                setEditingPlan((prev) => ({
+                                  ...prev!,
+                                  pricingOptions: [...(prev!.pricingOptions ?? DEFAULT_MEAL_PLAN_PRICING_OPTIONS), {
+                                    durationDays,
+                                    mealsPerDay,
+                                    pricePerMeal: 0,
+                                  }],
+                                }));
+                              }}
+                              className={`px-3 py-2 rounded text-xs font-bold ${isDarkTheme ? 'bg-zinc-700 text-white hover:bg-zinc-600' : 'bg-zinc-200 text-zinc-900 hover:bg-zinc-300'}`}>
+                              Add option
+                            </button>
+                          </div>
+                          {rateOptionError && <p className="text-xs text-red-500 mt-2">{rateOptionError}</p>}
+                        </div>
+                        <div>
                           <div>
-                            <label className={`block text-xs font-bold uppercase tracking-widest mb-1.5 ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>Delivery Fee per order (0 = free)</label>
+                            <label className={`block text-xs font-bold uppercase tracking-widest mb-1.5 ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>Delivery fee per meal delivery (0 = free)</label>
                             <input type="number" min="0" value={editingPlan.deliveryFee ?? 0}
                               onChange={(e) => setEditingPlan(prev => ({ ...prev!, deliveryFee: parseFloat(e.target.value) || 0 }))}
                               className={`w-full px-3 py-2 rounded border text-sm outline-none ${isDarkTheme ? 'bg-zinc-800 border-zinc-700 text-white' : 'bg-zinc-50 border-zinc-300 text-zinc-900'}`} />
@@ -3611,7 +3735,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                           onClick={() => {
                             if (!editingPlan.name) return;
                             supabaseService.saveMealPlan(
-                              { name: editingPlan.name!, description: editingPlan.description ?? "", priceMonthly: editingPlan.priceMonthly ?? 0, deliveryFee: editingPlan.deliveryFee ?? 0, isActive: editingPlan.isActive ?? true, dishIds: editingPlan.dishIds ?? [] },
+                              { name: editingPlan.name!, description: editingPlan.description ?? "", priceMonthly: editingPlan.priceMonthly ?? 0, deliveryFee: editingPlan.deliveryFee ?? 0, pricingOptions: editingPlan.pricingOptions ?? [], isActive: editingPlan.isActive ?? true, dishIds: editingPlan.dishIds ?? [] },
                               editingPlan.id,
                             ).then(() => { supabaseService.getMealPlans().then(setMealPlans); setEditingPlan(null); })
                               .catch((e: Error) => alert(e.message));
@@ -3648,8 +3772,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                       </div>
                     </div>
                     <div className={`flex gap-4 text-sm ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>
-                      <span className="flex items-center gap-1"><Tag size={12} /> {getSymbolForCurrency(restaurantDetails?.currency ?? "USD")}{plan.priceMonthly}/mo</span>
-                      <span className="flex items-center gap-1"><Package size={12} /> {plan.deliveryFee > 0 ? `+${plan.deliveryFee} delivery` : "Free delivery"}</span>
+                      <span className="flex items-center gap-1"><Tag size={12} /> {plan.pricingOptions.some((option) => option.pricePerMeal > 0)
+                        ? `From ${getSymbolForCurrency(restaurantDetails?.currency ?? "USD")}${Math.min(...plan.pricingOptions.filter((option) => option.pricePerMeal > 0).map((option) => option.pricePerMeal))}/meal`
+                        : "Set per-meal rates"}</span>
+                      <span className="flex items-center gap-1"><Package size={12} /> {plan.deliveryFee > 0 ? `+${plan.deliveryFee} per delivery` : "Free delivery"}</span>
+                      <span>{new Set(plan.pricingOptions.map((option) => option.durationDays)).size} term options</span>
                       <span>{plan.dishIds.length} dish{plan.dishIds.length !== 1 ? "es" : ""}</span>
                     </div>
                   </div>
@@ -3677,7 +3804,12 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                       <div className={`text-xs mt-0.5 flex gap-3 flex-wrap ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>
                         <span>{sub.planName}</span>
                         <span>{sub.deliveryType}</span>
-                        <span>{TIME_SLOT_LABELS[sub.timeSlot]}</span>
+                        <span>{sub.durationDays} days · {sub.mealsPerDay} meal{sub.mealsPerDay === 1 ? "" : "s"}/day</span>
+                        <span>{sub.legacySchedule
+                          ? TIME_SLOT_LABELS[sub.timeSlot]
+                          : (MEAL_SLOTS_BY_COUNT[sub.mealsPerDay] ?? [])
+                            .map((meal) => `${MEAL_SLOT_LABELS[meal]} ${TIME_SLOT_LABELS[MEAL_SLOT_TIME_SLOTS[meal]]}`)
+                            .join(" · ")}</span>
                         <span>until {sub.endDate}</span>
                         {sub.status === "paused" && sub.pauseUntil && <span className="text-amber-400">paused till {sub.pauseUntil}</span>}
                       </div>
@@ -3699,10 +3831,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 )}
                 <div className="space-y-3">
                   {(["08-09", "12-14", "19-21"] as const).map(slot => {
-                    const slotOrders = tomorrowOrders.filter(o => {
-                      const sub = customerSubs.find(s => s.id === o.subscriptionId);
-                      return sub?.timeSlot === slot;
-                    });
+                    const slotOrders = tomorrowOrders.filter((order) => order.timeSlot === slot);
                     if (slotOrders.length === 0) return null;
                     return (
                       <div key={slot}>
@@ -3715,6 +3844,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                                 <div>
                                   <span className={`font-medium text-sm ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>{sub?.customerName ?? "—"}</span>
                                   <span className={`text-xs ml-3 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>{order.dishName || "No selection yet"}</span>
+                                  <span className={`text-xs ml-3 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-500'}`}>{MEAL_SLOT_LABELS[order.mealSlot]}</span>
                                   {sub && <span className={`text-xs ml-3 ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-400'}`}>{sub.deliveryType}</span>}
                                 </div>
                                 <button

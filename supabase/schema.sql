@@ -422,9 +422,26 @@ create table if not exists meal_plans (
   description    text not null default '',
   price_monthly  numeric(10, 2) not null default 0,
   delivery_fee   numeric(10, 2) not null default 0, -- 0 = free delivery
+  pricing_options jsonb not null default '[]'::jsonb,
   is_active      boolean not null default true,
   created_at     timestamptz not null default now()
 );
+
+alter table meal_plans add column if not exists pricing_options jsonb not null default '[]'::jsonb;
+
+-- Convert the legacy monthly price into a per-meal baseline for the shared
+-- duration/meal-count template. Owners can edit every resulting rate.
+update meal_plans mp
+set pricing_options = (
+  select jsonb_agg(jsonb_build_object(
+    'durationDays', duration_days,
+    'mealsPerDay', meals_per_day,
+    'pricePerMeal', round(mp.price_monthly / 30, 2)
+  ))
+  from unnest(array[3, 7, 14, 28]) as duration_days
+  cross join unnest(array[1, 2, 3]) as meals_per_day
+)
+where pricing_options = '[]'::jsonb;
 
 alter table meal_plans enable row level security;
 
@@ -483,6 +500,10 @@ create table if not exists customer_subscriptions (
   customer_name    text not null,
   phone            text not null,
   email            text,
+  duration_days    int not null default 28,
+  meals_per_day    int not null default 1,
+  meal_rotations   jsonb not null default '{}'::jsonb,
+  legacy_schedule boolean not null default false,
   delivery_type    sub_delivery_type not null,
   delivery_fee_mode delivery_fee_mode not null default 'cash_on_delivery',
   time_slot        sub_time_slot not null,
@@ -496,9 +517,39 @@ create table if not exists customer_subscriptions (
   payment_id       text,
   subtotal_amount  numeric(10, 2),
   gst_amount       numeric(10, 2) not null default 0,
-  created_at       timestamptz not null default now(),
-  unique (restaurant_id, phone)
+  created_at       timestamptz not null default now()
 );
+
+alter table customer_subscriptions add column if not exists duration_days int;
+alter table customer_subscriptions add column if not exists meals_per_day int;
+alter table customer_subscriptions add column if not exists meal_rotations jsonb;
+alter table customer_subscriptions add column if not exists legacy_schedule boolean;
+
+update customer_subscriptions
+set duration_days = 28,
+    meals_per_day = 1,
+    meal_rotations = case
+      when cardinality(rotation_dish_ids) > 0 then jsonb_build_object('lunch', to_jsonb(rotation_dish_ids))
+      else '{}'::jsonb
+    end,
+    legacy_schedule = true
+where duration_days is null;
+
+update customer_subscriptions
+set meals_per_day = coalesce(meals_per_day, 1),
+    meal_rotations = coalesce(meal_rotations, '{}'::jsonb),
+    legacy_schedule = coalesce(legacy_schedule, true)
+where meals_per_day is null or meal_rotations is null or legacy_schedule is null;
+
+alter table customer_subscriptions alter column duration_days set default 28;
+alter table customer_subscriptions alter column duration_days set not null;
+alter table customer_subscriptions alter column meals_per_day set default 1;
+alter table customer_subscriptions alter column meals_per_day set not null;
+alter table customer_subscriptions alter column meal_rotations set default '{}'::jsonb;
+alter table customer_subscriptions alter column meal_rotations set not null;
+alter table customer_subscriptions alter column legacy_schedule set default false;
+alter table customer_subscriptions alter column legacy_schedule set not null;
+alter table customer_subscriptions drop constraint if exists customer_subscriptions_restaurant_id_phone_key;
 
 alter table customer_subscriptions add column if not exists subtotal_amount numeric(10, 2);
 alter table customer_subscriptions add column if not exists gst_amount numeric(10, 2) not null default 0;
@@ -529,6 +580,8 @@ create table if not exists subscription_daily_orders (
   subscription_id     uuid not null references customer_subscriptions(id) on delete cascade,
   restaurant_id       uuid not null references restaurants(id) on delete cascade,
   delivery_date       date not null,
+  meal_slot           text not null default 'lunch' check (meal_slot in ('breakfast', 'lunch', 'dinner')),
+  time_slot           sub_time_slot not null default '12-14',
   dish_id             uuid references dishes(id) on delete set null,
   dish_name           text not null default '',  -- snapshot at selection time
   status              daily_order_status_t not null default 'pending',
@@ -536,8 +589,32 @@ create table if not exists subscription_daily_orders (
   cancellation_reason text,
   created_at          timestamptz not null default now(),
   updated_at          timestamptz not null default now(),
-  unique (subscription_id, delivery_date)
+  unique (subscription_id, delivery_date, meal_slot)
 );
+
+alter table subscription_daily_orders add column if not exists meal_slot text not null default 'lunch';
+do $$ begin
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'subscription_daily_orders'::regclass
+      and conname = 'subscription_daily_orders_meal_slot_check'
+  ) then
+    alter table subscription_daily_orders
+      add constraint subscription_daily_orders_meal_slot_check
+      check (meal_slot in ('breakfast', 'lunch', 'dinner')) not valid;
+  end if;
+end $$;
+alter table subscription_daily_orders add column if not exists time_slot sub_time_slot;
+update subscription_daily_orders o
+set time_slot = s.time_slot
+from customer_subscriptions s
+where o.subscription_id = s.id and o.time_slot is null;
+alter table subscription_daily_orders alter column time_slot set default '12-14';
+alter table subscription_daily_orders alter column time_slot set not null;
+alter table subscription_daily_orders drop constraint if exists subscription_daily_orders_subscription_id_delivery_date_key;
+create unique index if not exists subscription_daily_orders_subscription_date_meal_key
+  on subscription_daily_orders(subscription_id, delivery_date, meal_slot);
 
 alter table subscription_daily_orders enable row level security;
 
@@ -663,11 +740,14 @@ create policy "Public can read delivery adjustments"
 -- Phone-authenticated customer selects a dish for tomorrow (before 5pm IST cutoff).
 -- 5pm IST = 11:30 UTC.
 -- ─────────────────────────────────────────────
+drop function if exists upsert_daily_selection(text, uuid, date, uuid);
+
 create or replace function upsert_daily_selection(
   p_phone         text,
   p_restaurant_id uuid,
   p_delivery_date date,
-  p_dish_id       uuid
+  p_dish_id       uuid,
+  p_meal_slot     text
 ) returns uuid
 language plpgsql
 security definer
@@ -676,13 +756,32 @@ declare
   v_sub      customer_subscriptions;
   v_order_id uuid;
   v_dish_name text;
+  v_time_slot sub_time_slot;
+  v_allowed_meal_slots text[];
 begin
   select * into v_sub
   from customer_subscriptions
-  where phone = p_phone and restaurant_id = p_restaurant_id and status = 'active';
+  where phone = p_phone and restaurant_id = p_restaurant_id
+    and status = 'active' and end_date >= current_date
+  order by created_at desc
+  limit 1;
 
   if not found then
     raise exception 'No active subscription found for this phone number';
+  end if;
+
+  if p_delivery_date < v_sub.start_date or p_delivery_date > v_sub.end_date then
+    raise exception 'Delivery date is outside the subscription term';
+  end if;
+
+  v_allowed_meal_slots := case v_sub.meals_per_day
+    when 1 then array['lunch']
+    when 2 then array['lunch', 'dinner']
+    when 3 then array['breakfast', 'lunch', 'dinner']
+    else array[]::text[]
+  end;
+  if not (p_meal_slot = any(v_allowed_meal_slots)) then
+    raise exception 'Meal is not included in this subscription';
   end if;
 
   -- 5pm IST cutoff = 11:30 UTC for next-day orders
@@ -699,13 +798,22 @@ begin
   end if;
 
   select name into v_dish_name from dishes where id = p_dish_id;
+  v_time_slot := case p_meal_slot
+    when 'breakfast' then '08-09'::sub_time_slot
+    when 'lunch' then '12-14'::sub_time_slot
+    when 'dinner' then '19-21'::sub_time_slot
+  end;
+  if v_sub.legacy_schedule then
+    v_time_slot := v_sub.time_slot;
+  end if;
 
   insert into subscription_daily_orders
-    (subscription_id, restaurant_id, delivery_date, dish_id, dish_name, status)
+    (subscription_id, restaurant_id, delivery_date, meal_slot, time_slot, dish_id, dish_name, status)
   values
-    (v_sub.id, p_restaurant_id, p_delivery_date, p_dish_id, v_dish_name, 'pending')
-  on conflict (subscription_id, delivery_date)
+    (v_sub.id, p_restaurant_id, p_delivery_date, p_meal_slot, v_time_slot, p_dish_id, v_dish_name, 'pending')
+  on conflict (subscription_id, delivery_date, meal_slot)
   do update set
+    time_slot = excluded.time_slot,
     dish_id   = excluded.dish_id,
     dish_name = excluded.dish_name,
     status    = 'pending',
@@ -739,10 +847,16 @@ declare
 begin
   select * into v_sub
   from customer_subscriptions
-  where phone = p_phone and restaurant_id = p_restaurant_id;
+  where phone = p_phone and restaurant_id = p_restaurant_id
+  order by created_at desc
+  limit 1;
 
   if not found then
     raise exception 'Subscription not found';
+  end if;
+
+  if v_sub.end_date < current_date then
+    raise exception 'Subscription term has ended';
   end if;
 
   if v_sub.status = 'cancelled' then
@@ -778,7 +892,18 @@ begin
     if p_cancel_reason is not null then
       insert into subscription_refund_requests
         (subscription_id, restaurant_id, reason, amount)
-      select v_sub.id, v_sub.restaurant_id, p_cancel_reason, mp.price_monthly
+      select
+        v_sub.id,
+        v_sub.restaurant_id,
+        p_cancel_reason,
+        case
+          when v_sub.subtotal_amount is not null then round(
+            (v_sub.subtotal_amount + v_sub.gst_amount) *
+            least(1, greatest(0, (v_sub.end_date - current_date + 1)::numeric / greatest(v_sub.duration_days, 1))),
+            2
+          )
+          else mp.price_monthly
+        end
       from meal_plans mp where mp.id = v_sub.plan_id;
     end if;
   end if;
@@ -900,6 +1025,37 @@ drop trigger if exists guard_phone_verified on customer_profiles;
 create trigger guard_phone_verified
   before insert or update on customer_profiles
   for each row execute function public.guard_phone_verified();
+
+-- Free tier: max 2 menu categories (mirrors the owner dashboard paywall).
+-- Menu saves upsert every category, and BEFORE INSERT fires even for rows that
+-- then resolve as updates, so existing ids pass — downgraded owners keep editing.
+create or replace function public.enforce_free_category_limit()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if coalesce(auth.role(), '') = 'service_role' then
+    return new;
+  end if;
+  if exists (select 1 from categories where id = new.id) then
+    return new;
+  end if;
+  if exists (
+    select 1 from subscriptions s
+    where s.restaurant_id = new.restaurant_id
+      and s.tier = 'plus'
+      and (s.current_period_end is null or s.current_period_end > now())
+  ) then
+    return new;
+  end if;
+  if (select count(*) from categories where restaurant_id = new.restaurant_id) >= 2 then
+    raise exception 'The Free plan allows up to 2 menu categories. Upgrade to Plus for unlimited categories.';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists enforce_free_category_limit on categories;
+create trigger enforce_free_category_limit
+  before insert on categories
+  for each row execute function public.enforce_free_category_limit();
 -- ─────────────────────────────────────────────
 
 -- ─────────────────────────────────────────────

@@ -6,7 +6,12 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Razorpay from "razorpay";
-import type { RestaurantAvailability } from "@minute-menus/types";
+import { calculateTermMealPlanTax } from "@minute-menus/currency";
+import {
+    getMealPlanPricingOption,
+    normalizeMealPlanPricingOptions,
+    type RestaurantAvailability,
+} from "@minute-menus/types";
 
 // ── Inlined helpers (Vercel cannot resolve lib/server imports for this route) ──
 
@@ -123,12 +128,6 @@ const createRazorpayOrder = async (input: {
 const INDIAN_RESTAURANT_GST_RATE = 0.05;
 const round2 = (value: number): number => Math.round(value * 100) / 100;
 
-const calculateSubscriptionSubtotal = (
-    priceMonthly: number,
-    deliveryFee: number,
-    includeDelivery: boolean,
-): number => round2(Number(priceMonthly) + (includeDelivery ? Number(deliveryFee) * 30 : 0));
-
 type CartLine = { price: number; quantity: number };
 
 const computeCartTotals = (items: CartLine[], currency: string) => {
@@ -191,22 +190,59 @@ const handleCartOrder = async (req: VercelRequest, res: VercelResponse) => {
     }
 };
 
+const findActiveSubscription = async (restaurantId: string, phone: string) => {
+    const { data, error } = await requireSupabaseAdmin()
+        .from("customer_subscriptions")
+        .select("id")
+        .eq("restaurant_id", restaurantId)
+        .eq("phone", phone)
+        .eq("status", "active")
+        .gte("end_date", new Date().toISOString().slice(0, 10))
+        .limit(1)
+        .maybeSingle();
+    if (error) throw new Error(error.message);
+    return data;
+};
+
 const handleSubscriptionOrder = async (req: VercelRequest, res: VercelResponse) => {
-    const { planId, restaurantId, deliveryFeeMode, deliveryType, currency = "INR" } = req.body as {
+    const {
+        planId, restaurantId, phone, deliveryFeeMode, deliveryType, currency = "INR",
+        durationDays, mealsPerDay,
+    } = req.body as {
         planId?: string;
         restaurantId?: string;
+        phone?: string;
         deliveryFeeMode?: "upfront" | "cash_on_delivery";
         deliveryType?: "delivery" | "pickup";
         currency?: string;
+        durationDays?: number;
+        mealsPerDay?: number;
     };
 
-    if (!planId || !restaurantId || !deliveryType || !deliveryFeeMode) {
-        return res.status(400).json({ error: "planId, restaurantId, deliveryType and deliveryFeeMode are required" });
+    if (
+        !planId || !restaurantId || !phone ||
+        !["delivery", "pickup"].includes(deliveryType ?? "") ||
+        !["upfront", "cash_on_delivery"].includes(deliveryFeeMode ?? "") ||
+        typeof durationDays !== "number" || !Number.isInteger(durationDays) || durationDays < 1 ||
+        typeof mealsPerDay !== "number" || !Number.isInteger(mealsPerDay)
+    ) {
+        return res.status(400).json({ error: "A valid plan, phone, term, meal count and delivery choice are required" });
+    }
+
+    // Reject before payment — confirm-subscription would otherwise capture the
+    // payment and then refuse to create a second active subscription.
+    try {
+        if (await findActiveSubscription(restaurantId, phone)) {
+            return res.status(409).json({ error: "An active subscription already exists for this phone number" });
+        }
+    } catch (e) {
+        console.error("[create-razorpay-order] active subscription lookup failed", getErrorDetail(e));
+        return res.status(500).json({ error: "Failed to check existing subscription" });
     }
 
     const { data: plan, error } = await requireSupabaseAdmin()
         .from("meal_plans")
-        .select("price_monthly, delivery_fee, name")
+        .select("price_monthly, delivery_fee, pricing_options, name")
         .eq("id", planId)
         .eq("restaurant_id", restaurantId)
         .single();
@@ -215,31 +251,46 @@ const handleSubscriptionOrder = async (req: VercelRequest, res: VercelResponse) 
         return res.status(404).json({ error: "Plan not found" });
     }
 
-    const includeDelivery = deliveryType === "delivery" && deliveryFeeMode === "upfront";
-    const monthlySubtotal = calculateSubscriptionSubtotal(
-        Number(plan.price_monthly),
-        Number(plan.delivery_fee),
-        includeDelivery,
+    const pricing = getMealPlanPricingOption(
+        normalizeMealPlanPricingOptions(plan.pricing_options, Number(plan.price_monthly) / 30),
+        durationDays,
+        mealsPerDay,
     );
-    const { subtotal, gstAmount, total } = computeCartTotals(
-        [{ price: monthlySubtotal, quantity: 1 }],
+    if (!pricing) {
+        return res.status(400).json({ error: "This term and meal count are not available for the selected plan" });
+    }
+
+    const breakdown = calculateTermMealPlanTax(
+        pricing.pricePerMeal,
+        durationDays,
+        mealsPerDay,
+        Number(plan.delivery_fee),
+        deliveryType === "delivery" && deliveryFeeMode === "upfront",
         currency,
     );
 
     try {
         const result = await createRazorpayOrder({
-            amount: total,
+            amount: breakdown.total,
             currency,
             receipt: `sub_${planId.slice(0, 8)}_${Date.now()}`,
             notes: {
                 planId,
                 restaurantId,
                 planName: plan.name,
-                subtotal: String(subtotal),
-                gstAmount: String(gstAmount),
+                durationDays: String(durationDays),
+                mealsPerDay: String(mealsPerDay),
+                subtotal: String(breakdown.subtotal),
+                gstAmount: String(breakdown.gstAmount),
             },
         });
-        return res.status(200).json({ ...result, subtotal, gstAmount, total });
+        return res.status(200).json({
+            ...result,
+            subtotal: breakdown.subtotal,
+            gstAmount: breakdown.gstAmount,
+            total: breakdown.total,
+            pricePerMeal: pricing.pricePerMeal,
+        });
     } catch (e) {
         const msg = getErrorDetail(e);
         console.error("[create-razorpay-order] subscription failed", msg);

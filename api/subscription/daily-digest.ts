@@ -20,13 +20,14 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
         .select(`
             id,
             delivery_date,
+            meal_slot,
+            time_slot,
             dish_name,
             status,
             restaurant_id,
             customer_subscriptions (
                 customer_name,
                 phone,
-                time_slot,
                 delivery_type
             )
         `)
@@ -65,14 +66,13 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
 
         const rows = restaurantOrders.map((o) => {
             const sub = o.customer_subscriptions as unknown as {
-                customer_name: string; phone: string;
-                time_slot: string; delivery_type: string;
+                customer_name: string; phone: string; delivery_type: string;
             } | null;
             return {
                 customerName: sub?.customer_name ?? "-",
                 phone: sub?.phone ?? "-",
                 dishName: o.dish_name,
-                timeSlotLabel: TIME_SLOT_LABELS[sub?.time_slot ?? ""] ?? sub?.time_slot ?? "-",
+                timeSlotLabel: `${o.meal_slot} · ${TIME_SLOT_LABELS[o.time_slot] ?? o.time_slot}`,
                 deliveryType: sub?.delivery_type ?? "-",
             };
         });

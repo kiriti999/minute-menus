@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { throwStepError } from "@minute-menus/errors";
+import type { MealPlanPricingOption } from "@minute-menus/types";
 import type { Database } from "@minute-menus/types/db";
 
 export const upsertMealPlanRow = async (
@@ -10,6 +11,7 @@ export const upsertMealPlanRow = async (
         description: string;
         priceMonthly: number;
         deliveryFee: number;
+        pricingOptions: MealPlanPricingOption[];
         isActive: boolean;
     },
     planId?: string,
@@ -20,6 +22,7 @@ export const upsertMealPlanRow = async (
         description: plan.description,
         price_monthly: plan.priceMonthly,
         delivery_fee: plan.deliveryFee,
+        pricing_options: plan.pricingOptions,
         is_active: plan.isActive,
     };
 

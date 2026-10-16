@@ -5,7 +5,6 @@ import {
   Check,
   ChevronDown,
   ChevronLeft,
-  Clock,
   CreditCard,
   Eye,
   EyeOff,
@@ -28,7 +27,7 @@ import {
 import type React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  calculateMealPlanTax,
+  calculateTermMealPlanTax,
   calculateOrderTax,
   enrichOrderItemsWithGst,
   formatPriceInCurrency,
@@ -46,8 +45,16 @@ import { ButtonSpinner } from "@minute-menus/ui";
 import { getErrorMessage } from "@minute-menus/errors";
 import { CUSTOMER_STATUS_COPY, isOrderInFlight } from "../components/orderStatus";
 import { LiveOrderTracker } from "../components/LiveOrderTracker";
-import type { Category, CustomerAddress, CustomerOrder, CustomerProfile, CustomerSubscription, DailyOrder, Dish, MealPlan, OrderItem, SubDeliveryType, DeliveryFeeMode, TicketReason, TimeSlot, WeeklyOperatingHours, RestaurantAvailability } from "@minute-menus/types";
-import { getAvailabilityStatus, TICKET_REASON_LABELS, TIME_SLOT_LABELS } from "@minute-menus/types";
+import type { Category, CustomerAddress, CustomerOrder, CustomerProfile, CustomerSubscription, DailyOrder, Dish, MealPlan, MealSlot, OrderItem, SubDeliveryType, DeliveryFeeMode, TicketReason, WeeklyOperatingHours, RestaurantAvailability } from "@minute-menus/types";
+import {
+  getAvailabilityStatus,
+  getMealPlanPricingOption,
+  MEAL_SLOT_LABELS,
+  MEAL_SLOT_TIME_SLOTS,
+  MEAL_SLOTS_BY_COUNT,
+  TICKET_REASON_LABELS,
+  TIME_SLOT_LABELS,
+} from "@minute-menus/types";
 import { CustomerAddressLocate } from "../components/CustomerAddressLocate";
 
 interface CustomerAppProps {
@@ -194,7 +201,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   // ──────────────────────────────────────────────────────────────────────────
 
   // ── Subscription state ──────────────────────────────────────────────
-  type SubView = "lookup" | "plans" | "subscribe" | "manage";
+  type SubView = "lookup" | "plans" | "manage";
   const [isSubOpen, setIsSubOpen] = useState(false);
   const [subView, setSubView] = useState<SubView>("lookup");
   const [subPhone, setSubPhone] = useState("");
@@ -202,9 +209,9 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const [subEmail, setSubEmail] = useState("");
   const [subDeliveryType, setSubDeliveryType] = useState<SubDeliveryType>("delivery");
   const [subDeliveryFeeMode, setSubDeliveryFeeMode] = useState<DeliveryFeeMode>("cash_on_delivery");
-  const [subTimeSlot, setSubTimeSlot] = useState<TimeSlot>("08-09");
   const [availablePlans, setAvailablePlans] = useState<MealPlan[]>([]);
-  const [selectedPlan, setSelectedPlan] = useState<MealPlan | null>(null);
+  const [selectedDurationDays, setSelectedDurationDays] = useState(28);
+  const [selectedMealsPerDay, setSelectedMealsPerDay] = useState(1);
   const [customerSub, setCustomerSub] = useState<CustomerSubscription | null>(null);
   const [planDishes, setPlanDishes] = useState<Dish[]>([]);
   const [dailyOrders, setDailyOrders] = useState<DailyOrder[]>([]);
@@ -217,7 +224,8 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   // Meal plan modal (dish-select → subscribe flow)
   const [isMealPlanModalOpen, setIsMealPlanModalOpen] = useState(false);
   const [modalPlan, setModalPlan] = useState<MealPlan | null>(null);
-  const [rotationDishIds, setRotationDishIds] = useState<string[]>([]);
+  const [mealRotations, setMealRotations] = useState<Partial<Record<MealSlot, string[]>>>({});
+  const [editingMealSlot, setEditingMealSlot] = useState<MealSlot>("lunch");
   const [modalStep, setModalStep] = useState<1 | 2>(1);
   // Per-day schedule override date (manage view)
   const [selectedScheduleDate, setSelectedScheduleDate] = useState(
@@ -945,26 +953,31 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     [cart, currency],
   );
   const showGst = isIndianGstApplicable(currency);
-  const selectedPlanTax = useMemo(() => {
-    if (!selectedPlan) return null;
-    return calculateMealPlanTax(
-      selectedPlan.priceMonthly,
-      selectedPlan.deliveryFee,
-      subDeliveryType,
-      subDeliveryFeeMode,
-      currency,
-    );
-  }, [selectedPlan, subDeliveryType, subDeliveryFeeMode, currency]);
+  const modalMealSlots = MEAL_SLOTS_BY_COUNT[selectedMealsPerDay] ?? [];
+  const modalRotationDishIds = mealRotations[editingMealSlot] ?? [];
+  const modalDurationOptions = modalPlan?.pricingOptions
+    .filter((option) => option.mealsPerDay === selectedMealsPerDay && option.pricePerMeal > 0)
+    .map((option) => option.durationDays) ?? [];
+  const modalMealCountOptions = modalPlan?.pricingOptions
+    .filter((option) => option.durationDays === selectedDurationDays && option.pricePerMeal > 0)
+    .map((option) => option.mealsPerDay) ?? [];
   const modalPlanTax = useMemo(() => {
     if (!modalPlan) return null;
-    return calculateMealPlanTax(
-      modalPlan.priceMonthly,
+    const option = getMealPlanPricingOption(
+      modalPlan.pricingOptions,
+      selectedDurationDays,
+      selectedMealsPerDay,
+    );
+    if (!option) return null;
+    return calculateTermMealPlanTax(
+      option.pricePerMeal,
+      selectedDurationDays,
+      selectedMealsPerDay,
       modalPlan.deliveryFee,
-      subDeliveryType,
-      subDeliveryFeeMode,
+      subDeliveryType === "delivery" && subDeliveryFeeMode === "upfront",
       currency,
     );
-  }, [modalPlan, subDeliveryType, subDeliveryFeeMode, currency]);
+  }, [modalPlan, selectedDurationDays, selectedMealsPerDay, subDeliveryType, subDeliveryFeeMode, currency]);
   const itemCount = useMemo(
     () => cart.reduce((acc, item) => acc + item.quantity, 0),
     [cart],
@@ -1004,10 +1017,13 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const tomorrowDate = () => new Date(Date.now() + 86400000).toISOString().slice(0, 10);
 
   const isDateModifiable = (date: string) =>
-    date > tomorrowDate() || (date === tomorrowDate() && !isPastCutoff());
+    Boolean(customerSub && customerSub.status === "active" &&
+      date >= customerSub.startDate && date <= customerSub.endDate &&
+      (date > tomorrowDate() || (date === tomorrowDate() && !isPastCutoff())));
 
-  const getRotationDishForDate = (date: string): Dish | undefined => {
-    const ids = customerSub?.rotationDishIds ?? [];
+  const getRotationDishForDate = (date: string, mealSlot: MealSlot): Dish | undefined => {
+    const ids = customerSub?.mealRotations[mealSlot] ??
+      (mealSlot === "lunch" ? customerSub?.rotationDishIds : undefined) ?? [];
     if (!ids.length || !customerSub) return planDishes[0];
     const msPerDay = 86400000;
     const dayIndex = Math.floor((new Date(date).getTime() - new Date(customerSub.startDate).getTime()) / msPerDay);
@@ -1020,6 +1036,22 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     setPlanDishes(dishes);
   };
 
+  const isPlanPurchasable = (plan: MealPlan) =>
+    plan.isActive && plan.pricingOptions.some((option) => option.pricePerMeal > 0);
+
+  const preparePlanPurchase = (plan: MealPlan, initialDishId?: string) => {
+    const option = plan.pricingOptions.find((pricing) => pricing.pricePerMeal > 0) ??
+      plan.pricingOptions[0] ?? { durationDays: 28, mealsPerDay: 1, pricePerMeal: 0 };
+    setModalPlan(plan);
+    setSelectedDurationDays(option.durationDays);
+    setSelectedMealsPerDay(option.mealsPerDay);
+    setEditingMealSlot(MEAL_SLOTS_BY_COUNT[option.mealsPerDay]?.[0] ?? "lunch");
+    setMealRotations(initialDishId ? { lunch: [initialDishId] } : {});
+    loadDishesForPlan(plan);
+    setModalStep(1);
+    setIsMealPlanModalOpen(true);
+  };
+
   const openSubPanel = async () => {
     setSubView("lookup");
     setSubError("");
@@ -1028,7 +1060,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     if (restaurantId) {
       try {
         const plans = await supabaseService.getMealPlans(restaurantId);
-        setAvailablePlans(plans.filter((p) => p.isActive));
+        setAvailablePlans(plans.filter(isPlanPurchasable));
       } catch { /* non-fatal — plans will load on lookup */ }
     }
   };
@@ -1039,29 +1071,32 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     if (!plans.length && restaurantId) {
       try {
         const fetched = await supabaseService.getMealPlans(restaurantId);
-        plans = fetched.filter(p => p.isActive);
+        plans = fetched.filter(isPlanPurchasable);
         setAvailablePlans(plans);
       } catch { return; }
     }
     const plan = plans.find(p => p.dishIds.includes(dish.id));
     if (!plan) return;
-    setModalPlan(plan);
-    setRotationDishIds([dish.id]);
-    setModalStep(1);
-    setIsMealPlanModalOpen(true);
+    preparePlanPurchase(plan, dish.id);
   };
 
   const closeMealPlanModal = () => {
     setIsMealPlanModalOpen(false);
     setModalPlan(null);
-    setRotationDishIds([]);
+    setMealRotations({});
     setModalStep(1);
   };
 
   const toggleRotationDish = (dishId: string) => {
-    setRotationDishIds(prev =>
-      prev.includes(dishId) ? prev.filter(id => id !== dishId) : [...prev, dishId]
-    );
+    setMealRotations((prev) => {
+      const current = prev[editingMealSlot] ?? [];
+      return {
+        ...prev,
+        [editingMealSlot]: current.includes(dishId)
+          ? current.filter((id) => id !== dishId)
+          : [...current, dishId],
+      };
+    });
   };
 
   const handleSubLookup = async () => {
@@ -1070,18 +1105,21 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     setSubError("");
     try {
       const sub = await supabaseService.getCustomerSubscription(subPhone.trim(), restaurantId);
-      if (sub) {
+      const today = new Date().toISOString().slice(0, 10);
+      if (sub && sub.status !== "cancelled" && sub.endDate >= today) {
         setCustomerSub(sub);
         const orders = await supabaseService.getCustomerDailyOrders(sub.id, tomorrowDate());
         setDailyOrders(orders);
         const plans = await supabaseService.getMealPlans(restaurantId);
-        setAvailablePlans(plans.filter((p) => p.isActive));
+        setAvailablePlans(plans.filter(isPlanPurchasable));
         const plan = plans.find((p) => p.id === sub.planId);
         if (plan) loadDishesForPlan(plan);
         setSubView("manage");
       } else {
+        setCustomerSub(null);
+        setDailyOrders([]);
         const plans = await supabaseService.getMealPlans(restaurantId);
-        setAvailablePlans(plans.filter((p) => p.isActive));
+        setAvailablePlans(plans.filter(isPlanPurchasable));
         setSubView("plans");
       }
     } catch {
@@ -1092,15 +1130,23 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   };
 
   const handleSelectPlan = (plan: MealPlan) => {
-    setSelectedPlan(plan);
-    loadDishesForPlan(plan);
-    setSubView("subscribe");
+    preparePlanPurchase(plan);
   };
 
-  const handleCreateSubscription = async (planOverride?: MealPlan, rotationOverride?: string[]) => {
-    const plan = planOverride ?? selectedPlan;
-    const rotation = rotationOverride ?? [];
-    if (!subPhone.trim() || !subName.trim() || !plan || !restaurantId) return;
+  const handleCreateSubscription = async (
+    plan: MealPlan,
+    rotations: Partial<Record<MealSlot, string[]>>,
+  ) => {
+    const mealSlots = MEAL_SLOTS_BY_COUNT[selectedMealsPerDay] ?? [];
+    if (!subPhone.trim() || !subName.trim() || !restaurantId) return;
+    if (!getMealPlanPricingOption(plan.pricingOptions, selectedDurationDays, selectedMealsPerDay)) {
+      setSubError("Choose a configured duration and meal count for this plan.");
+      return;
+    }
+    if (mealSlots.some((slot) => !rotations[slot]?.length)) {
+      setSubError("Choose a dish rotation for every meal in your plan.");
+      return;
+    }
     setSubLoading(true);
     setSubError("");
     try {
@@ -1111,8 +1157,11 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         body: JSON.stringify({
           planId: plan.id,
           restaurantId,
+          phone: subPhone.trim(),
           deliveryFeeMode: subDeliveryFeeMode,
           deliveryType: subDeliveryType,
+          durationDays: selectedDurationDays,
+          mealsPerDay: selectedMealsPerDay,
           currency,
         }),
       });
@@ -1149,8 +1198,9 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           email: subEmail.trim() || undefined,
           deliveryType: subDeliveryType,
           deliveryFeeMode: subDeliveryFeeMode,
-          timeSlot: subTimeSlot,
-          rotationDishIds: rotation.length ? rotation : undefined,
+          durationDays: selectedDurationDays,
+          mealsPerDay: selectedMealsPerDay,
+          mealRotations: rotations,
           currency,
         }),
       });
@@ -1161,11 +1211,8 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       const newSub = await supabaseService.getCustomerSubscription(subPhone.trim(), restaurantId);
       setCustomerSub(newSub);
       setDailyOrders([]);
-      if (planOverride) {
-        // Came from the meal plan modal — close it and open manage in side panel
-        closeMealPlanModal();
-        setIsSubOpen(true);
-      }
+      closeMealPlanModal();
+      setIsSubOpen(true);
       setSubView("manage");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to subscribe. Please try again.";
@@ -1175,11 +1222,11 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     }
   };
 
-  const handleSelectDish = async (dishId: string) => {
+  const handleSelectDish = async (dishId: string, mealSlot: MealSlot) => {
     if (!subPhone.trim() || !restaurantId || !customerSub) return;
     setSubLoading(true);
     try {
-      await supabaseService.selectDailyDish(subPhone.trim(), restaurantId, selectedScheduleDate, dishId);
+      await supabaseService.selectDailyDish(subPhone.trim(), restaurantId, selectedScheduleDate, dishId, mealSlot);
       const orders = await supabaseService.getCustomerDailyOrders(customerSub.id, tomorrowDate());
       setDailyOrders(orders);
     } catch (e) {
@@ -1859,7 +1906,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
             <div className="p-4 sm:p-6 border-b border-zinc-800 flex items-center gap-3">
               {subView !== "lookup" && (
                 <button
-                  onClick={() => setSubView(subView === "subscribe" ? "plans" : "lookup")}
+                  onClick={() => setSubView("lookup")}
                   className="p-1.5 hover:bg-zinc-900 rounded-full transition-colors"
                 >
                   <ChevronLeft size={20} className="text-zinc-400" />
@@ -1868,7 +1915,6 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
               <h2 className="text-xl font-light tracking-tight text-white flex-1">
                 {subView === "lookup" && "My Subscription"}
                 {subView === "plans" && "Choose a Plan"}
-                {subView === "subscribe" && (selectedPlan?.name ?? "Subscribe")}
                 {subView === "manage" && "Manage Subscription"}
               </h2>
               <button onClick={() => setIsSubOpen(false)} className="p-2 hover:bg-zinc-900 rounded-full transition-colors">
@@ -1925,90 +1971,20 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                     <div key={plan.id} className="border border-zinc-800 rounded-xl p-4 hover:border-zinc-600 transition-colors cursor-pointer" onClick={() => handleSelectPlan(plan)}>
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <h3 className="font-bold text-white">{plan.name}</h3>
-                        <span className="font-mono text-white text-lg shrink-0">{currency} {plan.priceMonthly}<span className="text-zinc-500 text-sm">/mo</span></span>
+                        <span className="font-mono text-white text-sm shrink-0">
+                          From {formatPriceInCurrency(
+                            Math.min(...plan.pricingOptions.filter((option) => option.pricePerMeal > 0).map((option) => option.pricePerMeal)),
+                            currency,
+                          )}/meal
+                        </span>
                       </div>
                       {plan.description && <p className="text-zinc-400 text-sm mb-3">{plan.description}</p>}
                       <div className="flex gap-3 text-xs text-zinc-500">
                         <span className="flex items-center gap-1"><Tag size={11} /> {plan.dishIds.length} dishes</span>
-                        <span className="flex items-center gap-1"><CreditCard size={11} /> {plan.deliveryFee > 0 ? `+${currency} ${plan.deliveryFee} delivery` : "Free delivery"}</span>
+                        <span className="flex items-center gap-1"><CreditCard size={11} /> {plan.deliveryFee > 0 ? `${formatPriceInCurrency(plan.deliveryFee, currency)} per delivery` : "Free delivery"}</span>
                       </div>
                     </div>
                   ))}
-                </div>
-              )}
-
-              {/* ── Subscribe form view ── */}
-              {subView === "subscribe" && selectedPlan && (
-                <div className="space-y-5 mt-2">
-                  {([{ label: "Your Name", key: "name", type: "text", value: subName, set: setSubName, placeholder: "Full name" },
-                  { label: "Email (optional)", key: "email", type: "email", value: subEmail, set: setSubEmail, placeholder: "for order confirmations" },
-                  ] as const).map(({ label, type, value, set, placeholder }) => (
-                    <div key={label}>
-                      <label className="block text-xs font-bold uppercase tracking-widest mb-1.5 text-zinc-500">{label}</label>
-                      <input type={type} value={value} onChange={(e) => set(e.target.value)} placeholder={placeholder}
-                        className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-2.5 rounded text-sm outline-none focus:border-zinc-500" />
-                    </div>
-                  ))}
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-widest mb-2 text-zinc-500">Delivery Type</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {(["delivery", "pickup"] as SubDeliveryType[]).map((t) => (
-                        <button key={t} onClick={() => setSubDeliveryType(t)}
-                          className={`py-2.5 rounded border text-sm font-medium capitalize transition-colors ${subDeliveryType === t ? 'bg-white text-black border-white' : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}>
-                          {t}
-                        </button>
-                      ))}
-                    </div>
-                    {subDeliveryType === "delivery" && selectedPlan.deliveryFee > 0 && (
-                      <div className="mt-2 space-y-1.5">
-                        <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Delivery fee — {currency} {selectedPlan.deliveryFee}/order</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          {(["cash_on_delivery", "upfront"] as DeliveryFeeMode[]).map((mode) => (
-                            <button key={mode} onClick={() => setSubDeliveryFeeMode(mode)}
-                              className={`py-2 rounded border text-xs font-medium transition-colors ${subDeliveryFeeMode === mode ? 'bg-white text-black border-white' : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}>
-                              {mode === "upfront" ? `Pay upfront (+${currency} ${selectedPlan.deliveryFee * 30}/mo)` : "Pay on delivery"}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-widest mb-2 text-zinc-500">Delivery Time Slot</label>
-                    <div className="space-y-2">
-                      {(Object.entries(TIME_SLOT_LABELS) as [TimeSlot, string][]).map(([slot, label]) => (
-                        <button key={slot} onClick={() => setSubTimeSlot(slot)}
-                          className={`w-full py-2.5 px-4 rounded border text-sm text-left flex items-center gap-2 transition-colors ${subTimeSlot === slot ? 'bg-white text-black border-white' : 'border-zinc-700 text-zinc-400 hover:border-zinc-500'}`}>
-                          <Clock size={14} />{label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {subError && <p className="text-red-400 text-sm">{subError}</p>}
-                  {showGst && selectedPlanTax && (
-                    <div className="space-y-1.5 text-sm border border-zinc-800 rounded-lg p-3">
-                      <div className="flex justify-between text-zinc-400">
-                        <span>Subtotal</span>
-                        <span className="font-mono">{formatPriceInCurrency(selectedPlanTax.subtotal, currency)}/mo</span>
-                      </div>
-                      <div className="flex justify-between text-zinc-400">
-                        <span>GST ({INDIAN_RESTAURANT_GST_PERCENT}%)</span>
-                        <span className="font-mono">{formatPriceInCurrency(selectedPlanTax.gstAmount, currency)}/mo</span>
-                      </div>
-                      <p className="text-[10px] text-zinc-600 leading-snug">
-                        Plan prices exclude GST. {INDIAN_RESTAURANT_GST_PERCENT}% GST applies on meal plans as per Indian tax law.
-                      </p>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => handleCreateSubscription()}
-                    disabled={subLoading || !subName.trim()}
-                    className="w-full bg-white text-black py-3.5 rounded font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    {subLoading ? <Loader2 className="animate-spin" size={18} /> : (
-                      `PAY ${formatPriceInCurrency(selectedPlanTax?.total ?? selectedPlan.priceMonthly, currency)}/mo`
-                    )}
-                  </button>
                 </div>
               )}
 
@@ -2021,7 +1997,14 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                       <span className="font-bold text-white">{customerSub.planName}</span>
                       <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${customerSub.status === "active" ? 'bg-green-900/40 text-green-400' : customerSub.status === "paused" ? 'bg-amber-900/40 text-amber-400' : 'bg-red-900/40 text-red-400'}`}>{customerSub.status}</span>
                     </div>
-                    <p className="text-zinc-500 text-xs">{customerSub.deliveryType} · {TIME_SLOT_LABELS[customerSub.timeSlot]}</p>
+                    <p className="text-zinc-500 text-xs">
+                      {customerSub.deliveryType} · {customerSub.legacySchedule
+                        ? TIME_SLOT_LABELS[customerSub.timeSlot]
+                        : (MEAL_SLOTS_BY_COUNT[customerSub.mealsPerDay] ?? [])
+                          .map((slot) => `${MEAL_SLOT_LABELS[slot]} ${TIME_SLOT_LABELS[MEAL_SLOT_TIME_SLOTS[slot]]}`)
+                          .join(" · ")}
+                    </p>
+                    <p className="text-zinc-500 text-xs">{customerSub.durationDays} days · {customerSub.mealsPerDay} meal{customerSub.mealsPerDay === 1 ? "" : "s"} per day</p>
                     <p className="text-zinc-600 text-xs mt-0.5">until {customerSub.endDate}</p>
                     {customerSub.status === "paused" && customerSub.pauseUntil && (
                       <p className="text-amber-400 text-xs mt-1">Paused until {customerSub.pauseUntil}</p>
@@ -2043,9 +2026,13 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                           const dateStr = d.toISOString().slice(0, 10);
                           const dayLabel = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()];
                           const dayNum = d.getDate();
-                          const overrideOrder = dailyOrders.find(o => o.deliveryDate === dateStr);
-                          const rotationDish = getRotationDishForDate(dateStr);
-                          const dishLabel = overrideOrder?.dishName ?? rotationDish?.name ?? "—";
+                          const mealPreview = (MEAL_SLOTS_BY_COUNT[customerSub.mealsPerDay] ?? [])
+                            .map((slot) => {
+                              const order = dailyOrders.find((o) => o.deliveryDate === dateStr && o.mealSlot === slot);
+                              const rotation = getRotationDishForDate(dateStr, slot);
+                              return `${MEAL_SLOT_LABELS[slot][0]}: ${order?.dishName ?? rotation?.name ?? "—"}`;
+                            })
+                            .join(" · ");
                           const isSelected = selectedScheduleDate === dateStr;
                           const modifiable = isDateModifiable(dateStr);
                           return (
@@ -2057,8 +2044,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                             >
                               <span className="text-[10px] font-bold uppercase">{dayLabel}</span>
                               <span className="text-sm font-mono font-bold">{dayNum}</span>
-                              <span className="text-[9px] leading-tight truncate max-w-[44px]">{dishLabel}</span>
-                              {overrideOrder?.dishId && <span className="text-[8px] opacity-60">override</span>}
+                              <span className="text-[9px] leading-tight truncate max-w-[90px]">{mealPreview}</span>
                             </button>
                           );
                         })}
@@ -2066,27 +2052,38 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
 
                       {/* Dish selector for selected date */}
                       {isDateModifiable(selectedScheduleDate) ? (
-                        <div className="space-y-2">
+                        <div className="space-y-5">
                           <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-bold mb-1">
-                            Dish for {new Date(selectedScheduleDate + "T00:00:00").toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })}
+                            Meals for {new Date(selectedScheduleDate + "T00:00:00").toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })}
                           </p>
-                          {planDishes.map(dish => {
-                            const orderForDate = dailyOrders.find(o => o.deliveryDate === selectedScheduleDate);
-                            const rotationDish = getRotationDishForDate(selectedScheduleDate);
-                            const isActive = orderForDate ? orderForDate.dishId === dish.id : rotationDish?.id === dish.id;
+                          {(MEAL_SLOTS_BY_COUNT[customerSub.mealsPerDay] ?? []).map((mealSlot) => {
+                            const orderForMeal = dailyOrders.find((o) =>
+                              o.deliveryDate === selectedScheduleDate && o.mealSlot === mealSlot,
+                            );
+                            const rotationDish = getRotationDishForDate(selectedScheduleDate, mealSlot);
                             return (
-                              <button key={dish.id}
-                                onClick={() => handleSelectDish(dish.id)}
-                                disabled={subLoading}
-                                className={`w-full text-left px-4 py-3 rounded border flex items-center justify-between transition-colors ${isActive ? "bg-white text-black border-white" : "border-zinc-700 text-zinc-300 hover:border-zinc-500"}`}>
-                                <span className="font-medium text-sm">{dish.name}</span>
-                                <div className="flex items-center gap-2">
-                                  {!dailyOrders.find(o => o.deliveryDate === selectedScheduleDate) && isActive && (
-                                    <span className="text-[10px] opacity-60">rotation</span>
-                                  )}
-                                  {isActive && <Check size={14} />}
-                                </div>
-                              </button>
+                              <div key={mealSlot} className="space-y-2">
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                                  {MEAL_SLOT_LABELS[mealSlot]}
+                                </h4>
+                                {planDishes.map((dish) => {
+                                  const isActive = orderForMeal
+                                    ? orderForMeal.dishId === dish.id
+                                    : rotationDish?.id === dish.id;
+                                  return (
+                                    <button key={dish.id}
+                                      onClick={() => handleSelectDish(dish.id, mealSlot)}
+                                      disabled={subLoading}
+                                      className={`w-full text-left px-4 py-3 rounded border flex items-center justify-between transition-colors ${isActive ? "bg-white text-black border-white" : "border-zinc-700 text-zinc-300 hover:border-zinc-500"}`}>
+                                      <span className="font-medium text-sm">{dish.name}</span>
+                                      <div className="flex items-center gap-2">
+                                        {!orderForMeal && isActive && <span className="text-[10px] opacity-60">rotation</span>}
+                                        {isActive && <Check size={14} />}
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
                             );
                           })}
                           {planDishes.length === 0 && <p className="text-zinc-500 text-sm">No dishes available in your plan.</p>}
@@ -2208,10 +2205,61 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           <div className="flex-1 overflow-y-auto p-4 space-y-5">
             {modalStep === 1 && (
               <>
-                <p className="text-zinc-400 text-sm">Select the dishes you want in your daily rotation. They'll be delivered in order, cycling automatically.</p>
+                <p className="text-zinc-400 text-sm">Choose your term and meals per day, then select a rotating dish list for each meal.</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <label>
+                    <span className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-1.5">Plan duration</span>
+                    <select value={selectedDurationDays}
+                      onChange={(event) => setSelectedDurationDays(Number(event.target.value))}
+                      className="w-full bg-zinc-900 border border-zinc-700 text-white px-3 py-2.5 rounded text-sm">
+                      {modalDurationOptions.map((days) => (
+                        <option key={days} value={days}>{days} days</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <span className="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-1.5">Meals per day</span>
+                    <select value={selectedMealsPerDay}
+                      onChange={(event) => {
+                        const count = Number(event.target.value);
+                        const firstDuration = modalPlan?.pricingOptions.find(
+                          (option) => option.mealsPerDay === count && option.pricePerMeal > 0,
+                        )?.durationDays;
+                        setSelectedMealsPerDay(count);
+                        if (firstDuration) setSelectedDurationDays(firstDuration);
+                        setEditingMealSlot(MEAL_SLOTS_BY_COUNT[count]?.[0] ?? "lunch");
+                      }}
+                      className="w-full bg-zinc-900 border border-zinc-700 text-white px-3 py-2.5 rounded text-sm">
+                      {modalMealCountOptions.map((count) => (
+                        <option key={count} value={count}>{count} meal{count === 1 ? "" : "s"}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <div className="flex items-center justify-between border border-zinc-800 rounded-lg px-3 py-2 text-xs">
+                  <span className="text-zinc-500">Per-meal rate</span>
+                  <span className="text-white">
+                    {formatPriceInCurrency(
+                      getMealPlanPricingOption(modalPlan.pricingOptions, selectedDurationDays, selectedMealsPerDay)?.pricePerMeal ?? 0,
+                      currency,
+                    )}
+                  </span>
+                </div>
+                <div className="flex gap-2 overflow-x-auto">
+                  {modalMealSlots.map((slot) => (
+                    <button key={slot} onClick={() => setEditingMealSlot(slot)}
+                      className={`shrink-0 px-3 py-2 rounded border text-xs font-bold ${editingMealSlot === slot ? "bg-white text-black border-white" : "border-zinc-700 text-zinc-400"}`}>
+                      {MEAL_SLOT_LABELS[slot]}
+                      {mealRotations[slot]?.length ? " ✓" : ""}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-zinc-400 text-sm">
+                  {MEAL_SLOT_LABELS[editingMealSlot]} rotation — dishes cycle in the order you select them.
+                </p>
                 <div className="space-y-2">
                   {modalPlanDishes.map(dish => {
-                    const isSelected = rotationDishIds.includes(dish.id);
+                    const isSelected = modalRotationDishIds.includes(dish.id);
                     return (
                       <button
                         key={dish.id}
@@ -2231,19 +2279,19 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                 </div>
 
                 {/* Rotation preview */}
-                {rotationDishIds.length > 0 && (
+                {modalRotationDishIds.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">Rotation Preview</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2">{MEAL_SLOT_LABELS[editingMealSlot]} Rotation Preview</p>
                     <div className="space-y-1">
-                      {Array.from({ length: Math.min(7, rotationDishIds.length * 2) }, (_, i) => {
-                        const dishId = rotationDishIds[i % rotationDishIds.length];
+                      {Array.from({ length: Math.min(7, modalRotationDishIds.length * 2) }, (_, i) => {
+                        const dishId = modalRotationDishIds[i % modalRotationDishIds.length];
                         const d = modalPlanDishes.find(x => x.id === dishId);
                         const dayLabel = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][i % 7];
                         return d ? (
                           <div key={i} className="flex items-center gap-2 text-xs text-zinc-400">
                             <span className="w-8 text-zinc-600 font-mono">{dayLabel}</span>
                             <span className="text-white">{d.name}</span>
-                            {rotationDishIds.length > 1 && i >= rotationDishIds.length && (
+                            {modalRotationDishIds.length > 1 && i >= modalRotationDishIds.length && (
                               <span className="text-zinc-600 text-[10px]">↺</span>
                             )}
                           </div>
@@ -2280,29 +2328,25 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                   </div>
                   {subDeliveryType === "delivery" && modalPlan.deliveryFee > 0 && (
                     <div className="mt-2 space-y-1.5">
-                      <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">Delivery fee — {currency} {modalPlan.deliveryFee}/order</p>
+                      <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">
+                        {formatPriceInCurrency(modalPlan.deliveryFee, currency)} per delivery · {selectedDurationDays * selectedMealsPerDay} deliveries
+                      </p>
                       <div className="grid grid-cols-2 gap-2">
                         {(["cash_on_delivery", "upfront"] as DeliveryFeeMode[]).map(mode => (
                           <button key={mode} onClick={() => setSubDeliveryFeeMode(mode)}
                             className={`py-2 rounded border text-xs font-medium transition-colors ${subDeliveryFeeMode === mode ? "bg-white text-black border-white" : "border-zinc-700 text-zinc-400 hover:border-zinc-500"}`}>
-                            {mode === "upfront" ? `Pay upfront (+${currency} ${modalPlan.deliveryFee * 30}/mo)` : "Pay on delivery"}
+                            {mode === "upfront"
+                              ? `Pay upfront (+${formatPriceInCurrency(modalPlan.deliveryFee * selectedDurationDays * selectedMealsPerDay, currency)})`
+                              : "Pay each delivery"}
                           </button>
                         ))}
                       </div>
                     </div>
                   )}
                 </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-widest mb-2 text-zinc-500">Delivery Time Slot</label>
-                  <div className="space-y-2">
-                    {(Object.entries(TIME_SLOT_LABELS) as [TimeSlot, string][]).map(([slot, label]) => (
-                      <button key={slot} onClick={() => setSubTimeSlot(slot)}
-                        className={`w-full py-2.5 px-4 rounded border text-sm text-left flex items-center gap-2 transition-colors ${subTimeSlot === slot ? "bg-white text-black border-white" : "border-zinc-700 text-zinc-400 hover:border-zinc-500"}`}>
-                        <Clock size={14} />{label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <p className="text-xs text-zinc-500">
+                  {selectedDurationDays} days · {selectedMealsPerDay} meal{selectedMealsPerDay === 1 ? "" : "s"} per day · Each meal arrives in its Breakfast, Lunch, or Dinner delivery window.
+                </p>
                 {subError && <p className="text-red-400 text-sm">{subError}</p>}
               </div>
             )}
@@ -2313,7 +2357,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
             {modalStep === 1 ? (
               <button
                 onClick={() => setModalStep(2)}
-                disabled={rotationDishIds.length === 0}
+                disabled={!modalPlanTax || modalMealSlots.some((slot) => !mealRotations[slot]?.length)}
                 className="w-full bg-white text-black py-3.5 rounded font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-40"
               >
                 NEXT →
@@ -2324,21 +2368,21 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                   <div className="space-y-1.5 text-sm border border-zinc-800 rounded-lg p-3 mb-3">
                     <div className="flex justify-between text-zinc-400">
                       <span>Subtotal</span>
-                      <span className="font-mono">{formatPriceInCurrency(modalPlanTax.subtotal, currency)}/mo</span>
+                      <span className="font-mono">{formatPriceInCurrency(modalPlanTax.subtotal, currency)}</span>
                     </div>
                     <div className="flex justify-between text-zinc-400">
                       <span>GST ({INDIAN_RESTAURANT_GST_PERCENT}%)</span>
-                      <span className="font-mono">{formatPriceInCurrency(modalPlanTax.gstAmount, currency)}/mo</span>
+                      <span className="font-mono">{formatPriceInCurrency(modalPlanTax.gstAmount, currency)}</span>
                     </div>
                   </div>
                 )}
                 <button
-                  onClick={() => handleCreateSubscription(modalPlan, rotationDishIds)}
-                  disabled={subLoading || !subName.trim() || !subPhone.trim()}
+                  onClick={() => handleCreateSubscription(modalPlan, mealRotations)}
+                  disabled={subLoading || !subName.trim() || !subPhone.trim() || !modalPlanTax}
                   className="w-full bg-white text-black py-3.5 rounded font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
                 >
                   {subLoading ? <Loader2 className="animate-spin" size={18} /> : (
-                    `PAY ${formatPriceInCurrency(modalPlanTax?.total ?? modalPlan.priceMonthly, currency)}/mo`
+                    `PAY ${formatPriceInCurrency(modalPlanTax?.total ?? 0, currency)} FOR ${selectedDurationDays} DAYS`
                   )}
                 </button>
               </>

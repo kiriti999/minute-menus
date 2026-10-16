@@ -114,7 +114,7 @@ export const buildDailyDigestEmailHtml = (
 <div class="wrap"><div class="hdr"><span>MINUTE MENUS</span></div><div class="body">
 <div class="badge">Daily Digest</div>
 <h2>Tomorrow's Orders — ${tomorrowStr}</h2>
-<p>${orderCount} subscriber${orderCount !== 1 ? "s" : ""} have selected their meal for tomorrow.</p>
+<p>There are ${orderCount} meal deliveries scheduled for tomorrow.</p>
 <table><thead><tr><th>Customer</th><th>Phone</th><th>Dish</th><th>Time Slot</th><th>Type</th></tr></thead>
 <tbody>${tableRows}</tbody></table></div>
 <div class="ftr">Please prepare these items for delivery tomorrow. Sent by Minute Menus.</div></div></body></html>`;

@@ -20,6 +20,7 @@ import type {
     IngredientInvoice,
     InvoiceLineItem,
     MealPlan,
+    MealSlot,
     OrderStatus,
     OrderItem,
     PurchaseUnit,
@@ -34,9 +35,13 @@ import type {
     WatchSession,
     DeliveryFeeMode,
     RestaurantAvailability,
-    DEFAULT_OPERATING_HOURS,
 } from "@minute-menus/types";
-import { UserTier } from "@minute-menus/types";
+import {
+    DEFAULT_OPERATING_HOURS,
+    normalizeMealPlanPricingOptions,
+    normalizeMealRotations,
+    UserTier,
+} from "@minute-menus/types";
 import type { Json } from "@minute-menus/types/db";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@minute-menus/types/db";
@@ -489,6 +494,9 @@ export class SupabaseService {
     // ── CSV Export ───────────────────────────────────────────────────────────────
 
     async getCSVData(): Promise<string> {
+        if ((await this.getTier()) !== UserTier.PLUS) {
+            throw new Error("Data export requires the Plus plan");
+        }
         const metrics = await this.getAggregatedMetrics("30d");
         // Views = reel watch sessions. Units Sold / Revenue = real orders only.
         const headers = [
@@ -791,6 +799,10 @@ export class SupabaseService {
             restaurantId: p.restaurant_id,
             name: p.name,
             description: p.description,
+            pricingOptions: normalizeMealPlanPricingOptions(
+                p.pricing_options,
+                Number(p.price_monthly) / 30,
+            ),
             priceMonthly: p.price_monthly,
             deliveryFee: p.delivery_fee,
             isActive: p.is_active,
@@ -812,6 +824,7 @@ export class SupabaseService {
                 description: plan.description,
                 priceMonthly: plan.priceMonthly,
                 deliveryFee: plan.deliveryFee,
+                pricingOptions: plan.pricingOptions,
                 isActive: plan.isActive,
             },
             planId,
@@ -842,6 +855,9 @@ export class SupabaseService {
             restaurantId: s.restaurant_id,
             planId: s.plan_id,
             planName: (s as unknown as { meal_plans?: { name?: string } }).meal_plans?.name ?? "",
+            durationDays: s.duration_days,
+            mealsPerDay: s.meals_per_day,
+            legacySchedule: s.legacy_schedule,
             customerName: s.customer_name,
             phone: s.phone,
             email: s.email ?? undefined,
@@ -855,6 +871,7 @@ export class SupabaseService {
             endDate: s.end_date,
             createdAt: s.created_at,
             rotationDishIds: ((s as unknown as Record<string, unknown>).rotation_dish_ids ?? []) as string[],
+            mealRotations: normalizeMealRotations(s.meal_rotations, s.rotation_dish_ids ?? []),
         }));
     }
 
@@ -1047,13 +1064,16 @@ export class SupabaseService {
         phone: string,
         restaurantId: string,
     ): Promise<CustomerSubscription | null> {
-        const { data } = await this.client
+        const { data, error } = await this.client
             .from("customer_subscriptions")
             .select("*, meal_plans(name)")
             .eq("phone", phone)
             .eq("restaurant_id", restaurantId)
-            .single();
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
+        if (error) throw error;
         if (!data) return null;
 
         return {
@@ -1061,6 +1081,9 @@ export class SupabaseService {
             restaurantId: data.restaurant_id,
             planId: data.plan_id,
             planName: (data as unknown as { meal_plans?: { name?: string } }).meal_plans?.name ?? "",
+            durationDays: data.duration_days,
+            mealsPerDay: data.meals_per_day,
+            legacySchedule: data.legacy_schedule,
             customerName: data.customer_name,
             phone: data.phone,
             email: data.email ?? undefined,
@@ -1074,6 +1097,7 @@ export class SupabaseService {
             endDate: data.end_date,
             createdAt: data.created_at,
             rotationDishIds: ((data as unknown as Record<string, unknown>).rotation_dish_ids ?? []) as string[],
+            mealRotations: normalizeMealRotations(data.meal_rotations, data.rotation_dish_ids ?? []),
         };
     }
 
@@ -1086,11 +1110,14 @@ export class SupabaseService {
         deliveryType: SubDeliveryType;
         deliveryFeeMode: DeliveryFeeMode;
         timeSlot: TimeSlot;
+        durationDays?: number;
+        mealsPerDay?: number;
+        mealRotations?: Partial<Record<MealSlot, string[]>>;
         rotationDishIds?: string[];
     }): Promise<string> {
         const startDate = new Date().toISOString().slice(0, 10);
         const end = new Date();
-        end.setDate(end.getDate() + 30);
+        end.setDate(end.getDate() + (params.durationDays ?? 28) - 1);
         const endDate = end.toISOString().slice(0, 10);
 
         const { data, error } = await this.client
@@ -1101,6 +1128,9 @@ export class SupabaseService {
                 customer_name: params.customerName,
                 phone: params.phone,
                 email: params.email ?? null,
+                duration_days: params.durationDays ?? 28,
+                meals_per_day: params.mealsPerDay ?? 1,
+                meal_rotations: params.mealRotations ?? {},
                 delivery_type: params.deliveryType,
                 delivery_fee_mode: params.deliveryFeeMode,
                 time_slot: params.timeSlot,
@@ -1120,12 +1150,14 @@ export class SupabaseService {
         restaurantId: string,
         deliveryDate: string,
         dishId: string,
+        mealSlot: MealSlot,
     ): Promise<void> {
         const { error } = await this.client.rpc("upsert_daily_selection", {
             p_phone: phone,
             p_restaurant_id: restaurantId,
             p_delivery_date: deliveryDate,
             p_dish_id: dishId,
+            p_meal_slot: mealSlot,
         });
         if (error) throw new Error(error.message);
     }

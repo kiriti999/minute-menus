@@ -44,25 +44,80 @@ interface OrderQueueViewProps {
   isTestSoundPlaying: boolean;
 }
 
+const PinModal = ({ onSubmit, onCancel }: { onSubmit: (pin: string) => void; onCancel: () => void }) => {
+  const [pin, setPin] = useState("");
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onKeyDown={(e) => e.key === "Escape" && onCancel()}
+    >
+      <form
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="refund-pin-title"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (pin.length === 4) onSubmit(pin);
+        }}
+        className="w-full max-w-sm rounded-xl bg-white p-6 text-gray-900 shadow-2xl dark:bg-zinc-900 dark:text-gray-100"
+      >
+        <h3 id="refund-pin-title" className="text-lg font-semibold">Confirm refund</h3>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Enter your 4-digit refund PIN to continue.</p>
+        <input
+          autoFocus
+          type="password"
+          inputMode="numeric"
+          autoComplete="off"
+          maxLength={4}
+          value={pin}
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+          placeholder="••••"
+          aria-label="Refund PIN"
+          className="mt-4 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:border-amber-500 dark:border-zinc-700"
+        />
+        <div className="mt-5 flex justify-end gap-2">
+          <button type="button" onClick={onCancel} className="rounded-lg px-4 py-2 text-sm font-medium hover:bg-gray-100 dark:hover:bg-zinc-800">
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={pin.length !== 4}
+            className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-50"
+          >
+            Refund
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+};
+
 const RefundStatus = ({ order, onRefund }: { order: KitchenOrder; onRefund: (orderId: string, pin: string) => Promise<void> }) => {
   const [busy, setBusy] = useState(false);
+  const [askingPin, setAskingPin] = useState(false);
   if (order.refundId) return <span className="text-sm font-medium text-green-500">Refunded</span>;
   if (order.paymentProvider !== "razorpay") return <span className="text-sm text-red-500">Rejected</span>;
+  const submitPin = async (pin: string) => {
+    setAskingPin(false);
+    setBusy(true);
+    try {
+      await onRefund(order.id, pin);
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
-    <button
-      type="button"
-      disabled={busy}
-      onClick={async () => {
-        const pin = window.prompt("Enter the 4-digit refund PIN")?.trim() ?? "";
-        if (!pin) return;
-        setBusy(true);
-        await onRefund(order.id, pin);
-        setBusy(false);
-      }}
-      className="rounded bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-60"
-    >
-      {busy ? "Refunding…" : "Retry refund"}
-    </button>
+    <>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => setAskingPin(true)}
+        className="rounded bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-500 disabled:opacity-60"
+      >
+        {busy ? "Refunding…" : "Retry refund"}
+      </button>
+      {askingPin && <PinModal onSubmit={submitPin} onCancel={() => setAskingPin(false)} />}
+    </>
   );
 };
 

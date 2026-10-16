@@ -89,6 +89,21 @@ export const calculateMealPlanTax = (
     return applyGstToSubtotal(subtotal, currencyCode);
 };
 
+export const calculateTermMealPlanTax = (
+    pricePerMeal: number,
+    durationDays: number,
+    mealsPerDay: number,
+    deliveryFee: number,
+    includeDelivery: boolean,
+    currencyCode: string,
+): OrderTaxBreakdown => {
+    const foodSubtotal = pricePerMeal * durationDays * mealsPerDay;
+    const deliverySubtotal = includeDelivery
+        ? deliveryFee * durationDays * mealsPerDay
+        : 0;
+    return applyGstToSubtotal(foodSubtotal + deliverySubtotal, currencyCode);
+};
+
 export type GstOrderItem = {
     dishId: string;
     quantity: number;

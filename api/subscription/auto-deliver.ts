@@ -32,13 +32,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const validSlot = slot as Slot;
     const today = new Date().toISOString().slice(0, 10);
 
-    // Find all active subscriptions with this time_slot, then mark their pending orders
+    // Only process subscriptions within their paid term; individual orders carry
+    // their own meal delivery slot.
     const admin = requireSupabaseAdmin();
-    const { data: subscriptions } = await admin
+    const { data: subscriptions, error: subscriptionError } = await admin
         .from("customer_subscriptions")
         .select("id")
-        .eq("time_slot", validSlot)
-        .eq("status", "active");
+        .eq("status", "active")
+        .lte("start_date", today)
+        .gte("end_date", today);
+
+    if (subscriptionError) {
+        log.error("Subscription lookup failed", { message: subscriptionError.message });
+        return res.status(500).json({ error: subscriptionError.message });
+    }
 
     if (!subscriptions || subscriptions.length === 0) {
         return res.status(200).json({ ok: true, updated: 0 });
@@ -50,6 +57,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         .from("subscription_daily_orders")
         .update({ status: "delivered", updated_at: new Date().toISOString() })
         .eq("delivery_date", today)
+        .eq("time_slot", validSlot)
         .eq("status", "pending")
         .in("subscription_id", subIds)
         .select("id");

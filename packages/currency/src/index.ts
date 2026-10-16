@@ -7,6 +7,7 @@ export {
     applyGstToSubtotal,
     calculateMealPlanSubtotal,
     calculateMealPlanTax,
+    calculateTermMealPlanTax,
     calculateOrderTax,
     enrichOrderItemsWithGst,
     INDIAN_RESTAURANT_GST_PERCENT,
