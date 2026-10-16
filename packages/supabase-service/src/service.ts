@@ -214,12 +214,19 @@ export class SupabaseService {
         restaurantId?: string,
     ): Promise<void> {
         const rid = restaurantId ?? (await this.getRestaurantId());
-        const { error } = await this.client.from("watch_sessions").insert({
+        const row = {
             dish_id: session.reelId,
             restaurant_id: rid,
             duration: session.duration,
             completed: session.completed,
-        });
+        };
+        let { error } = await this.client
+            .from("watch_sessions")
+            .insert({ ...row, visit_id: session.visitId ?? null });
+        // Schema not yet migrated — still record the view without a visit id.
+        if (error?.message?.includes("visit_id")) {
+            ({ error } = await this.client.from("watch_sessions").insert(row));
+        }
         if (error) log.error("Failed to record watch session", { message: error.message });
     }
 
@@ -406,6 +413,7 @@ export class SupabaseService {
                     .from("orders")
                     .select("time_to_order, items")
                     .eq("restaurant_id", rid)
+                    .neq("status", "rejected")
                     .gte("created_at", since),
                 this.client.from("dishes").select("id, name").eq("restaurant_id", rid),
             ]);
@@ -452,6 +460,7 @@ export class SupabaseService {
                 .from("orders")
                 .select("items, total_amount, time_to_order")
                 .eq("restaurant_id", rid)
+                .neq("status", "rejected")
                 .gte("created_at", since),
             this.client
                 .from("dishes")

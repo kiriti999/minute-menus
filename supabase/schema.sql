@@ -253,6 +253,10 @@ create policy "Anyone can record a watch session"
   on watch_sessions for insert
   with check (true);
 
+-- One id per customer menu visit, so conversion = orders / real visits.
+-- Null on rows recorded before this column existed.
+alter table watch_sessions add column if not exists visit_id uuid;
+
 -- ─────────────────────────────────────────────
 -- 6. SUBSCRIPTIONS
 -- Tracks each restaurant's Plus tier status.

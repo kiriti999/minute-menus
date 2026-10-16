@@ -2113,7 +2113,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                   {
                     label: "Conversion Rate",
                     value: `${metrics.conversionRate.toFixed(1)}%`,
-                    sub: "Orders / Est. Sessions",
+                    sub: "Orders / Menu Visits",
                   },
                   {
                     label: "Most Viewed",

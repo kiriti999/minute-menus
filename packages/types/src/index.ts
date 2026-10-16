@@ -224,6 +224,8 @@ export interface WatchSession {
   duration: number;
   completed: boolean;
   timestamp: number;
+  /** One id per customer menu visit (page load) — counts real visits for conversion. */
+  visitId?: string;
 }
 
 // ─── Subscription Feature Types ───────────────────────────────────────────────

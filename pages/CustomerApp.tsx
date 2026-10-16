@@ -373,6 +373,8 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     return menuCategories.flatMap(c => c.items).filter(d => modalPlan.dishIds.includes(d.id));
   }, [modalPlan, menuCategories]);
 
+  // One id per menu visit so analytics can count real visits, not estimates.
+  const [visitId] = useState(() => crypto.randomUUID());
   const containerRef = useRef<HTMLDivElement>(null);
   const categoryNavRef = useRef<HTMLDivElement>(null);
   const scrollLockRef = useRef(false);
@@ -514,6 +516,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
           duration: durationSec,
           completed: isCompleted,
           timestamp: Date.now(),
+          visitId,
         },
         restaurantId ?? undefined,
       );

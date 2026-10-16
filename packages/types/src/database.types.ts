@@ -238,6 +238,7 @@ export type Database = {
                     restaurant_id: string;
                     duration: number;
                     completed: boolean;
+                    visit_id: string | null;
                     created_at: string;
                 };
                 Insert: {
@@ -246,6 +247,7 @@ export type Database = {
                     restaurant_id: string;
                     duration?: number;
                     completed?: boolean;
+                    visit_id?: string | null;
                     created_at?: string;
                 };
                 Update: {
@@ -254,6 +256,7 @@ export type Database = {
                     restaurant_id?: string;
                     duration?: number;
                     completed?: boolean;
+                    visit_id?: string | null;
                     created_at?: string;
                 };
                 Relationships: [];

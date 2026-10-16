@@ -11,6 +11,7 @@ export type WatchSessionMetricRow = {
 	duration: number | string;
 	completed: boolean;
 	created_at: string;
+	visit_id?: string | null;
 };
 
 export type OrderMetricRow = {
@@ -155,6 +156,20 @@ export const buildHourlyTraffic = (
 	return Array.from(buckets.entries()).map(([hour, views]) => ({ hour, views }));
 };
 
+// Rows recorded before visit ids existed fall back to the old estimate of
+// ~4 dish views per visit; that share shrinks to zero as the window rolls on.
+const LEGACY_VIEWS_PER_VISIT = 4;
+
+const countVisits = (sessions: WatchSessionMetricRow[]): number => {
+	const visitIds = new Set<string>();
+	let legacyViews = 0;
+	sessions.forEach((session) => {
+		if (session.visit_id) visitIds.add(session.visit_id);
+		else legacyViews += 1;
+	});
+	return visitIds.size + Math.ceil(legacyViews / LEGACY_VIEWS_PER_VISIT);
+};
+
 export const buildAggregatedMetrics = (
 	sessions: WatchSessionMetricRow[],
 	orders: OrderMetricRow[],
@@ -171,7 +186,7 @@ export const buildAggregatedMetrics = (
 			? orders.reduce((acc, order) => acc + toNumber(order.time_to_order), 0) /
 				totalOrders
 			: 0;
-	const estimatedSessions = Math.max(1, Math.floor(totalViews / 4));
+	const visits = countVisits(sessions);
 	const dishPerformance = buildDishPerformance(sessions, orders, dishes);
 	const mostViewed = [...dishPerformance].sort((a, b) => b.views - a.views)[0];
 
@@ -185,7 +200,7 @@ export const buildAggregatedMetrics = (
 		engagementRate: rate(engagedViews, totalViews),
 		totalOrders,
 		avgOrderTime,
-		conversionRate: (totalOrders / estimatedSessions) * 100,
+		conversionRate: rate(totalOrders, visits),
 		hourlyTraffic: buildHourlyTraffic(sessions, timeWindow, now),
 		conversionFunnel: [
 			{ stage: "Menu Views", count: totalViews, fill: "#fff" },
