@@ -11,6 +11,9 @@ import {
     type CartLineInput,
     type PricedCartLine,
 } from "@minute-menus/currency";
+import { soldOutEmailSubject } from "@minute-menus/api-helpers";
+import { buildSoldOutEmailHtml, formatFromRestaurant } from "@minute-menus/email-templates";
+import { sendMail } from "@minute-menus/mailer";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Razorpay from "razorpay";
@@ -248,21 +251,77 @@ const isPaidAsExpected = (
     order.currency === expected.currency.toUpperCase() &&
     order.notes?.restaurantId === expected.restaurantId;
 
+// Keep in sync with phone_key() in supabase/schema.sql and api/create-razorpay-order.ts.
+const phoneKey = (phone: string | null | undefined): string =>
+    String(phone ?? "").replace(/\D/g, "").slice(-10);
+
 const matchesPaidSubscriptionOrder = async (input: PaidOrderExpectation & {
     orderId: string;
     planId: string;
     phone: string;
+    customerUserId: string;
     durationDays: number;
     mealsPerDay: number;
 }): Promise<boolean> => {
     const order = await fetchRazorpayOrder(input.orderId);
-    // Orders created before the phone was added to notes have no phone to compare.
-    const phoneMatches = order.notes?.phone === undefined || order.notes.phone === input.phone;
+    // Orders created before these notes existed have nothing to compare.
+    const phoneMatches = order.notes?.phone === undefined || phoneKey(String(order.notes.phone)) === phoneKey(input.phone);
+    const buyerMatches = order.notes?.customerUserId === undefined || order.notes.customerUserId === input.customerUserId;
     return isPaidAsExpected(order, input) &&
         phoneMatches &&
+        buyerMatches &&
         order.notes?.planId === input.planId &&
         order.notes?.durationDays === String(input.durationDays) &&
         order.notes?.mealsPerDay === String(input.mealsPerDay);
+};
+
+// ── Sold-out notification ─────────────────────────────────────────────────────
+
+type StockDishRow = { id: string; name: string; stock_quantity: number };
+
+/** Dishes whose daily stock this order used up (they had stock left before it). */
+const findJustSoldOut = (
+    dishes: StockDishRow[],
+    soldToday: Map<string, number>,
+    orderedQty: Map<string, number>,
+): StockDishRow[] =>
+    dishes.filter((dish) => {
+        const after = soldToday.get(dish.id) ?? 0;
+        return after >= dish.stock_quantity && after - (orderedQty.get(dish.id) ?? 0) < dish.stock_quantity;
+    });
+
+/** Best-effort email to the owner for each dish this order sold out. */
+const notifyStockSoldOut = async (
+    admin: SupabaseClient,
+    restaurantId: string,
+    items: PricedCartLine[],
+    soldDate: string,
+): Promise<void> => {
+    const orderedQty = new Map<string, number>();
+    items.forEach((item) => orderedQty.set(item.dishId, (orderedQty.get(item.dishId) ?? 0) + item.quantity));
+    const dishIds = [...orderedQty.keys()];
+    const [{ data: dishes }, { data: stock }, { data: restaurant }] = await Promise.all([
+        admin.from("dishes").select("id, name, stock_quantity").in("id", dishIds).not("stock_quantity", "is", null),
+        admin.from("dish_stock_daily").select("dish_id, quantity_sold").in("dish_id", dishIds).eq("sold_date", soldDate),
+        admin.from("restaurants").select("name, owner_id").eq("id", restaurantId).single(),
+    ]);
+    const soldToday = new Map((stock ?? []).map((row) => [row.dish_id as string, Number(row.quantity_sold)]));
+    const soldOut = findJustSoldOut((dishes ?? []) as StockDishRow[], soldToday, orderedQty);
+    if (!soldOut.length || !restaurant) return;
+
+    const { data: owner } = await admin.auth.admin.getUserById(restaurant.owner_id);
+    const to = owner.user?.email;
+    if (!to) return;
+    await Promise.allSettled(
+        soldOut.map((dish) =>
+            sendMail({
+                from: formatFromRestaurant(restaurant.name),
+                to,
+                subject: soldOutEmailSubject(restaurant.name, dish.name, "stock"),
+                html: buildSoldOutEmailHtml(dish.name, restaurant.name, "stock"),
+            }),
+        ),
+    );
 };
 
 // ── Payment claims & automatic refunds ────────────────────────────────────────
@@ -507,8 +566,8 @@ const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse) => {
     }
 
     const today = new Date().toISOString().slice(0, 10);
-    await Promise.allSettled([
-        ...priced.items.map((item) =>
+    await Promise.allSettled(
+        priced.items.map((item) =>
             admin.rpc("increment_dish_stock", {
                 p_dish_id: item.dishId,
                 p_restaurant_id: restaurantId,
@@ -516,6 +575,9 @@ const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse) => {
                 p_quantity: item.quantity,
             }),
         ),
+    );
+    await Promise.allSettled([
+        notifyStockSoldOut(admin, restaurantId, priced.items, today),
         sendTelegramOrderAlert(admin, {
             restaurantId,
             orderId: order.id,
@@ -574,6 +636,11 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
     }
 
     const admin = requireSupabaseAdmin();
+    const buyerToken = getBearerToken(req);
+    const buyer = buyerToken ? await getUserFromAccessToken(admin, buyerToken) : null;
+    if (!buyer) return res.status(401).json({ error: "Please sign in to finish buying your plan." });
+    const normalizedPhone = normalizeIndianMobile(phone);
+    if (!normalizedPhone) return res.status(400).json({ error: "Enter a valid 10-digit mobile number." });
     if (!(await claimOrRespond(res, admin, razorpay_payment_id, "subscription"))) return;
     // From here the customer has paid: every failure refunds them.
     const failPaid = (status: number, reason: string) =>
@@ -617,21 +684,20 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
     }
 
     const startDate = new Date().toISOString().slice(0, 10);
-    const activeSub = await admin
+    const activeSubs = await admin
         .from("customer_subscriptions")
-        .select("id")
+        .select("id, customer_user_id, phone")
         .eq("restaurant_id", restaurantId)
-        .eq("phone", phone)
         .eq("status", "active")
-        .gte("end_date", startDate)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-    if (activeSub.error) {
-        console.error("[confirm-subscription] active subscription lookup failed", activeSub.error.message);
+        .gte("end_date", startDate);
+    if (activeSubs.error) {
+        console.error("[confirm-subscription] active subscription lookup failed", activeSubs.error.message);
         return failPaid(500, "We couldn't check for an existing subscription.");
     }
-    if (activeSub.data) {
+    const alreadySubscribed = (activeSubs.data ?? []).some(
+        (sub) => sub.customer_user_id === buyer.id || phoneKey(sub.phone) === phoneKey(phone),
+    );
+    if (alreadySubscribed) {
         return failPaid(409, "An active subscription already exists for this phone number.");
     }
 
@@ -648,6 +714,7 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
         planId,
         restaurantId,
         phone,
+        customerUserId: buyer.id,
         durationDays,
         mealsPerDay,
         amount: breakdown.total,
@@ -670,7 +737,8 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
             restaurant_id: restaurantId,
             plan_id: planId,
             customer_name: customerName,
-            phone,
+            phone: normalizedPhone,
+            customer_user_id: buyer.id,
             email: email ?? null,
             duration_days: durationDays,
             meals_per_day: mealsPerDay,

@@ -888,22 +888,8 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       });
 
       // 3. Verify the payment and record the order server-side (atomic —
-      // the order is only ever written after a signature check passes)
-      // Cart keys are `dishId__variantId`; stock is tracked per dish.
-      const newlySoldOut = cart
-        .map((item) => {
-          const dishId = item.dishId.split("__")[0];
-          const dish = flatDishes.find((d) => d.id === dishId);
-          if (!dish || dish.stockQuantity == null) return null;
-          const prevSold = soldCounts[dishId] ?? 0;
-          const afterSold = prevSold + item.quantity;
-          if (afterSold >= dish.stockQuantity && prevSold < dish.stockQuantity) {
-            return { id: dish.id, name: dish.name };
-          }
-          return null;
-        })
-        .filter((d): d is { id: string; name: string } => d !== null);
-
+      // the order is only ever written after a signature check passes; the
+      // server also emails the owner about any dish this order sold out)
       const { data: confirmSession } = await supabase.auth.getSession();
       const confirmRes = await fetch(PAYMENT_API_PATHS.confirmOrder, {
         method: "POST",
@@ -924,13 +910,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         throw new Error(err.error ?? "Payment verified but order failed to record");
       }
 
-      // 4. Order recorded — best-effort sold-out notification emails
-      if (newlySoldOut.length > 0) {
-        await Promise.allSettled(
-          newlySoldOut.map((d) => supabaseService.sendSoldOutEmail(d.id, d.name, "stock")),
-        );
-      }
-
+      // Cart keys are `dishId__variantId`; stock is tracked per dish.
       setSoldCounts((prev) => {
         const updated = { ...prev };
         cart.forEach((item) => {
@@ -1105,15 +1085,42 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     });
   };
 
+  // Subscriptions are tied to the customer's account (or OTP-verified phone),
+  // so managing or buying one requires signing in first.
+  const openSignIn = () => {
+    setAuthStep("auth");
+    setAuthError("");
+    setIsAuthModalOpen(true);
+  };
+
+  const authJsonHeaders = async (): Promise<Record<string, string>> => {
+    const { data } = await supabase.auth.getSession();
+    return {
+      "content-type": "application/json",
+      ...(data.session ? { authorization: `Bearer ${data.session.access_token}` } : {}),
+    };
+  };
+
+  useEffect(() => {
+    if (!customerProfile) return;
+    setSubPhone((current) => current || customerProfile.phone || "");
+    setSubName((current) => current || customerProfile.name || "");
+  }, [customerProfile]);
+
   const handleSubLookup = async () => {
-    if (!subPhone.trim() || !restaurantId) return;
+    if (!restaurantId) return;
+    if (!customerProfile) {
+      openSignIn();
+      return;
+    }
     setSubLoading(true);
     setSubError("");
     try {
-      const sub = await supabaseService.getCustomerSubscription(subPhone.trim(), restaurantId);
+      const sub = await supabaseService.getMyCustomerSubscription(restaurantId);
       const today = new Date().toISOString().slice(0, 10);
       if (sub && sub.status !== "cancelled" && sub.endDate >= today) {
         setCustomerSub(sub);
+        setSubPhone(sub.phone);
         const orders = await supabaseService.getCustomerDailyOrders(sub.id, tomorrowDate());
         setDailyOrders(orders);
         const plans = await supabaseService.getMealPlans(restaurantId);
@@ -1145,6 +1152,11 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   ) => {
     const mealSlots = MEAL_SLOTS_BY_COUNT[selectedMealsPerDay] ?? [];
     if (!subPhone.trim() || !subName.trim() || !restaurantId) return;
+    if (!customerProfile) {
+      setSubError("Please sign in to buy a meal plan.");
+      openSignIn();
+      return;
+    }
     if (!getMealPlanPricingOption(plan.pricingOptions, selectedDurationDays, selectedMealsPerDay)) {
       setSubError("Choose a configured duration and meal count for this plan.");
       return;
@@ -1159,7 +1171,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       // 1. Create Razorpay order server-side
       const orderRes = await fetch(PAYMENT_API_PATHS.createSubscriptionOrder, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: await authJsonHeaders(),
         body: JSON.stringify({
           planId: plan.id,
           restaurantId,
@@ -1194,7 +1206,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       // the subscription is only ever written after a signature check passes)
       const confirmRes = await fetch(PAYMENT_API_PATHS.confirmSubscription, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: await authJsonHeaders(),
         body: JSON.stringify({
           ...payment,
           restaurantId,
@@ -1214,7 +1226,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         const err = await confirmRes.json() as { error?: string };
         throw new Error(err.error ?? "Payment verified but subscription failed to create");
       }
-      const newSub = await supabaseService.getCustomerSubscription(subPhone.trim(), restaurantId);
+      const newSub = await supabaseService.getMyCustomerSubscription(restaurantId);
       setCustomerSub(newSub);
       setDailyOrders([]);
       closeMealPlanModal();
@@ -1937,24 +1949,17 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
               {/* ── Lookup view ── */}
               {subView === "lookup" && (
                 <div className="space-y-6 mt-2">
-                  <p className="text-zinc-400 text-sm">Enter your phone number to access or create a subscription for {displayRestaurantName ?? "this restaurant"}.</p>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-widest mb-2 text-zinc-500">Phone Number</label>
-                    <input
-                      type="tel"
-                      value={subPhone}
-                      onChange={(e) => setSubPhone(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleSubLookup()}
-                      placeholder="+1 234 567 8900"
-                      className="w-full bg-zinc-900 border border-zinc-700 text-white px-4 py-3 rounded text-sm outline-none focus:border-zinc-500 transition-colors"
-                    />
-                  </div>
+                  <p className="text-zinc-400 text-sm">
+                    {customerProfile
+                      ? `Signed in as ${customerProfile.email || customerProfile.phone || "you"}. Continue to see or start your subscription at ${displayRestaurantName ?? "this restaurant"}.`
+                      : `Sign in to see or start your subscription at ${displayRestaurantName ?? "this restaurant"}. Plans bought earlier with your phone number appear once your phone is verified.`}
+                  </p>
                   <button
                     onClick={handleSubLookup}
-                    disabled={subLoading || !subPhone.trim()}
+                    disabled={subLoading}
                     className="w-full bg-white text-black py-3.5 rounded font-bold text-sm tracking-widest hover:bg-zinc-200 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {subLoading ? <Loader2 className="animate-spin" size={18} /> : "CONTINUE"}
+                    {subLoading ? <Loader2 className="animate-spin" size={18} /> : customerProfile ? "CONTINUE" : "SIGN IN"}
                   </button>
                   {availablePlans.length > 0 && (
                     <button

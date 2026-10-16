@@ -13,6 +13,7 @@
  *   VITE_SUPABASE_URL / SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  */
 
+import { verifyCronRequest } from "../../lib/server/api-helpers";
 import { createLogger } from "../../lib/server/logger";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { requireSupabaseAdmin } from "../../lib/supabase-admin";
@@ -23,6 +24,7 @@ const VALID_SLOTS = ["08-09", "12-14", "19-21"] as const;
 type Slot = (typeof VALID_SLOTS)[number];
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+    if (!verifyCronRequest(req, res)) return;
     const slot = req.query.slot as string | undefined;
 
     if (!slot || !VALID_SLOTS.includes(slot as Slot)) {

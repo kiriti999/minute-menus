@@ -178,20 +178,11 @@ export class SupabaseService {
     ): Promise<void> {
         try {
             const rid = await this.getRestaurantId();
-            const [{ data: { user } }, { data: restaurant }] = await Promise.all([
-                this.client.auth.getUser(),
-                this.client.from("restaurants").select("name").eq("id", rid).single(),
-            ]);
-
+            // Owner-only endpoint: it emails the signed-in owner about their own dish.
             await fetch("/api/sold-out-email", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    to: user?.email ?? "",
-                    restaurantName: restaurant?.name ?? "Your Restaurant",
-                    dishName,
-                    reason,
-                }),
+                headers: await this.ownerJsonHeaders(),
+                body: JSON.stringify({ restaurantId: rid, dishId, reason }),
             });
         } catch (err) {
             log.error("sendSoldOutEmail failed", { message: String(err) });
@@ -981,30 +972,17 @@ export class SupabaseService {
 
         if (error) throw error;
 
-        // Fire cancel email best-effort
+        // Fire cancel email best-effort (the API looks up the customer's email itself)
         if (data) {
-            const sub = await this.client
-                .from("customer_subscriptions")
-                .select("email, customer_name")
-                .eq("id", data.subscription_id)
-                .single();
-
             await fetch("/api/subscription/cancel-order", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    ...(import.meta.env.VITE_INTERNAL_API_SECRET
-                        ? { "x-internal-secret": import.meta.env.VITE_INTERNAL_API_SECRET }
-                        : {}),
-                },
+                headers: await this.ownerJsonHeaders(),
                 body: JSON.stringify({
                     subscriptionId: data.subscription_id,
                     restaurantId: data.restaurant_id,
                     deliveryDate: data.delivery_date,
                     dishName: data.dish_name,
                     reason,
-                    customerEmail: sub.data?.email ?? null,
-                    customerName: sub.data?.customer_name ?? null,
                 }),
             }).catch((err) => log.error("cancel notification email failed", { message: String(err) }));
         }
@@ -1090,19 +1068,32 @@ export class SupabaseService {
         if (error) throw error;
     }
 
-    // ── Customer: Subscription Operations (no auth) ─────────────────────────────
+    /** JSON headers carrying the signed-in user's token for owner-only API routes. */
+    private async ownerJsonHeaders(): Promise<Record<string, string>> {
+        const { data: { session } } = await this.client.auth.getSession();
+        return {
+            "Content-Type": "application/json",
+            ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        };
+    }
 
-    async getCustomerSubscription(
-        phone: string,
-        restaurantId: string,
-    ): Promise<CustomerSubscription | null> {
+    // ── Customer: Subscription Operations (signed-in customer) ──────────────────
+
+    /**
+     * The signed-in customer's latest subscription at this restaurant — one they
+     * bought with this account, or one matching their OTP-verified phone.
+     */
+    async getMyCustomerSubscription(restaurantId: string): Promise<CustomerSubscription | null> {
+        const { data: subscriptionId, error: idError } = await this.client.rpc("my_subscription_id", {
+            p_restaurant_id: restaurantId,
+        });
+        if (idError) throw idError;
+        if (!subscriptionId) return null;
+
         const { data, error } = await this.client
             .from("customer_subscriptions")
             .select("*, meal_plans(name)")
-            .eq("phone", phone)
-            .eq("restaurant_id", restaurantId)
-            .order("created_at", { ascending: false })
-            .limit(1)
+            .eq("id", subscriptionId)
             .maybeSingle();
 
         if (error) throw error;

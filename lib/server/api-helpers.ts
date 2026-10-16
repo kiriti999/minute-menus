@@ -27,9 +27,18 @@ export const rejectUnlessMethod = (
 export const rejectUnlessPost = (req: VercelRequest, res: VercelResponse): boolean =>
     rejectUnlessMethod(req, res, "POST");
 
-export const verifyInternalSecret = (req: VercelRequest, res: VercelResponse): boolean => {
-    const internalSecret = process.env.INTERNAL_API_SECRET;
-    if (internalSecret && req.headers["x-internal-secret"] !== internalSecret) {
+/**
+ * Vercel sends `Authorization: Bearer $CRON_SECRET` to cron routes when the
+ * CRON_SECRET env var is set. Fails closed: without the secret, nobody can
+ * trigger the job (otherwise anyone could e.g. mark tonight's meals delivered).
+ */
+export const verifyCronRequest = (req: VercelRequest, res: VercelResponse): boolean => {
+    const secret = process.env.CRON_SECRET;
+    if (!secret) {
+        res.status(503).json({ error: "CRON_SECRET is not configured" });
+        return false;
+    }
+    if (req.headers.authorization !== `Bearer ${secret}`) {
         res.status(401).json({ error: "Unauthorized" });
         return false;
     }

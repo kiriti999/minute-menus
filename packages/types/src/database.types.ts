@@ -338,6 +338,7 @@ export type Database = {
                     id: string;
                     restaurant_id: string;
                     plan_id: string;
+                    customer_user_id: string | null;
                     customer_name: string;
                     phone: string;
                     email: string | null;
@@ -364,6 +365,7 @@ export type Database = {
                     id?: string;
                     restaurant_id: string;
                     plan_id: string;
+                    customer_user_id?: string | null;
                     customer_name: string;
                     phone: string;
                     email?: string | null;
@@ -390,6 +392,7 @@ export type Database = {
                     id?: string;
                     restaurant_id?: string;
                     plan_id?: string;
+                    customer_user_id?: string | null;
                     customer_name?: string;
                     phone?: string;
                     email?: string | null;
@@ -965,6 +968,10 @@ export type Database = {
             };
         };
         Functions: {
+            my_subscription_id: {
+                Args: { p_restaurant_id: string };
+                Returns: string | null;
+            };
             increment_dish_stock: {
                 Args: {
                     p_dish_id: string;

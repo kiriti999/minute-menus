@@ -35,8 +35,8 @@ async function markInvoicePaid(invoiceId: string, paymentId: string): Promise<bo
 		.maybeSingle();
 
 	if (error) {
-		console.error("[counter-invoice/webhook] update failed", error.message);
-		return false;
+		// Throw so the handler returns 500 and Razorpay retries the webhook.
+		throw new Error(`Invoice update failed: ${error.message}`);
 	}
 	return Boolean(data);
 }
@@ -81,7 +81,13 @@ export async function handleRazorpayCounterWebhook(
 	const rawBody = typeof req.body === "string" ? req.body : JSON.stringify(req.body);
 	const signature = req.headers["x-razorpay-signature"] as string | undefined;
 
-	if (process.env.RAZORPAY_WEBHOOK_SECRET && !verifyWebhookSignature(rawBody, signature)) {
+	// Fail closed: without the secret anyone could mark counter invoices paid.
+	if (!process.env.RAZORPAY_WEBHOOK_SECRET) {
+		console.error("[counter-invoice/webhook] RAZORPAY_WEBHOOK_SECRET is not configured");
+		res.status(503).json({ error: "Webhook not configured" });
+		return;
+	}
+	if (!verifyWebhookSignature(rawBody, signature)) {
 		res.status(400).json({ error: "Invalid webhook signature" });
 		return;
 	}

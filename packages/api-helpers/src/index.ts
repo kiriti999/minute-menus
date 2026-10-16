@@ -25,15 +25,6 @@ export const rejectUnlessMethod = (
 export const rejectUnlessPost = (req: VercelRequest, res: VercelResponse): boolean =>
     rejectUnlessMethod(req, res, "POST");
 
-export const verifyInternalSecret = (req: VercelRequest, res: VercelResponse): boolean => {
-    const internalSecret = process.env.INTERNAL_API_SECRET;
-    if (internalSecret && req.headers["x-internal-secret"] !== internalSecret) {
-        res.status(401).json({ error: "Unauthorized" });
-        return false;
-    }
-    return true;
-};
-
 export const parseSoldOutPayload = (
     body: unknown,
 ): { to: string; restaurantName: string; dishName: string; reason: "stock" | "manual" } | null => {

@@ -323,14 +323,8 @@ create policy "Public can read daily stock"
   on dish_stock_daily for select
   using (true);
 
--- Anyone can upsert sold counts (inserted alongside new orders)
-create policy "Anyone can update daily stock"
-  on dish_stock_daily for insert
-  with check (true);
-
-create policy "Anyone can increment daily stock"
-  on dish_stock_daily for update
-  using (true);
+-- Sold counts are written only by increment_dish_stock from the server
+-- (api/confirm-payment.ts, service role) after a verified payment.
 
 -- Migration: run this on existing databases
 -- (copy the full block above and execute in the Supabase SQL Editor)
@@ -338,8 +332,7 @@ create policy "Anyone can increment daily stock"
 -- ─────────────────────────────────────────────
 -- 9. RPC: increment_dish_stock
 -- Atomically upserts the daily sold count for a dish.
--- Called from the client on every order confirmation.
--- Security: SECURITY DEFINER so anon users can call it.
+-- Called by the server (service role) after a verified order payment.
 -- ─────────────────────────────────────────────
 create or replace function increment_dish_stock(
   p_dish_id       uuid,
@@ -349,6 +342,7 @@ create or replace function increment_dish_stock(
 ) returns void
 language plpgsql
 security definer
+set search_path = public
 as $$
 begin
   insert into dish_stock_daily (dish_id, restaurant_id, sold_date, quantity_sold)
@@ -358,8 +352,8 @@ begin
 end;
 $$;
 
--- Grant anon and authenticated roles execution rights
-grant execute on function increment_dish_stock to anon, authenticated;
+revoke execute on function increment_dish_stock(uuid, uuid, date, int) from public, anon, authenticated;
+grant execute on function increment_dish_stock(uuid, uuid, date, int) to service_role;
 
 -- ─────────────────────────────────────────────
 -- 10. RPC: notify_sold_out
@@ -378,6 +372,7 @@ create or replace function notify_sold_out(
 ) returns void
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
   v_owner_email  text;
@@ -413,7 +408,8 @@ begin
 end;
 $$;
 
-grant execute on function notify_sold_out to anon, authenticated;
+-- Unused by the app; never callable from browsers (it emails owners caller-chosen text).
+revoke execute on function notify_sold_out(uuid, text, uuid, text) from public, anon, authenticated;
 
 -- ─────────────────────────────────────────────
 -- 11. MEAL PLANS
@@ -560,16 +556,63 @@ alter table customer_subscriptions add column if not exists gst_amount numeric(1
 
 alter table customer_subscriptions enable row level security;
 
+-- The signed-in customer who bought the plan (set by confirm-subscription).
+alter table customer_subscriptions
+  add column if not exists customer_user_id uuid references auth.users(id) on delete set null;
+create index if not exists idx_customer_subscriptions_user on customer_subscriptions(customer_user_id);
+
+-- Last 10 digits — compares "+91 98765 43210", "9876543210" and "+919876543210" equally.
+create or replace function public.phone_key(p_phone text)
+returns text language sql immutable set search_path = public as $$
+  select right(regexp_replace(coalesce(p_phone, ''), '\D', '', 'g'), 10)
+$$;
+
+-- A subscription belongs to the signed-in customer who bought it, or (for plans
+-- bought before accounts were linked) to a customer whose OTP-verified phone matches.
+-- plpgsql so customer_profiles (defined later in this file) resolves at call time.
+create or replace function public.is_subscription_customer(p_user_id uuid, p_phone text)
+returns boolean language plpgsql stable security definer set search_path = public as $$
+begin
+  if auth.uid() is null then return false; end if;
+  if p_user_id = auth.uid() then return true; end if;
+  return length(phone_key(p_phone)) = 10 and exists (
+    select 1 from customer_profiles cp
+    where cp.user_id = auth.uid()
+      and cp.phone_verified
+      and phone_key(cp.phone) = phone_key(p_phone)
+  );
+end;
+$$;
+revoke execute on function public.is_subscription_customer(uuid, text) from public, anon;
+grant execute on function public.is_subscription_customer(uuid, text) to authenticated;
+
 create policy "Owner can manage customer subscriptions"
   on customer_subscriptions for all
   using (exists (select 1 from restaurants r where r.id = customer_subscriptions.restaurant_id and r.owner_id = auth.uid()));
 
 -- Subscriptions are created server-side only (after Razorpay signature verification),
--- via the admin client in api/subscription/confirm-subscription.ts — no anon insert policy.
-
-create policy "Public can read subscriptions"
+-- via the admin client in api/confirm-payment.ts — no insert policy for browsers.
+-- Customers read only their own; nothing is publicly readable (names, phones, emails).
+create policy "Customers can read own subscriptions"
   on customer_subscriptions for select
-  using (true);
+  to authenticated
+  using (is_subscription_customer(customer_user_id, phone));
+
+-- The signed-in customer's latest subscription at a restaurant (null if none).
+create or replace function public.my_subscription_id(p_restaurant_id uuid)
+returns uuid language plpgsql stable security definer set search_path = public as $$
+declare v_id uuid;
+begin
+  select id into v_id from customer_subscriptions
+  where restaurant_id = p_restaurant_id
+    and is_subscription_customer(customer_user_id, phone)
+  order by created_at desc
+  limit 1;
+  return v_id;
+end;
+$$;
+revoke execute on function public.my_subscription_id(uuid) from public, anon;
+grant execute on function public.my_subscription_id(uuid) to authenticated;
 
 -- ─────────────────────────────────────────────
 -- 13. DAILY SUBSCRIPTION ORDERS
@@ -626,17 +669,15 @@ create policy "Owner can manage daily orders"
   on subscription_daily_orders for all
   using (exists (select 1 from restaurants r where r.id = subscription_daily_orders.restaurant_id and r.owner_id = auth.uid()));
 
-create policy "Public can insert daily orders"
-  on subscription_daily_orders for insert
-  with check (true);
-
-create policy "Public can read daily orders"
+-- Customers read their own meals; changes go through upsert_daily_selection only.
+create policy "Customers can read own daily orders"
   on subscription_daily_orders for select
-  using (true);
-
-create policy "Public can update daily orders"
-  on subscription_daily_orders for update
-  using (true);
+  to authenticated
+  using (exists (
+    select 1 from customer_subscriptions s
+    where s.id = subscription_daily_orders.subscription_id
+      and is_subscription_customer(s.customer_user_id, s.phone)
+  ));
 
 -- ─────────────────────────────────────────────
 -- 14. SUBSCRIPTION REFUND REQUESTS
@@ -665,13 +706,15 @@ create policy "Owner can manage refund requests"
   on subscription_refund_requests for all
   using (exists (select 1 from restaurants r where r.id = subscription_refund_requests.restaurant_id and r.owner_id = auth.uid()));
 
-create policy "Public can insert refund requests"
-  on subscription_refund_requests for insert
-  with check (true);
-
-create policy "Public can read refund requests"
+-- Refund requests are created by update_subscription_status (cancellation) only.
+create policy "Customers can read own refund requests"
   on subscription_refund_requests for select
-  using (true);
+  to authenticated
+  using (exists (
+    select 1 from customer_subscriptions s
+    where s.id = subscription_refund_requests.subscription_id
+      and is_subscription_customer(s.customer_user_id, s.phone)
+  ));
 
 -- ─────────────────────────────────────────────
 -- 15. DELIVERY TICKETS
@@ -704,13 +747,31 @@ create policy "Owner can manage delivery tickets"
   on delivery_tickets for all
   using (exists (select 1 from restaurants r where r.id = delivery_tickets.restaurant_id and r.owner_id = auth.uid()));
 
-create policy "Public can insert delivery tickets"
+-- A customer may report an issue only on their own subscription's meal.
+create policy "Customers can raise own delivery tickets"
   on delivery_tickets for insert
-  with check (true);
+  to authenticated
+  with check (
+    status = 'open'
+    and exists (
+      select 1
+      from subscription_daily_orders o
+      join customer_subscriptions s on s.id = o.subscription_id
+      where o.id = delivery_tickets.daily_order_id
+        and o.subscription_id = delivery_tickets.subscription_id
+        and o.restaurant_id = delivery_tickets.restaurant_id
+        and is_subscription_customer(s.customer_user_id, s.phone)
+    )
+  );
 
-create policy "Public can read delivery tickets"
+create policy "Customers can read own delivery tickets"
   on delivery_tickets for select
-  using (true);
+  to authenticated
+  using (exists (
+    select 1 from customer_subscriptions s
+    where s.id = delivery_tickets.subscription_id
+      and is_subscription_customer(s.customer_user_id, s.phone)
+  ));
 
 -- ─────────────────────────────────────────────
 -- 16. DELIVERY ADJUSTMENTS
@@ -735,9 +796,16 @@ create policy "Owner can manage delivery adjustments"
     )
   );
 
-create policy "Public can read delivery adjustments"
+create policy "Customers can read own delivery adjustments"
   on delivery_adjustments for select
-  using (true);
+  to authenticated
+  using (exists (
+    select 1
+    from delivery_tickets dt
+    join customer_subscriptions s on s.id = dt.subscription_id
+    where dt.id = delivery_adjustments.ticket_id
+      and is_subscription_customer(s.customer_user_id, s.phone)
+  ));
 
 -- ─────────────────────────────────────────────
 -- 17. RPC: upsert_daily_selection
@@ -755,6 +823,7 @@ create or replace function upsert_daily_selection(
 ) returns uuid
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
   v_sub      customer_subscriptions;
@@ -763,15 +832,22 @@ declare
   v_time_slot sub_time_slot;
   v_allowed_meal_slots text[];
 begin
+  -- p_phone is kept for API compatibility but not trusted: the subscription must
+  -- belong to the signed-in customer.
   select * into v_sub
   from customer_subscriptions
-  where phone = p_phone and restaurant_id = p_restaurant_id
+  where restaurant_id = p_restaurant_id
     and status = 'active' and end_date >= current_date
+    and is_subscription_customer(customer_user_id, phone)
   order by created_at desc
   limit 1;
 
   if not found then
-    raise exception 'No active subscription found for this phone number';
+    raise exception 'No active subscription found for your account';
+  end if;
+
+  if p_delivery_date <= current_date then
+    raise exception 'Meals can only be chosen for upcoming days';
   end if;
 
   if p_delivery_date < v_sub.start_date or p_delivery_date > v_sub.end_date then
@@ -820,15 +896,20 @@ begin
     time_slot = excluded.time_slot,
     dish_id   = excluded.dish_id,
     dish_name = excluded.dish_name,
-    status    = 'pending',
     updated_at = now()
+  -- Never reopen a meal the restaurant already delivered, cancelled or skipped.
+  where subscription_daily_orders.status = 'pending'
   returning id into v_order_id;
 
+  if v_order_id is null then
+    raise exception 'This meal can no longer be changed';
+  end if;
   return v_order_id;
 end;
 $$;
 
-grant execute on function upsert_daily_selection to anon, authenticated;
+revoke execute on function upsert_daily_selection(text, uuid, date, uuid, text) from public, anon;
+grant execute on function upsert_daily_selection(text, uuid, date, uuid, text) to authenticated;
 
 -- ─────────────────────────────────────────────
 -- 18. RPC: update_subscription_status
@@ -844,14 +925,17 @@ create or replace function update_subscription_status(
 ) returns uuid
 language plpgsql
 security definer
+set search_path = public
 as $$
 declare
   v_sub      customer_subscriptions;
   v_days     int;
 begin
+  -- p_phone is kept for API compatibility but not trusted (see upsert_daily_selection).
   select * into v_sub
   from customer_subscriptions
-  where phone = p_phone and restaurant_id = p_restaurant_id
+  where restaurant_id = p_restaurant_id
+    and is_subscription_customer(customer_user_id, phone)
   order by created_at desc
   limit 1;
 
@@ -916,7 +1000,8 @@ begin
 end;
 $$;
 
-grant execute on function update_subscription_status to anon, authenticated;
+revoke execute on function update_subscription_status(text, uuid, sub_status, date, text) from public, anon;
+grant execute on function update_subscription_status(text, uuid, sub_status, date, text) to authenticated;
 
 -- NOTE: notify_sold_out requires the pg_net extension and the following
 -- Supabase settings to be configured:

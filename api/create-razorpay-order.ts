@@ -232,18 +232,30 @@ const handleCartOrder = async (req: VercelRequest, res: VercelResponse) => {
     }
 };
 
-const findActiveSubscription = async (restaurantId: string, phone: string) => {
+// Keep in sync with phone_key() in supabase/schema.sql and api/confirm-payment.ts.
+const phoneKey = (phone: string | null | undefined): string =>
+    (phone ?? "").replace(/\D/g, "").slice(-10);
+
+const getSignedInUserId = async (req: VercelRequest): Promise<string | null> => {
+    const header = req.headers.authorization;
+    const token = header?.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : "";
+    if (!token) return null;
+    const { data, error } = await requireSupabaseAdmin().auth.getUser(token);
+    return error || !data.user ? null : data.user.id;
+};
+
+/** An active plan already held by this account or this phone (any format). */
+const findActiveSubscription = async (restaurantId: string, userId: string, phone: string) => {
     const { data, error } = await requireSupabaseAdmin()
         .from("customer_subscriptions")
-        .select("id")
+        .select("id, customer_user_id, phone")
         .eq("restaurant_id", restaurantId)
-        .eq("phone", phone)
         .eq("status", "active")
-        .gte("end_date", new Date().toISOString().slice(0, 10))
-        .limit(1)
-        .maybeSingle();
+        .gte("end_date", new Date().toISOString().slice(0, 10));
     if (error) throw new Error(error.message);
-    return data;
+    return (data ?? []).find(
+        (sub) => sub.customer_user_id === userId || phoneKey(sub.phone) === phoneKey(phone),
+    ) ?? null;
 };
 
 const handleSubscriptionOrder = async (req: VercelRequest, res: VercelResponse) => {
@@ -270,10 +282,14 @@ const handleSubscriptionOrder = async (req: VercelRequest, res: VercelResponse) 
         return res.status(400).json({ error: "A valid plan, phone, term, meal count and delivery choice are required" });
     }
 
+    // Plans are tied to the buyer's account so only they can manage them later.
+    const userId = await getSignedInUserId(req);
+    if (!userId) return res.status(401).json({ error: "Please sign in to buy a meal plan." });
+
     // Reject before payment — confirm-subscription would otherwise capture the
     // payment and then refuse to create a second active subscription.
     try {
-        if (await findActiveSubscription(restaurantId, phone)) {
+        if (await findActiveSubscription(restaurantId, userId, phone)) {
             return res.status(409).json({ error: "An active subscription already exists for this phone number" });
         }
     } catch (e) {
@@ -323,6 +339,7 @@ const handleSubscriptionOrder = async (req: VercelRequest, res: VercelResponse) 
                 restaurantId,
                 planName: plan.name,
                 phone,
+                customerUserId: userId,
                 durationDays: String(durationDays),
                 mealsPerDay: String(mealsPerDay),
                 subtotal: String(breakdown.subtotal),
