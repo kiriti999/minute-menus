@@ -188,6 +188,8 @@ export type Database = {
                     ready_at: string | null;
                     completed_at: string | null;
                     rejected_at: string | null;
+                    refund_id: string | null;
+                    refunded_at: string | null;
                 };
                 Insert: {
                     id?: string;
@@ -208,6 +210,8 @@ export type Database = {
                     ready_at?: string | null;
                     completed_at?: string | null;
                     rejected_at?: string | null;
+                    refund_id?: string | null;
+                    refunded_at?: string | null;
                 };
                 Update: {
                     id?: string;
@@ -228,6 +232,8 @@ export type Database = {
                     ready_at?: string | null;
                     completed_at?: string | null;
                     rejected_at?: string | null;
+                    refund_id?: string | null;
+                    refunded_at?: string | null;
                 };
                 Relationships: [];
             };
@@ -967,6 +973,7 @@ export type Database = {
                 Relationships: [];
             };
         };
+        Views: { [_ in never]: never };
         Functions: {
             my_subscription_id: {
                 Args: { p_restaurant_id: string };
@@ -1014,7 +1021,7 @@ export type Database = {
                 Returns: { invoice_num: number; invoice_label: string }[];
             };
         };
-        Enums: { [_ in never]?: never };
-        CompositeTypes: { [_ in never]?: never };
+        Enums: { [_ in never]: never };
+        CompositeTypes: { [_ in never]: never };
     };
 };

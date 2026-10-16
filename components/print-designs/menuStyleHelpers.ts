@@ -1,6 +1,7 @@
 /**
  * Pure style builders for MenuTemplate — keeps TSX cyclomatic complexity low.
  */
+import type { CSSProperties } from "react";
 import type { BackgroundPattern, Category, DesignColors, DesignCustomization, DesignFonts, RestaurantBranding, TitleStyle } from "@minute-menus/types";
 import { resolveFonts, WALL_YELLOW_COLUMN_COLORS, yellowColumnPattern } from "../../lib/printDesigns";
 import {
@@ -550,7 +551,7 @@ export function titleFontFamily(customization: DesignCustomization): string {
   return TITLE_STYLE_FONTS[style];
 }
 
-export function titleStyleExtras(customization: DesignCustomization): CSS {
+export function titleStyleExtras(customization: DesignCustomization): CSSProperties {
   const style = customization.typography.titleStyle ?? 'classic';
   if (style === 'cursive') return { fontStyle: 'normal', letterSpacing: '0.02em' };
   if (style === 'bold') return { fontWeight: 400, letterSpacing: '0.06em', textTransform: 'uppercase' };

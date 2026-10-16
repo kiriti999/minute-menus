@@ -322,11 +322,12 @@ export const MEAL_SLOTS_BY_COUNT: Record<number, MealSlot[]> = {
   3: ['breakfast', 'lunch', 'dinner'],
 };
 
-export interface MealPlanPricingOption {
+// A type alias (not an interface) so it is assignable to the DB `Json` column type.
+export type MealPlanPricingOption = {
   durationDays: number;
   mealsPerDay: number;
   pricePerMeal: number;
-}
+};
 
 export const DEFAULT_MEAL_PLAN_PRICING_OPTIONS: MealPlanPricingOption[] = [
   ...[3, 7, 14, 28].flatMap((durationDays) =>

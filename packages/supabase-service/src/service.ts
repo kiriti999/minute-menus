@@ -639,7 +639,7 @@ export class SupabaseService {
             directions_url: data.directions_url ?? null,
             timezone: data.timezone || "Asia/Kolkata",
             delivery_enabled: data.delivery_enabled ?? true,
-            operating_hours: (data.operating_hours as RestaurantAvailability["operatingHours"]) ?? DEFAULT_OPERATING_HOURS,
+            operating_hours: (data.operating_hours as unknown as RestaurantAvailability["operatingHours"] | null) ?? DEFAULT_OPERATING_HOURS,
         };
     }
 
@@ -692,7 +692,7 @@ export class SupabaseService {
             directions_url: data.directions_url ?? null,
             timezone: data.timezone || "Asia/Kolkata",
             delivery_enabled: data.delivery_enabled ?? true,
-            operating_hours: (data.operating_hours as RestaurantAvailability["operatingHours"]) ?? DEFAULT_OPERATING_HOURS,
+            operating_hours: (data.operating_hours as unknown as RestaurantAvailability["operatingHours"] | null) ?? DEFAULT_OPERATING_HOURS,
         };
     }
 

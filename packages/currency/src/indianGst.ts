@@ -114,13 +114,18 @@ export type GstOrderItem = {
     lineTotal?: number;
 };
 
-/** Adds per-line GST fields for storage on confirmed orders. */
-export const enrichOrderItemsWithGst = (
-    items: Array<{ dishId: string; quantity: number; name: string; price: number }>,
+type GstOrderLineInput = { dishId: string; quantity: number; name: string; price: number };
+
+/**
+ * Adds per-line GST fields for storage on confirmed orders. Other fields on each
+ * line (e.g. variantName) are kept, and the return type preserves them.
+ */
+export const enrichOrderItemsWithGst = <T extends GstOrderLineInput>(
+    items: T[],
     currencyCode: string,
-): GstOrderItem[] => {
+): Array<T & GstOrderItem> => {
     const applyGst = isIndianGstApplicable(currencyCode);
-    return items.map((item) => {
+    return items.map((item): T & GstOrderItem => {
         const lineSubtotal = round2(item.price * item.quantity);
         const gstAmount = applyGst
             ? round2(lineSubtotal * INDIAN_RESTAURANT_GST_RATE)
