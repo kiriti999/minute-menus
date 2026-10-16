@@ -993,6 +993,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const [metrics, setMetrics] = useState<AggregatedMetrics | null>(null);
   const [menuItems, setMenuItems] = useState<Category[]>([]);
   const [menuLoading, setMenuLoading] = useState(true);
+  // A failed load leaves menuItems empty — saving that would delete the real menu.
+  const [menuLoadError, setMenuLoadError] = useState<string | null>(null);
   const [timeWindow, setTimeWindow] = useState<TimeWindow>("24h");
 
   // Tier & Paywall State
@@ -1076,13 +1078,25 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     unsavedChangesRef.current = unsavedChanges;
   }, [unsavedChanges]);
 
+  const menuItemsRef = useRef(menuItems);
+  useEffect(() => {
+    menuItemsRef.current = menuItems;
+  }, [menuItems]);
+
   const loadMenuFromServer = () => {
     if (unsavedChangesRef.current) return;
     setMenuLoading(true);
     supabaseService
       .getMenu()
-      .then(setMenuItems)
-      .catch(console.error)
+      .then((menu) => {
+        setMenuLoadError(null);
+        // The owner may have started editing while this request was in flight.
+        if (!unsavedChangesRef.current) setMenuItems(menu);
+      })
+      .catch((err: unknown) => {
+        console.error("Menu load failed:", err);
+        setMenuLoadError(getErrorMessage(err));
+      })
       .finally(() => setMenuLoading(false));
   };
 
@@ -1259,7 +1273,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   const refreshViewData = (view: ViewMode, silent = false) => {
     if (view === "DASHBOARD") loadDashboardMetrics();
-    if (view === "MENU" || view === "COSTING" || view === "IMAGE_EDITOR" || view === "PRINT_DESIGNS" || view === "COUNTER") loadMenuFromServer();
+    if (view === "MENU" || view === "COSTING" || view === "IMAGE_EDITOR" || view === "PRINT_DESIGNS" || view === "COUNTER" || view === "SUBSCRIPTIONS") loadMenuFromServer();
     if (view === "CUSTOMERS") loadCustomersData();
     if (view === "ORDERS") loadKitchenOrders(silent);
     if (view === "SUBSCRIPTIONS") loadSubscriptionData();
@@ -1481,8 +1495,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   const handleDeleteDish = (catIndex: number, dishIndex: number) => {
     if (confirm("Are you sure you want to delete this item?")) {
-      const newMenu = [...menuItems];
-      newMenu[catIndex].items.splice(dishIndex, 1);
+      const previousMenu = menuItems;
+      const newMenu = menuItems.map((cat, i) =>
+        i === catIndex ? { ...cat, items: cat.items.filter((_, j) => j !== dishIndex) } : cat,
+      );
       setMenuItems(newMenu);
       setActiveOptionsDishId(null);
       // Auto-save deletion to database
@@ -1493,18 +1509,25 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
           setUnsavedChanges(false);
         })
         .catch((err: unknown) => {
+          setMenuItems(previousMenu);
           console.error("Delete save failed:", err);
           alert(`Failed to delete item: ${getErrorMessage(err)}`);
         });
     }
   };
 
+  /** Returns a new menu with one dish replaced — never mutates shared arrays. */
+  const withDish = (catIndex: number, dishIndex: number, dish: Dish): Category[] =>
+    menuItems.map((cat, i) =>
+      i === catIndex
+        ? { ...cat, items: cat.items.map((item, j) => (j === dishIndex ? dish : item)) }
+        : cat,
+    );
+
   const handleToggleManualSoldOut = (catIndex: number, dishIndex: number) => {
     const dish = menuItems[catIndex].items[dishIndex];
     const newValue = !dish.manualSoldOut;
-    const newMenu = [...menuItems];
-    newMenu[catIndex].items[dishIndex] = { ...dish, manualSoldOut: newValue };
-    setMenuItems(newMenu);
+    setMenuItems(withDish(catIndex, dishIndex, { ...dish, manualSoldOut: newValue }));
     setActiveOptionsDishId(null);
     supabaseService
       .toggleManualSoldOut(dish.id, dish.name, newValue)
@@ -1519,9 +1542,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const handleToggleDishActive = (catIndex: number, dishIndex: number) => {
     const dish = menuItems[catIndex].items[dishIndex];
     const newValue = dish.isActive === false;
-    const newMenu = [...menuItems];
-    newMenu[catIndex].items[dishIndex] = { ...dish, isActive: newValue };
-    setMenuItems(newMenu);
+    setMenuItems(withDish(catIndex, dishIndex, { ...dish, isActive: newValue }));
     setActiveOptionsDishId(null);
     supabaseService
       .toggleDishActive(dish.id, newValue)
@@ -1565,7 +1586,14 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     setTempCategoryTitle(newCategory.title);
     setIsEditingCategory(true);
     // Persist immediately so a refresh doesn't lose the new category
-    supabaseService.saveMenu(newMenu).catch(console.error);
+    supabaseService.saveMenu(newMenu).catch((err: unknown) => {
+      // e.g. the Free plan's 2-category limit, or the menu never loaded
+      setMenuItems((current) => current.filter((cat) => cat.id !== newCategory.id));
+      setIsEditingCategory(false);
+      setSelectedCategoryIdx(0);
+      console.error("Add category failed:", err);
+      alert(`Couldn't add the category: ${getErrorMessage(err)}`);
+    });
   };
 
   const handleRequestDeleteCategory = (catIndex: number) => {
@@ -1661,10 +1689,14 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   const handleSaveAll = async () => {
     setIsSavingMenu(true);
+    const snapshot = menuItems;
     try {
-      const saved = await supabaseService.saveMenu(menuItems);
-      setMenuItems(saved);
-      setUnsavedChanges(false);
+      const saved = await supabaseService.saveMenu(snapshot);
+      // Edits made while the save was running stay on screen and stay unsaved.
+      if (menuItemsRef.current === snapshot) {
+        setMenuItems(saved);
+        setUnsavedChanges(false);
+      }
     } catch (err) {
       console.error("Save failed:", err);
       alert(`Failed to save menu: ${getErrorMessage(err)}. Please try again.`);
@@ -2595,6 +2627,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                     label="Loading menu…"
                     className={`mr-4 ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}
                   />
+                ) : menuLoadError ? (
+                  <span className="flex items-center gap-3 text-sm mr-4 text-red-400">
+                    Couldn't load your menu — editing is paused so nothing gets overwritten.
+                    <button
+                      onClick={loadMenuFromServer}
+                      className={`px-3 py-1 rounded text-xs font-bold ${isDarkTheme ? 'bg-white text-black' : 'bg-zinc-900 text-white'}`}
+                    >
+                      Retry
+                    </button>
+                  </span>
                 ) : menuItems.length === 0 ? (
                   <span className={`text-sm italic mr-4 ${isDarkTheme ? 'text-zinc-600' : 'text-zinc-500'}`}>No categories yet — click + to add one</span>
                 ) : null}
@@ -2619,7 +2661,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                 ))}
                 <button
                   onClick={handleAddCategory}
-                  disabled={menuLoading}
+                  disabled={menuLoading || menuLoadError !== null}
                   title="Add Category"
                   className={`ml-2 flex items-center gap-1.5 px-3 py-2 rounded-md transition-colors text-xs font-bold tracking-widest border border-transparent disabled:opacity-40 disabled:pointer-events-none ${isDarkTheme ? 'text-zinc-500 hover:text-white hover:bg-zinc-900 hover:border-zinc-700' : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200 hover:border-zinc-300'}`}
                 >

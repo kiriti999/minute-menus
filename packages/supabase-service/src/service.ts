@@ -95,6 +95,9 @@ export class SupabaseService {
     private readonly client: SupabaseClient<Database>;
     private readonly getRestaurantId: () => Promise<string>;
     private readonly generateUniqueSlug: (baseName: string, excludeRestaurantId?: string) => Promise<string>;
+    /** Restaurants whose menu was read successfully — saving is blocked until then. */
+    private readonly menuLoadedFor = new Set<string>();
+    private menuSaveQueue: Promise<unknown> = Promise.resolve();
 
     constructor(client: SupabaseClient<Database>) {
         this.client = client;
@@ -117,12 +120,24 @@ export class SupabaseService {
         if (catErr) throw catErr;
         if (dishErr) throw dishErr;
 
+        this.menuLoadedFor.add(rid);
         return rowsToCategoryTree(cats ?? [], dishes ?? []);
     }
 
+    /**
+     * Menu saves are destructive full-tree syncs: anything missing from the
+     * payload is deleted. Refuse to save until the real menu has been loaded
+     * (a failed load leaves the editor empty), and run saves one at a time so
+     * an older save's deletes can't remove dishes a newer save just inserted.
+     */
     async saveMenu(categories: Category[]): Promise<Category[]> {
         const rid = await this.getRestaurantId();
-        return persistMenu(this.client, rid, categories);
+        if (!this.menuLoadedFor.has(rid)) {
+            throw new Error("The menu hasn't loaded yet — reload the page before saving");
+        }
+        const run = this.menuSaveQueue.then(() => persistMenu(this.client, rid, categories));
+        this.menuSaveQueue = run.catch(() => undefined);
+        return run;
     }
 
     /**

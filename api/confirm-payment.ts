@@ -4,7 +4,13 @@
  */
 
 import crypto from "node:crypto";
-import { calculateTermMealPlanTax } from "@minute-menus/currency";
+import {
+    calculateTermMealPlanTax,
+    parseCartLineIds,
+    priceCartLines,
+    type CartLineInput,
+    type PricedCartLine,
+} from "@minute-menus/currency";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Razorpay from "razorpay";
@@ -224,26 +230,159 @@ const safeVerifyRazorpaySignature = (input: {
     }
 };
 
-const matchesPaidSubscriptionOrder = async (input: {
-    orderId: string;
-    planId: string;
-    restaurantId: string;
-    durationDays: number;
-    mealsPerDay: number;
-    amount: number;
-    currency: string;
-}): Promise<boolean> => {
+const fetchRazorpayOrder = async (orderId: string) => {
     const creds = getRazorpayCredentials();
     if (!creds) throw new Error("Razorpay not configured");
-    const order = await new Razorpay({ key_id: creds.keyId, key_secret: creds.keySecret })
-        .orders.fetch(input.orderId);
-    return order.status === "paid" &&
-        order.amount === Math.round(input.amount * 100) &&
-        order.currency === input.currency.toUpperCase() &&
+    return new Razorpay({ key_id: creds.keyId, key_secret: creds.keySecret }).orders.fetch(orderId);
+};
+
+type PaidOrderExpectation = { amount: number; currency: string; restaurantId: string };
+
+/** The Razorpay order must be paid, for this restaurant, at exactly the server-computed amount. */
+const isPaidAsExpected = (
+    order: Awaited<ReturnType<typeof fetchRazorpayOrder>>,
+    expected: PaidOrderExpectation,
+): boolean =>
+    order.status === "paid" &&
+    Number(order.amount) === Math.round(expected.amount * 100) &&
+    order.currency === expected.currency.toUpperCase() &&
+    order.notes?.restaurantId === expected.restaurantId;
+
+const matchesPaidSubscriptionOrder = async (input: PaidOrderExpectation & {
+    orderId: string;
+    planId: string;
+    phone: string;
+    durationDays: number;
+    mealsPerDay: number;
+}): Promise<boolean> => {
+    const order = await fetchRazorpayOrder(input.orderId);
+    // Orders created before the phone was added to notes have no phone to compare.
+    const phoneMatches = order.notes?.phone === undefined || order.notes.phone === input.phone;
+    return isPaidAsExpected(order, input) &&
+        phoneMatches &&
         order.notes?.planId === input.planId &&
-        order.notes?.restaurantId === input.restaurantId &&
         order.notes?.durationDays === String(input.durationDays) &&
         order.notes?.mealsPerDay === String(input.mealsPerDay);
+};
+
+// ── Payment claims & automatic refunds ────────────────────────────────────────
+
+type PaymentPurpose = "order" | "subscription" | "plus";
+
+const isMissingClaimsTable = (error: { code?: string; message?: string }): boolean =>
+    error.code === "42P01" || error.code === "PGRST205";
+
+/**
+ * Records a Razorpay payment as used before anything is granted for it. A
+ * replayed payment id hits the primary key and is rejected as a duplicate.
+ */
+const claimPayment = async (
+    admin: SupabaseClient,
+    paymentId: string,
+    purpose: PaymentPurpose,
+): Promise<"claimed" | "duplicate"> => {
+    const { error } = await admin.from("payment_claims").insert({ payment_id: paymentId, purpose });
+    if (!error) return "claimed";
+    if (error.code === "23505") return "duplicate";
+    if (isMissingClaimsTable(error)) {
+        // Schema not migrated yet — keep checkout working until db:push runs.
+        console.warn("[payment-claims] table missing; replay protection inactive");
+        return "claimed";
+    }
+    throw new Error(`Payment claim failed: ${error.message}`);
+};
+
+const postRazorpayRefund = async (
+    paymentId: string,
+    body: Record<string, unknown>,
+    idempotencyKey: string,
+): Promise<string> => {
+    const creds = getRazorpayCredentials();
+    if (!creds) throw new Error("Razorpay not configured");
+    const auth = Buffer.from(`${creds.keyId}:${creds.keySecret}`).toString("base64");
+    const response = await fetch(`https://api.razorpay.com/v1/payments/${paymentId}/refund`, {
+        method: "POST",
+        headers: {
+            Authorization: `Basic ${auth}`,
+            "Content-Type": "application/json",
+            "X-Refund-Idempotency": idempotencyKey,
+        },
+        body: JSON.stringify(body),
+    });
+    const result = (await response.json().catch(() => ({}))) as { id?: string; error?: { description?: string } };
+    if (!response.ok || !result.id) {
+        console.error("[refund] razorpay response", response.status, JSON.stringify(result));
+        throw new Error(result.error?.description ?? `Razorpay refund failed (${response.status})`);
+    }
+    return result.id;
+};
+
+/**
+ * A verified payment we cannot honour is refunded in full immediately, so the
+ * customer is never charged for an order or plan that was not created.
+ */
+const refundAndFail = async (
+    res: VercelResponse,
+    paymentId: string,
+    status: number,
+    reason: string,
+) => {
+    try {
+        await postRazorpayRefund(
+            paymentId,
+            { speed: "normal", notes: { reason: reason.slice(0, 250) } },
+            `auto_${paymentId}`,
+        );
+        return res.status(status).json({ error: `${reason} Your payment has been refunded.`, refunded: true });
+    } catch (e) {
+        console.error("[refund] automatic refund failed", paymentId, getErrorDetail(e));
+        return res.status(status).json({
+            error: `${reason} We could not refund automatically — please contact the restaurant with payment ID ${paymentId}.`,
+            refunded: false,
+        });
+    }
+};
+
+/** Claims the payment; responds and returns false when it can't be used. */
+const claimOrRespond = async (
+    res: VercelResponse,
+    admin: SupabaseClient,
+    paymentId: string,
+    purpose: PaymentPurpose,
+): Promise<boolean> => {
+    try {
+        if ((await claimPayment(admin, paymentId, purpose)) === "claimed") return true;
+        res.status(409).json({ error: "This payment has already been used." });
+        return false;
+    } catch (e) {
+        console.error("[payment-claims]", getErrorDetail(e));
+        await refundAndFail(res, paymentId, 500, "We couldn't confirm your payment.");
+        return false;
+    }
+};
+
+// Keep in sync with priceCartFromMenu in api/create-razorpay-order.ts.
+const priceCartFromMenu = async (
+    admin: SupabaseClient,
+    restaurantId: string,
+    lines: CartLineInput[],
+): Promise<{ items: PricedCartLine[]; currency: string }> => {
+    const dishIds = [...new Set(lines.map((line) => parseCartLineIds(line).dishId))];
+    const [restaurant, dishes, categories] = await Promise.all([
+        admin.from("restaurants").select("currency").eq("id", restaurantId).single(),
+        admin
+            .from("dishes")
+            .select("id, name, price, variants, discount_percent, category_id, is_active, manual_sold_out")
+            .eq("restaurant_id", restaurantId)
+            .in("id", dishIds),
+        admin.from("categories").select("id, discount_percent").eq("restaurant_id", restaurantId),
+    ]);
+    const loadError = restaurant.error ?? dishes.error ?? categories.error;
+    if (loadError || !restaurant.data) throw new Error("We couldn't load the menu to check your order.");
+    return {
+        items: priceCartLines(lines, dishes.data ?? [], categories.data ?? []),
+        currency: String(restaurant.data.currency || "INR").toUpperCase(),
+    };
 };
 
 const normalizeAction = (action: string | string[] | undefined): string => {
@@ -256,14 +395,6 @@ const getErrorDetail = (err: unknown): string =>
 
 const INDIAN_RESTAURANT_GST_RATE = 0.05;
 const round2 = (value: number): number => Math.round(value * 100) / 100;
-
-type OrderItemInput = {
-    dishId: string;
-    quantity: number;
-    name: string;
-    price: number;
-    variantName?: string;
-};
 
 const computeCartTotals = (items: Array<{ price: number; quantity: number }>, currency: string) => {
     const subtotal = round2(items.reduce((sum, item) => sum + item.price * item.quantity, 0));
@@ -279,7 +410,7 @@ const computeCartTotals = (items: Array<{ price: number; quantity: number }>, cu
     return { subtotal, gstAmount, total: round2(subtotal + gstAmount) };
 };
 
-const enrichItemsWithGst = (items: OrderItemInput[], currency: string) => {
+const enrichItemsWithGst = (items: PricedCartLine[], currency: string) => {
     const applyGst = currency.toUpperCase() === "INR";
     return items.map((item) => {
         const lineSubtotal = round2(item.price * item.quantity);
@@ -302,18 +433,17 @@ const enrichItemsWithGst = (items: OrderItemInput[], currency: string) => {
 const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse) => {
     const {
         razorpay_order_id, razorpay_payment_id, razorpay_signature,
-        restaurantId, items, timeToOrder, currency = "INR",
+        restaurantId, items: lines, timeToOrder,
     } = req.body as {
         razorpay_order_id?: string;
         razorpay_payment_id?: string;
         razorpay_signature?: string;
         restaurantId?: string;
-        items?: OrderItemInput[];
+        items?: CartLineInput[];
         timeToOrder?: number;
-        currency?: string;
     };
 
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !restaurantId || !items?.length) {
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !restaurantId || !Array.isArray(lines) || !lines.length) {
         return res.status(400).json({ error: "Missing required fields" });
     }
 
@@ -326,21 +456,39 @@ const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse) => {
         return res.status(outcome.status).json({ error: outcome.error });
     }
 
-    const { subtotal, gstAmount, total } = computeCartTotals(items, currency);
-    const itemsWithGst = enrichItemsWithGst(items, currency);
     const admin = requireSupabaseAdmin();
+    if (!(await claimOrRespond(res, admin, razorpay_payment_id, "order"))) return;
+    const failPaid = (status: number, reason: string) =>
+        refundAndFail(res, razorpay_payment_id, status, reason);
+
+    // Everything below re-derives the order from the database; the browser's
+    // prices and currency are ignored.
+    let priced: Awaited<ReturnType<typeof priceCartFromMenu>>;
+    try {
+        priced = await priceCartFromMenu(admin, restaurantId, lines);
+    } catch (e) {
+        return failPaid(400, getErrorDetail(e));
+    }
+    const { currency } = priced;
+    const { subtotal, gstAmount, total } = computeCartTotals(priced.items, currency);
+
+    try {
+        const rzpOrder = await fetchRazorpayOrder(razorpay_order_id);
+        if (!isPaidAsExpected(rzpOrder, { amount: total, currency, restaurantId })) {
+            return failPaid(400, "The amount paid doesn't match the current menu prices.");
+        }
+        await assertRestaurantCanAcceptOrders(admin, restaurantId);
+    } catch (e) {
+        return failPaid(409, getErrorDetail(e));
+    }
+
     const customerToken = getBearerToken(req);
     const customer = customerToken ? await getUserFromAccessToken(admin, customerToken) : null;
-    try {
-        await assertRestaurantCanAcceptOrders(admin, restaurantId);
-    } catch (error) {
-        return res.status(409).json({ error: getErrorDetail(error) });
-    }
     const { data: order, error: insertError } = await admin
         .from("orders")
         .insert({
             restaurant_id: restaurantId,
-            items: itemsWithGst as unknown as Json,
+            items: enrichItemsWithGst(priced.items, currency) as unknown as Json,
             subtotal_amount: subtotal,
             gst_amount: gstAmount,
             total_amount: total,
@@ -355,12 +503,12 @@ const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse) => {
 
     if (insertError || !order) {
         console.error("[confirm-order] insert failed", insertError?.message);
-        return res.status(500).json({ error: "Payment verified but failed to record order" });
+        return failPaid(500, "We couldn't record your order.");
     }
 
     const today = new Date().toISOString().slice(0, 10);
     await Promise.allSettled([
-        ...items.map((item) =>
+        ...priced.items.map((item) =>
             admin.rpc("increment_dish_stock", {
                 p_dish_id: item.dishId,
                 p_restaurant_id: restaurantId,
@@ -371,13 +519,13 @@ const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse) => {
         sendTelegramOrderAlert(admin, {
             restaurantId,
             orderId: order.id,
-            items,
+            items: priced.items,
             total,
             currency,
         }),
     ]);
 
-    return res.status(200).json({ success: true, orderId: order.id });
+    return res.status(200).json({ success: true, orderId: order.id, total, currency });
 };
 
 // ── confirm-subscription ──────────────────────────────────────────────────────
@@ -385,7 +533,7 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
     const {
         razorpay_order_id, razorpay_payment_id, razorpay_signature,
         restaurantId, planId, customerName, phone, email,
-        deliveryType, deliveryFeeMode, timeSlot, rotationDishIds, currency = "INR",
+        deliveryType, deliveryFeeMode, timeSlot, rotationDishIds,
         durationDays, mealsPerDay, mealRotations,
     } = req.body as {
         razorpay_order_id?: string;
@@ -403,7 +551,6 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
         durationDays?: number;
         mealsPerDay?: number;
         mealRotations?: Partial<Record<MealSlot, string[]>>;
-        currency?: string;
     };
 
     if (
@@ -427,16 +574,23 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
     }
 
     const admin = requireSupabaseAdmin();
+    if (!(await claimOrRespond(res, admin, razorpay_payment_id, "subscription"))) return;
+    // From here the customer has paid: every failure refunds them.
+    const failPaid = (status: number, reason: string) =>
+        refundAndFail(res, razorpay_payment_id, status, reason);
+
     const { data: plan, error: planError } = await admin
         .from("meal_plans")
-        .select("price_monthly, delivery_fee, pricing_options")
+        .select("price_monthly, delivery_fee, pricing_options, restaurants(currency)")
         .eq("id", planId)
         .eq("restaurant_id", restaurantId)
         .single();
 
     if (planError || !plan) {
-        return res.status(404).json({ error: "Plan not found" });
+        return failPaid(404, "Plan not found.");
     }
+    const planRestaurant = plan.restaurants as unknown as { currency?: string } | null;
+    const currency = String(planRestaurant?.currency || "INR").toUpperCase();
 
     const pricing = getMealPlanPricingOption(
         normalizeMealPlanPricingOptions(plan.pricing_options, Number(plan.price_monthly) / 30),
@@ -444,22 +598,22 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
         mealsPerDay,
     );
     if (!pricing) {
-        return res.status(400).json({ error: "This term and meal count are not available for the selected plan" });
+        return failPaid(400, "This term and meal count are not available for the selected plan.");
     }
 
     const slots = MEAL_SLOTS_BY_COUNT[mealsPerDay];
     const rotations = normalizeMealRotations(mealRotations, rotationDishIds ?? []);
     if (slots.some((slot) => !rotations[slot]?.length)) {
-        return res.status(400).json({ error: "Choose a dish rotation for every meal in the plan" });
+        return failPaid(400, "Choose a dish rotation for every meal in the plan.");
     }
     const { data: planDishes, error: dishesError } = await admin
         .from("meal_plan_dishes")
         .select("dish_id")
         .eq("plan_id", planId);
-    if (dishesError) return res.status(500).json({ error: "Failed to validate plan dishes" });
+    if (dishesError) return failPaid(500, "We couldn't check the plan's dishes.");
     const allowedDishIds = new Set((planDishes ?? []).map((dish) => dish.dish_id));
     if (slots.some((slot) => rotations[slot]?.some((dishId) => !allowedDishIds.has(dishId)))) {
-        return res.status(400).json({ error: "A selected dish is not included in this plan" });
+        return failPaid(400, "A selected dish is not included in this plan.");
     }
 
     const startDate = new Date().toISOString().slice(0, 10);
@@ -475,10 +629,10 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
         .maybeSingle();
     if (activeSub.error) {
         console.error("[confirm-subscription] active subscription lookup failed", activeSub.error.message);
-        return res.status(500).json({ error: "Failed to check existing subscription" });
+        return failPaid(500, "We couldn't check for an existing subscription.");
     }
     if (activeSub.data) {
-        return res.status(409).json({ error: "An active subscription already exists for this phone number" });
+        return failPaid(409, "An active subscription already exists for this phone number.");
     }
 
     const breakdown = calculateTermMealPlanTax(
@@ -493,13 +647,17 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
         orderId: razorpay_order_id,
         planId,
         restaurantId,
+        phone,
         durationDays,
         mealsPerDay,
         amount: breakdown.total,
         currency,
+    }).catch((e: unknown) => {
+        console.error("[confirm-subscription] order lookup failed", getErrorDetail(e));
+        return false;
     });
     if (!paymentMatchesPlan) {
-        return res.status(400).json({ error: "Payment does not match this subscription term and meal selection" });
+        return failPaid(400, "The payment doesn't match this plan, term and meal selection.");
     }
 
     const end = new Date();
@@ -534,7 +692,7 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
 
     if (error || !data) {
         console.error("[confirm-subscription] insert failed", error?.message);
-        return res.status(500).json({ error: "Payment verified but failed to create subscription" });
+        return failPaid(500, "We couldn't create your subscription.");
     }
 
     return res.status(200).json({ success: true, subscriptionId: data.id });
@@ -571,10 +729,7 @@ const matchesPaidPlusOrder = async (input: {
     restaurantId: string;
     ownerId: string;
 }): Promise<boolean> => {
-    const creds = getRazorpayCredentials();
-    if (!creds) throw new Error("Razorpay not configured");
-    const order = await new Razorpay({ key_id: creds.keyId, key_secret: creds.keySecret })
-        .orders.fetch(input.orderId);
+    const order = await fetchRazorpayOrder(input.orderId);
     return order.status === "paid" &&
         order.notes?.plan === input.plan &&
         order.notes?.restaurantId === input.restaurantId &&
@@ -623,17 +778,33 @@ const handleConfirmPlus = async (req: VercelRequest, res: VercelResponse) => {
         return res.status(outcome.status).json({ error: outcome.error });
     }
 
+    if (!(await claimOrRespond(res, admin, razorpay_payment_id, "plus"))) return;
+    const failPaid = (status: number, reason: string) =>
+        refundAndFail(res, razorpay_payment_id, status, reason);
+
     const paymentMatchesPlan = await matchesPaidPlusOrder({
         orderId: razorpay_order_id,
         plan: plan as PlusPlanId,
         restaurantId,
         ownerId: user.id,
+    }).catch((e: unknown) => {
+        console.error("[confirm-plus] order lookup failed", getErrorDetail(e));
+        return false;
     });
     if (!paymentMatchesPlan) {
-        return res.status(400).json({ error: "Payment does not match the selected Plus plan" });
+        return failPaid(400, "The payment doesn't match the selected Plus plan.");
     }
 
-    const periodEnd = new Date();
+    // Renewing early stacks on the remaining paid time instead of discarding it.
+    const { data: current } = await admin
+        .from("subscriptions")
+        .select("tier, current_period_end")
+        .eq("restaurant_id", restaurantId)
+        .maybeSingle();
+    const currentEnd = current?.tier === "plus" && current.current_period_end
+        ? new Date(current.current_period_end)
+        : null;
+    const periodEnd = currentEnd && currentEnd.getTime() > Date.now() ? currentEnd : new Date();
     periodEnd.setDate(periodEnd.getDate() + periodDays);
 
     const { error } = await admin
@@ -651,7 +822,7 @@ const handleConfirmPlus = async (req: VercelRequest, res: VercelResponse) => {
 
     if (error) {
         console.error("[confirm-plus] upsert failed", error.message);
-        return res.status(500).json({ error: "Payment verified but failed to upgrade tier" });
+        return failPaid(500, "We couldn't upgrade your plan.");
     }
 
     return res.status(200).json({ success: true });
@@ -853,28 +1024,16 @@ type RefundableOrder = {
     rejected_at: string | null;
 };
 
-const issueRazorpayRefund = async (order: RefundableOrder): Promise<string> => {
-    const creds = getRazorpayCredentials();
-    if (!creds) throw new Error("Razorpay not configured");
-    const auth = Buffer.from(`${creds.keyId}:${creds.keySecret}`).toString("base64");
-    const response = await fetch(`https://api.razorpay.com/v1/payments/${order.payment_id}/refund`, {
-        method: "POST",
-        headers: {
-            Authorization: `Basic ${auth}`,
-            "Content-Type": "application/json",
-            "X-Refund-Idempotency": order.id,
-        },
-        body: JSON.stringify({
+const issueRazorpayRefund = async (order: RefundableOrder): Promise<string> =>
+    postRazorpayRefund(
+        order.payment_id as string,
+        {
             amount: Math.round(Number(order.total_amount) * 100),
             speed: "normal",
             notes: { orderId: order.id, reason: "Order rejected by kitchen" },
-        }),
-    });
-    const body = (await response.json().catch(() => ({}))) as { id?: string; error?: { description?: string } };
-    if (!response.ok || !body.id) console.error("[refund] razorpay response", response.status, JSON.stringify(body));
-    if (!response.ok || !body.id) throw new Error(body.error?.description ?? `Razorpay refund failed (${response.status})`);
-    return body.id;
-};
+        },
+        order.id,
+    );
 
 const loadOrderForOwner = async (
     admin: SupabaseClient,

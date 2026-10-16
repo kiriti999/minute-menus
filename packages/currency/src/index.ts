@@ -15,6 +15,13 @@ export {
     isIndianGstApplicable,
 } from "./indianGst";
 export type { GstOrderItem, OrderTaxBreakdown } from "./indianGst";
+export { parseCartLineIds, priceCartLines } from "./cartPricing";
+export type {
+    CartLineInput,
+    PricedCartLine,
+    PricingCategoryRow,
+    PricingDishRow,
+} from "./cartPricing";
 
 // Map of country codes to currency codes
 const COUNTRY_TO_CURRENCY: Record<string, string> = {

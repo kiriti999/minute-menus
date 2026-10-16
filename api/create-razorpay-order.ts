@@ -6,7 +6,13 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Razorpay from "razorpay";
-import { calculateTermMealPlanTax } from "@minute-menus/currency";
+import {
+    calculateTermMealPlanTax,
+    parseCartLineIds,
+    priceCartLines,
+    type CartLineInput,
+    type PricedCartLine,
+} from "@minute-menus/currency";
 import {
     getMealPlanPricingOption,
     normalizeMealPlanPricingOptions,
@@ -150,26 +156,62 @@ const getErrorDetail = (err: unknown): string => {
     return rz?.error?.description ?? rz?.message ?? JSON.stringify(err);
 };
 
+// Keep in sync with priceCartFromMenu in api/confirm-payment.ts — both price the
+// cart from the database so the amount charged never comes from the browser.
+const priceCartFromMenu = async (
+    admin: SupabaseClient,
+    restaurantId: string,
+    lines: CartLineInput[],
+): Promise<{ items: PricedCartLine[]; currency: string }> => {
+    const dishIds = [...new Set(lines.map((line) => parseCartLineIds(line).dishId))];
+    const [restaurant, dishes, categories] = await Promise.all([
+        admin.from("restaurants").select("currency").eq("id", restaurantId).single(),
+        admin
+            .from("dishes")
+            .select("id, name, price, variants, discount_percent, category_id, is_active, manual_sold_out")
+            .eq("restaurant_id", restaurantId)
+            .in("id", dishIds),
+        admin.from("categories").select("id, discount_percent").eq("restaurant_id", restaurantId),
+    ]);
+    const loadError = restaurant.error ?? dishes.error ?? categories.error;
+    if (loadError || !restaurant.data) throw new Error(`Menu lookup failed: ${loadError?.message ?? "restaurant missing"}`);
+    return {
+        items: priceCartLines(lines, dishes.data ?? [], categories.data ?? []),
+        currency: String(restaurant.data.currency || "INR").toUpperCase(),
+    };
+};
+
 // ── Handlers ────────────────────────────────────────────────────────────────
 const handleCartOrder = async (req: VercelRequest, res: VercelResponse) => {
-    const { items, currency = "INR", restaurantId, customerName } = req.body as {
-        items?: CartLine[];
-        currency?: string;
+    const { items: lines, restaurantId, customerName } = req.body as {
+        items?: CartLineInput[];
         restaurantId?: string;
         customerName?: string;
     };
 
-    if (!items?.length || !restaurantId || !customerName) {
+    if (!Array.isArray(lines) || !lines.length || !restaurantId || !customerName) {
         return res.status(400).json({ error: "items, restaurantId and customerName are required" });
     }
 
-    const { subtotal, gstAmount, total } = computeCartTotals(items, currency);
+    const admin = requireSupabaseAdmin();
+    let priced: Awaited<ReturnType<typeof priceCartFromMenu>>;
+    try {
+        priced = await priceCartFromMenu(admin, restaurantId, lines);
+    } catch (e) {
+        const msg = getErrorDetail(e);
+        console.error("[create-razorpay-order] cart pricing failed", msg);
+        const isLookupFailure = msg.startsWith("Menu lookup failed");
+        return res.status(isLookupFailure ? 500 : 400).json({ error: isLookupFailure ? "Could not load the menu" : msg });
+    }
+
+    const { currency } = priced;
+    const { subtotal, gstAmount, total } = computeCartTotals(priced.items, currency);
     if (total <= 0) {
         return res.status(400).json({ error: "Order total must be greater than zero" });
     }
 
     try {
-        await assertRestaurantCanAcceptOrders(requireSupabaseAdmin(), restaurantId);
+        await assertRestaurantCanAcceptOrders(admin, restaurantId);
         const result = await createRazorpayOrder({
             amount: total,
             currency,
@@ -206,7 +248,7 @@ const findActiveSubscription = async (restaurantId: string, phone: string) => {
 
 const handleSubscriptionOrder = async (req: VercelRequest, res: VercelResponse) => {
     const {
-        planId, restaurantId, phone, deliveryFeeMode, deliveryType, currency = "INR",
+        planId, restaurantId, phone, deliveryFeeMode, deliveryType,
         durationDays, mealsPerDay,
     } = req.body as {
         planId?: string;
@@ -214,7 +256,6 @@ const handleSubscriptionOrder = async (req: VercelRequest, res: VercelResponse) 
         phone?: string;
         deliveryFeeMode?: "upfront" | "cash_on_delivery";
         deliveryType?: "delivery" | "pickup";
-        currency?: string;
         durationDays?: number;
         mealsPerDay?: number;
     };
@@ -242,7 +283,7 @@ const handleSubscriptionOrder = async (req: VercelRequest, res: VercelResponse) 
 
     const { data: plan, error } = await requireSupabaseAdmin()
         .from("meal_plans")
-        .select("price_monthly, delivery_fee, pricing_options, name")
+        .select("price_monthly, delivery_fee, pricing_options, name, restaurants(currency)")
         .eq("id", planId)
         .eq("restaurant_id", restaurantId)
         .single();
@@ -250,6 +291,9 @@ const handleSubscriptionOrder = async (req: VercelRequest, res: VercelResponse) 
     if (error || !plan) {
         return res.status(404).json({ error: "Plan not found" });
     }
+    // Plan prices are in the restaurant's menu currency — never the browser's choice.
+    const restaurant = plan.restaurants as unknown as { currency?: string } | null;
+    const currency = String(restaurant?.currency || "INR").toUpperCase();
 
     const pricing = getMealPlanPricingOption(
         normalizeMealPlanPricingOptions(plan.pricing_options, Number(plan.price_monthly) / 30),
@@ -278,6 +322,7 @@ const handleSubscriptionOrder = async (req: VercelRequest, res: VercelResponse) 
                 planId,
                 restaurantId,
                 planName: plan.name,
+                phone,
                 durationDays: String(durationDays),
                 mealsPerDay: String(mealsPerDay),
                 subtotal: String(breakdown.subtotal),

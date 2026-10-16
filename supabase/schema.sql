@@ -1551,3 +1551,32 @@ grant execute on function next_sales_invoice_label to authenticated;
 ALTER TABLE dishes     ADD COLUMN IF NOT EXISTS variants         jsonb NOT NULL DEFAULT '[]';
 ALTER TABLE dishes     ADD COLUMN IF NOT EXISTS discount_percent int   NOT NULL DEFAULT 0;
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS discount_percent int   NOT NULL DEFAULT 0;
+
+-- ─────────────────────────────────────────────
+-- PAYMENT CLAIMS — each Razorpay payment can be redeemed once.
+-- Written by api/confirm-payment.ts (service role) before an order, meal-plan
+-- subscription or Plus upgrade is granted; a replayed payment id conflicts.
+-- RLS on with no policies: browsers can neither read nor write it.
+-- ─────────────────────────────────────────────
+create table if not exists payment_claims (
+  payment_id  text primary key,
+  purpose     text not null check (purpose in ('order', 'subscription', 'plus')),
+  created_at  timestamptz not null default now()
+);
+alter table payment_claims enable row level security;
+
+-- Backfill payments redeemed before this table existed.
+insert into payment_claims (payment_id, purpose)
+select payment_id, 'order' from orders
+where payment_provider = 'razorpay' and payment_id is not null
+on conflict (payment_id) do nothing;
+
+insert into payment_claims (payment_id, purpose)
+select payment_id, 'subscription' from customer_subscriptions
+where payment_id is not null
+on conflict (payment_id) do nothing;
+
+insert into payment_claims (payment_id, purpose)
+select provider_subscription_id, 'plus' from subscriptions
+where provider = 'razorpay' and provider_subscription_id is not null
+on conflict (payment_id) do nothing;

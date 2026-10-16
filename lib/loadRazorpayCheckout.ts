@@ -64,8 +64,9 @@ export type RazorpayCheckoutOptions = {
 
 /**
  * Opens the Razorpay modal and resolves with the payment response on success.
- * Rejects with "Payment cancelled" on modal dismiss, or the failure reason on
- * a payment.failed event.
+ * A failed attempt keeps the modal open so the customer can retry — rejecting
+ * there would drop a later successful retry. Rejects only when the modal is
+ * dismissed: with the last failure reason, or "Payment cancelled".
  */
 export const openRazorpayCheckout = (
   opts: RazorpayCheckoutOptions,
@@ -73,6 +74,7 @@ export const openRazorpayCheckout = (
   getRazorpayConstructor().then(
     (RzpClass) =>
       new Promise<RazorpaySuccess>((resolve, reject) => {
+        let lastFailure: string | null = null;
         const rzp = new RzpClass({
           key: opts.keyId,
           order_id: opts.orderId,
@@ -83,11 +85,11 @@ export const openRazorpayCheckout = (
           prefill: opts.prefill,
           theme: { color: "#000000" },
           handler: (response: RazorpaySuccess) => resolve(response),
-          modal: { ondismiss: () => reject(new Error("Payment cancelled")) },
+          modal: { ondismiss: () => reject(new Error(lastFailure ?? "Payment cancelled")) },
         });
-        rzp.on("payment.failed", (resp) =>
-          reject(new Error(resp?.error?.description ?? "Payment failed")),
-        );
+        rzp.on("payment.failed", (resp) => {
+          lastFailure = resp?.error?.description ?? "Payment failed";
+        });
         rzp.open();
       }),
   );

@@ -889,11 +889,13 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
 
       // 3. Verify the payment and record the order server-side (atomic —
       // the order is only ever written after a signature check passes)
+      // Cart keys are `dishId__variantId`; stock is tracked per dish.
       const newlySoldOut = cart
         .map((item) => {
-          const dish = flatDishes.find((d) => d.id === item.dishId);
+          const dishId = item.dishId.split("__")[0];
+          const dish = flatDishes.find((d) => d.id === dishId);
           if (!dish || dish.stockQuantity == null) return null;
-          const prevSold = soldCounts[item.dishId] ?? 0;
+          const prevSold = soldCounts[dishId] ?? 0;
           const afterSold = prevSold + item.quantity;
           if (afterSold >= dish.stockQuantity && prevSold < dish.stockQuantity) {
             return { id: dish.id, name: dish.name };
@@ -932,7 +934,8 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
       setSoldCounts((prev) => {
         const updated = { ...prev };
         cart.forEach((item) => {
-          updated[item.dishId] = (updated[item.dishId] ?? 0) + item.quantity;
+          const dishId = item.dishId.split("__")[0];
+          updated[dishId] = (updated[dishId] ?? 0) + item.quantity;
         });
         return updated;
       });
