@@ -32,7 +32,7 @@ Keep route handlers thin — validation and orchestration in `api/`, logic in pa
 
 1. Count existing routes: `find api -name '*.ts' | wc -l` (must stay ≤ 12).
 2. Prefer **consolidating** into an existing route with `?action=` (see `api/confirm-payment.ts`, `api/counter-invoice.ts`).
-3. Move shared logic to `lib/server/` or `lib/api-handlers/` — not a new function file.
+3. Move shared logic to `lib/server/` — not a new function file.
 4. `vercel.json` rewrites preserve old URLs but **do not** reduce the function count.
 
 **Verify locally:** `vercel build --yes` then `find .vercel/output/functions -name '*.func' | wc -l` (must be ≤ 12).
