@@ -22,6 +22,8 @@ import {
     MEAL_SLOTS_BY_COUNT,
     normalizeMealPlanPricingOptions,
     normalizeMealRotations,
+    addDaysToDate,
+    restaurantDate,
     type MealSlot,
     type RestaurantAvailability,
 } from "@minute-menus/types";
@@ -427,19 +429,29 @@ const priceCartFromMenu = async (
     lines: CartLineInput[],
 ): Promise<{ items: PricedCartLine[]; currency: string }> => {
     const dishIds = [...new Set(lines.map((line) => parseCartLineIds(line).dishId))];
-    const [restaurant, dishes, categories] = await Promise.all([
+    const [restaurant, dishes, categories, stock] = await Promise.all([
         admin.from("restaurants").select("currency").eq("id", restaurantId).single(),
         admin
             .from("dishes")
-            .select("id, name, price, variants, discount_percent, category_id, is_active, manual_sold_out")
+            .select("id, name, price, variants, discount_percent, category_id, is_active, manual_sold_out, stock_quantity")
             .eq("restaurant_id", restaurantId)
             .in("id", dishIds),
         admin.from("categories").select("id, discount_percent").eq("restaurant_id", restaurantId),
+        admin
+            .from("dish_stock_daily")
+            .select("dish_id, quantity_sold")
+            .eq("restaurant_id", restaurantId)
+            .eq("sold_date", restaurantDate()),
     ]);
-    const loadError = restaurant.error ?? dishes.error ?? categories.error;
+    const loadError = restaurant.error ?? dishes.error ?? categories.error ?? stock.error;
     if (loadError || !restaurant.data) throw new Error("We couldn't load the menu to check your order.");
     return {
-        items: priceCartLines(lines, dishes.data ?? [], categories.data ?? []),
+        items: priceCartLines(
+            lines,
+            dishes.data ?? [],
+            categories.data ?? [],
+            new Map((stock.data ?? []).map((row) => [row.dish_id as string, Number(row.quantity_sold)])),
+        ),
         currency: String(restaurant.data.currency || "INR").toUpperCase(),
     };
 };
@@ -565,7 +577,7 @@ const handleConfirmOrder = async (req: VercelRequest, res: VercelResponse) => {
         return failPaid(500, "We couldn't record your order.");
     }
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = restaurantDate();
     await Promise.allSettled(
         priced.items.map((item) =>
             admin.rpc("increment_dish_stock", {
@@ -619,7 +631,8 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
         !razorpay_order_id || !razorpay_payment_id || !razorpay_signature ||
         !restaurantId || !planId || !customerName || !phone ||
         !["delivery", "pickup"].includes(deliveryType ?? "") ||
-        !["upfront", "cash_on_delivery"].includes(deliveryFeeMode ?? "") ||
+        // No cash on delivery: delivery fees are always paid upfront online.
+        deliveryFeeMode !== "upfront" ||
         typeof durationDays !== "number" || !Number.isInteger(durationDays) || durationDays < 1 ||
         typeof mealsPerDay !== "number" || !MEAL_SLOTS_BY_COUNT[mealsPerDay]
     ) {
@@ -683,7 +696,7 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
         return failPaid(400, "A selected dish is not included in this plan.");
     }
 
-    const startDate = new Date().toISOString().slice(0, 10);
+    const startDate = restaurantDate();
     const activeSubs = await admin
         .from("customer_subscriptions")
         .select("id, customer_user_id, phone")
@@ -727,9 +740,7 @@ const handleConfirmSubscription = async (req: VercelRequest, res: VercelResponse
         return failPaid(400, "The payment doesn't match this plan, term and meal selection.");
     }
 
-    const end = new Date();
-    end.setDate(end.getDate() + durationDays - 1);
-    const endDate = end.toISOString().slice(0, 10);
+    const endDate = addDaysToDate(startDate, durationDays - 1);
 
     const { data, error } = await admin
         .from("customer_subscriptions")

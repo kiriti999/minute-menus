@@ -37,6 +37,8 @@ import type {
     RestaurantAvailability,
 } from "@minute-menus/types";
 import {
+    addDaysToDate,
+    restaurantDate,
     DEFAULT_OPERATING_HOURS,
     normalizeMealPlanPricingOptions,
     normalizeMealRotations,
@@ -86,6 +88,7 @@ const mapOrderRow = (order: {
     refundId: order.refund_id ?? undefined,
 });
 
+import { fetchAllRows, requireData } from "./fetchAllRows";
 import { mapDailyOrders, rowsToCategoryTree } from "./mappers";
 import { createRestaurantContext } from "./restaurantContext";
 
@@ -200,7 +203,7 @@ export class SupabaseService {
         const rid = restaurantId;
         if (!rid) return {};
 
-        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        const today = restaurantDate(); // same day key the server writes sold counts under
 
         const { data } = await this.client
             .from("dish_stock_daily")
@@ -293,9 +296,10 @@ export class SupabaseService {
         orderId: string,
         status: OrderStatus,
         rejectionReason?: string,
-    ): Promise<string> {
+    ): Promise<{ stampedAt: string; refundError?: string }> {
         const now = new Date().toISOString();
         const stampColumn = ORDER_STATUS_STAMP[status];
+        // The database trigger overwrites the stage timestamp with its own clock.
         const { error } = await this.client
             .from("orders")
             .update({
@@ -305,8 +309,15 @@ export class SupabaseService {
             })
             .eq("id", orderId);
         if (error) throw error;
-        if (status === "rejected") await this.refundRejectedOrder(orderId);
-        return now;
+        if (status !== "rejected") return { stampedAt: now };
+        // The rejection is saved either way; a refund failure is reported separately
+        // so the owner can retry it instead of seeing the whole update as failed.
+        try {
+            await this.refundRejectedOrder(orderId);
+            return { stampedAt: now };
+        } catch (refundErr) {
+            return { stampedAt: now, refundError: refundErr instanceof Error ? refundErr.message : String(refundErr) };
+        }
     }
 
     /** Asks the server to refund the Razorpay payment (if any) of a rejected order. */
@@ -408,29 +419,32 @@ export class SupabaseService {
         const now = new Date();
         const since = sinceIso(timeWindow, now);
 
-        const [{ data: sessions }, { data: orders }, { data: dishes }] =
-            await Promise.all([
+        const [sessions, orders, dishes] = await Promise.all([
+            fetchAllRows((from, to) =>
                 this.client
                     .from("watch_sessions")
                     .select("*")
                     .eq("restaurant_id", rid)
-                    .gte("created_at", since),
+                    .gte("created_at", since)
+                    .order("created_at")
+                    .order("id")
+                    .range(from, to),
+            ),
+            fetchAllRows((from, to) =>
                 this.client
                     .from("orders")
                     .select("time_to_order, items")
                     .eq("restaurant_id", rid)
                     .neq("status", "rejected")
-                    .gte("created_at", since),
-                this.client.from("dishes").select("id, name").eq("restaurant_id", rid),
-            ]);
+                    .gte("created_at", since)
+                    .order("created_at")
+                    .order("id")
+                    .range(from, to),
+            ),
+            this.client.from("dishes").select("id, name").eq("restaurant_id", rid).then(requireData),
+        ]);
 
-        return buildAggregatedMetrics(
-            sessions ?? [],
-            orders ?? [],
-            dishes ?? [],
-            timeWindow,
-            now,
-        );
+        return buildAggregatedMetrics(sessions, orders, dishes ?? [], timeWindow, now);
     }
 
     // ── Analytics Report ─────────────────────────────────────────────────────────
@@ -446,11 +460,11 @@ export class SupabaseService {
         const rid = await this.getRestaurantId();
         const now = new Date();
         const since = sinceIso(timeWindow, now);
-        const todayStr = now.toISOString().slice(0, 10);
+        const todayStr = restaurantDate(0, now);
 
         const [
-            { data: sessions },
-            { data: orders },
+            sessions,
+            orders,
             { data: dishes },
             { data: subs },
             { data: subOrders },
@@ -458,17 +472,27 @@ export class SupabaseService {
             { data: restaurant },
             { data: refunds },
         ] = await Promise.all([
-            this.client
-                .from("watch_sessions")
-                .select("dish_id, duration, completed")
-                .eq("restaurant_id", rid)
-                .gte("created_at", since),
-            this.client
-                .from("orders")
-                .select("items, total_amount, time_to_order")
-                .eq("restaurant_id", rid)
-                .neq("status", "rejected")
-                .gte("created_at", since),
+            fetchAllRows((from, to) =>
+                this.client
+                    .from("watch_sessions")
+                    .select("dish_id, duration, completed")
+                    .eq("restaurant_id", rid)
+                    .gte("created_at", since)
+                    .order("created_at")
+                    .order("id")
+                    .range(from, to),
+            ),
+            fetchAllRows((from, to) =>
+                this.client
+                    .from("orders")
+                    .select("items, total_amount, time_to_order")
+                    .eq("restaurant_id", rid)
+                    .neq("status", "rejected")
+                    .gte("created_at", since)
+                    .order("created_at")
+                    .order("id")
+                    .range(from, to),
+            ),
             this.client
                 .from("dishes")
                 .select("id, name")
@@ -504,8 +528,8 @@ export class SupabaseService {
             generatedAt: now.toISOString(),
             currency: (restaurant as { currency?: string } | null)?.currency ?? "USD",
             since,
-            sessions: sessions ?? [],
-            orders: orders ?? [],
+            sessions,
+            orders,
             dishes: dishes ?? [],
             subscriptions: subs ?? [],
             subOrders: subOrders ?? [],
@@ -942,9 +966,7 @@ export class SupabaseService {
 
     async getTomorrowsOrders(restaurantId?: string): Promise<DailyOrder[]> {
         const rid = restaurantId ?? (await this.getRestaurantId());
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const date = tomorrow.toISOString().slice(0, 10);
+        const date = restaurantDate(1);
 
         const { data, error } = await this.client
             .from("subscription_daily_orders")
@@ -1138,10 +1160,8 @@ export class SupabaseService {
         mealRotations?: Partial<Record<MealSlot, string[]>>;
         rotationDishIds?: string[];
     }): Promise<string> {
-        const startDate = new Date().toISOString().slice(0, 10);
-        const end = new Date();
-        end.setDate(end.getDate() + (params.durationDays ?? 28) - 1);
-        const endDate = end.toISOString().slice(0, 10);
+        const startDate = restaurantDate();
+        const endDate = addDaysToDate(startDate, (params.durationDays ?? 28) - 1);
 
         const { data, error } = await this.client
             .from("customer_subscriptions")

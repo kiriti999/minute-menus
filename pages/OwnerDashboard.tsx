@@ -79,9 +79,10 @@ import {
 import {
   SUPPORTED_CURRENCIES,
   detectUserCurrency,
-  formatPrice,
   formatPriceInCurrency,
+  getPlusPlanAmount,
   getSymbolForCurrency,
+  normalizePlusCurrency,
 } from "@minute-menus/currency";
 import { getErrorMessage } from "@minute-menus/errors";
 import { compressDataUrl } from "@minute-menus/menu-persistence";
@@ -169,10 +170,12 @@ const PaywallModal: React.FC<PaywallModalProps> = ({
   isProcessing,
   error,
 }) => {
-  const checkoutCurrency = detectUserCurrency();
-  const annualLabel = formatPrice(120, checkoutCurrency);
-  const monthlyLabel = formatPrice(12, checkoutCurrency);
-  const annualPerMonthLabel = formatPrice(10, checkoutCurrency);
+  // Same currency and amounts the server charges (INR in India, USD elsewhere).
+  const checkoutCurrency = normalizePlusCurrency(detectUserCurrency());
+  const annualAmount = getPlusPlanAmount("annual", checkoutCurrency);
+  const annualLabel = formatPriceInCurrency(annualAmount, checkoutCurrency);
+  const monthlyLabel = formatPriceInCurrency(getPlusPlanAmount("monthly", checkoutCurrency), checkoutCurrency);
+  const annualPerMonthLabel = formatPriceInCurrency(Math.round(annualAmount / 12), checkoutCurrency);
 
   return (
     <div className={`fixed inset-0 z-[100] backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-300 ${isDarkTheme ? 'bg-black/80' : 'bg-white/80'}`}>
@@ -991,6 +994,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
   // Data State
   const [metrics, setMetrics] = useState<AggregatedMetrics | null>(null);
+  const [metricsError, setMetricsError] = useState<string | null>(null);
   const [menuItems, setMenuItems] = useState<Category[]>([]);
   const [menuLoading, setMenuLoading] = useState(true);
   // A failed load leaves menuItems empty — saving that would delete the real menu.
@@ -1013,6 +1017,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const [telegramChatId, setTelegramChatId] = useState("");
   const [isTestSoundPlaying, setIsTestSoundPlaying] = useState(false);
   const knownKitchenOrderIdsRef = useRef(new Set<string>());
+  // First load sets the baseline (no ring); every later new order rings — even
+  // the first order a restaurant ever receives.
+  const kitchenOrdersLoadedRef = useRef(false);
   const ringingOrderIdsRef = useRef(new Set<string>());
   const ringtoneAudioContextRef = useRef<AudioContext | null>(null);
   const ringtoneIntervalRef = useRef<number | null>(null);
@@ -1027,6 +1034,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const [deliveryTickets, setDeliveryTickets] = useState<DeliveryTicket[]>([]);
   const [refundRequests, setRefundRequests] = useState<RefundRequest[]>([]);
   const [editingPlan, setEditingPlan] = useState<Partial<MealPlan> | null>(null);
+  const [isSavingPlan, setIsSavingPlan] = useState(false);
   const [newRateDuration, setNewRateDuration] = useState("3");
   const [newRateMeals, setNewRateMeals] = useState("1");
   const [rateOptionError, setRateOptionError] = useState("");
@@ -1078,6 +1086,17 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     unsavedChangesRef.current = unsavedChanges;
   }, [unsavedChanges]);
 
+  // Warn before a refresh/close discards unsaved menu edits.
+  useEffect(() => {
+    if (!unsavedChanges) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [unsavedChanges]);
+
   const menuItemsRef = useRef(menuItems);
   useEffect(() => {
     menuItemsRef.current = menuItems;
@@ -1105,7 +1124,16 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   };
 
   const loadDashboardMetrics = () => {
-    supabaseService.getAggregatedMetrics(timeWindow).then(setMetrics).catch(console.error);
+    supabaseService
+      .getAggregatedMetrics(timeWindow)
+      .then((loaded) => {
+        setMetrics(loaded);
+        setMetricsError(null);
+      })
+      .catch((err: unknown) => {
+        console.error("Analytics load failed:", err);
+        setMetricsError(getErrorMessage(err));
+      });
   };
 
   const loadSubscriptionData = () => {
@@ -1197,15 +1225,24 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
     stopTestSound();
   }, []);
 
+  // Orders are only polled on the Kitchen Orders view, so nothing could stop a
+  // ringtone after leaving it — stop ringing once the owner switches away.
+  useEffect(() => {
+    if (currentView === "ORDERS") return;
+    ringingOrderIdsRef.current.clear();
+    stopOrderRingtone();
+  }, [currentView]);
+
   const loadKitchenOrders = (silent = false) => {
     if (!silent) setKitchenOrdersLoading(true);
     setKitchenOrdersError("");
     supabaseService
       .getKitchenOrders()
       .then((orders) => {
-        const newOrders = knownKitchenOrderIdsRef.current.size > 0
+        const newOrders = kitchenOrdersLoadedRef.current
           ? orders.filter((order) => !knownKitchenOrderIdsRef.current.has(order.id))
           : [];
+        kitchenOrdersLoadedRef.current = true;
         newOrders.forEach((order) => ringingOrderIdsRef.current.add(order.id));
         const activeOrderIds = new Set(
           orders
@@ -1233,7 +1270,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   ) => {
     setKitchenOrdersError("");
     try {
-      const stamp = await supabaseService.updateKitchenOrderStatus(orderId, status, rejectionReason);
+      const { stampedAt: stamp, refundError } = await supabaseService.updateKitchenOrderStatus(orderId, status, rejectionReason);
+      if (refundError) {
+        setKitchenOrdersError(`Order rejected, but the automatic refund failed: ${refundError}. Use "Retry refund" on the order.`);
+      }
       setKitchenOrders((orders) =>
         orders.map((order) => (order.id === orderId
           ? {
@@ -1318,7 +1358,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       const token = sessionData.session?.access_token;
       if (!token) throw new Error("Please sign in again.");
 
-      const checkoutCurrency = detectUserCurrency();
+      const checkoutCurrency = normalizePlusCurrency(detectUserCurrency());
       const orderRes = await fetch(PAYMENT_API_PATHS.createPlusOrder, {
         method: "POST",
         headers: {
@@ -2086,6 +2126,18 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       {/* Main Content */}
       <main className={`flex-1 overflow-hidden flex flex-col relative pt-14 md:pt-0 ${isDarkTheme ? 'bg-black' : 'bg-zinc-50'}`}>
         {/* Dashboard View */}
+        {currentView === "DASHBOARD" && metricsError && (
+          <div className="mx-3 sm:mx-4 md:mx-10 mt-6 flex items-center gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+            Couldn't load analytics{metrics ? " — showing the last loaded figures" : ""}.
+            <button
+              onClick={loadDashboardMetrics}
+              className={`px-3 py-1 rounded text-xs font-bold ${isDarkTheme ? 'bg-white text-black' : 'bg-zinc-900 text-white'}`}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {currentView === "DASHBOARD" && metrics && (
           <div className="flex-1 overflow-y-auto p-4 md:p-12 animate-in fade-in duration-500 pb-24">
             <header className="flex flex-col md:flex-row justify-between md:items-end mb-8 md:mb-12 gap-4">
@@ -3780,16 +3832,20 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                           Cancel
                         </button>
                         <button
+                          disabled={isSavingPlan}
                           onClick={() => {
-                            if (!editingPlan.name) return;
+                            // A second click while saving would create a duplicate plan.
+                            if (!editingPlan.name || isSavingPlan) return;
+                            setIsSavingPlan(true);
                             supabaseService.saveMealPlan(
                               { name: editingPlan.name!, description: editingPlan.description ?? "", priceMonthly: editingPlan.priceMonthly ?? 0, deliveryFee: editingPlan.deliveryFee ?? 0, pricingOptions: editingPlan.pricingOptions ?? [], isActive: editingPlan.isActive ?? true, dishIds: editingPlan.dishIds ?? [] },
                               editingPlan.id,
                             ).then(() => { supabaseService.getMealPlans().then(setMealPlans); setEditingPlan(null); })
-                              .catch((e: Error) => alert(e.message));
+                              .catch((e: Error) => alert(e.message))
+                              .finally(() => setIsSavingPlan(false));
                           }}
-                          className={`flex-1 py-2 rounded text-sm font-bold ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}>
-                          Save Plan
+                          className={`flex-1 py-2 rounded text-sm font-bold disabled:opacity-50 ${isDarkTheme ? 'bg-white text-black hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}>
+                          {isSavingPlan ? "Saving…" : "Save Plan"}
                         </button>
                       </div>
                     </div>

@@ -105,17 +105,13 @@ async function handleCreate(req: VercelRequest, res: VercelResponse) {
 			.select("*")
 			.single();
 
-		if (updErr || !updated) {
-			return res.status(502).json({ error: "Invoice created but Razorpay setup failed", invoiceId: invoice.id });
-		}
-
+		if (updErr || !updated) throw new Error(`Saving Razorpay details failed: ${updErr?.message ?? "no row"}`);
 		return res.status(200).json(mapInvoiceRow(updated));
 	} catch (e) {
-		return res.status(502).json({
-			error: "Razorpay not configured or request failed",
-			detail: getErrorDetail(e),
-			invoiceId: invoice.id,
-		});
+		// The bill itself exists: return it without a QR/link so the cashier can
+		// still collect cash or card instead of being left with an orphaned bill.
+		console.error("[counter-invoice/create] online payment setup failed", getErrorDetail(e));
+		return res.status(200).json(mapInvoiceRow(invoice));
 	}
 }
 

@@ -24,6 +24,14 @@ begin
   end loop;
 end $$;
 
+-- Restaurant calendar day (IST). Daily stock, meal-plan days and the 5 PM meal
+-- cutoff follow it — current_date is UTC and flips only at 05:30 IST.
+-- Keep in sync with restaurantDate() in @minute-menus/types.
+create or replace function public.restaurant_today()
+returns date language sql stable set search_path = public as $$
+  select (now() at time zone 'Asia/Kolkata')::date
+$$;
+
 -- ─────────────────────────────────────────────
 -- 1. RESTAURANTS
 -- One row per restaurant. Linked to auth.users via owner_id.
@@ -188,6 +196,35 @@ create index if not exists orders_customer_user_id_idx on orders (customer_user_
 
 alter table orders enable row level security;
 
+-- Stage timestamps come from the database clock, set once when an order enters
+-- that status. Browsers can't backdate or refresh them — the refund endpoint
+-- trusts rejected_at to allow its PIN-free automatic refund for 60 seconds.
+create or replace function public.stamp_order_status_times()
+returns trigger language plpgsql set search_path = public as $$
+begin
+  new.confirmed_at := old.confirmed_at;
+  new.preparing_at := old.preparing_at;
+  new.ready_at     := old.ready_at;
+  new.completed_at := old.completed_at;
+  new.rejected_at  := old.rejected_at;
+  if new.status is distinct from old.status then
+    case new.status
+      when 'confirmed' then new.confirmed_at := now();
+      when 'preparing' then new.preparing_at := now();
+      when 'ready'     then new.ready_at     := now();
+      when 'completed' then new.completed_at := now();
+      when 'rejected'  then new.rejected_at  := now();
+      else null;
+    end case;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists stamp_order_status_times on orders;
+create trigger stamp_order_status_times
+  before update on orders
+  for each row execute function public.stamp_order_status_times();
+
 drop policy if exists "Customer can read own orders" on orders;
 create policy "Customer can read own orders"
   on orders for select
@@ -311,11 +348,12 @@ create policy "Owner can insert their initial free subscription"
 create table if not exists dish_stock_daily (
   dish_id       uuid not null references dishes(id) on delete cascade,
   restaurant_id uuid not null references restaurants(id) on delete cascade,
-  sold_date     date not null default current_date,
+  sold_date     date not null default restaurant_today(),
   quantity_sold int  not null default 0,
   primary key (dish_id, sold_date)
 );
 
+alter table dish_stock_daily alter column sold_date set default restaurant_today();
 alter table dish_stock_daily enable row level security;
 
 -- Anyone (including anon customers) can read sold counts — no PII exposed
@@ -427,21 +465,27 @@ create table if not exists meal_plans (
   created_at     timestamptz not null default now()
 );
 
-alter table meal_plans add column if not exists pricing_options jsonb not null default '[]'::jsonb;
-
--- Convert the legacy monthly price into a per-meal baseline for the shared
--- duration/meal-count template. Owners can edit every resulting rate.
-update meal_plans mp
-set pricing_options = (
-  select jsonb_agg(jsonb_build_object(
-    'durationDays', duration_days,
-    'mealsPerDay', meals_per_day,
-    'pricePerMeal', round(mp.price_monthly / 30, 2)
-  ))
-  from unnest(array[3, 7, 14, 28]) as duration_days
-  cross join unnest(array[1, 2, 3]) as meals_per_day
-)
-where pricing_options = '[]'::jsonb;
+-- One-time migration: add pricing_options and convert the legacy monthly price
+-- into a per-meal baseline. Runs only when the column is first added, so a
+-- plan an owner later empties on purpose is never regenerated on re-runs.
+do $$ begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'meal_plans' and column_name = 'pricing_options'
+  ) then
+    alter table meal_plans add column pricing_options jsonb not null default '[]'::jsonb;
+    update meal_plans mp
+    set pricing_options = (
+      select jsonb_agg(jsonb_build_object(
+        'durationDays', duration_days,
+        'mealsPerDay', meals_per_day,
+        'pricePerMeal', round(mp.price_monthly / 30, 2)
+      ))
+      from unnest(array[3, 7, 14, 28]) as duration_days
+      cross join unnest(array[1, 2, 3]) as meals_per_day
+    );
+  end if;
+end $$;
 
 alter table meal_plans enable row level security;
 
@@ -510,7 +554,7 @@ create table if not exists customer_subscriptions (
   status           sub_status not null default 'active',
   pause_until      date,
   paused_days_used int not null default 0,  -- cumulative days paused this cycle
-  start_date       date not null default current_date,
+  start_date       date not null default restaurant_today(),
   end_date         date not null,           -- set to start_date + 30 on insert
   rotation_dish_ids uuid[] not null default '{}',  -- ordered dish IDs for round-robin delivery
   payment_provider payment_provider,
@@ -554,6 +598,7 @@ alter table customer_subscriptions drop constraint if exists customer_subscripti
 alter table customer_subscriptions add column if not exists subtotal_amount numeric(10, 2);
 alter table customer_subscriptions add column if not exists gst_amount numeric(10, 2) not null default 0;
 
+alter table customer_subscriptions alter column start_date set default restaurant_today();
 alter table customer_subscriptions enable row level security;
 
 -- The signed-in customer who bought the plan (set by confirm-subscription).
@@ -837,7 +882,7 @@ begin
   select * into v_sub
   from customer_subscriptions
   where restaurant_id = p_restaurant_id
-    and status = 'active' and end_date >= current_date
+    and status = 'active' and end_date >= restaurant_today()
     and is_subscription_customer(customer_user_id, phone)
   order by created_at desc
   limit 1;
@@ -846,7 +891,7 @@ begin
     raise exception 'No active subscription found for your account';
   end if;
 
-  if p_delivery_date <= current_date then
+  if p_delivery_date <= restaurant_today() then
     raise exception 'Meals can only be chosen for upcoming days';
   end if;
 
@@ -864,9 +909,9 @@ begin
     raise exception 'Meal is not included in this subscription';
   end if;
 
-  -- 5pm IST cutoff = 11:30 UTC for next-day orders
-  if now() at time zone 'UTC' > (current_date::text || ' 11:30:00')::timestamptz
-     and p_delivery_date = current_date + 1 then
+  -- Tomorrow's meals lock at 5:00 PM IST (independent of the session timezone)
+  if p_delivery_date = restaurant_today() + 1
+     and extract(hour from now() at time zone 'Asia/Kolkata') >= 17 then
     raise exception 'Modification cutoff has passed (5:00 PM IST)';
   end if;
 
@@ -943,7 +988,7 @@ begin
     raise exception 'Subscription not found';
   end if;
 
-  if v_sub.end_date < current_date then
+  if v_sub.end_date < restaurant_today() then
     raise exception 'Subscription term has ended';
   end if;
 
@@ -955,7 +1000,7 @@ begin
     if p_pause_until is null then
       raise exception 'pause_until date is required';
     end if;
-    v_days := p_pause_until - current_date;
+    v_days := p_pause_until - restaurant_today();
     if v_days < 1 then
       raise exception 'pause_until must be a future date';
     end if;
@@ -969,8 +1014,15 @@ begin
     where id = v_sub.id;
 
   elsif p_new_status = 'active' then
+    -- Resuming early gives back the pause days that weren't used.
     update customer_subscriptions
-    set status = 'active', pause_until = null
+    set status = 'active',
+        pause_until = null,
+        paused_days_used = case
+          when v_sub.status = 'paused' and v_sub.pause_until > restaurant_today()
+            then greatest(0, paused_days_used - (v_sub.pause_until - restaurant_today()))
+          else paused_days_used
+        end
     where id = v_sub.id;
 
   elsif p_new_status = 'cancelled' then
@@ -984,14 +1036,13 @@ begin
         v_sub.id,
         v_sub.restaurant_id,
         p_cancel_reason,
-        case
-          when v_sub.subtotal_amount is not null then round(
-            (v_sub.subtotal_amount + v_sub.gst_amount) *
-            least(1, greatest(0, (v_sub.end_date - current_date + 1)::numeric / greatest(v_sub.duration_days, 1))),
-            2
-          )
-          else mp.price_monthly
-        end
+        -- Prorated over days after today (today's meal is already committed);
+        -- legacy plans without a recorded payment prorate their monthly price.
+        round(
+          coalesce(v_sub.subtotal_amount + v_sub.gst_amount, mp.price_monthly) *
+          least(1, greatest(0, (v_sub.end_date - restaurant_today())::numeric / greatest(v_sub.duration_days, 1))),
+          2
+        )
       from meal_plans mp where mp.id = v_sub.plan_id;
     end if;
   end if;

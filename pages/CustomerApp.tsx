@@ -25,7 +25,7 @@ import {
   X,
 } from "lucide-react";
 import type React from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   calculateTermMealPlanTax,
   calculateOrderTax,
@@ -51,7 +51,10 @@ import {
   getMealPlanPricingOption,
   MEAL_SLOT_LABELS,
   MEAL_SLOT_TIME_SLOTS,
+  MEAL_SELECTION_CUTOFF_HOUR,
   MEAL_SLOTS_BY_COUNT,
+  restaurantDate,
+  restaurantHour,
   TICKET_REASON_LABELS,
   TIME_SLOT_LABELS,
 } from "@minute-menus/types";
@@ -167,6 +170,8 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const [orderToast, setOrderToast] = useState("");
   const lastOrderStatusRef = useRef<Map<string, string>>(new Map());
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const isAuthModalOpenRef = useRef(isAuthModalOpen);
+  isAuthModalOpenRef.current = isAuthModalOpen;
   const [authStep, setAuthStep] = useState<AuthStep>("auth");
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState("");
@@ -208,7 +213,8 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const [subName, setSubName] = useState("");
   const [subEmail, setSubEmail] = useState("");
   const [subDeliveryType, setSubDeliveryType] = useState<SubDeliveryType>("delivery");
-  const [subDeliveryFeeMode, setSubDeliveryFeeMode] = useState<DeliveryFeeMode>("cash_on_delivery");
+  // No cash on delivery: meal-plan delivery fees are always paid upfront online.
+  const subDeliveryFeeMode: DeliveryFeeMode = "upfront";
   const [availablePlans, setAvailablePlans] = useState<MealPlan[]>([]);
   const [selectedDurationDays, setSelectedDurationDays] = useState(28);
   const [selectedMealsPerDay, setSelectedMealsPerDay] = useState(1);
@@ -228,9 +234,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const [editingMealSlot, setEditingMealSlot] = useState<MealSlot>("lunch");
   const [modalStep, setModalStep] = useState<1 | 2>(1);
   // Per-day schedule override date (manage view)
-  const [selectedScheduleDate, setSelectedScheduleDate] = useState(
-    () => new Date(Date.now() + 86400000).toISOString().slice(0, 10)
-  );
+  const [selectedScheduleDate, setSelectedScheduleDate] = useState(() => restaurantDate(1));
   // ────────────────────────────────────────────────────────────────────
 
   // Tracking "Time to Order"
@@ -280,8 +284,8 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
         setDetailsCity(profile.city ?? "");
         setDetailsState(DEFAULT_DELIVERY_STATE);
         setDetailsPincode(profile.pincode ?? "");
-        // If profile incomplete and auth modal is not open, open it at details step
-        if (!supabaseService.isProfileComplete(profile) && isAuthModalOpen) {
+        // If profile incomplete and auth modal is open, move it to the details step
+        if (!supabaseService.isProfileComplete(profile) && isAuthModalOpenRef.current) {
           setAuthStep("details");
         }
       }
@@ -299,7 +303,9 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     });
 
     return () => subscription.unsubscribe();
-  }, [isAuthModalOpen]);
+    // Runs once: re-running on every modal open/close re-subscribed and refilled
+    // the delivery form, wiping what the customer was typing.
+  }, []);
 
   // Poll the customer's orders (fast while an order is in flight) to drive the live
   // header tracker and announce status changes with a toast.
@@ -469,22 +475,53 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   }, [flatDishes.length]);
 
   // --- Eye Tracking Logic ---
-  const startTimeRef = useRef<number>(Date.now());
+  // Tracks the dish currently on screen by id. Each switch records the previous
+  // dish's time, so scrolling back credits the right dish; the view pauses while
+  // the tab is hidden and is flushed when the customer leaves the page.
+  const currentViewRef = useRef<{ dishId: string; startedAt: number } | null>(null);
+  const lastVisibleDishRef = useRef<string | null>(null);
+
+  const flushView = useCallback(() => {
+    const view = currentViewRef.current;
+    currentViewRef.current = null;
+    if (!view) return;
+    const durationSec = (Date.now() - view.startedAt) / 1000;
+    // Only record significant views (> 1 second); "completed" = watched > 5 seconds
+    if (durationSec <= 1) return;
+    void supabaseService.recordWatchSession(
+      {
+        reelId: view.dishId,
+        startTime: view.startedAt,
+        duration: durationSec,
+        completed: durationSec > 5,
+        timestamp: Date.now(),
+        visitId,
+      },
+      restaurantId ?? undefined,
+    );
+  }, [restaurantId, visitId]);
+
+  const startView = useCallback((dishId: string) => {
+    lastVisibleDishRef.current = dishId;
+    if (currentViewRef.current?.dishId === dishId) return;
+    flushView();
+    if (document.visibilityState === "visible") {
+      currentViewRef.current = { dishId, startedAt: Date.now() };
+    }
+  }, [flushView]);
 
   useEffect(() => {
     if (!containerRef.current || flatDishes.length === 0) return;
 
-    const seen = new Set<number>();
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (!entry.isIntersecting || entry.intersectionRatio < 0.55) return;
           const dishId = entry.target.getAttribute("data-dish-id");
           const index = flatDishes.findIndex((d) => d.id === dishId);
-          if (index >= 0 && !seen.has(index)) {
-            seen.add(index);
-            setActiveDishIndex(index);
-          }
+          if (!dishId || index < 0) return;
+          startView(dishId);
+          setActiveDishIndex(index);
         });
       },
       { root: containerRef.current, threshold: [0.55, 0.75] },
@@ -492,36 +529,24 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
 
     containerRef.current.querySelectorAll("[data-dish-id]").forEach((el) => observer.observe(el));
     return () => observer.disconnect();
-  }, [flatDishes]);
+  }, [flatDishes, startView]);
 
   useEffect(() => {
-    startTimeRef.current = Date.now();
-    return () => recordSession(activeDishIndex);
-  }, [activeDishIndex]);
-
-  const recordSession = (index: number) => {
-    const durationMs = Date.now() - startTimeRef.current;
-    const durationSec = durationMs / 1000;
-
-    // Only record significant views (> 1 second)
-    if (durationSec > 1 && flatDishes[index]) {
-      const dish = flatDishes[index];
-      // Assume "completed" if watched > 5 seconds (simplified metric)
-      const isCompleted = durationSec > 5;
-
-      supabaseService.recordWatchSession(
-        {
-          reelId: dish.id,
-          startTime: startTimeRef.current,
-          duration: durationSec,
-          completed: isCompleted,
-          timestamp: Date.now(),
-          visitId,
-        },
-        restaurantId ?? undefined,
-      );
-    }
-  };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        flushView();
+      } else if (lastVisibleDishRef.current) {
+        currentViewRef.current = { dishId: lastVisibleDishRef.current, startedAt: Date.now() };
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("pagehide", flushView);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("pagehide", flushView);
+      flushView();
+    };
+  }, [flushView]);
   // ---------------------------
 
   const handleAddToOrder = (dish: Dish, variantId?: string) => {
@@ -531,7 +556,8 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     }
     // Cart key is dishId + optional variantId so different sizes are separate lines
     const cartKey = variantId ? `${dish.id}__${variantId}` : dish.id;
-    const currentCartQty = cart.find((i) => i.dishId === cartKey)?.quantity ?? 0;
+    // Stock is per dish: every size of this dish already in the cart counts.
+    const currentCartQty = cartQtyByDish[dish.id] ?? 0;
     const soldQty = soldCounts[dish.id] ?? 0;
     if (
       dish.stockQuantity != null &&
@@ -570,6 +596,13 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   };
 
   const updateQuantity = (dishId: string, delta: number) => {
+    if (delta > 0) {
+      // The cart "+" button must respect the same per-dish daily stock.
+      const realDishId = dishId.split("__")[0];
+      const dish = flatDishes.find((d) => d.id === realDishId);
+      const inCartAndSold = (cartQtyByDish[realDishId] ?? 0) + (soldCounts[realDishId] ?? 0);
+      if (dish?.stockQuantity != null && inCartAndSold + delta > dish.stockQuantity) return;
+    }
     setCart((prev) =>
       prev
         .map((item) => {
@@ -995,12 +1028,12 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
   const renderDishSoldOut = (dish: Dish) => isDishSoldOut(dish, soldCounts);
 
   // ── Subscription helpers ──────────────────────────────────────────
-  const isPastCutoff = () => {
-    const now = new Date();
-    return now.getUTCHours() > 11 || (now.getUTCHours() === 11 && now.getUTCMinutes() >= 30);
-  };
+  // Tomorrow's meals lock at 5 PM restaurant time (IST), matching upsert_daily_selection.
+  const isPastCutoff = () => restaurantHour() >= MEAL_SELECTION_CUTOFF_HOUR;
 
-  const tomorrowDate = () => new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+  const tomorrowDate = () => restaurantDate(1);
+  // Load the past week too, so delivered meals can be reported ("Report an issue").
+  const recentDeliveriesFrom = () => restaurantDate(-7);
 
   const isDateModifiable = (date: string) =>
     Boolean(customerSub && customerSub.status === "active" &&
@@ -1117,11 +1150,11 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     setSubError("");
     try {
       const sub = await supabaseService.getMyCustomerSubscription(restaurantId);
-      const today = new Date().toISOString().slice(0, 10);
+      const today = restaurantDate();
       if (sub && sub.status !== "cancelled" && sub.endDate >= today) {
         setCustomerSub(sub);
         setSubPhone(sub.phone);
-        const orders = await supabaseService.getCustomerDailyOrders(sub.id, tomorrowDate());
+        const orders = await supabaseService.getCustomerDailyOrders(sub.id, recentDeliveriesFrom());
         setDailyOrders(orders);
         const plans = await supabaseService.getMealPlans(restaurantId);
         setAvailablePlans(plans.filter(isPlanPurchasable));
@@ -1245,7 +1278,7 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
     setSubLoading(true);
     try {
       await supabaseService.selectDailyDish(subPhone.trim(), restaurantId, selectedScheduleDate, dishId, mealSlot);
-      const orders = await supabaseService.getCustomerDailyOrders(customerSub.id, tomorrowDate());
+      const orders = await supabaseService.getCustomerDailyOrders(customerSub.id, recentDeliveriesFrom());
       setDailyOrders(orders);
     } catch (e) {
       setSubError(e instanceof Error ? e.message : "Failed to update selection.");
@@ -2033,10 +2066,11 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                       {/* 7-day date strip */}
                       <div className="flex gap-1.5 overflow-x-auto pb-2 mb-3">
                         {Array.from({ length: 7 }, (_, i) => {
-                          const d = new Date(Date.now() + (i + 1) * 86400000);
-                          const dateStr = d.toISOString().slice(0, 10);
-                          const dayLabel = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getDay()];
-                          const dayNum = d.getDate();
+                          // Label from the same restaurant-calendar date the meal is saved under.
+                          const dateStr = restaurantDate(i + 1);
+                          const d = new Date(`${dateStr}T00:00:00Z`);
+                          const dayLabel = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][d.getUTCDay()];
+                          const dayNum = d.getUTCDate();
                           const mealPreview = (MEAL_SLOTS_BY_COUNT[customerSub.mealsPerDay] ?? [])
                             .map((slot) => {
                               const order = dailyOrders.find((o) => o.deliveryDate === dateStr && o.mealSlot === slot);
@@ -2338,21 +2372,9 @@ export const CustomerApp: React.FC<CustomerAppProps> = ({
                     ))}
                   </div>
                   {subDeliveryType === "delivery" && modalPlan.deliveryFee > 0 && (
-                    <div className="mt-2 space-y-1.5">
-                      <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">
-                        {formatPriceInCurrency(modalPlan.deliveryFee, currency)} per delivery · {selectedDurationDays * selectedMealsPerDay} deliveries
-                      </p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {(["cash_on_delivery", "upfront"] as DeliveryFeeMode[]).map(mode => (
-                          <button key={mode} onClick={() => setSubDeliveryFeeMode(mode)}
-                            className={`py-2 rounded border text-xs font-medium transition-colors ${subDeliveryFeeMode === mode ? "bg-white text-black border-white" : "border-zinc-700 text-zinc-400 hover:border-zinc-500"}`}>
-                            {mode === "upfront"
-                              ? `Pay upfront (+${formatPriceInCurrency(modalPlan.deliveryFee * selectedDurationDays * selectedMealsPerDay, currency)})`
-                              : "Pay each delivery"}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                    <p className="mt-2 text-xs font-bold uppercase tracking-widest text-zinc-500">
+                      {formatPriceInCurrency(modalPlan.deliveryFee, currency)} per delivery · {selectedDurationDays * selectedMealsPerDay} deliveries · +{formatPriceInCurrency(modalPlan.deliveryFee * selectedDurationDays * selectedMealsPerDay, currency)} paid now
+                    </p>
                   )}
                 </div>
                 <p className="text-xs text-zinc-500">

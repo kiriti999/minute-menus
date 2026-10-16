@@ -22,6 +22,35 @@ export interface RestaurantAvailability {
   operatingHours: WeeklyOperatingHours;
 }
 
+// ── Restaurant calendar days ───────────────────────────────────
+// Daily stock, meal-plan days and team shifts follow the restaurant's local
+// day (IST), not UTC — UTC flips to the next day only at 05:30 IST.
+// Keep in sync with restaurant_today() in supabase/schema.sql.
+export const RESTAURANT_TIMEZONE = "Asia/Kolkata";
+export const MEAL_SELECTION_CUTOFF_HOUR = 17; // 5:00 PM restaurant time, for tomorrow's meals
+
+const DAY_MS = 86_400_000;
+
+/** YYYY-MM-DD of `base` (+ `addDays`) on the restaurant's calendar. */
+export const restaurantDate = (addDays = 0, base: Date = new Date()): string =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: RESTAURANT_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(base.getTime() + addDays * DAY_MS));
+
+/** Adds whole days to a YYYY-MM-DD string (calendar math, timezone-free). */
+export const addDaysToDate = (date: string, days: number): string =>
+  new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY_MS).toISOString().slice(0, 10);
+
+/** Current hour (0-23) on the restaurant's clock. */
+export const restaurantHour = (base: Date = new Date()): number =>
+  Number(
+    new Intl.DateTimeFormat("en-US", { timeZone: RESTAURANT_TIMEZONE, hour: "2-digit", hour12: false })
+      .format(base),
+  ) % 24;
+
 export const DEFAULT_OPERATING_HOURS: WeeklyOperatingHours = {
   0: [{ start: "09:00", end: "22:00" }],
   1: [{ start: "09:00", end: "22:00" }],

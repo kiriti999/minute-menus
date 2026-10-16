@@ -102,19 +102,20 @@ const App: React.FC = () => {
         });
 
         const { data: listener } = supabase.auth.onAuthStateChange(
-            (_event, newSession) => {
-                setSession(newSession);
-                // Auto-redirect to dashboard after OAuth callback
-                if (newSession && mode === AppMode.LOGIN) {
-                    setMode(targetMode ?? AppMode.OWNER);
-                    setTargetMode(null);
-                }
-            },
+            (_event, newSession) => setSession(newSession),
         );
 
         return () => listener.subscription.unsubscribe();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Auto-redirect to the dashboard once signed in from the login screen
+    // (e.g. after the Google OAuth callback). Runs on state changes, so it sees
+    // the current mode — the auth listener above only captured the first render.
+    useEffect(() => {
+        if (!session || mode !== AppMode.LOGIN) return;
+        setMode(targetMode ?? AppMode.OWNER);
+        setTargetMode(null);
+    }, [session, mode, targetMode]);
 
     const isAuthenticated = session !== null || skipOwnerLogin;
 

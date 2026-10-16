@@ -16,6 +16,7 @@ import {
 import {
     getMealPlanPricingOption,
     normalizeMealPlanPricingOptions,
+    restaurantDate,
     type RestaurantAvailability,
 } from "@minute-menus/types";
 
@@ -164,19 +165,29 @@ const priceCartFromMenu = async (
     lines: CartLineInput[],
 ): Promise<{ items: PricedCartLine[]; currency: string }> => {
     const dishIds = [...new Set(lines.map((line) => parseCartLineIds(line).dishId))];
-    const [restaurant, dishes, categories] = await Promise.all([
+    const [restaurant, dishes, categories, stock] = await Promise.all([
         admin.from("restaurants").select("currency").eq("id", restaurantId).single(),
         admin
             .from("dishes")
-            .select("id, name, price, variants, discount_percent, category_id, is_active, manual_sold_out")
+            .select("id, name, price, variants, discount_percent, category_id, is_active, manual_sold_out, stock_quantity")
             .eq("restaurant_id", restaurantId)
             .in("id", dishIds),
         admin.from("categories").select("id, discount_percent").eq("restaurant_id", restaurantId),
+        admin
+            .from("dish_stock_daily")
+            .select("dish_id, quantity_sold")
+            .eq("restaurant_id", restaurantId)
+            .eq("sold_date", restaurantDate()),
     ]);
-    const loadError = restaurant.error ?? dishes.error ?? categories.error;
+    const loadError = restaurant.error ?? dishes.error ?? categories.error ?? stock.error;
     if (loadError || !restaurant.data) throw new Error(`Menu lookup failed: ${loadError?.message ?? "restaurant missing"}`);
     return {
-        items: priceCartLines(lines, dishes.data ?? [], categories.data ?? []),
+        items: priceCartLines(
+            lines,
+            dishes.data ?? [],
+            categories.data ?? [],
+            new Map((stock.data ?? []).map((row) => [row.dish_id as string, Number(row.quantity_sold)])),
+        ),
         currency: String(restaurant.data.currency || "INR").toUpperCase(),
     };
 };
@@ -251,7 +262,7 @@ const findActiveSubscription = async (restaurantId: string, userId: string, phon
         .select("id, customer_user_id, phone")
         .eq("restaurant_id", restaurantId)
         .eq("status", "active")
-        .gte("end_date", new Date().toISOString().slice(0, 10));
+        .gte("end_date", restaurantDate());
     if (error) throw new Error(error.message);
     return (data ?? []).find(
         (sub) => sub.customer_user_id === userId || phoneKey(sub.phone) === phoneKey(phone),
@@ -275,7 +286,8 @@ const handleSubscriptionOrder = async (req: VercelRequest, res: VercelResponse) 
     if (
         !planId || !restaurantId || !phone ||
         !["delivery", "pickup"].includes(deliveryType ?? "") ||
-        !["upfront", "cash_on_delivery"].includes(deliveryFeeMode ?? "") ||
+        // No cash on delivery: delivery fees are always paid upfront online.
+        deliveryFeeMode !== "upfront" ||
         typeof durationDays !== "number" || !Number.isInteger(durationDays) || durationDays < 1 ||
         typeof mealsPerDay !== "number" || !Number.isInteger(mealsPerDay)
     ) {

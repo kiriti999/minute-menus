@@ -6,6 +6,7 @@ import { buildDailyDigestEmailHtml, formatFromRestaurant, TIME_SLOT_LABELS } fro
 import { verifyCronRequest } from "../../lib/server/api-helpers";
 import { createLogger } from "../../lib/server/logger";
 import { sendMail } from "../../lib/server/mailer";
+import { restaurantDate } from "@minute-menus/types";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getUserEmailById, requireSupabaseAdmin } from "../../lib/supabase-admin";
 
@@ -13,9 +14,7 @@ const log = createLogger("daily-digest");
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!verifyCronRequest(req, res)) return;
-    const tomorrow = new Date();
-    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().slice(0, 10);
+    const tomorrowStr = restaurantDate(1);
 
     const { data: orders, error } = await requireSupabaseAdmin()
         .from("subscription_daily_orders")

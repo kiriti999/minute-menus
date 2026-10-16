@@ -239,6 +239,12 @@ export const CounterBillView: React.FC<CounterBillViewProps> = ({
 						</p>
 					</div>
 
+					{invoice.paymentStatus === "pending" && !invoice.razorpayQrImageUrl && !invoice.paymentLinkUrl && (
+						<p className="text-sm text-center rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-amber-400">
+							Online payment couldn&apos;t be set up for this bill — collect cash or card below.
+						</p>
+					)}
+
 					{invoice.paymentStatus === "pending" && invoice.razorpayQrImageUrl && (
 						<div className="flex flex-col items-center gap-2">
 							<img

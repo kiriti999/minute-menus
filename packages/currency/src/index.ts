@@ -191,11 +191,18 @@ const ZERO_DECIMAL_CURRENCIES = new Set([
 
 export type PlusPlanId = "annual" | "monthly";
 
-/** Base Plus catalog in USD — converted per visitor region at checkout. */
+/** Base Plus catalog in USD. Charged as-is in USD, or converted to INR for India. */
 export const PLUS_USD_PRICES: Record<PlusPlanId, number> = {
     annual: 120,
     monthly: 12,
 };
+
+/**
+ * Plus is charged only in INR (Indian visitors) or USD (everyone else). Letting
+ * the owner pick any currency meant the cheapest out-of-date hard-coded rate won.
+ */
+export const normalizePlusCurrency = (code: string | undefined | null): "INR" | "USD" =>
+    (code ?? "").trim().toUpperCase() === "INR" ? "INR" : "USD";
 
 export const normalizeCheckoutCurrency = (code: string | undefined | null): string => {
     const upper = (code ?? "USD").trim().toUpperCase();
@@ -209,10 +216,8 @@ export const normalizeCheckoutCurrency = (code: string | undefined | null): stri
  */
 export const getPlusPlanAmount = (plan: PlusPlanId, currency: string): number => {
     const usd = PLUS_USD_PRICES[plan];
-    const target = normalizeCheckoutCurrency(currency);
-    const converted = convertFromUSD(usd, target);
-    if (ZERO_DECIMAL_CURRENCIES.has(target)) return Math.round(converted);
-    return Math.round(converted * 100) / 100;
+    const target = normalizePlusCurrency(currency);
+    return target === "USD" ? usd : Math.round(convertFromUSD(usd, target));
 };
 
 /** Razorpay expects the smallest currency unit (paise/cents), except zero-decimal. */

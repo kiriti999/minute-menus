@@ -15,6 +15,7 @@
 
 import { verifyCronRequest } from "../../lib/server/api-helpers";
 import { createLogger } from "../../lib/server/logger";
+import { restaurantDate } from "@minute-menus/types";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { requireSupabaseAdmin } from "../../lib/supabase-admin";
 
@@ -32,7 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const validSlot = slot as Slot;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = restaurantDate();
 
     // Only process subscriptions within their paid term; individual orders carry
     // their own meal delivery slot.

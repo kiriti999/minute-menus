@@ -8,6 +8,10 @@ import type {
 	WeeklyStaffHours,
 } from "@minute-menus/types";
 import type { Database, Json } from "@minute-menus/types/db";
+import { restaurantDate } from "@minute-menus/types";
+
+// Range dates are restaurant (IST) calendar days, whatever the browser's zone.
+const IST_OFFSET = "+05:30";
 
 type Client = SupabaseClient<Database>;
 
@@ -195,8 +199,8 @@ export async function getStaffHoursInRange(
 	fromIso: string,
 	toExclusiveIso: string,
 ): Promise<WeeklyStaffHours[]> {
-	const rangeStart = new Date(`${fromIso}T00:00:00`);
-	const rangeEnd = new Date(`${toExclusiveIso}T00:00:00`);
+	const rangeStart = new Date(`${fromIso}T00:00:00${IST_OFFSET}`);
+	const rangeEnd = new Date(`${toExclusiveIso}T00:00:00${IST_OFFSET}`);
 
 	const { data, error } = await client
 		.from("time_logs")
@@ -226,7 +230,8 @@ export async function getStaffHoursInRange(
 		const staff = staffById.get(row.staff_id);
 		const end = row.clock_out_at ?? nowIso;
 		const hours = hoursBetween(row.clock_in_at, end);
-		const dayKey = row.clock_in_at.slice(0, 10);
+		// Group by the restaurant's day — a 1 AM IST clock-in is still that day.
+		const dayKey = restaurantDate(0, new Date(row.clock_in_at));
 		const shift: StaffTimeShift = {
 			clockInAt: row.clock_in_at,
 			clockOutAt: row.clock_out_at,
@@ -273,9 +278,7 @@ export async function getWeeklyStaffHours(
 }
 
 export function mondayOfWeek(date = new Date()): string {
-	const d = new Date(date);
-	const day = d.getDay();
-	const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-	d.setDate(diff);
-	return d.toISOString().slice(0, 10);
+	const today = restaurantDate(0, date);
+	const weekday = new Date(`${today}T00:00:00Z`).getUTCDay();
+	return restaurantDate(-(weekday === 0 ? 6 : weekday - 1), date);
 }

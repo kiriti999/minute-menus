@@ -1,12 +1,12 @@
 /**
  * POST /api/create-plus-order
  * Owner-authenticated. Creates a Razorpay order for Plus upgrade in the
- * visitor's regional currency (converted from the USD catalog).
+ * INR (Indian visitors) or USD — see normalizePlusCurrency.
  */
 
 import {
 	getPlusPlanAmount,
-	normalizeCheckoutCurrency,
+	normalizePlusCurrency,
 	toRazorpayAmountSubunits,
 	type PlusPlanId,
 } from "@minute-menus/currency";
@@ -97,7 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 		return res.status(400).json({ error: "A valid plan and restaurantId are required" });
 	}
 
-	const currency = normalizeCheckoutCurrency(rawCurrency);
+	const currency = normalizePlusCurrency(rawCurrency);
 	const amountMajor = getPlusPlanAmount(plan, currency);
 	const amountSubunits = toRazorpayAmountSubunits(amountMajor, currency);
 
