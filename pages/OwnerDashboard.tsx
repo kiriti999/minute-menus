@@ -3629,7 +3629,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                                   <span className={`flex-1 text-xs ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`}>
                                     {option.durationDays} days · {option.mealsPerDay} meal{option.mealsPerDay === 1 ? "" : "s"}/day
                                   </span>
-                                  <input type="number" min="0" step="0.01" value={option.pricePerMeal}
+                                  <input type="number" min="0" step="any" value={option.pricePerMeal}
                                     aria-label={`Per-meal price for ${option.durationDays} days, ${option.mealsPerDay} meals per day`}
                                     onChange={(e) => setEditingPlan((prev) => ({
                                       ...prev!,
