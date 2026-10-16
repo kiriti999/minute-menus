@@ -2180,6 +2180,8 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                     <div className="flex flex-wrap gap-2 mb-5">
                       {[
                         { label: "Revenue", value: `${analyticsReport.currency} ${analyticsReport.revenue.total.toFixed(2)}` },
+                        { label: "Orders Revenue", value: `${analyticsReport.currency} ${analyticsReport.revenue.orderRevenue.toFixed(2)}` },
+                        { label: "Meal Plan Revenue", value: `${analyticsReport.currency} ${analyticsReport.revenue.mealPlanRevenue.toFixed(2)}` },
                         { label: "Orders", value: String(analyticsReport.revenue.orderCount) },
                         { label: "Views", value: String(analyticsReport.engagement.totalViews) },
                         { label: "Engagement", value: `${analyticsReport.engagement.engagementRate.toFixed(1)}%` },

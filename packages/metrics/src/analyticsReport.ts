@@ -22,16 +22,25 @@ export type ReportSubscriptionRow = {
     status: string;
     plan_id: string;
     created_at: string;
+    payment_id: string | null;
+    subtotal_amount: number | string | null;
+    gst_amount: number | string | null;
 };
 
 export type ReportSubOrderRow = {
     status: string;
+    delivery_date: string;
+    dish_name: string;
 };
 
 export type ReportPlanRow = {
     id: string;
     name: string;
-    price_monthly: number | string;
+};
+
+/** Refund requests the owner marked as paid out. */
+export type ReportRefundRow = {
+    amount: number | string;
 };
 
 type ReportOrderItem = {
@@ -46,7 +55,32 @@ const toNumber = (value: number | string): number => Number(value);
 const parseOrderItems = (items: unknown): ReportOrderItem[] =>
     Array.isArray(items) ? (items as ReportOrderItem[]) : [];
 
-const buildRevenueSection = (orders: ReportOrderRow[]) => {
+// Meal plans are prepaid: count each online payment in the period it was
+// received (matches Razorpay payouts), not spread across delivered meals.
+const subscriptionPaid = (sub: ReportSubscriptionRow): number =>
+    toNumber(sub.subtotal_amount ?? 0) + toNumber(sub.gst_amount ?? 0);
+
+const paidInPeriod = (subscriptions: ReportSubscriptionRow[], since: string) =>
+    subscriptions.filter((sub) => sub.payment_id && sub.created_at >= since);
+
+const sumPaid = (subscriptions: ReportSubscriptionRow[]): number =>
+    subscriptions.reduce((sum, sub) => sum + subscriptionPaid(sub), 0);
+
+const buildMealPlanRevenue = (
+    subscriptions: ReportSubscriptionRow[],
+    refunds: ReportRefundRow[],
+    since: string,
+) => {
+    const payments = paidInPeriod(subscriptions, since);
+    const gross = sumPaid(payments);
+    const refunded = refunds.reduce((sum, refund) => sum + toNumber(refund.amount), 0);
+    return { payments: payments.length, gross, refunded, net: gross - refunded };
+};
+
+const buildRevenueSection = (
+    orders: ReportOrderRow[],
+    mealPlan: ReturnType<typeof buildMealPlanRevenue>,
+) => {
     const totalRevenue = orders.reduce(
         (sum, order) => sum + toNumber(order.total_amount),
         0,
@@ -68,7 +102,11 @@ const buildRevenueSection = (orders: ReportOrderRow[]) => {
     });
 
     return {
-        total: totalRevenue,
+        total: totalRevenue + mealPlan.net,
+        orderRevenue: totalRevenue,
+        mealPlanRevenue: mealPlan.net,
+        mealPlanPayments: mealPlan.payments,
+        mealPlanRefunds: mealPlan.refunded,
         avgOrderValue: orderCount > 0 ? totalRevenue / orderCount : 0,
         orderCount,
         topDishRevenue: Array.from(dishRevenueMap.values())
@@ -135,11 +173,23 @@ const buildEngagementSection = (
     };
 };
 
+const buildTopDeliveredDishes = (subOrders: ReportSubOrderRow[], sinceDate: string) => {
+    const counts = new Map<string, number>();
+    subOrders
+        .filter((order) => order.status === "delivered" && order.delivery_date >= sinceDate)
+        .forEach((order) => counts.set(order.dish_name, (counts.get(order.dish_name) ?? 0) + 1));
+    return Array.from(counts, ([name, delivered]) => ({ name, delivered }))
+        .sort((a, b) => b.delivered - a.delivered)
+        .slice(0, 5);
+};
+
 const buildSubscriptionSection = (
     subscriptions: ReportSubscriptionRow[],
     subOrders: ReportSubOrderRow[],
     plans: ReportPlanRow[],
+    since: string,
 ) => {
+    const periodPayments = paidInPeriod(subscriptions, since);
     const active = subscriptions.filter((sub) => sub.status === "active").length;
     const paused = subscriptions.filter((sub) => sub.status === "paused").length;
     const cancelled = subscriptions.filter((sub) => sub.status === "cancelled").length;
@@ -160,9 +210,10 @@ const buildSubscriptionSection = (
             return {
                 planName: plan.name,
                 count,
-                monthlyRevenue: count * toNumber(plan.price_monthly),
+                periodRevenue: sumPaid(periodPayments.filter((sub) => sub.plan_id === plan.id)),
             };
         }),
+        topDeliveredDishes: buildTopDeliveredDishes(subOrders, since.slice(0, 10)),
     };
 };
 
@@ -177,16 +228,21 @@ export const buildAnalyticsReport = (input: {
     subscriptions: ReportSubscriptionRow[];
     subOrders: ReportSubOrderRow[];
     plans: ReportPlanRow[];
+    refunds: ReportRefundRow[];
 }): AnalyticsReport => ({
     period: input.timeWindow,
     generatedAt: input.generatedAt,
     currency: input.currency,
-    revenue: buildRevenueSection(input.orders),
+    revenue: buildRevenueSection(
+        input.orders,
+        buildMealPlanRevenue(input.subscriptions, input.refunds, input.since),
+    ),
     engagement: buildEngagementSection(input.sessions, input.orders, input.dishes),
     subscriptions: buildSubscriptionSection(
         input.subscriptions,
         input.subOrders,
         input.plans,
+        input.since,
     ),
     customers: {
         total: input.subscriptions.length,

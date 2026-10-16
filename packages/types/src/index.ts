@@ -541,7 +541,14 @@ export interface AnalyticsReport {
   generatedAt: string;
   currency: string;
   revenue: {
+    /** Menu order revenue + net meal-plan revenue. */
     total: number;
+    /** Menu orders only (excludes rejected/refunded orders). */
+    orderRevenue: number;
+    /** Meal-plan payments received in the period, minus refunds paid out. */
+    mealPlanRevenue: number;
+    mealPlanPayments: number;
+    mealPlanRefunds: number;
     avgOrderValue: number;
     orderCount: number;
     topDishRevenue: Array<{ name: string; revenue: number; units: number }>;
@@ -561,7 +568,10 @@ export interface AnalyticsReport {
     totalOrders: number;
     deliveredOrders: number;
     deliveryRate: number;       // %
-    planBreakdown: Array<{ planName: string; count: number; monthlyRevenue: number }>;
+    /** Active subscribers now; revenue = payments received in the period. */
+    planBreakdown: Array<{ planName: string; count: number; periodRevenue: number }>;
+    /** Meal-plan dishes delivered in the period, most delivered first. */
+    topDeliveredDishes: Array<{ name: string; delivered: number }>;
   };
   customers: {
     total: number;

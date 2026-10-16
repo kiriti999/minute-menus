@@ -26,7 +26,8 @@ const buildFallbackReport = (r: AnalyticsReport): string => {
     `${r.revenue.orderCount} order${r.revenue.orderCount !== 1 ? "s" : ""} · ${r.subscriptions.active} active subscriber${r.subscriptions.active !== 1 ? "s" : ""} · ${r.engagement.totalViews} menu view${r.engagement.totalViews !== 1 ? "s" : ""}.`,
     ``,
     `## Revenue & Orders`,
-    `Total: ${fmt(r.revenue.total)} · Avg order value: ${fmt(r.revenue.avgOrderValue)}.`,
+    `Total: ${fmt(r.revenue.total)} · Menu orders: ${fmt(r.revenue.orderRevenue)} · Avg order value: ${fmt(r.revenue.avgOrderValue)}.`,
+    `Meal plans: ${fmt(r.revenue.mealPlanRevenue)} net from ${r.revenue.mealPlanPayments} payment${r.revenue.mealPlanPayments !== 1 ? "s" : ""}${r.revenue.mealPlanRefunds > 0 ? ` (after ${fmt(r.revenue.mealPlanRefunds)} refunded)` : ""}.`,
     r.revenue.topDishRevenue.length
       ? `Top earner: ${r.revenue.topDishRevenue[0].name} (${fmt(r.revenue.topDishRevenue[0].revenue)} · ${r.revenue.topDishRevenue[0].units} units).`
       : `No orders recorded in this period yet.`,
@@ -44,7 +45,10 @@ const buildFallbackReport = (r: AnalyticsReport): string => {
     `Active: ${r.subscriptions.active} · Paused: ${r.subscriptions.paused} · Cancelled: ${r.subscriptions.cancelled}.`,
     `Delivery rate: ${r.subscriptions.deliveryRate.toFixed(1)}% (${r.subscriptions.deliveredOrders}/${r.subscriptions.totalOrders} orders delivered).`,
     r.subscriptions.planBreakdown.length
-      ? `Plans: ${r.subscriptions.planBreakdown.map((p) => `${p.planName} ${p.count} subs`).join(" · ")}.`
+      ? `Plans: ${r.subscriptions.planBreakdown.map((p) => `${p.planName} ${p.count} subs, ${fmt(p.periodRevenue)} received`).join(" · ")}.`
+      : ``,
+    r.subscriptions.topDeliveredDishes.length
+      ? `Most delivered: ${r.subscriptions.topDeliveredDishes.map((d) => `${d.name} (${d.delivered})`).join(" · ")}.`
       : ``,
     ``,
     `## Recommendations`,
@@ -93,7 +97,7 @@ Use EXACTLY these four section headings (## prefix), each 3-4 sentences max. Use
 Overall health in 2-3 sentences. Call out the single most important number.
 
 ## Revenue & Orders
-Revenue totals, average order value, best-earning dish. Highlight any revenue concentration risk if one dish dominates.
+Revenue totals split into menu orders (orderRevenue) and prepaid meal plans (mealPlanRevenue, net of refunds), average order value, best-earning dish. Highlight any revenue concentration risk if one dish dominates.
 
 ## Menu Performance
 Top reel, engagement rate, avg watch time. Identify the best-converting dish AND the highest-opportunity dish (high views, low conversion) with a specific hypothesis for why.

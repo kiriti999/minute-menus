@@ -450,6 +450,7 @@ export class SupabaseService {
             { data: subOrders },
             { data: plans },
             { data: restaurant },
+            { data: refunds },
         ] = await Promise.all([
             this.client
                 .from("watch_sessions")
@@ -468,22 +469,28 @@ export class SupabaseService {
                 .eq("restaurant_id", rid),
             this.client
                 .from("customer_subscriptions")
-                .select("id, status, plan_id, created_at")
+                .select("id, status, plan_id, created_at, payment_id, subtotal_amount, gst_amount")
                 .eq("restaurant_id", rid),
             this.client
                 .from("subscription_daily_orders")
-                .select("status")
+                .select("status, delivery_date, dish_name")
                 .eq("restaurant_id", rid)
                 .lte("delivery_date", todayStr),
             this.client
                 .from("meal_plans")
-                .select("id, name, price_monthly")
+                .select("id, name")
                 .eq("restaurant_id", rid),
             this.client
                 .from("restaurants")
                 .select("currency")
                 .eq("id", rid)
                 .single(),
+            this.client
+                .from("subscription_refund_requests")
+                .select("amount")
+                .eq("restaurant_id", rid)
+                .eq("status", "processed")
+                .gte("processed_at", since),
         ]);
 
         return buildAnalyticsReport({
@@ -497,6 +504,7 @@ export class SupabaseService {
             subscriptions: subs ?? [],
             subOrders: subOrders ?? [],
             plans: plans ?? [],
+            refunds: refunds ?? [],
         });
     }
 
