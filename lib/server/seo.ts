@@ -202,8 +202,12 @@ const loadSitemapEntries = async (admin: SupabaseClient): Promise<SitemapEntry[]
         .map(({ row, own }) => restaurantSitemapEntry(row, own));
 };
 
-/** GET /sitemap.xml → home page + every real, populated restaurant with its dish photos. */
-export const handleSitemap = async (_req: VercelRequest, res: VercelResponse) => {
+/**
+ * GET /sitemap.xml → home page + every real, populated restaurant with its dish photos.
+ * GET /:slug/sitemap.xml → just that restaurant (404 if it isn't indexable).
+ */
+export const handleSitemap = async (req: VercelRequest, res: VercelResponse) => {
+    const slug = firstQueryValue(req.query.slug).toLowerCase();
     const admin = getSupabaseAdmin();
     let restaurants: SitemapEntry[] = [];
     try {
@@ -214,7 +218,11 @@ export const handleSitemap = async (_req: VercelRequest, res: VercelResponse) =>
         res.setHeader("Cache-Control", "no-store");
         return res.status(503).send("Sitemap temporarily unavailable");
     }
-    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    const entries = slug
+        ? restaurants.filter((entry) => entry.url === `${SITE_URL}/${slug}`)
+        : [{ url: `${SITE_URL}/` }, ...restaurants];
     res.setHeader("Cache-Control", SITEMAP_CACHE);
-    return res.status(200).send(buildSitemapXml([{ url: `${SITE_URL}/` }, ...restaurants]));
+    if (entries.length === 0) return res.status(404).send("No sitemap for this restaurant");
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    return res.status(200).send(buildSitemapXml(entries));
 };
