@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /dashboard
+Disallow: /login
+Disallow: /clock/
+Disallow: /*/orders
+Disallow: /*/recipe-book
+
+Sitemap: https://minutemenus.com/sitemap.xml

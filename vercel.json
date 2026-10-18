@@ -7,6 +7,9 @@
   "rewrites": [
     { "source": "/api/razorpay-webhook", "destination": "/api/counter-invoice" },
     { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/sitemap.xml", "destination": "/api/keepalive?action=sitemap" },
+    { "source": "/:slug([a-zA-Z0-9-]+)", "destination": "/api/keepalive?action=page&slug=:slug" },
+    { "source": "/:slug([a-zA-Z0-9-]+)/menu", "destination": "/api/keepalive?action=page&slug=:slug" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "crons": [

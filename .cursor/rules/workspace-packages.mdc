@@ -15,6 +15,7 @@ The repo is a **pnpm workspace** (`pnpm-workspace.yaml` → `packages/*`). The V
 | `@minute-menus/types` | Domain interfaces and enums (`AppMode`, `Dish`, subscriptions, etc.) |
 | `@minute-menus/types/db` | Generated Supabase `Database` types (source: `packages/types/src/database.types.ts`) |
 | `@minute-menus/logger` | `createLogger(scope)` for API routes and services |
+| `@minute-menus/seo` | Restaurant `<head>` tags, JSON-LD (`Restaurant`/`Menu`/`MenuItem`), crawlable menu HTML, sitemap XML — pure builders; data loading in `lib/server/seo.ts` |
 | `@minute-menus/errors` | `getErrorMessage`, `toError`, `throwStepError` (Supabase errors are plain objects) |
 | `@minute-menus/currency` | Price formatting, `SUPPORTED_CURRENCIES`, locale detection |
 | `@minute-menus/ui` | Loaders, spinners, `SaveChangesButton`, `ButtonSpinner` |

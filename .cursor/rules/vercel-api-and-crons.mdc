@@ -37,7 +37,7 @@ Keep route handlers thin — validation and orchestration in `api/`, logic in pa
 
 **Verify locally:** `vercel build --yes` then `find .vercel/output/functions -name '*.func' | wc -l` (must be ≤ 12).
 
-**Current routes (12/12 — at limit):** `confirm-payment`, `counter-invoice` (includes Razorpay webhook via `x-razorpay-signature`), `create-plus-order`, `create-razorpay-order`, `image/enhance`, `keepalive`, `menu/upload-media`, `parse-invoice`, `sold-out-email`, `subscription/auto-deliver`, `subscription/cancel-order`, `subscription/daily-digest`.
+**Current routes (12/12 — at limit):** `confirm-payment`, `counter-invoice` (includes Razorpay webhook via `x-razorpay-signature`), `create-plus-order`, `create-razorpay-order`, `image/enhance`, `keepalive` (also `?action=page|sitemap` for SEO — `/:slug`, `/:slug/menu`, `/sitemap.xml` rewrite here), `menu/upload-media`, `parse-invoice`, `sold-out-email`, `subscription/auto-deliver`, `subscription/cancel-order`, `subscription/daily-digest`.
 
 **Next consolidation candidates if needed:** merge `create-plus-order` into `create-razorpay-order`; merge subscription cron routes into one `api/subscription.ts`.
 

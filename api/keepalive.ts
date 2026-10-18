@@ -4,6 +4,10 @@
  * Runs daily via Vercel cron to keep the Supabase free-tier project active.
  * Free projects pause after 7 days of inactivity.
  *
+ * Also serves public SEO (Hobby plan is at 12/12 functions — see lib/server/seo.ts):
+ *   ?action=page&slug=…  → restaurant page HTML (rewritten from /:slug and /:slug/menu)
+ *   ?action=sitemap      → sitemap.xml
+ *
  * Required env vars:
  *   VITE_SUPABASE_URL / SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  */
@@ -13,10 +17,19 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { ensureDishMediaStorage } from "../lib/ensure-dish-media-storage";
 import { expirePlusSubscriptions } from "../lib/server/plusSubscriptions";
 import { getSupabaseAdmin } from "../lib/supabase-admin";
+import { handleSeoPage, handleSitemap } from "../lib/server/seo";
 
 const log = createLogger("keepalive");
 
-export default async function handler(_req: VercelRequest, res: VercelResponse) {
+const SEO_ACTIONS: Record<string, (req: VercelRequest, res: VercelResponse) => Promise<unknown>> = {
+    page: handleSeoPage,
+    sitemap: handleSitemap,
+};
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+    const seoHandler = SEO_ACTIONS[String(req.query.action ?? "")];
+    if (seoHandler) return seoHandler(req, res);
+
     try {
         await ensureDishMediaStorage();
     } catch (error) {
