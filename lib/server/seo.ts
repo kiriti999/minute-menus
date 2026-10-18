@@ -21,9 +21,9 @@ import {
     type SeoMenuSection,
     type SeoRestaurant,
     type SitemapEntry,
-} from "./seoMarkup";
-import { getSupabaseAdmin } from "../supabase-admin";
-import { createLogger } from "./logger";
+} from "./seoMarkup.js";
+import { getSupabaseAdmin } from "../supabase-admin.js";
+import { createLogger } from "./logger.js";
 
 const log = createLogger("seo");
 

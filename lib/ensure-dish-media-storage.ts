@@ -1,5 +1,5 @@
-import { createLogger } from "./server/logger";
-import { getSupabaseAdmin } from "./supabase-admin";
+import { createLogger } from "./server/logger.js";
+import { getSupabaseAdmin } from "./supabase-admin.js";
 
 const log = createLogger("storage");
 export const DISH_MEDIA_BUCKET = "dish-media";

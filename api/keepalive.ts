@@ -12,12 +12,12 @@
  *   VITE_SUPABASE_URL / SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  */
 
-import { createLogger } from "../lib/server/logger";
+import { createLogger } from "../lib/server/logger.js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { ensureDishMediaStorage } from "../lib/ensure-dish-media-storage";
-import { expirePlusSubscriptions } from "../lib/server/plusSubscriptions";
-import { getSupabaseAdmin } from "../lib/supabase-admin";
-import { handleSeoPage, handleSitemap } from "../lib/server/seo";
+import { ensureDishMediaStorage } from "../lib/ensure-dish-media-storage.js";
+import { expirePlusSubscriptions } from "../lib/server/plusSubscriptions.js";
+import { getSupabaseAdmin } from "../lib/supabase-admin.js";
+import { handleSeoPage, handleSitemap } from "../lib/server/seo.js";
 
 const log = createLogger("keepalive");
 
