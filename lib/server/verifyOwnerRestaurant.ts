@@ -1,5 +1,5 @@
 import type { VercelRequest } from "@vercel/node";
-import { getSupabaseAdmin, getUserFromAccessToken } from "../supabase-admin";
+import { getSupabaseAdmin, getUserFromAccessToken } from "../supabase-admin.js";
 
 export async function verifyOwnerForRestaurant(
 	req: VercelRequest,

@@ -6,7 +6,7 @@
  * instead of crashing the entire serverless function on import.
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "./server/database.types";
+import type { Database } from "./server/database.types.js";
 
 let adminClient: SupabaseClient<Database> | null = null;
 

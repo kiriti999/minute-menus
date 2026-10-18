@@ -13,15 +13,15 @@ export {
     INDIAN_RESTAURANT_GST_PERCENT,
     INDIAN_RESTAURANT_GST_RATE,
     isIndianGstApplicable,
-} from "./indianGst";
-export type { GstOrderItem, OrderTaxBreakdown } from "./indianGst";
-export { parseCartLineIds, priceCartLines } from "./cartPricing";
+} from "./indianGst.ts";
+export type { GstOrderItem, OrderTaxBreakdown } from "./indianGst.ts";
+export { parseCartLineIds, priceCartLines } from "./cartPricing.ts";
 export type {
     CartLineInput,
     PricedCartLine,
     PricingCategoryRow,
     PricingDishRow,
-} from "./cartPricing";
+} from "./cartPricing.ts";
 
 // Map of country codes to currency codes
 const COUNTRY_TO_CURRENCY: Record<string, string> = {

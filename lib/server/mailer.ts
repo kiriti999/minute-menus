@@ -1,7 +1,7 @@
 /** Server-only mailer (inlined for Vercel — do not import from browser code). */
 
 import nodemailer from "nodemailer";
-import { createLogger } from "./logger";
+import { createLogger } from "./logger.js";
 
 const log = createLogger("mailer");
 

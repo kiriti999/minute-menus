@@ -2,13 +2,13 @@
  * Vercel Serverless Function: GET /api/subscription/daily-digest
  */
 
-import { buildDailyDigestEmailHtml, formatFromRestaurant, TIME_SLOT_LABELS } from "../../lib/server/email-templates";
-import { verifyCronRequest } from "../../lib/server/api-helpers";
-import { createLogger } from "../../lib/server/logger";
-import { sendMail } from "../../lib/server/mailer";
+import { buildDailyDigestEmailHtml, formatFromRestaurant, TIME_SLOT_LABELS } from "../../lib/server/email-templates.js";
+import { verifyCronRequest } from "../../lib/server/api-helpers.js";
+import { createLogger } from "../../lib/server/logger.js";
+import { sendMail } from "../../lib/server/mailer.js";
 import { restaurantDate } from "@minute-menus/types";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getUserEmailById, requireSupabaseAdmin } from "../../lib/supabase-admin";
+import { getUserEmailById, requireSupabaseAdmin } from "../../lib/supabase-admin.js";
 
 const log = createLogger("daily-digest");
 

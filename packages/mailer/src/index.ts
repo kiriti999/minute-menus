@@ -1,4 +1,4 @@
-import { createLogger } from "../../logger/src/index";
+import { createLogger } from "../../logger/src/index.ts";
 import nodemailer from "nodemailer";
 
 const log = createLogger("mailer");

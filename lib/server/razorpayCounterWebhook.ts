@@ -5,8 +5,8 @@
 
 import crypto from "node:crypto";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { createRazorpayClient } from "./razorpayCounterPayments";
-import { requireSupabaseAdminOrThrow } from "./verifyOwnerRestaurant";
+import { createRazorpayClient } from "./razorpayCounterPayments.js";
+import { requireSupabaseAdminOrThrow } from "./verifyOwnerRestaurant.js";
 
 const getErrorDetail = (err: unknown): string =>
 	err instanceof Error ? err.message : String(err);

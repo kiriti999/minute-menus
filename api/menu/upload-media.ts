@@ -5,12 +5,12 @@
  * Fallback path — primary uploads go direct from the browser to Storage.
  */
 
-import { rejectUnlessPost } from "../../lib/server/api-helpers";
-import { createLogger } from "../../lib/server/logger";
+import { rejectUnlessPost } from "../../lib/server/api-helpers.js";
+import { createLogger } from "../../lib/server/logger.js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
-import { getUserFromAccessToken } from "../../lib/supabase-admin";
-import { putDishMediaFromDataUrlServer } from "../../lib/put-dish-media-server";
+import { getUserFromAccessToken } from "../../lib/supabase-admin.js";
+import { putDishMediaFromDataUrlServer } from "../../lib/put-dish-media-server.js";
 
 const log = createLogger("menu-upload-media");
 

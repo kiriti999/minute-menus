@@ -1,11 +1,11 @@
-import { createLogger } from "../server/logger";
-import { enhanceWithReplicate } from "./enhanceReplicate";
-import { enhanceWithGemini, type EnhanceFoodPhotoInput } from "./enhanceGemini";
+import { createLogger } from "../server/logger.js";
+import { enhanceWithReplicate } from "./enhanceReplicate.js";
+import { enhanceWithGemini, type EnhanceFoodPhotoInput } from "./enhanceGemini.js";
 
 const log = createLogger("image-enhance");
 
-export type { EnhanceFoodPhotoInput } from "./enhanceGemini";
-export { parseDataUrl } from "./enhanceGemini";
+export type { EnhanceFoodPhotoInput } from "./enhanceGemini.js";
+export { parseDataUrl } from "./enhanceGemini.js";
 
 export type EnhanceFoodPhotoResult = {
   imageDataUrl: string;

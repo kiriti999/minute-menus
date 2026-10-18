@@ -6,13 +6,13 @@ import {
     getErrorDetail,
     rejectUnlessPost,
     soldOutEmailSubject,
-} from "../lib/server/api-helpers";
-import { buildSoldOutEmailHtml } from "../lib/server/email-templates";
-import { createLogger } from "../lib/server/logger";
-import { sendMail } from "../lib/server/mailer";
-import { verifyOwnerForRestaurant } from "../lib/server/verifyOwnerRestaurant";
+} from "../lib/server/api-helpers.js";
+import { buildSoldOutEmailHtml } from "../lib/server/email-templates.js";
+import { createLogger } from "../lib/server/logger.js";
+import { sendMail } from "../lib/server/mailer.js";
+import { verifyOwnerForRestaurant } from "../lib/server/verifyOwnerRestaurant.js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getUserEmailById, requireSupabaseAdmin } from "../lib/supabase-admin";
+import { getUserEmailById, requireSupabaseAdmin } from "../lib/supabase-admin.js";
 
 const log = createLogger("sold-out-email");
 

@@ -2,12 +2,12 @@
  * Vercel Serverless Function: POST /api/subscription/cancel-order
  */
 
-import { getErrorDetail, rejectUnlessPost } from "../../lib/server/api-helpers";
-import { buildCancelOrderEmailHtml, formatFromRestaurant } from "../../lib/server/email-templates";
-import { sendMail } from "../../lib/server/mailer";
-import { verifyOwnerForRestaurant } from "../../lib/server/verifyOwnerRestaurant";
+import { getErrorDetail, rejectUnlessPost } from "../../lib/server/api-helpers.js";
+import { buildCancelOrderEmailHtml, formatFromRestaurant } from "../../lib/server/email-templates.js";
+import { sendMail } from "../../lib/server/mailer.js";
+import { verifyOwnerForRestaurant } from "../../lib/server/verifyOwnerRestaurant.js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getUserEmailById, requireSupabaseAdmin } from "../../lib/supabase-admin";
+import { getUserEmailById, requireSupabaseAdmin } from "../../lib/supabase-admin.js";
 
 interface CancelPayload {
     subscriptionId: string;

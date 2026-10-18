@@ -3,17 +3,17 @@
  * Owner-authenticated AI food photo enhancement via Gemini.
  */
 
-import { getErrorDetail, rejectUnlessPost } from "../../lib/server/api-helpers";
-import { createLogger } from "../../lib/server/logger";
+import { getErrorDetail, rejectUnlessPost } from "../../lib/server/api-helpers.js";
+import { createLogger } from "../../lib/server/logger.js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
-import { getUserFromAccessToken } from "../../lib/supabase-admin";
-import { enhanceFoodPhoto, parseDataUrl } from "../../lib/imageEditor/enhanceFoodPhoto";
+import { getUserFromAccessToken } from "../../lib/supabase-admin.js";
+import { enhanceFoodPhoto, parseDataUrl } from "../../lib/imageEditor/enhanceFoodPhoto.js";
 import {
   isPhotographyStyleId,
   toGeminiAspectRatio,
   type PhotographyStyleId,
-} from "../../lib/imageEditor/styles";
+} from "../../lib/imageEditor/styles.js";
 
 const log = createLogger("image/enhance");
 

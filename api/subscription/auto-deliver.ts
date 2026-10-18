@@ -13,11 +13,11 @@
  *   VITE_SUPABASE_URL / SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
  */
 
-import { verifyCronRequest } from "../../lib/server/api-helpers";
-import { createLogger } from "../../lib/server/logger";
+import { verifyCronRequest } from "../../lib/server/api-helpers.js";
+import { createLogger } from "../../lib/server/logger.js";
 import { restaurantDate } from "@minute-menus/types";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { requireSupabaseAdmin } from "../../lib/supabase-admin";
+import { requireSupabaseAdmin } from "../../lib/supabase-admin.js";
 
 const log = createLogger("auto-deliver");
 

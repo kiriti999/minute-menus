@@ -7,9 +7,9 @@
 import { calculateOrderTax, enrichOrderItemsWithGst } from "@minute-menus/currency";
 import type { SalesInvoiceLine, SalesPaymentMethod } from "@minute-menus/types";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { handleRazorpayCounterWebhook } from "../lib/server/razorpayCounterWebhook";
-import { createCounterRazorpayArtifacts } from "../lib/server/razorpayCounterPayments";
-import { requireSupabaseAdminOrThrow, verifyOwnerForRestaurant } from "../lib/server/verifyOwnerRestaurant";
+import { handleRazorpayCounterWebhook } from "../lib/server/razorpayCounterWebhook.js";
+import { createCounterRazorpayArtifacts } from "../lib/server/razorpayCounterPayments.js";
+import { requireSupabaseAdminOrThrow, verifyOwnerForRestaurant } from "../lib/server/verifyOwnerRestaurant.js";
 
 type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 

@@ -1,5 +1,5 @@
-import { createLogger } from "../server/logger";
-import { getPhotographyStyle, type PhotographyStyleId } from "./styles";
+import { createLogger } from "../server/logger.js";
+import { getPhotographyStyle, type PhotographyStyleId } from "./styles.js";
 
 const log = createLogger("image-enhance-gemini");
 
