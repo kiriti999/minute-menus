@@ -7,9 +7,9 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getEffectivePrice, resolveDiscountPercent } from "@minute-menus/currency";
 import {
     buildSitemapXml,
+    discountedPrice,
     injectSeo,
     isIndexableListing,
     isIndexableRestaurant,
@@ -21,7 +21,7 @@ import {
     type SeoMenuSection,
     type SeoRestaurant,
     type SitemapEntry,
-} from "@minute-menus/seo";
+} from "./seoMarkup";
 import { getSupabaseAdmin } from "../supabase-admin";
 import { createLogger } from "./logger";
 
@@ -63,10 +63,7 @@ const firstQueryValue = (value: string | string[] | undefined): string =>
 const toSeoDish = (dish: DishRow, categoryDiscount: number | null): SeoDish => ({
     name: dish.name,
     description: dish.description ?? "",
-    price: getEffectivePrice(
-        Number(dish.price),
-        resolveDiscountPercent(dish.discount_percent ?? undefined, categoryDiscount ?? undefined),
-    ).final,
+    price: discountedPrice(Number(dish.price), dish.discount_percent, categoryDiscount),
     imageUrl: publicImageUrl(dish.image_url),
     soldOut: dish.manual_sold_out,
 });

@@ -1,6 +1,130 @@
-import { formatPriceInCurrency } from "@minute-menus/currency";
-import { escapeHtml, toJsonLdScript, truncateText } from "./text";
-import type { SeoDish, SeoMenuSection, SeoRestaurant } from "./types";
+/**
+ * Pure SEO builders: restaurant <head> tags, schema.org JSON-LD, crawlable menu HTML, sitemap XML.
+ * Inlined in lib/server (not a workspace package): Vercel functions cannot load value imports
+ * from TypeScript-source workspace packages, which crashes the whole function at load.
+ */
+
+// ── Inlined from @minute-menus/currency — keep in sync ──
+
+const resolveDiscountPercent = (dishDiscountPercent: number | undefined, categoryDiscountPercent: number | undefined): number => {
+    if (dishDiscountPercent !== undefined && dishDiscountPercent > 0) return Math.min(100, Math.max(0, dishDiscountPercent));
+    if (categoryDiscountPercent !== undefined && categoryDiscountPercent > 0) return Math.min(100, Math.max(0, categoryDiscountPercent));
+    return 0;
+};
+
+/** Final price after the dish discount, or the category discount when the dish has none. */
+export const discountedPrice = (price: number, dishDiscountPercent: number | null, categoryDiscountPercent: number | null): number => {
+    const pct = resolveDiscountPercent(dishDiscountPercent ?? undefined, categoryDiscountPercent ?? undefined);
+    return pct <= 0 ? price : Math.round(price * (1 - pct / 100) * 100) / 100;
+};
+
+const formatPriceInCurrency = (price: number, currencyCode: string): string => {
+    try {
+        return new Intl.NumberFormat("en-US", {
+            style: "currency",
+            currency: currencyCode,
+            minimumFractionDigits: 0,
+            maximumFractionDigits: currencyCode === "JPY" || currencyCode === "KRW" ? 0 : 2,
+        }).format(price);
+    } catch {
+        return `${price}`;
+    }
+};
+
+// ── types ──
+
+export interface SeoDish {
+    name: string;
+    description: string;
+    /** Final price after any dish/category discount. */
+    price: number;
+    imageUrl: string;
+    soldOut: boolean;
+}
+
+export interface SeoMenuSection {
+    title: string;
+    dishes: SeoDish[];
+}
+
+export interface SeoRestaurant {
+    name: string;
+    slug: string;
+    currency: string;
+    directionsUrl: string | null;
+    /** Delivery-platform listings (Zomato, Swiggy, …) — emitted as schema.org `sameAs`. */
+    platformUrls: string[];
+    sections: SeoMenuSection[];
+}
+
+export interface SitemapEntry {
+    url: string;
+    lastModified?: string;
+    images?: { url: string; title: string }[];
+}
+
+// ── text ──
+
+const HTML_ESCAPES: Record<string, string> = {
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+};
+
+/** Escapes text for HTML element content and quoted attributes (also valid for XML). */
+export const escapeHtml = (value: string): string => value.replace(/[&<>"']/g, (ch) => HTML_ESCAPES[ch]);
+
+/** Collapses whitespace and cuts at a word boundary so snippets don't end mid-word. */
+export const truncateText = (value: string, maxLength: number): string => {
+    const text = value.replace(/\s+/g, " ").trim();
+    if (text.length <= maxLength) return text;
+    const cut = text.slice(0, maxLength - 1);
+    const lastSpace = cut.lastIndexOf(" ");
+    return `${(lastSpace > maxLength * 0.6 ? cut.slice(0, lastSpace) : cut).replace(/[\s,.;:–-]+$/, "")}…`;
+};
+
+/** Serializes JSON-LD so menu text can never close the surrounding <script> tag. */
+export const toJsonLdScript = (data: unknown): string =>
+    `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>`;
+
+/** Search engines and link previews need a fetchable URL — inline data: images are dropped. */
+export const publicImageUrl = (url: string | null | undefined): string => (url && /^https?:\/\//i.test(url) ? url : "");
+
+// ── html ──
+
+const SEO_BLOCK = /<!-- seo:start[\s\S]*?<!-- seo:end -->/;
+const EMPTY_ROOT = '<div id="root"></div>';
+
+/**
+ * Swaps index.html's default SEO block for page-specific tags and pre-fills #root.
+ * Returns the template unchanged if its markers are missing, so a bad template never breaks the app.
+ */
+export const injectSeo = (template: string, headTags: string, bodyHtml = ""): string => {
+    if (!SEO_BLOCK.test(template)) return template;
+    const withHead = template.replace(SEO_BLOCK, () => headTags);
+    return bodyHtml ? withHead.replace(EMPTY_ROOT, () => `<div id="root">${bodyHtml}</div>`) : withHead;
+};
+
+// ── sitemap ──
+
+/** Google ignores image entries past this many per URL. */
+const MAX_IMAGES_PER_URL = 1000;
+
+const imageXml = (image: { url: string; title: string }): string =>
+    `<image:image><image:loc>${escapeHtml(image.url)}</image:loc><image:title>${escapeHtml(image.title)}</image:title></image:image>`;
+
+const entryXml = (entry: SitemapEntry): string => {
+    const lastModified = entry.lastModified ? `<lastmod>${escapeHtml(entry.lastModified)}</lastmod>` : "";
+    const images = (entry.images ?? []).slice(0, MAX_IMAGES_PER_URL).map(imageXml).join("");
+    return `<url><loc>${escapeHtml(entry.url)}</loc>${lastModified}${images}</url>`;
+};
+
+export const buildSitemapXml = (entries: SitemapEntry[]): string =>
+    `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">\n${entries.map(entryXml).join("\n")}\n</urlset>\n`;
+
+// ── restaurant ──
 
 export const SITE_NAME = "Minute Menus";
 

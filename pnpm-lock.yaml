@@ -50,9 +50,6 @@ importers:
       '@minute-menus/reels':
         specifier: workspace:*
         version: link:packages/reels
-      '@minute-menus/seo':
-        specifier: workspace:*
-        version: link:packages/seo
       '@minute-menus/supabase-service':
         specifier: workspace:*
         version: link:packages/supabase-service
@@ -229,12 +226,6 @@ importers:
       react-dom:
         specifier: ^19.0.0
         version: 19.2.3(react@19.2.3)
-
-  packages/seo:
-    dependencies:
-      '@minute-menus/currency':
-        specifier: workspace:*
-        version: link:../currency
 
   packages/supabase-service:
     dependencies:

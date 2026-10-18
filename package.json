@@ -33,7 +33,6 @@
     "@minute-menus/metrics": "workspace:*",
     "@minute-menus/payments": "workspace:*",
     "@minute-menus/reels": "workspace:*",
-    "@minute-menus/seo": "workspace:*",
     "@minute-menus/supabase-service": "workspace:*",
     "@minute-menus/types": "workspace:*",
     "@minute-menus/ui": "workspace:*",

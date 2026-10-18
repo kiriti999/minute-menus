@@ -53,7 +53,6 @@ Shared code lives under `packages/`. Import by scope (e.g. `@minute-menus/types`
 | `ui` | Loaders, spinners, save button |
 | `reels` | Customer reel card components |
 | `currency` / `errors` / `logger` | Formatting, error messages, scoped logging |
-| `seo` | Restaurant page meta tags, schema.org JSON-LD, sitemap XML (rendered by `lib/server/seo.ts`) |
 | `ai` | Claude insights and marketing copy |
 | `mailer` / `email-templates` / `api-helpers` / `payments` | Server API infrastructure |
 
@@ -87,7 +86,7 @@ Full map and extension guide: **`.cursor/rules/workspace-packages.mdc`**.
 
 **Owner path:** Landing → login (Supabase session) → dashboard. Owners manage menu content, view analytics, handle subscriptions, and generate QR codes.
 
-**Server path:** Vercel API routes handle email, payments, subscription crons, sold-out notifications, and Supabase keepalive. `keepalive` also server-renders SEO for public restaurant pages (`/:slug`, `/:slug/menu`) and `/sitemap.xml` via `vercel.json` rewrites — keep the `<!-- seo:start -->`/`<!-- seo:end -->` markers in `index.html`. These use the admin Supabase client and workspace packages for mail, templates, payments, and logging. Never expose the service role key to the browser.
+**Server path:** Vercel API routes handle email, payments, subscription crons, sold-out notifications, and Supabase keepalive. `keepalive` also server-renders SEO for public restaurant pages (`/:slug`, `/:slug/menu`) and `/sitemap.xml` via `vercel.json` rewrites — keep the `<!-- seo:start -->`/`<!-- seo:end -->` markers in `index.html`. Builders live in `lib/server/seoMarkup.ts` — API functions must not value-import TypeScript-source workspace packages (crashes the function at load). These use the admin Supabase client and workspace packages for mail, templates, payments, and logging. Never expose the service role key to the browser.
 
 **Vercel deploy constraint:** Hobby plan — **max 12 serverless functions** (one `api/**/*.ts` file each). Currently at 12/12. New server endpoints must merge into existing routes (`?action=`) or replace one. See `.cursor/rules/vercel-api-and-crons.mdc`.
 
