@@ -10,10 +10,10 @@ import {
     priceCartLines,
     type CartLineInput,
     type PricedCartLine,
-} from "@minute-menus/currency";
-import { soldOutEmailSubject } from "@minute-menus/api-helpers";
-import { buildSoldOutEmailHtml, formatFromRestaurant } from "@minute-menus/email-templates";
-import { sendMail } from "@minute-menus/mailer";
+} from "../lib/server/workspace/currency.js";
+import { soldOutEmailSubject } from "../lib/server/workspace/api-helpers.js";
+import { buildSoldOutEmailHtml, formatFromRestaurant } from "../lib/server/workspace/email-templates.js";
+import { sendMail } from "../lib/server/workspace/mailer.js";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Razorpay from "razorpay";
@@ -26,7 +26,7 @@ import {
     restaurantDate,
     type MealSlot,
     type RestaurantAvailability,
-} from "@minute-menus/types";
+} from "../lib/server/workspace/types.js";
 
 // ── Inlined helpers (Vercel cannot resolve lib/server imports for this route) ──
 

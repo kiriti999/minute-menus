@@ -9,7 +9,7 @@ import {
 	normalizePlusCurrency,
 	toRazorpayAmountSubunits,
 	type PlusPlanId,
-} from "@minute-menus/currency";
+} from "../lib/server/workspace/currency.js";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import Razorpay from "razorpay";

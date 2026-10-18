@@ -6,7 +6,7 @@ import { buildDailyDigestEmailHtml, formatFromRestaurant, TIME_SLOT_LABELS } fro
 import { verifyCronRequest } from "../../lib/server/api-helpers.js";
 import { createLogger } from "../../lib/server/logger.js";
 import { sendMail } from "../../lib/server/mailer.js";
-import { restaurantDate } from "@minute-menus/types";
+import { restaurantDate } from "../../lib/server/workspace/types.js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getUserEmailById, requireSupabaseAdmin } from "../../lib/supabase-admin.js";
 

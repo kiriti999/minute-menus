@@ -15,7 +15,7 @@
 
 import { verifyCronRequest } from "../../lib/server/api-helpers.js";
 import { createLogger } from "../../lib/server/logger.js";
-import { restaurantDate } from "@minute-menus/types";
+import { restaurantDate } from "../../lib/server/workspace/types.js";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { requireSupabaseAdmin } from "../../lib/supabase-admin.js";
 

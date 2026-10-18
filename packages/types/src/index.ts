@@ -235,21 +235,17 @@ export interface DishPerformance {
   watchTime: number;
 }
 
-// `as const` objects instead of enums: API routes load this file through Node's type
-// stripping, which cannot run enums (ERR_UNSUPPORTED_TYPESCRIPT_SYNTAX).
-export const AppMode = {
-  LANDING: 'LANDING',
-  LOGIN: 'LOGIN',
-  CUSTOMER: 'CUSTOMER',
-  OWNER: 'OWNER',
-} as const;
-export type AppMode = (typeof AppMode)[keyof typeof AppMode];
+export enum AppMode {
+  LANDING = 'LANDING',
+  LOGIN = 'LOGIN',
+  CUSTOMER = 'CUSTOMER',
+  OWNER = 'OWNER'
+}
 
-export const UserTier = {
-  FREE: 'FREE',
-  PLUS: 'PLUS',
-} as const;
-export type UserTier = (typeof UserTier)[keyof typeof UserTier];
+export enum UserTier {
+  FREE = 'FREE',
+  PLUS = 'PLUS'
+}
 
 export interface WatchSession {
   reelId: string;

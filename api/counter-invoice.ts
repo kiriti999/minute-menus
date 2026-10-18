@@ -4,7 +4,7 @@
  * Owner-authenticated counter billing (Phase 1).
  */
 
-import { calculateOrderTax, enrichOrderItemsWithGst } from "@minute-menus/currency";
+import { calculateOrderTax, enrichOrderItemsWithGst } from "../lib/server/workspace/currency.js";
 import type { SalesInvoiceLine, SalesPaymentMethod } from "@minute-menus/types";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { handleRazorpayCounterWebhook } from "../lib/server/razorpayCounterWebhook.js";

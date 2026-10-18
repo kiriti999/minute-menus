@@ -1,4 +1,4 @@
-import { getEffectivePrice, resolveDiscountPercent } from "./index.ts";
+import { getEffectivePrice, resolveDiscountPercent } from "./index.js";
 
 /** What the browser sends for each cart line — prices are never trusted. */
 export type CartLineInput = {

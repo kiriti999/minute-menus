@@ -12,13 +12,13 @@ import {
     priceCartLines,
     type CartLineInput,
     type PricedCartLine,
-} from "@minute-menus/currency";
+} from "../lib/server/workspace/currency.js";
 import {
     getMealPlanPricingOption,
     normalizeMealPlanPricingOptions,
     restaurantDate,
     type RestaurantAvailability,
-} from "@minute-menus/types";
+} from "../lib/server/workspace/types.js";
 
 // ── Inlined helpers (Vercel cannot resolve lib/server imports for this route) ──
 
