@@ -13,4 +13,6 @@ See **CLAUDE.md** workspace section and **`.cursor/rules/workspace-packages.mdc`
 - AI: `@minute-menus/ai` (not the legacy filename — `services/geminiService.ts` is a re-export shim).
 - Errors: `@minute-menus/errors` only — no local duplicates.
 
+**API routes are the exception:** code an `api/` route reaches must not import `@minute-menus/*` at runtime — use `lib/server/workspace/<pkg>.js` re-exports, and use explicit `.js` on relative imports inside packages. See `vercel-api.md`.
+
 When adding a package: create under `packages/`, add workspace dep to root `package.json`, run `pnpm install` and `pnpm build`.

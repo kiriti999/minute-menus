@@ -8,7 +8,7 @@ Canonical guidance lives in **`.claude/rules/coding-standards.md`**, **`typescri
 
 Interpret **SOLID** as: single responsibility per module; open extension through clear package seams; narrow interfaces; dependency inversion via injected Supabase clients and shared packages. Pair with **DRY**, **KISS**, **YAGNI**, and **fail-fast** at boundaries.
 
-Respect cyclomatic complexity limits (**functions and plain .ts:** 6, **TSX:** 11). Ship minimal scoped diffs. Run **pnpm build** after package or import changes.
+Respect cyclomatic complexity limits (**functions and plain .ts:** 6, **TSX:** 11). Ship minimal scoped diffs. Run **pnpm build** after package or import changes (it runs `pnpm check:api` first). Anything an API route can reach also needs **pnpm verify:api** — see **`.claude/rules/vercel-api.md`**.
 
 ---
 
@@ -24,7 +24,7 @@ Key boundaries:
 - **Data layer:** `@minute-menus/supabase-service` holds all browser-side Supabase methods. The app exposes `supabaseService` via a thin wrapper in `services/supabaseService.ts` that calls `createSupabaseService(supabase)`.
 - **Persistence helpers:** `@minute-menus/menu-persistence` and `@minute-menus/meal-plan-persistence` — not called directly from UI; invoked from supabase-service.
 - **UI primitives:** `@minute-menus/ui` (loaders, save button); `@minute-menus/reels` (customer reel cards).
-- **Server-only:** `@minute-menus/mailer`, `@minute-menus/email-templates`, `@minute-menus/api-helpers`, `@minute-menus/payments` — use from `api/*` routes, not from React pages.
+- **Server-only:** `@minute-menus/mailer`, `@minute-menus/email-templates`, `@minute-menus/api-helpers`, `@minute-menus/payments` — server code, not for React pages. **`api/*` routes must not import any `@minute-menus/*` package at runtime** (Vercel doesn't ship the `.ts` sources — the function crashes at load); they use `lib/server/` helpers or the `lib/server/workspace/<pkg>.js` re-exports.
 - **Errors:** always `@minute-menus/errors` — never duplicate `getErrorMessage` / `throwStepError` locally.
 - **Logging:** `@minute-menus/logger` with a scoped name in API routes and services.
 
@@ -36,9 +36,12 @@ Legacy shims at the app root (`lib/currency.ts`, `lib/errorMessage.ts`, `lib/mai
 
 **Browser (customer and owner UI):** All reads and writes go through `supabaseService` (backed by `@minute-menus/supabase-service`). It resolves the current restaurant from the authenticated session (owners) or from the slug/restaurant ID passed into the customer app.
 
-**Server (Vercel API routes):** Use the admin Supabase client with the service role key. Use workspace packages for mail, templates, payments, and logging. Never import or expose the service role key in client-side code.
+**Server (Vercel API routes):** Use the admin Supabase client with the service role key. Use `lib/server/` helpers (and `lib/server/workspace/<pkg>.js` for package code) for mail, templates, payments, pricing, and logging. Never import or expose the service role key in client-side code.
 
-**Vercel Hobby limit:** Production allows **at most 12 serverless functions** — one per `api/**/*.ts` file. The project is **at the limit (12/12)**. Before adding an API route, extend an existing handler with `?action=` or merge routes; put shared logic in `lib/server/`. Verify with `vercel build --yes`. Details: **`.cursor/rules/vercel-api-and-crons.mdc`**.
+**Vercel API rules (source of truth: `.claude/rules/vercel-api.md`):**
+- **At most 12 serverless functions** — one per `api/**/*.ts` file — and the project is **at 12/12**. Never add an `api/` file: extend an existing handler with `?action=` (+ `vercel.json` rewrite); shared logic in `lib/server/`.
+- Vercel runs `api/` as unbundled ESM on Node 24 and ships only compiled `.js`: every relative import an API route reaches needs an explicit **`.js`** extension (also inside `packages/*/src`), and runtime package code comes from **`lib/server/workspace/<pkg>.js`**, never `@minute-menus/*`.
+- Verify with **`pnpm check:api`** (runs inside `pnpm build`, blocking bad deploys) and **`pnpm verify:api`** (isolated load of every built function). Loading `.vercel/output` in place is not a valid test.
 
 **Schema changes:** Update `supabase/schema.sql`, sync `packages/types/src/database.types.ts`, push via db:push or the SQL editor, then update `@minute-menus/supabase-service` field mappings and `@minute-menus/types` if domain shapes change.
 
@@ -78,7 +81,7 @@ When changing the Dish or Category shape: update `@minute-menus/types`, schema/s
 - Subscription features (meal plans, daily orders, delivery tickets, refunds) have dedicated supabase-service methods and owner-dashboard tabs.
 - Meal plan saves use `@minute-menus/meal-plan-persistence`.
 - Plus-tier features use the existing paywall modal pattern — gate in UI and respect UserTier state.
-- Scheduled digest and auto-delivery jobs are Vercel crons in vercel.json; they call API routes using admin client, `@minute-menus/mailer`, and `@minute-menus/email-templates`.
+- Scheduled digest and auto-delivery jobs are Vercel crons in vercel.json; they call API routes using the admin client and `lib/server/` mail and email-template helpers.
 
 ---
 
@@ -109,12 +112,12 @@ User tier defaults to FREE; Plus upgrades go through Razorpay (`create-plus-orde
 
 1. Define or extend types in `@minute-menus/types`.
 2. Add database tables/columns/policies in `supabase/schema.sql` if persistence is needed; update `@minute-menus/types/db`.
-3. Add service methods in `@minute-menus/supabase-service` (browser) and/or an `api/` route using server packages (mailer, payments, etc.). **Check the 12-function cap first** — count `api/**/*.ts`; consolidate into an existing route if at limit.
+3. Add service methods in `@minute-menus/supabase-service` (browser) and/or server logic in `lib/server/` exposed through an **existing** `api/` route via `?action=` — the project is at the 12-function cap, so never add an `api/` file. Follow the import rules in `.claude/rules/vercel-api.md`.
 4. Extract reusable logic into the appropriate workspace package — do not grow app-root files when a package already exists for that concern.
 5. Wire UI in CustomerApp or OwnerDashboard; use `@minute-menus/reels` or `@minute-menus/ui` where applicable.
 6. Add env vars to `.env.example` with a one-line comment — never commit secrets.
 7. If Plus-only, wrap with the paywall modal pattern.
-8. Run **pnpm install** (if new package) and **pnpm build**.
+8. Run **pnpm install** (if new package) and **pnpm build**; if any API route can reach the change, also **pnpm verify:api** (Node 24) and, after deploy, confirm changed routes don't return `500 FUNCTION_INVOCATION_FAILED`.
 
 ---
 
@@ -137,6 +140,7 @@ User tier defaults to FREE; Plus upgrades go through Razorpay (`create-plus-orde
 | Committing .env or service role keys | Security |
 | Duplicating package code in app root instead of extending packages | DRY and workspace conventions |
 | Adding a new `api/*.ts` file when already at 12 serverless functions | Vercel Hobby deploy will fail — consolidate routes first |
+| Runtime `@minute-menus/*` imports or extensionless relative imports in code an API route reaches | Crashes the function at load in production (`FUNCTION_INVOCATION_FAILED`) even though build and dev pass |
 
 ---
 

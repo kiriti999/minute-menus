@@ -58,6 +58,7 @@ Add `"@minute-menus/…": "workspace:*"` to root `package.json` when introducing
 ## Conventions
 
 - Packages use `"exports"` in their `package.json`; no build step — TypeScript sources consumed directly by Vite.
+- **Vercel API routes cannot load packages by name** (the exported `.ts` isn't shipped): API code imports runtime values from `lib/server/workspace/<pkg>.js`, and relative imports inside packages need explicit `.js`. Enforced by `pnpm check:api` — see `.claude/rules/vercel-api.md`.
 - React packages (`ui`, `reels`) declare `react` / `react-dom` as peer dependencies.
 - Server-only packages (`mailer`, `payments`, `api-helpers`) must not be imported from browser pages unless already safe (mailer is API-only today).
 - Do not duplicate error helpers — always use `@minute-menus/errors`.

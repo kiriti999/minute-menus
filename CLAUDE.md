@@ -10,14 +10,15 @@ A restaurant platform with TikTok-style dish reels for customers and an owner da
 
 - Prefer **grep and targeted reads** over loading large files wholesale (especially the owner dashboard and Supabase service package).
 - Keep diffs **minimal and scoped** — no drive-by refactors.
-- Follow **`.claude/rules/`**: `coding-standards.md`, `typescript-conventions.md`, `react-conventions.md`, `workspace-packages.md`. Cursor loads **`.cursor/rules/`** including `workspace-packages.mdc`.
+- Follow **`.claude/rules/`**: `coding-standards.md`, `typescript-conventions.md`, `react-conventions.md`, `workspace-packages.md`, **`vercel-api.md`** (mandatory before touching `api/`, `lib/server/`, `vercel.json`, or packages API routes import). Cursor loads **`.cursor/rules/`** including `workspace-packages.mdc`.
 - Respect cyclomatic complexity limits (functions and plain `.ts`: 6, TSX: 11).
 - Target **under 2 seconds** initial load; use React hooks only for state; Tailwind only for styling.
 
 ## Commands
 
 - **pnpm dev** — local Vite dev server
-- **pnpm build** — production build (links all workspace packages)
+- **pnpm build** — production build; runs **pnpm check:api** first (12-function cap + API import rules)
+- **pnpm verify:api** — `vercel build` + load every API function from an isolated bundle (run on Node 24 after any API-reachable change)
 - **pnpm install** — required after pull when packages change
 - **pnpm seed** — seed Supabase (requires service role env vars)
 - **pnpm db:push** — apply database schema via Supabase Management API
@@ -86,9 +87,16 @@ Full map and extension guide: **`.cursor/rules/workspace-packages.mdc`**.
 
 **Owner path:** Landing → login (Supabase session) → dashboard. Owners manage menu content, view analytics, handle subscriptions, and generate QR codes.
 
-**Server path:** Vercel API routes handle email, payments, subscription crons, sold-out notifications, and Supabase keepalive. `keepalive` also server-renders SEO for public restaurant pages (`/:slug`, `/:slug/menu`) and `/sitemap.xml` via `vercel.json` rewrites — keep the `<!-- seo:start -->`/`<!-- seo:end -->` markers in `index.html`. Builders live in `lib/server/seoMarkup.ts` — Vercel runs `api/` as unbundled ESM and ships only compiled `.js`: relative imports reachable from API routes (including inside `packages/*/src`) need explicit `.js` extensions, and API routes take runtime values from workspace packages via `lib/server/workspace/*` re-exports — never `import { value } from "@minute-menus/*"` (type-only imports are fine). Otherwise the function crashes at load with FUNCTION_INVOCATION_FAILED. These use the admin Supabase client and workspace packages for mail, templates, payments, and logging. Never expose the service role key to the browser.
+**Server path:** Vercel API routes handle email, payments, subscription crons, sold-out notifications, Supabase keepalive, and public SEO (`keepalive` server-renders `/:slug`, `/:slug/menu` and the sitemaps via `vercel.json` rewrites — keep the `<!-- seo:start -->`/`<!-- seo:end -->` markers in `index.html`; builders in `lib/server/seoMarkup.ts`). Routes use the admin Supabase client and `lib/server/` helpers. Never expose the service role key to the browser.
 
-**Vercel deploy constraint:** Hobby plan — **max 12 serverless functions** (one `api/**/*.ts` file each). Currently at 12/12. New server endpoints must merge into existing routes (`?action=`) or replace one. See `.cursor/rules/vercel-api-and-crons.mdc`.
+## Vercel API functions — hard rules (read `.claude/rules/vercel-api.md` first)
+
+These broke 11 of 12 production functions (payments included) in Oct 2026 while type-check, build and `pnpm dev` all passed:
+
+1. **Max 12 functions (Hobby) — we are at 12/12.** One function per `api/**/*.ts` file. Never add a file under `api/`; add an `?action=` branch to an existing route plus a `vercel.json` rewrite, with logic in `lib/server/`.
+2. **Explicit `.js` on every relative import an API route reaches** (`api/`, `lib/`, and inside `packages/*/src`). Vercel runs unbundled ESM on Node 24 — extensionless imports crash at load.
+3. **No runtime `@minute-menus/*` imports in API-reachable code** — packages export `.ts` sources Vercel doesn't ship. Use `lib/server/workspace/<pkg>.js`; `import type` is fine.
+4. **Verify:** `pnpm check:api` (also runs inside `pnpm build`, so violations fail the deploy) and `pnpm verify:api` (loads every built function in isolation, Node 24). After deploy, changed routes must return their own JSON, never `500 FUNCTION_INVOCATION_FAILED`.
 
 ## Data and auth rules
 

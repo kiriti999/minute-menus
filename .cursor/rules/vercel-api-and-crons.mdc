@@ -1,43 +1,46 @@
 ---
-description: Vercel serverless API routes, crons, email, and payments
-globs: api/**,vercel.json,packages/mailer/**,packages/email-templates/**,packages/api-helpers/**,packages/payments/**,lib/mailer.ts
+description: Vercel serverless API routes, crons, email, and payments — 12-function cap and import rules
+globs: api/**,lib/server/**,vercel.json,packages/currency/**,packages/types/**,packages/mailer/**,packages/email-templates/**,packages/api-helpers/**,packages/payments/**,packages/logger/**
 alwaysApply: false
 ---
 
 # Vercel API routes and crons
 
-Read **CLAUDE.md** server path, **agents.md** analytics/subscriptions section, and **workspace-packages.mdc**.
+**Source of truth: `.claude/rules/vercel-api.md`** — read it before changing anything an API route can reach. Summary:
+
+## Hard rules (violations crash functions with FUNCTION_INVOCATION_FAILED, or fail the deploy)
+
+1. **Max 12 functions (Hobby). We are at 12/12.** Never add a file under `api/` — add `?action=` to an existing route plus a `vercel.json` rewrite; logic goes in `lib/server/`.
+2. **Explicit `.js` on every relative import** reachable from `api/` — including `lib/` and `packages/*/src`. Never extensionless, never `.ts`.
+3. **No runtime `@minute-menus/*` imports** in API-reachable code — packages export `.ts` sources that Vercel doesn't ship. Import from `lib/server/workspace/<pkg>.js`. `import type` from packages is fine.
+
+## Verify
+
+- `pnpm check:api` (static; also runs inside `pnpm build`, so violations fail the deploy).
+- `pnpm verify:api` on Node 24 — builds with `vercel build` and loads each function from an isolated copy of its bundle. Loading `.vercel/output` in place gives false passes.
+- After deploy: each changed route should return its own JSON (405/400/401), never `500 FUNCTION_INVOCATION_FAILED`.
 
 ## Server-only
 
-Use `lib/supabase-admin` and server env vars (service role, Brevo SMTP, Razorpay secrets, internal API secret, **AI provider keys**). Never import admin client in pages or components. Never put `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` / Replicate tokens behind `VITE_` or Vite `define` — see **ai-api-key-security.mdc**.
+Use `lib/supabase-admin` and server env vars (service role, Brevo SMTP, Razorpay secrets, internal API secret, **AI provider keys**). Never import the admin client in pages or components. Never put `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` / Replicate tokens behind `VITE_` or Vite `define` — see **ai-api-key-security.mdc**.
 
-## Workspace packages for API routes
+## Server helpers for API routes
 
-| Concern | Package |
+| Concern | Import from (API code) |
 |---|---|
-| Scoped logging | `@minute-menus/logger` |
-| SMTP send | `@minute-menus/mailer` |
-| Email HTML | `@minute-menus/email-templates` |
-| POST/CORS/secret guards, payload parsing | `@minute-menus/api-helpers` |
-| Razorpay orders | `@minute-menus/payments` |
+| Scoped logging | `lib/server/logger.js` |
+| SMTP send | `lib/server/mailer.js` or `lib/server/workspace/mailer.js` |
+| Email HTML | `lib/server/email-templates.js` or `lib/server/workspace/email-templates.js` |
+| POST/CORS/secret guards, payload parsing | `lib/server/api-helpers.js` or `lib/server/workspace/api-helpers.js` |
+| Pricing, GST, cart pricing | `lib/server/workspace/currency.js` |
+| Shared domain helpers (`restaurantDate`, meal plans) | `lib/server/workspace/types.js` |
+| Razorpay | `lib/server/payments.js` |
 
-Keep route handlers thin — validation and orchestration in `api/`, logic in packages.
+Keep route handlers thin — validation and orchestration in `api/`, logic in `lib/server/` or packages.
 
-## Vercel Hobby: max 12 serverless functions
+## Current routes (12/12)
 
-**Each `api/**/*.ts` file = one serverless function.** Production is on Vercel **Hobby** — hard cap of **12 functions** per deployment. Exceeding this fails the deploy (not a TypeScript error).
-
-**Before adding a new `api/` file:**
-
-1. Count existing routes: `find api -name '*.ts' | wc -l` (must stay ≤ 12).
-2. Prefer **consolidating** into an existing route with `?action=` (see `api/confirm-payment.ts`, `api/counter-invoice.ts`).
-3. Move shared logic to `lib/server/` — not a new function file.
-4. `vercel.json` rewrites preserve old URLs but **do not** reduce the function count.
-
-**Verify locally:** `vercel build --yes` then `find .vercel/output/functions -name '*.func' | wc -l` (must be ≤ 12).
-
-**Current routes (12/12 — at limit):** `confirm-payment`, `counter-invoice` (includes Razorpay webhook via `x-razorpay-signature`), `create-plus-order`, `create-razorpay-order`, `image/enhance`, `keepalive` (also `?action=page|sitemap` for SEO — `/:slug`, `/:slug/menu`, `/sitemap.xml` rewrite here), `menu/upload-media`, `parse-invoice`, `sold-out-email`, `subscription/auto-deliver`, `subscription/cancel-order`, `subscription/daily-digest`.
+`confirm-payment`, `counter-invoice` (includes Razorpay webhook via `x-razorpay-signature`), `create-plus-order`, `create-razorpay-order`, `image/enhance`, `keepalive` (daily cron + SEO `?action=page|sitemap` for `/:slug`, `/:slug/menu`, `/sitemap.xml`, `/:slug/sitemap.xml`), `menu/upload-media`, `parse-invoice`, `sold-out-email`, `subscription/auto-deliver`, `subscription/cancel-order`, `subscription/daily-digest`.
 
 **Next consolidation candidates if needed:** merge `create-plus-order` into `create-razorpay-order`; merge subscription cron routes into one `api/subscription.ts`.
 
@@ -45,8 +48,8 @@ Canonical payment path map: `lib/api/paymentRouteRewrites.ts`.
 
 ## Crons
 
-Scheduled jobs are declared in vercel.json — keepalive (Supabase idle prevention), subscription daily digest, auto-deliver slots. Match route paths when adding new crons.
+Scheduled jobs are declared in vercel.json — keepalive (Supabase idle prevention), subscription daily digest, auto-deliver slots. Cron routes are guarded by `CRON_SECRET` (`verifyCronRequest`). Match route paths when adding or merging crons.
 
 ## Patterns
 
-Use `createLogger(scope)`, `@minute-menus/errors` for error detail in responses, and best-effort email where already documented. New env vars: add to `.env.example`; never commit secrets.
+Use `createLogger(scope)`, `getErrorDetail` (from `lib/server/api-helpers.js`) for error detail in responses, and best-effort email where already documented. New env vars: add to `.env.example`; never commit secrets.
