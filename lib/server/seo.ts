@@ -33,7 +33,7 @@ const SLUG_PATTERN = /^[a-z0-9-]{1,80}$/;
 const RESERVED_PATHS = new Set(["dashboard", "login", "owner", "admin", "api", "clock", "recipe-book", "menu"]);
 /** CDN serves cached pages instantly; menu edits show up in search snapshots within minutes. */
 const PAGE_CACHE = "public, max-age=0, s-maxage=300, stale-while-revalidate=86400";
-const SITEMAP_CACHE = "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400";
+const SITEMAP_CACHE = PAGE_CACHE;
 const PAGE_SIZE = 1000;
 
 type RestaurantRow = {
