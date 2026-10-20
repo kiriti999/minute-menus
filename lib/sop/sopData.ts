@@ -23,7 +23,7 @@ export const SOP_SECTIONS: SopSection[] = [
 			"Check dates and labels — throw away anything expired or unlabelled.",
 			"Set up stations: clean boards and knives, sanitiser bottle filled, Nosh machine and grill ready.",
 			"Refill the Nosh machine spices, oils and water.",
-			"Wash the lettuce, chicken and other veggies and keep them ready for prep.",
+			"Wash the lettuce, chicken and other veggies and keep them ready for use.",
 			"Check packing stock: 750ml, 500ml and 300ml containers, 200ml PET bottles, 50ml dressing cups, lids, foil, thick straws, sauce sachets. Also check cleaning and hygiene supplies: soap, detergent, gloves, tissues and so on.",
 		],
 	},
@@ -40,6 +40,7 @@ export const SOP_SECTIONS: SopSection[] = [
 			"Tuna: open the can slightly and drain all the water or oil before use.",
 			"Nosh machine dishes: cook as per the Nosh recipe.",
 			"Use separate boards and knives for raw chicken and ready-to-eat food. Wash hands between the two.",
+			"Wash your gloved hands whenever they get dirty, before touching any other utensils.",
 		],
 	},
 	{
