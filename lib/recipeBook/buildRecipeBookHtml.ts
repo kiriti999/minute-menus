@@ -42,7 +42,7 @@ function textMentionsDressing(text: string, dressingName: string): boolean {
 	const hay = text.toLowerCase();
 	const needle = dressingName.toLowerCase();
 	if (hay.includes(needle)) return true;
-	const tokens = needle.split(/[^a-z0-9]+/).filter((t) => t.length >= 5);
+	const tokens = needle.split(/[^a-z0-9]+/).filter((t) => t.length >= 5 && t !== "dressing");
 	return tokens.some((t) => hay.includes(t));
 }
 
@@ -53,6 +53,18 @@ function collectDressingsForText(text: string, into: Set<string>): void {
 			into.add(dressing.dishName.toLowerCase());
 		}
 	}
+}
+
+/** Curated recipes name their dressings; otherwise infer from menu + kitchen text. */
+function collectDressingsForDish(dish: RecipeBookDish, kitchen: RecipeEntry, into: Set<string>): void {
+	if (kitchen.dressings) {
+		for (const name of kitchen.dressings) into.add(name.toLowerCase());
+		return;
+	}
+	collectDressingsForText(
+		`${dish.ingredients} ${dish.description} ${kitchen.ingredients} ${kitchen.method}`,
+		into,
+	);
 }
 
 /** Printable card — live menu fields are never taken from curated RECIPE_BOOK. */
@@ -68,7 +80,6 @@ export type RecipeCardModel = {
 	/** Curated kitchen method (optional). */
 	kitchenMethod: string;
 	yieldNote?: string;
-	hacks: RecipeEntry["hacks"];
 	isDressing: boolean;
 };
 
@@ -81,7 +92,6 @@ function cardFromLiveDish(dish: RecipeBookDish, kitchen: RecipeEntry): RecipeCar
 		kitchenBuild: kitchen.ingredients.trim(),
 		kitchenMethod: kitchen.method.trim(),
 		yieldNote: kitchen.yieldNote,
-		hacks: kitchen.hacks,
 		isDressing: false,
 	};
 }
@@ -95,7 +105,6 @@ function cardFromDressing(entry: RecipeEntry): RecipeCardModel {
 		kitchenBuild: entry.ingredients.trim(),
 		kitchenMethod: entry.method.trim(),
 		yieldNote: entry.yieldNote,
-		hacks: entry.hacks,
 		isDressing: true,
 	};
 }
@@ -103,7 +112,7 @@ function cardFromDressing(entry: RecipeEntry): RecipeCardModel {
 /**
  * Build cards from the latest menu pull.
  * Title / description / ingredients always come from live menu rows.
- * Curated RECIPE_BOOK only supplies kitchen build, method, and hacks.
+ * Curated RECIPE_BOOK only supplies kitchen build and method.
  */
 export function buildRecipeCards(menuDishes: RecipeBookDish[]): RecipeCardModel[] {
 	const seen = new Set<string>();
@@ -120,10 +129,7 @@ export function buildRecipeCards(menuDishes: RecipeBookDish[]): RecipeCardModel[
 			curated ??
 			recipeFromMenuFields(d.name, d.category, d.ingredients, d.description);
 		fromMenu.push(cardFromLiveDish(d, kitchen));
-		collectDressingsForText(
-			`${d.ingredients} ${d.description} ${kitchen.ingredients} ${kitchen.method}`,
-			neededDressingKeys,
-		);
+		collectDressingsForDish(d, kitchen, neededDressingKeys);
 	}
 
 	const dressings = RECIPE_BOOK.filter(
@@ -143,7 +149,6 @@ export function buildRecipeEntries(menuDishes: RecipeBookDish[]): RecipeEntry[] 
 		ingredients: c.kitchenBuild,
 		method: c.kitchenMethod,
 		yieldNote: c.yieldNote,
-		hacks: c.hacks,
 	}));
 }
 
@@ -169,12 +174,6 @@ function fieldBlock(label: string, value: string, emptyHint: string): string {
 }
 
 function renderCard(card: RecipeCardModel): string {
-	const hacks = card.hacks
-		.map(
-			(h) =>
-				`<li><strong>${escapeHtml(h.title)}:</strong> ${escapeHtml(h.detail)}</li>`,
-		)
-		.join("");
 	const yieldLine = card.yieldNote
 		? `<p class="yield">${escapeHtml(card.yieldNote)}</p>`
 		: "";
@@ -188,8 +187,6 @@ function renderCard(card: RecipeCardModel): string {
   <p class="body">${escapeHtml(card.kitchenBuild)}</p>
   <p class="label">Kitchen method</p>
   <p class="body">${escapeHtml(card.kitchenMethod)}</p>
-  <p class="label">Kitchen hacks</p>
-  <ul class="hacks">${hacks}</ul>
 </article>`;
 	}
 
@@ -216,8 +213,6 @@ function renderCard(card: RecipeCardModel): string {
   ${liveDesc}
   ${liveIng}
   ${kitchen}
-  <p class="label">Kitchen hacks</p>
-  <ul class="hacks">${hacks}</ul>
 </article>`;
 }
 
@@ -306,7 +301,7 @@ export function buildRecipeBookHtml(opts: {
       letter-spacing: 0.04em;
       color: #5a7a74;
     }
-    .body { margin: 0; }
+    .body { margin: 0; white-space: pre-line; }
     .menu-field {
       background: #f0f7f4;
       border: 1px solid #d5e5e0;
@@ -315,9 +310,6 @@ export function buildRecipeBookHtml(opts: {
       white-space: pre-wrap;
     }
     .muted { color: #8a9e97; font-style: italic; }
-    .hacks { margin: 4px 0 0; padding-left: 16px; }
-    .hacks li { margin-bottom: 3px; }
-    .hacks strong { color: #0b4a42; }
     .no-print { margin: 0 0 14px; display: flex; gap: 8px; flex-wrap: wrap; }
     .btn {
       appearance: none;
@@ -344,11 +336,11 @@ export function buildRecipeBookHtml(opts: {
     ${nav}
     <header>
       <h1>${name} — Kitchen Recipe Book</h1>
-      <p class="meta">Live menu description &amp; ingredients · kitchen builds · hacks · printable A4</p>
+      <p class="meta">Live menu description &amp; ingredients · kitchen builds · printable A4</p>
       <div class="banner">
         <strong>From your saved menu:</strong> green boxes are the exact <strong>description</strong> and <strong>ingredients</strong> from the menu editor (after Save Changes).
         Grey kitchen build / method text is station guidance only — not the customer-facing description.
-        Salad bowls <strong>300–350g</strong>; dressing <strong>120ml</strong> side cup; oats <strong>250–280g</strong>.
+        Containers: large salads <strong>750ml</strong> · small / medium salads <strong>500ml</strong> (60% of large) · pasta <strong>500ml</strong> · appetizer rice items <strong>300ml</strong> · dressing <strong>50ml</strong> cups · thick shakes <strong>300ml</strong> glass.
       </div>
     </header>
     ${sections}
