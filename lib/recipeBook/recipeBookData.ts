@@ -127,6 +127,8 @@ const thickShake = (dishName: string, flavour: string, aliases?: string[]): Reci
 	steps: THICK_SHAKE_STEPS,
 });
 
+const JUICE_FREEZE = "Juice and store it in the freezer until delivery.";
+
 const SMOOTHIE_NOTE = "If using normal curd instead of hung curd: 60ml milk + 60ml curd.";
 const smoothie = (dishName: string, category: string, fruit: string, yieldNote: string, extra: RecipeRow[] = [], aliases?: string[]): RecipeEntry => ({
 	dishName,
@@ -712,7 +714,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		category: "Fresh Juices",
 		yieldNote: "1 serve chilled",
 		ingredients: "Apple · beetroot · carrot · lemon · ginger (see menu ingredients)",
-		method: "Wash, rough chop, juice or high-speed blend + fine strain. Serve cold; no ice in sealed bottle if shipping.",
+		steps: ["Wash and rough chop the apple, beetroot and carrot.", "Juice, or high-speed blend and fine strain.", JUICE_FREEZE],
 	},
 	{
 		dishName: "Orange Immunity Boost",
@@ -720,7 +722,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		category: "Fresh Juices",
 		yieldNote: "1 serve",
 		ingredients: "Fresh oranges only",
-		method: "Juice, strain pulp if needed, chill.",
+		steps: ["Juice the oranges and strain the pulp if needed.", JUICE_FREEZE],
 	},
 	{
 		dishName: "Watermelon Hydrator",
@@ -728,7 +730,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		category: "Fresh Juices",
 		yieldNote: "1 serve",
 		ingredients: "Watermelon flesh · optional ice",
-		method: "Blend flesh; strain seeds if needed. Very perishable — make close to service.",
+		steps: ["Blend in the large mixer.", "Put it into a 200ml pet bottle.", "Keep it in the freezer until delivery."],
 	},
 	{
 		dishName: "Green Glow Detox",
@@ -736,7 +738,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		category: "Fresh Juices",
 		yieldNote: "1 serve",
 		ingredients: "Apple · carrot · celery · lemon",
-		method: "Juice together; lemon last for brightness.",
+		steps: ["Juice the apple, carrot and celery together, lemon last.", JUICE_FREEZE],
 	},
 	{
 		dishName: "Carrot Apple Energy",
@@ -744,7 +746,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		category: "Fresh Juices",
 		yieldNote: "1 serve",
 		ingredients: "Apple · carrot · lemon (see menu ingredients)",
-		method: "Wash, chop, juice or blend + strain. Serve cold.",
+		steps: ["Wash and chop the apple and carrot.", "Juice, or blend and strain.", JUICE_FREEZE],
 	},
 	{
 		dishName: "Crisp Apple Vitality",
@@ -752,7 +754,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		category: "Fresh Juices",
 		yieldNote: "1 serve",
 		ingredients: "Fresh apples · lemon optional",
-		method: "Juice apples; lemon splash to slow browning. Chill.",
+		steps: ["Juice the apples with a splash of lemon to slow browning.", JUICE_FREEZE],
 	},
 	{
 		dishName: "Beta-Glow Carrot",
@@ -760,7 +762,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		category: "Fresh Juices",
 		yieldNote: "1 serve",
 		ingredients: "Carrots · optional ginger/lemon",
-		method: "Juice carrots; finish ginger/lemon if on menu.",
+		steps: ["Juice the carrots; finish with ginger/lemon if on the menu.", JUICE_FREEZE],
 	},
 	{
 		dishName: "Apple Pomegranate Boost",
@@ -775,7 +777,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		category: "Fresh Juices",
 		yieldNote: "1 serve",
 		ingredients: "Apple · pomegranate · optional carrot (see menu)",
-		method: "Juice/blend; strain seeds if needed. Serve cold.",
+		steps: ["Juice or blend; strain the seeds if needed.", JUICE_FREEZE],
 	},
 	{
 		dishName: "Seasonal Mango Refresh",
@@ -789,7 +791,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		category: "Fresh Juices",
 		yieldNote: "1 serve",
 		ingredients: "Mango pulp · water · ice",
-		method: "Blend pulp + chilled water to pourable; ice if dine-in.",
+		steps: ["Blend the mango pulp with chilled water until pourable.", JUICE_FREEZE],
 	},
 	{
 		dishName: "Sweet Lime Digestive",
@@ -797,7 +799,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		category: "Fresh Juices",
 		yieldNote: "1 serve",
 		ingredients: "Mosambi (sweet lime)",
-		method: "Juice and serve immediately — oxidises fast.",
+		steps: ["Juice the sweet lime.", JUICE_FREEZE],
 	},
 	{
 		dishName: "Tropical Electrolyte Cooler",
@@ -805,7 +807,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		category: "Fresh Juices",
 		yieldNote: "1 serve",
 		ingredients: "Pineapple · coconut water · lime · mint",
-		method: "Blend/juice pineapple with coconut water; finish lime + mint.",
+		steps: ["Blend or juice the pineapple with the coconut water; finish with lime and mint.", JUICE_FREEZE],
 	},
 
 	// ── Milkshakes & thick shakes ─────────────────────────────────────────────
