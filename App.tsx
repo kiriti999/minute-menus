@@ -13,6 +13,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
 import { LoadingScreen } from "@minute-menus/ui";
 import { devMenuSlug, devSkipOwnerLogin } from "./lib/devFlags";
+import { isDashboardPath } from "./lib/dashboardRoute";
 import { useRestaurantSlugRoute } from "./hooks/useRestaurantSlugRoute";
 import { CustomerApp } from "./pages/CustomerApp";
 import { LoginPage } from "./pages/LoginPage";
@@ -125,6 +126,17 @@ const App: React.FC = () => {
 
     const isAuthenticated = session !== null || skipOwnerLogin;
 
+    // Deep links like /dashboard/team open the owner dashboard (login first if signed out).
+    useEffect(() => {
+        if (authLoading || mode !== AppMode.LANDING || !isDashboardPath(path)) return;
+        if (isAuthenticated) {
+            setMode(AppMode.OWNER);
+        } else {
+            setTargetMode(AppMode.OWNER);
+            setMode(AppMode.LOGIN);
+        }
+    }, [authLoading, mode, path, isAuthenticated]);
+
     const handleModeSelect = (selectedMode: AppMode) => {
         if (selectedMode === AppMode.CUSTOMER) {
             setMode(AppMode.CUSTOMER);
@@ -146,6 +158,10 @@ const App: React.FC = () => {
     const handleLogout = async () => {
         await supabase.auth.signOut();
         setSession(null);
+        if (isDashboardPath(window.location.pathname)) {
+            window.history.pushState({}, "", "/");
+            setPath("/");
+        }
         setMode(AppMode.LANDING);
     };
 

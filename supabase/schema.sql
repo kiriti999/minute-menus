@@ -1286,6 +1286,44 @@ create policy "Owner manage invoices"
   );
 
 -- ─────────────────────────────────────────────
+-- 20. STAFF DOCUMENTS (HR: offer letters, uploaded or generated)
+-- Private bucket "staff-documents"; objects live under <restaurant_id>/<staff_id>/...
+-- Generated letters store their fields in `details` and have no file_path.
+-- ─────────────────────────────────────────────
+insert into storage.buckets (id, name, public)
+values ('staff-documents', 'staff-documents', false)
+on conflict (id) do nothing;
+
+create table if not exists staff_documents (
+  id             uuid primary key default gen_random_uuid(),
+  restaurant_id  uuid not null references restaurants(id) on delete cascade,
+  staff_id       uuid not null references restaurant_staff(id) on delete cascade,
+  kind           text not null default 'offer_letter',
+  title          text not null,
+  file_path      text,
+  details        jsonb,
+  created_at     timestamptz not null default now()
+);
+
+alter table staff_documents enable row level security;
+
+drop policy if exists "Owner can manage staff documents" on staff_documents;
+create policy "Owner can manage staff documents"
+  on staff_documents for all
+  using (exists (select 1 from restaurants r where r.id = staff_documents.restaurant_id and r.owner_id = auth.uid()))
+  with check (exists (select 1 from restaurants r where r.id = staff_documents.restaurant_id and r.owner_id = auth.uid()));
+
+create index if not exists idx_staff_documents_restaurant on staff_documents(restaurant_id);
+create index if not exists idx_staff_documents_staff on staff_documents(staff_id);
+
+-- Reuses is_invoice_owner: it only checks that the first path segment is the caller's restaurant id.
+drop policy if exists "Owner manage staff documents" on storage.objects;
+create policy "Owner manage staff documents"
+  on storage.objects for all to authenticated
+  using (bucket_id = 'staff-documents' and public.is_invoice_owner(name))
+  with check (bucket_id = 'staff-documents' and public.is_invoice_owner(name));
+
+-- ─────────────────────────────────────────────
 -- MIGRATION: harden payment-related tables (existing databases)
 -- Orders, customer subscriptions, and Plus tier upgrades now write via the
 -- admin client only, after server-side Razorpay signature verification —

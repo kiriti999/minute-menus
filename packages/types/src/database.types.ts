@@ -858,6 +858,39 @@ export type Database = {
                 };
                 Relationships: [];
             };
+            staff_documents: {
+                Row: {
+                    id: string;
+                    restaurant_id: string;
+                    staff_id: string;
+                    kind: string;
+                    title: string;
+                    file_path: string | null;
+                    details: Json | null;
+                    created_at: string;
+                };
+                Insert: {
+                    id?: string;
+                    restaurant_id: string;
+                    staff_id: string;
+                    kind?: string;
+                    title: string;
+                    file_path?: string | null;
+                    details?: Json | null;
+                    created_at?: string;
+                };
+                Update: {
+                    id?: string;
+                    restaurant_id?: string;
+                    staff_id?: string;
+                    kind?: string;
+                    title?: string;
+                    file_path?: string | null;
+                    details?: Json | null;
+                    created_at?: string;
+                };
+                Relationships: [];
+            };
             time_logs: {
                 Row: {
                     id: string;

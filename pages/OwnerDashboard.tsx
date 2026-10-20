@@ -1,7 +1,7 @@
 import { ImageEditorView } from "../components/ImageEditorView";
 import { CostingView } from "../components/CostingView";
 import { PrintDesignsView } from "../components/PrintDesignsView";
-import { TeamView } from "../components/TeamView";
+import { TeamPage } from "../components/TeamPage";
 import { CounterBillView } from "../components/CounterBillView";
 import { SalesView } from "../components/SalesView";
 import { OrderQueueView } from "../components/OrderQueueView";
@@ -88,6 +88,7 @@ import { getErrorMessage } from "@minute-menus/errors";
 import { compressDataUrl } from "@minute-menus/menu-persistence";
 import { supabaseService } from "../services/supabaseService";
 import { supabase } from "../lib/supabase";
+import { DASHBOARD_TEAM_PATH, isDashboardTeamPath } from "../lib/dashboardRoute";
 import { openRazorpayCheckout } from "../lib/loadRazorpayCheckout";
 import { PAYMENT_API_PATHS } from "../lib/api/paymentRouteRewrites";
 import {
@@ -950,7 +951,9 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   isDarkTheme,
   onToggleTheme,
 }) => {
-  const [currentView, setCurrentView] = useState<ViewMode>("DASHBOARD");
+  const [currentView, setCurrentView] = useState<ViewMode>(() =>
+    isDashboardTeamPath(window.location.pathname) ? "TEAM" : "DASHBOARD",
+  );
   const [insights, setInsights] = useState<string>("");
   const [analyticsReport, setAnalyticsReport] = useState<AnalyticsReport | null>(null);
   const [isLoadingInsights, setIsLoadingInsights] = useState(false);
@@ -1223,6 +1226,26 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   useEffect(() => () => {
     stopOrderRingtone();
     stopTestSound();
+  }, []);
+
+  // Team is the only view with its own URL; other views keep the root path.
+  useEffect(() => {
+    const onTeamPath = isDashboardTeamPath(window.location.pathname);
+    if (currentView === "TEAM" && !onTeamPath) {
+      window.history.pushState({}, "", DASHBOARD_TEAM_PATH);
+    } else if (currentView !== "TEAM" && onTeamPath) {
+      window.history.pushState({}, "", "/");
+    }
+  }, [currentView]);
+
+  useEffect(() => {
+    const onPopState = () =>
+      setCurrentView((prev) => {
+        if (isDashboardTeamPath(window.location.pathname)) return "TEAM";
+        return prev === "TEAM" ? "DASHBOARD" : prev;
+      });
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
   // Orders are only polled on the Kitchen Orders view, so nothing could stop a
@@ -3448,7 +3471,11 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
         {currentView === "TEAM" && (
           <div className={`flex-1 min-w-0 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-10 animate-in fade-in duration-500 pb-24 ${isDarkTheme ? "bg-black" : "bg-zinc-50"}`}>
-            <TeamView isDarkTheme={isDarkTheme} />
+            <TeamPage
+              isDarkTheme={isDarkTheme}
+              isPlus={userTier === UserTier.PLUS}
+              onRequirePlus={triggerPaywall}
+            />
           </div>
         )}
 

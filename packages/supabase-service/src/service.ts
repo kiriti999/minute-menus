@@ -36,6 +36,8 @@ import type {
     WatchSession,
     DeliveryFeeMode,
     RestaurantAvailability,
+    OfferLetterDetails,
+    StaffDocument,
 } from "@minute-menus/types";
 import {
     addDaysToDate,
@@ -1797,6 +1799,33 @@ export class SupabaseService {
     async deactivateRestaurantStaff(staffId: string) {
         const { deactivateRestaurantStaff } = await import("./teamTime");
         return deactivateRestaurantStaff(this.client, staffId);
+    }
+
+    // ── Staff documents (offer letters) ───────────────────────────────────────
+
+    async listStaffDocuments() {
+        const { listStaffDocuments } = await import("./staffDocuments");
+        return listStaffDocuments(this.client, await this.getRestaurantId());
+    }
+
+    async createGeneratedOfferLetter(staffId: string, details: OfferLetterDetails) {
+        const { createGeneratedOfferLetter } = await import("./staffDocuments");
+        return createGeneratedOfferLetter(this.client, await this.getRestaurantId(), staffId, details);
+    }
+
+    async uploadOfferLetter(staffId: string, file: File) {
+        const { uploadOfferLetter } = await import("./staffDocuments");
+        return uploadOfferLetter(this.client, await this.getRestaurantId(), staffId, file);
+    }
+
+    async getStaffDocumentUrl(filePath: string) {
+        const { getStaffDocumentUrl } = await import("./staffDocuments");
+        return getStaffDocumentUrl(this.client, filePath);
+    }
+
+    async deleteStaffDocument(doc: StaffDocument) {
+        const { deleteStaffDocument } = await import("./staffDocuments");
+        return deleteStaffDocument(this.client, doc);
     }
 
     async getWeeklyStaffHours(weekStartIso: string, restaurantId?: string) {

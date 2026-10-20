@@ -872,6 +872,28 @@ export interface StaffBadge {
   createdAt: string;
 }
 
+export interface OfferLetterDetails {
+  role: string;
+  monthlySalary: number;
+  joiningDate: string;
+  location: string;
+  probationMonths: number;
+  noticeDays: number;
+  issuedBy: string;
+  notes: string;
+}
+
+export interface StaffDocument {
+  id: string;
+  restaurantId: string;
+  staffId: string;
+  kind: "offer_letter";
+  title: string;
+  filePath: string | null;
+  details: OfferLetterDetails | null;
+  createdAt: string;
+}
+
 export interface RestaurantStaffMember {
   id: string;
   restaurantId: string;
