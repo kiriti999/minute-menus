@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
 import { LoadingScreen } from "@minute-menus/ui";
 import { devMenuSlug, devSkipOwnerLogin } from "./lib/devFlags";
-import { isDashboardPath } from "./lib/dashboardRoute";
+import { isDashboardPath, isDashboardTeamPath } from "./lib/dashboardRoute";
 import { useRestaurantSlugRoute } from "./hooks/useRestaurantSlugRoute";
 import { CustomerApp } from "./pages/CustomerApp";
 import { LoginPage } from "./pages/LoginPage";
@@ -128,7 +128,7 @@ const App: React.FC = () => {
 
     // Deep links like /dashboard/team open the owner dashboard (login first if signed out).
     useEffect(() => {
-        if (authLoading || mode !== AppMode.LANDING || !isDashboardPath(path)) return;
+        if (authLoading || mode !== AppMode.LANDING || !isDashboardTeamPath(path)) return;
         if (isAuthenticated) {
             setMode(AppMode.OWNER);
         } else {
