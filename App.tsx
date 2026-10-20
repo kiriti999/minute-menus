@@ -21,6 +21,7 @@ import { QrLandingPage } from "./pages/QrLandingPage";
 import { MenuListPage } from "./pages/MenuListPage";
 import { MyOrdersPage } from "./pages/MyOrdersPage";
 import { RecipeBookPage } from "./pages/RecipeBookPage";
+import { SopPage } from "./pages/SopPage";
 import { StaffClockPage } from "./pages/StaffClockPage";
 import { AppMode } from "@minute-menus/types";
 
@@ -38,6 +39,11 @@ function parseGoRoute(): string | null {
 
 function parseRecipeBookRoute(pathname: string): string | null {
     const match = pathname.match(/^\/([a-z0-9-]+)\/recipe-book\/?$/i);
+    return match ? match[1].toLowerCase() : null;
+}
+
+function parseSopRoute(pathname: string): string | null {
+    const match = pathname.match(/^\/([a-z0-9-]+)\/sop\/?$/i);
     return match ? match[1].toLowerCase() : null;
 }
 
@@ -145,6 +151,20 @@ const App: React.FC = () => {
 
     if (authLoading) {
         return <LoadingScreen />;
+    }
+
+    const sopSlug = parseSopRoute(path);
+    if (sopSlug) {
+        return (
+            <SopPage
+                key={path}
+                slug={sopSlug}
+                isDarkTheme={isDarkTheme}
+                onBack={() => {
+                    window.location.href = `/${sopSlug}`;
+                }}
+            />
+        );
     }
 
     const recipeBookSlug = parseRecipeBookRoute(path);
