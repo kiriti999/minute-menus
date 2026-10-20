@@ -1,6 +1,7 @@
 import type { Category } from "@minute-menus/types";
 import {
 	type RecipeEntry,
+	type RecipeRow,
 	findRecipeForDish,
 	recipeFromMenuFields,
 	RECIPE_BOOK,
@@ -55,6 +56,12 @@ function collectDressingsForText(text: string, into: Set<string>): void {
 	}
 }
 
+/** Searchable text of a kitchen recipe (structured rows/steps or plain text). */
+function kitchenText(kitchen: RecipeEntry): string {
+	const rows = (kitchen.rows ?? []).map((row) => row.item).join(" ");
+	return [kitchen.ingredients, kitchen.method, rows, ...(kitchen.steps ?? [])].join(" ");
+}
+
 /** Curated recipes name their dressings; otherwise infer from menu + kitchen text. */
 function collectDressingsForDish(dish: RecipeBookDish, kitchen: RecipeEntry, into: Set<string>): void {
 	if (kitchen.dressings) {
@@ -62,7 +69,7 @@ function collectDressingsForDish(dish: RecipeBookDish, kitchen: RecipeEntry, int
 		return;
 	}
 	collectDressingsForText(
-		`${dish.ingredients} ${dish.description} ${kitchen.ingredients} ${kitchen.method}`,
+		`${dish.ingredients} ${dish.description} ${kitchenText(kitchen)}`,
 		into,
 	);
 }
@@ -75,13 +82,28 @@ export type RecipeCardModel = {
 	liveDescription: string;
 	/** Live menu editor ingredients. */
 	liveIngredients: string;
-	/** Curated kitchen portion guide (optional). */
+	/** Plain-text kitchen build (used when there is no ingredient table). */
 	kitchenBuild: string;
-	/** Curated kitchen method (optional). */
+	/** Plain-text kitchen method (used when there are no numbered steps). */
 	kitchenMethod: string;
+	columns: string[];
+	rows: RecipeRow[];
+	steps: string[];
+	notes: string[];
 	yieldNote?: string;
 	isDressing: boolean;
 };
+
+function kitchenFields(kitchen: RecipeEntry) {
+	return {
+		kitchenBuild: (kitchen.ingredients ?? "").trim(),
+		kitchenMethod: (kitchen.method ?? "").trim(),
+		columns: kitchen.columns ?? ["Qty"],
+		rows: kitchen.rows ?? [],
+		steps: kitchen.steps ?? [],
+		notes: kitchen.notes ?? [],
+	};
+}
 
 function cardFromLiveDish(dish: RecipeBookDish, kitchen: RecipeEntry): RecipeCardModel {
 	return {
@@ -89,8 +111,7 @@ function cardFromLiveDish(dish: RecipeBookDish, kitchen: RecipeEntry): RecipeCar
 		category: dish.category || kitchen.category || "Menu",
 		liveDescription: dish.description,
 		liveIngredients: dish.ingredients,
-		kitchenBuild: kitchen.ingredients.trim(),
-		kitchenMethod: kitchen.method.trim(),
+		...kitchenFields(kitchen),
 		yieldNote: kitchen.yieldNote,
 		isDressing: false,
 	};
@@ -102,8 +123,7 @@ function cardFromDressing(entry: RecipeEntry): RecipeCardModel {
 		category: "Dressings",
 		liveDescription: "",
 		liveIngredients: "",
-		kitchenBuild: entry.ingredients.trim(),
-		kitchenMethod: entry.method.trim(),
+		...kitchenFields(entry),
 		yieldNote: entry.yieldNote,
 		isDressing: true,
 	};
@@ -148,6 +168,10 @@ export function buildRecipeEntries(menuDishes: RecipeBookDish[]): RecipeEntry[] 
 		menuIngredients: c.liveIngredients || undefined,
 		ingredients: c.kitchenBuild,
 		method: c.kitchenMethod,
+		columns: c.columns,
+		rows: c.rows,
+		steps: c.steps,
+		notes: c.notes,
 		yieldNote: c.yieldNote,
 	}));
 }
@@ -173,46 +197,70 @@ function fieldBlock(label: string, value: string, emptyHint: string): string {
 	return `<p class="label">${escapeHtml(label)}</p><p class="body muted">${escapeHtml(emptyHint)}</p>`;
 }
 
-function renderCard(card: RecipeCardModel): string {
-	const yieldLine = card.yieldNote
-		? `<p class="yield">${escapeHtml(card.yieldNote)}</p>`
-		: "";
+const splitLines = (text: string): string[] =>
+	text.split("\n").map((l) => l.trim()).filter(Boolean);
 
-	if (card.isDressing) {
-		return `
-<article class="card">
-  <h3>${escapeHtml(card.title)}</h3>
-  ${yieldLine}
-  <p class="label">Batch recipe</p>
-  <p class="body">${escapeHtml(card.kitchenBuild)}</p>
-  <p class="label">Kitchen method</p>
-  <p class="body">${escapeHtml(card.kitchenMethod)}</p>
-</article>`;
+const section = (label: string, body: string): string =>
+	`<p class="label">${escapeHtml(label)}</p>${body}`;
+
+function renderRow(row: RecipeRow, cols: number): string {
+	if (row.heading) {
+		return `<tr class="grp"><th colspan="${cols + 1}">${escapeHtml(row.item)}</th></tr>`;
 	}
+	const cells = row.qty.map((q) => `<td class="qty">${escapeHtml(q)}</td>`).join("");
+	return `<tr><td>${escapeHtml(row.item)}</td>${cells}</tr>`;
+}
 
-	const liveDesc = fieldBlock(
+function renderTable(columns: string[], rows: RecipeRow[]): string {
+	const head = ["Ingredient", ...columns].map((c) => `<th>${escapeHtml(c)}</th>`).join("");
+	const body = rows.map((row) => renderRow(row, columns.length)).join("");
+	return `<table class="ing"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+function renderList(tag: "ul" | "ol", items: string[]): string {
+	const lis = items.map((i) => `<li>${escapeHtml(i)}</li>`).join("");
+	return `<${tag} class="list">${lis}</${tag}>`;
+}
+
+function renderBuild(card: RecipeCardModel): string {
+	const label = card.isDressing ? "Recipe" : "Kitchen build (portion guide)";
+	if (card.rows.length) return section(label, renderTable(card.columns, card.rows));
+	if (card.kitchenBuild) return section(label, renderList("ul", splitLines(card.kitchenBuild)));
+	return "";
+}
+
+function renderMethod(card: RecipeCardModel): string {
+	const steps = card.steps.length ? card.steps : splitLines(card.kitchenMethod);
+	return steps.length ? section("Method", renderList("ol", steps)) : "";
+}
+
+function renderNotes(card: RecipeCardModel): string {
+	return card.notes.length ? section("Notes", renderList("ul", card.notes)) : "";
+}
+
+function renderMenuFields(card: RecipeCardModel): string {
+	if (card.isDressing) return "";
+	return `${fieldBlock(
 		"Description (from menu)",
 		card.liveDescription,
 		"Not set in menu editor — save a description on this dish, then refresh.",
-	);
-	const liveIng = fieldBlock(
+	)}${fieldBlock(
 		"Ingredients (from menu)",
 		card.liveIngredients,
 		"Not set in menu editor — save ingredients on this dish, then refresh.",
-	);
-	const kitchen =
-		card.kitchenBuild || card.kitchenMethod
-			? `${card.kitchenBuild ? `<p class="label">Kitchen build (portion guide)</p><p class="body">${escapeHtml(card.kitchenBuild)}</p>` : ""}
-  ${card.kitchenMethod ? `<p class="label">Kitchen method</p><p class="body">${escapeHtml(card.kitchenMethod)}</p>` : ""}`
-			: "";
+	)}`;
+}
 
+function renderCard(card: RecipeCardModel): string {
+	const yieldLine = card.yieldNote ? `<p class="yield">${escapeHtml(card.yieldNote)}</p>` : "";
 	return `
 <article class="card">
   <h3>${escapeHtml(card.title)}</h3>
   ${yieldLine}
-  ${liveDesc}
-  ${liveIng}
-  ${kitchen}
+  ${renderMenuFields(card)}
+  ${renderBuild(card)}
+  ${renderMethod(card)}
+  ${renderNotes(card)}
 </article>`;
 }
 
@@ -310,6 +358,13 @@ export function buildRecipeBookHtml(opts: {
       white-space: pre-wrap;
     }
     .muted { color: #8a9e97; font-style: italic; }
+    table.ing { width: 100%; border-collapse: collapse; margin-top: 2px; }
+    .ing th, .ing td { border: 1px solid #d5e5e0; padding: 3px 6px; text-align: left; vertical-align: top; }
+    .ing thead th { background: #e8f0ed; color: #3f5e57; font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .ing td.qty, .ing thead th:not(:first-child) { text-align: right; }
+    .ing tr.grp th { background: #f0f7f4; color: #1b5e20; font-size: 9.5px; }
+    .list { margin: 2px 0 0; padding-left: 18px; }
+    .list li { margin-bottom: 2px; }
     .no-print { margin: 0 0 14px; display: flex; gap: 8px; flex-wrap: wrap; }
     .btn {
       appearance: none;

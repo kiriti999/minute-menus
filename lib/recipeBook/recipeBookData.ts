@@ -3,6 +3,13 @@
  * Matched to live dish names (and aliases) when the owner opens /recipe-book.
  */
 
+/** One ingredient line; `qty` aligns with the recipe's `columns`. A heading row labels a group. */
+export type RecipeRow = {
+	item: string;
+	qty: string[];
+	heading?: boolean;
+};
+
 export type RecipeEntry = {
 	/** Primary dish name used for matching. */
 	dishName: string;
@@ -14,10 +21,18 @@ export type RecipeEntry = {
 	menuDescription?: string;
 	/** Exact ingredients from the menu editor (live). */
 	menuIngredients?: string;
-	/** Kitchen build (curated). */
-	ingredients: string;
-	/** Short easy method. */
-	method: string;
+	/** Column headings for the quantity cells (serve sizes, bowl sizes). Defaults to one "Qty" column. */
+	columns?: string[];
+	/** Structured ingredient table. */
+	rows?: RecipeRow[];
+	/** Numbered method steps. */
+	steps?: string[];
+	/** Extra bullet notes (conversions, safety temperatures). */
+	notes?: string[];
+	/** Plain-text build — used when `rows` is absent (older cards, generic fallback). */
+	ingredients?: string;
+	/** Plain-text method — used when `steps` is absent. */
+	method?: string;
 	/** Dressing card names (RECIPE_BOOK dishName) to print alongside this dish. */
 	dressings?: string[];
 };
@@ -26,10 +41,14 @@ function n(s: string): string {
 	return s.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+/** Ingredient row: name followed by one quantity per column. */
+const r = (item: string, ...qty: string[]): RecipeRow => ({ item, qty });
+/** Group heading row inside an ingredient table. */
+const h = (item: string): RecipeRow => ({ item, qty: [], heading: true });
+
 /** Large salads → 750ml bowl; small / medium = 60% of large → 500ml bowl. */
-function sized(large: string, small: string): string {
-	return `LARGE — 750ml bowl\n${large}\n\nSMALL / MEDIUM — 500ml bowl\n${small}`;
-}
+const SALAD_COLS = ["Large · 750ml bowl", "Small / Medium · 500ml bowl"];
+const SERVE_COLS = ["1 serve", "3 serves", "6 serves"];
 
 const CAESAR_MAYO = "Caesar dressing (mayo base)";
 const CAESAR_CURD = "Caesar dressing (hung curd)";
@@ -38,23 +57,93 @@ const LEMON_HERB = "Lemon & herb dressing";
 const APPLE_CIDER_HERB = "Apple cider & herb dressing";
 const CITRUS = "Citrus dressing";
 
-const PANEER_COOK =
-	"Paneer: marinate, then cook on low flame for 2–3 min with the lid on until soft and spongy — do not let it turn hard.";
-const CHICKEN_GRILL =
-	"Chicken: marinate breast with Cajun spice. Grill on low with the lid on, 5 min each side. Core temperature must reach at least 70°C. Slice after cooking.";
-const LEGUME_SERVES =
-	"1 serve: 60g dry (¼ cup) → ~150g cooked · 3 serves: 180g dry (¾ cup) → ~450g cooked · small salad: 36g dry → ~90g cooked";
-const legumeCook = (name: string) =>
-	`${name}: soak 8–12 h, then cook 40 min on high in the electric pressure cooker with enough water to cover. Drain and cool.\n${LEGUME_SERVES}`;
-const DRESSING_CUPS = "Dressing goes on the side in 50ml cups — large: 2 cups, small: 1 cup. Never toss dressing into the salad.";
+const SALAD_DRESSING_NOTE = "Dressing goes on the side in 50ml cups (large: 2 cups, small: 1 cup). Never toss it into the salad.";
 
-const THICK_SHAKE_BASE =
-	"3 large scoops into the big blender with 40ml milk. Press whip 3–5 times at 1-second intervals until thick. Pour into the 300ml glass";
-const THICK_SHAKE_PACK =
-	"Cover with aluminium foil and tighten the glass lid. Put a thick straw into the packaging.";
+const PANEER_STEPS = [
+	"Marinate the paneer.",
+	"Cook on low flame for 2–3 min with the lid on, until soft and spongy.",
+	"Do not let the paneer turn hard.",
+];
+const CHICKEN_STEPS = [
+	"Marinate the chicken breast with Cajun spice.",
+	"Grill on low with the lid on, 5 min each side.",
+	"Check the core temperature — it must reach at least 70°C.",
+	"Slice after cooking.",
+];
+const LEGUME_NOTES = [
+	"1 serve: 60g dry (¼ cup) → about 150g cooked.",
+	"3 serves: 180g dry (¾ cup) → about 450g cooked.",
+	"Small salad: 36g dry → about 90g cooked.",
+];
+const legumeSteps = (name: string): string[] => [
+	`Soak the ${name} for 8–12 hours.`,
+	"Cook for 40 min on high in the electric pressure cooker with enough water to cover.",
+	"Drain and cool before building the salad.",
+];
+const legumeSalad = (name: string, dishName: string, aliases?: string[]): RecipeEntry => ({
+	dishName,
+	aliases,
+	category: "Salads",
+	yieldNote: "Large ~400g in a 750ml bowl · small / medium in a 500ml bowl",
+	columns: SALAD_COLS,
+	rows: [
+		h("Base"),
+		r(`${name}, dry (uncooked)`, "60g", "36g"),
+		r(`${name}, cooked`, "150g (10.6g protein)", "90g"),
+		h("Veg & toppings"),
+		r("Romaine lettuce", "50g", "30g"),
+		r("Tomato", "30g", "18g"),
+		r("Cucumber", "30g", "18g"),
+		r("Capsicum", "20g", "12g"),
+		r("Roasted peanuts", "20g", "12g"),
+		h("Dressing"),
+		r("Yogurt dressing (50ml cups)", "100ml · 2 cups", "50ml · 1 cup"),
+	],
+	steps: legumeSteps(name.toLowerCase()),
+	notes: [...LEGUME_NOTES, SALAD_DRESSING_NOTE],
+	dressings: [YOGURT_DRESSING],
+});
 
-const SMOOTHIE_BASE =
-	"Frozen blueberry 35g · ripe banana ½ (or 50g) · milk 80g · hung curd 40g · honey 10g\nIf using normal curd instead of hung curd: 60ml milk + 60ml curd";
+const THICK_SHAKE_STEPS = [
+	"Prepare the 300ml glass and aluminium foil.",
+	"Put 3 large scoops of ice cream and 40ml milk into the big blender.",
+	"Press whip 3–5 times at 1-second intervals until thick.",
+	"Pour into the 300ml glass and put one scoop of ice cream on top.",
+	"Cover with aluminium foil and tighten the glass lid.",
+	"Put a thick straw into the packaging.",
+];
+const thickShake = (dishName: string, flavour: string, aliases?: string[]): RecipeEntry => ({
+	dishName,
+	aliases,
+	category: "Milkshakes",
+	yieldNote: "300ml glass",
+	rows: [
+		r(`${flavour} ice cream`, "3 large scoops (~220g) + 1 scoop for topping"),
+		r("Milk", "40ml"),
+		r("Glass", "300ml with glass lid"),
+		r("Aluminium foil", "1 sheet"),
+		r("Thick straw", "1"),
+	],
+	steps: THICK_SHAKE_STEPS,
+});
+
+const SMOOTHIE_NOTE = "If using normal curd instead of hung curd: 60ml milk + 60ml curd.";
+const smoothie = (dishName: string, category: string, fruit: string, yieldNote: string, extra: RecipeRow[] = [], aliases?: string[]): RecipeEntry => ({
+	dishName,
+	aliases,
+	category,
+	yieldNote,
+	rows: [
+		r(fruit, "35g"),
+		r("Ripe banana", "½ (or 50g)"),
+		r("Milk", "80g"),
+		r("Hung curd", "40g"),
+		r("Honey", "10g"),
+		...extra,
+	],
+	steps: ["Blend until smooth."],
+	notes: [SMOOTHIE_NOTE],
+});
 
 /** Curated kitchen cards — dressings, salads, wraps, pasta, oats, juices, shakes, smoothies. */
 export const RECIPE_BOOK: RecipeEntry[] = [
@@ -62,92 +151,109 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 	{
 		dishName: CAESAR_MAYO,
 		category: "Dressings",
-		yieldNote: "1 serve · 3 serves · 6 serves",
-		ingredients: [
-			"Unsweetened mayo — 34g · 102g · 204g",
-			"Extra virgin olive oil — 7.5ml · 22.5ml · 45ml",
-			"Concentrated lemon juice — 3ml · 9ml · 18ml",
-			"Worcestershire sauce — 1.5ml · 4.5ml · 9ml",
-			"Dijon mustard — 3g · 9g · 18g",
-			"Garlic powder — ¼ tsp (0.8g) · ¾ tsp (2.3g) · 1½ tsp (4.7g)",
-			"Black pepper — ¼ tsp (0.6g) · ¾ tsp (1.7g) · 1½ tsp (3.5g)",
-			"Water — 10ml · 30ml · 60ml",
-			"Salt — to taste · 1.5g · 3g",
-			"Synthetic vinegar (optional) — 2ml · 6ml · 12ml",
-		].join("\n"),
-		method: "Whisk everything until smooth and pourable. Chill. Portion into 50ml cups.",
+		yieldNote: "Portion into 50ml cups",
+		columns: SERVE_COLS,
+		rows: [
+			r("Unsweetened mayo", "34g", "102g", "204g"),
+			r("Extra virgin olive oil", "7.5ml", "22.5ml", "45ml"),
+			r("Concentrated lemon juice", "3ml", "9ml", "18ml"),
+			r("Worcestershire sauce", "1.5ml", "4.5ml", "9ml"),
+			r("Dijon mustard", "3g", "9g", "18g"),
+			r("Garlic powder", "¼ tsp (0.8g)", "¾ tsp (2.3g)", "1½ tsp (4.7g)"),
+			r("Black pepper", "¼ tsp (0.6g)", "¾ tsp (1.7g)", "1½ tsp (3.5g)"),
+			r("Water", "10ml", "30ml", "60ml"),
+			r("Salt", "to taste", "1.5g", "3g"),
+			r("Synthetic vinegar (optional)", "2ml", "6ml", "12ml"),
+		],
+		steps: ["Whisk everything until smooth and pourable.", "Chill.", "Portion into 50ml cups."],
 	},
 	{
 		dishName: CAESAR_CURD,
 		category: "Dressings",
-		yieldNote: "3 serves · 1 serve",
-		ingredients: [
-			"Hung curd — 140g · 45g",
-			"Mayo — 75g · 25g",
-			"Parmesan — 30g · 5g",
-			"Lemon juice — 15ml · 5ml",
-			"Extra virgin olive oil — 22ml · 7.5ml",
-			"Soy sauce — 5ml · 1.5ml",
-			"Dijon mustard — 7.5g · 2.5g (½ tsp)",
-			"Garlic, grated — 3 cloves · 1 clove",
-			"Black pepper — ¾ tsp · ¼ tsp",
-			"Salt — ¼ tsp · to taste",
-			"Water — only if needed",
-		].join("\n"),
-		method: "Whisk curd and mayo smooth, then mix in the rest. Thin with water only if needed. Chill. Portion into 50ml cups.",
+		yieldNote: "Portion into 50ml cups",
+		columns: ["1 serve", "3 serves"],
+		rows: [
+			r("Hung curd", "45g", "140g"),
+			r("Mayo", "25g", "75g"),
+			r("Parmesan", "5g", "30g"),
+			r("Lemon juice", "5ml", "15ml"),
+			r("Extra virgin olive oil", "7.5ml", "22ml"),
+			r("Soy sauce", "1.5ml", "5ml"),
+			r("Dijon mustard", "2.5g (½ tsp)", "7.5g"),
+			r("Garlic, grated", "1 clove", "3 cloves"),
+			r("Black pepper", "¼ tsp", "¾ tsp"),
+			r("Salt", "to taste", "¼ tsp"),
+			r("Water", "only if needed", "only if needed"),
+		],
+		steps: [
+			"Whisk the curd and mayo smooth.",
+			"Mix in the remaining ingredients.",
+			"Thin with water only if needed.",
+			"Chill and portion into 50ml cups.",
+		],
 	},
 	{
 		dishName: YOGURT_DRESSING,
 		category: "Dressings",
-		yieldNote: "1 serve ≈ 100ml · shared by Chickpea, Soya Chunk and Rajma salads",
-		ingredients: [
-			"Hung yogurt — 100ml",
-			"Black pepper — ½ tsp",
-			"Salt — ½ tsp",
-			"Cumin powder — ½ tsp",
-			"Chilli powder — ½ tsp (a little)",
-			"Garlic — 1 clove",
-			"Honey — 1 tsp",
-			"Lemon — ½ tsp",
-			"Optional for creaminess: 3–4 soaked cashews or paneer cubes",
-		].join("\n"),
-		method: "Blend or whisk until smooth. Chill. Portion into 50ml cups.",
+		yieldNote: "1 serve ≈ 100ml · shared by chickpea, soya chunk and rajma salads",
+		columns: ["1 serve"],
+		rows: [
+			r("Hung yogurt", "100ml"),
+			r("Black pepper", "½ tsp"),
+			r("Salt", "½ tsp"),
+			r("Cumin powder", "½ tsp"),
+			r("Chilli powder", "½ tsp (a little)"),
+			r("Garlic", "1 clove"),
+			r("Honey", "1 tsp"),
+			r("Lemon", "½ tsp"),
+		],
+		steps: ["Blend or whisk until smooth.", "Chill.", "Portion into 50ml cups."],
+		notes: ["For extra creaminess add 3–4 soaked cashews or paneer cubes."],
 	},
 	{
 		dishName: LEMON_HERB,
 		category: "Dressings",
-		yieldNote: "1 serve (100ml) · 6 serves",
-		ingredients: [
-			"Oil — 64g · 384g",
-			"Lemon juice concentrate — 24g · 144g",
-			"Dijon mustard — 6g · 36g",
-			"Honey — 10g · 30g",
-			"Oregano, dried — 1g · 6g",
-			"Salt & black pepper — 1g · 6g",
-		].join("\n"),
-		method: "Whisk or shake in a jar until emulsified. Shake again before every fill. Portion into 50ml cups.",
+		yieldNote: "100ml per serve · portion into 50ml cups",
+		columns: ["1 serve", "6 serves"],
+		rows: [
+			r("Oil", "64g", "384g"),
+			r("Lemon juice concentrate", "24g", "144g"),
+			r("Dijon mustard", "6g", "36g"),
+			r("Honey", "10g", "30g"),
+			r("Oregano, dried", "1g", "6g"),
+			r("Salt & black pepper", "1g", "6g"),
+		],
+		steps: ["Whisk or shake in a jar until emulsified.", "Shake again before every fill.", "Portion into 50ml cups."],
 	},
 	{
 		dishName: APPLE_CIDER_HERB,
 		category: "Dressings",
-		yieldNote: "1 serve (100ml) · 6 serves",
-		ingredients: [
-			"Oil — 64g · 384g",
-			"Apple cider vinegar — 24g · 144g",
-			"Dijon mustard — 6g · 36g",
-			"Honey — 10g · 50g",
-			"Oregano, dried — 1g · 3g",
-			"Salt & pepper — 1g · 6g",
-			"Parsley, dried — 1g · 6g",
-		].join("\n"),
-		method: "Whisk or shake in a jar until emulsified. Shake again before every fill. Portion into 50ml cups.",
+		yieldNote: "100ml per serve · portion into 50ml cups",
+		columns: ["1 serve", "6 serves"],
+		rows: [
+			r("Oil", "64g", "384g"),
+			r("Apple cider vinegar", "24g", "144g"),
+			r("Dijon mustard", "6g", "36g"),
+			r("Honey", "10g", "50g"),
+			r("Oregano, dried", "1g", "3g"),
+			r("Salt & pepper", "1g", "6g"),
+			r("Parsley, dried", "1g", "6g"),
+		],
+		steps: ["Whisk or shake in a jar until emulsified.", "Shake again before every fill.", "Portion into 50ml cups."],
 	},
 	{
 		dishName: CITRUS,
 		category: "Dressings",
-		yieldNote: "Batch ~1L",
-		ingredients: "Orange juice 350ml · lemon 150ml · oil 550ml · honey 2 tbsp · salt · pepper",
-		method: "Whisk juices + honey, stream in oil. Chill. Portion into 50ml cups.",
+		yieldNote: "Batch ~1L · portion into 50ml cups",
+		columns: ["Batch"],
+		rows: [
+			r("Orange juice", "350ml"),
+			r("Lemon juice", "150ml"),
+			r("Oil", "550ml"),
+			r("Honey", "2 tbsp"),
+			r("Salt & pepper", "to taste"),
+		],
+		steps: ["Whisk the juices with the honey.", "Stream in the oil.", "Chill and portion into 50ml cups."],
 	},
 
 	// ── Salads ────────────────────────────────────────────────────────────────
@@ -155,122 +261,168 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		dishName: "Veg Caesar Salad",
 		aliases: ["Paneer Caesar Salad", "Caesar Salad (Veg)"],
 		category: "Salads",
-		yieldNote: "Large 750ml bowl · small / medium 500ml bowl · dressing in 50ml cups",
-		ingredients: sized(
-			"Cos lettuce 70g · cherry tomato 6 pcs · olives 10g · croutons 10g · yellow capsicum 30g · paneer / tofu 100g · mixed seeds 10–20g · Caesar dressing 100ml",
-			"Cos lettuce 42g · cherry tomato 4 pcs · olives 6g · croutons 6g · yellow capsicum 18g · paneer / tofu 60g · mixed seeds 6–12g · Caesar dressing 50ml",
-		),
-		method: `${PANEER_COOK}\nBuild greens first, then veg, paneer, croutons and seeds on top.\n${DRESSING_CUPS}`,
+		yieldNote: "Large 750ml bowl · small / medium 500ml bowl",
+		columns: SALAD_COLS,
+		rows: [
+			h("Greens & veg"),
+			r("Cos lettuce", "70g", "42g"),
+			r("Cherry tomato", "6 pcs", "4 pcs"),
+			r("Olives", "10g", "6g"),
+			r("Yellow capsicum", "30g", "18g"),
+			h("Protein & toppings"),
+			r("Paneer / tofu", "100g", "60g"),
+			r("Croutons", "10g", "6g"),
+			r("Mixed seeds", "10–20g", "6–12g"),
+			h("Dressing"),
+			r("Caesar dressing (50ml cups)", "100ml · 2 cups", "50ml · 1 cup"),
+		],
+		steps: ["Cook the paneer (steps below).", "Build the greens first, then veg, paneer, croutons and seeds on top.", "Pack the dressing on the side."],
+		notes: [...PANEER_STEPS.map((s) => `Paneer: ${s}`), SALAD_DRESSING_NOTE],
 		dressings: [CAESAR_MAYO, CAESAR_CURD],
 	},
 	{
 		dishName: "Chicken Caesar Salad",
 		aliases: ["Caesar Salad (Chicken)", "Caesar Chicken Salad"],
 		category: "Salads",
-		yieldNote: "Large 750ml bowl · small / medium 500ml bowl · dressing in 50ml cups",
-		ingredients: sized(
-			"Chicken breast 120–130g (raw) · cos lettuce 70g · cherry tomato 6 pcs · olives 10g · croutons 10g · yellow capsicum 30g · mixed seeds 10–20g · Caesar dressing 100ml",
-			"Chicken breast 80g (raw) · cos lettuce 42g · cherry tomato 4 pcs · olives 6g · croutons 6g · yellow capsicum 18g · mixed seeds 6–12g · Caesar dressing 50ml",
-		),
-		method: `${CHICKEN_GRILL}\nBuild greens first, then veg, sliced chicken, croutons and seeds on top.\n${DRESSING_CUPS}`,
+		yieldNote: "Large 750ml bowl · small / medium 500ml bowl",
+		columns: SALAD_COLS,
+		rows: [
+			h("Protein"),
+			r("Chicken breast (raw)", "120–130g", "80g"),
+			h("Greens & veg"),
+			r("Cos lettuce", "70g", "42g"),
+			r("Cherry tomato", "6 pcs", "4 pcs"),
+			r("Olives", "10g", "6g"),
+			r("Yellow capsicum", "30g", "18g"),
+			h("Toppings"),
+			r("Croutons", "10g", "6g"),
+			r("Mixed seeds", "10–20g", "6–12g"),
+			h("Dressing"),
+			r("Caesar dressing (50ml cups)", "100ml · 2 cups", "50ml · 1 cup"),
+		],
+		steps: [...CHICKEN_STEPS, "Build the greens first, then veg, sliced chicken, croutons and seeds on top.", "Pack the dressing on the side."],
+		notes: [SALAD_DRESSING_NOTE],
 		dressings: [CAESAR_MAYO, CAESAR_CURD],
 	},
 	{
 		dishName: "Grilled Chicken Salad",
 		category: "Salads",
-		yieldNote: "Large 750ml bowl · small / medium 500ml bowl · dressing in 50ml cups",
-		ingredients: sized(
-			"Chicken breast 120–130g (raw) · romaine lettuce 70g · tomato 30g · capsicum 30g · cucumber 20g · onion 10g · shredded cheese 20g · mixed seeds 10–20g · Lemon & herb dressing 100ml",
-			"Chicken breast 80g (raw) · romaine lettuce 42g · tomato 18g · capsicum 18g · cucumber 12g · onion 6g · shredded cheese 12g · mixed seeds 6–12g · Lemon & herb dressing 50ml",
-		),
-		method: `${CHICKEN_GRILL}\nBuild greens first, then veg, sliced chicken, cheese and seeds on top.\n${DRESSING_CUPS}`,
+		yieldNote: "Large 750ml bowl · small / medium 500ml bowl",
+		columns: SALAD_COLS,
+		rows: [
+			h("Protein"),
+			r("Chicken breast (raw)", "120–130g", "80g"),
+			h("Greens & veg"),
+			r("Romaine lettuce", "70g", "42g"),
+			r("Tomato", "30g", "18g"),
+			r("Capsicum", "30g", "18g"),
+			r("Cucumber", "20g", "12g"),
+			r("Onion", "10g", "6g"),
+			h("Toppings"),
+			r("Shredded cheese", "20g", "12g"),
+			r("Mixed seeds", "10–20g", "6–12g"),
+			h("Dressing"),
+			r("Lemon & herb dressing (50ml cups)", "100ml · 2 cups", "50ml · 1 cup"),
+		],
+		steps: [...CHICKEN_STEPS, "Build the greens first, then veg, sliced chicken, cheese and seeds on top.", "Pack the dressing on the side."],
+		notes: [SALAD_DRESSING_NOTE],
 		dressings: [LEMON_HERB],
 	},
-	{
-		dishName: "Chickpea Salad",
-		category: "Salads",
-		yieldNote: "Large ~400g in 750ml bowl · small / medium 500ml bowl · yogurt dressing",
-		ingredients: sized(
-			"Cooked chickpeas 150g (from 60g dry · ~10.6g protein) · romaine lettuce 50g · tomato 30g · cucumber 30g · capsicum 20g · roasted peanuts 20g · Yogurt dressing 100ml",
-			"Cooked chickpeas 90g (from 36g dry) · romaine lettuce 30g · tomato 18g · cucumber 18g · capsicum 12g · roasted peanuts 12g · Yogurt dressing 50ml",
-		),
-		method: `${legumeCook("Chickpeas")}\n${DRESSING_CUPS}`,
-		dressings: [YOGURT_DRESSING],
-	},
-	{
-		dishName: "Rajma Salad",
-		category: "Salads",
-		yieldNote: "Large ~400g in 750ml bowl · small / medium 500ml bowl · yogurt dressing",
-		ingredients: sized(
-			"Cooked rajma 150g (from 60g dry · ~10.6g protein) · romaine lettuce 50g · tomato 30g · cucumber 30g · capsicum 20g · roasted peanuts 20g · Yogurt dressing 100ml",
-			"Cooked rajma 90g (from 36g dry) · romaine lettuce 30g · tomato 18g · cucumber 18g · capsicum 12g · roasted peanuts 12g · Yogurt dressing 50ml",
-		),
-		method: `${legumeCook("Rajma")}\n${DRESSING_CUPS}`,
-		dressings: [YOGURT_DRESSING],
-	},
+	legumeSalad("Chickpeas", "Chickpea Salad"),
+	legumeSalad("Rajma", "Rajma Salad"),
 	{
 		dishName: "Soya Chunks Salad",
 		aliases: ["Soya Chunk Salad", "Mini Soya Chunk Salad"],
 		category: "Salads",
-		yieldNote: "Large ~400g in 750ml bowl · small / medium 500ml bowl · yogurt dressing",
-		ingredients: sized(
-			"Hydrated & squeezed mini soya 150g (from 50g dry · ~21g protein) · romaine lettuce 50g · tomato 30g · cucumber 30g · capsicum 20g · roasted peanuts 20g · Yogurt dressing 100ml",
-			"Hydrated & squeezed mini soya 90g (from 30g dry) · romaine lettuce 30g · tomato 18g · cucumber 18g · capsicum 12g · roasted peanuts 12g · Yogurt dressing 50ml",
-		),
-		method: `Soya: boil mini soya chunks in water with 1 tsp salt for 3 min on gas. Drain, rinse in cool water and squeeze out 80–90% of the water.\n${DRESSING_CUPS}`,
+		yieldNote: "Large ~400g in a 750ml bowl · small / medium in a 500ml bowl",
+		columns: SALAD_COLS,
+		rows: [
+			h("Base"),
+			r("Mini soya chunks, dry", "50g", "30g"),
+			r("Soya, hydrated & squeezed", "150g (21g protein)", "90g"),
+			h("Veg & toppings"),
+			r("Romaine lettuce", "50g", "30g"),
+			r("Tomato", "30g", "18g"),
+			r("Cucumber", "30g", "18g"),
+			r("Capsicum", "20g", "12g"),
+			r("Roasted peanuts", "20g", "12g"),
+			h("Dressing"),
+			r("Yogurt dressing (50ml cups)", "100ml · 2 cups", "50ml · 1 cup"),
+		],
+		steps: [
+			"Boil the soya chunks in water with 1 tsp salt for 3 min on gas.",
+			"Drain and rinse in cool water.",
+			"Squeeze out 80–90% of the water.",
+			"Build the salad and pack the dressing on the side.",
+		],
+		notes: [SALAD_DRESSING_NOTE],
 		dressings: [YOGURT_DRESSING],
-	},
-	{
-		dishName: "Soya Salad",
-		category: "Salads",
-		yieldNote: "230g + 100ml dressing",
-		ingredients: "Soya 150g (cooked) · carrot 20g · cucumber 40g · tomato 40g · romaine lettuce 20g · roasted peanuts 20 pcs · Yogurt dressing 100ml",
-		method:
-			"Soya cooking (40g dry soya): boil in 500ml water with salt for 6 min on high. Drain, wash in cool water and squeeze out 80–90% of the water. Pan-fry 2–3 min with salt, turmeric, chilli and a little oil.",
-		dressings: [YOGURT_DRESSING],
-	},
-	{
-		dishName: "Cucumber Chickpea Salad",
-		category: "Salads",
-		yieldNote: "1 serve",
-		ingredients: "Cooked chickpeas 100g · cucumber 150g · tomato 50g · coriander 2 tbsp · salt, pepper, cumin powder + curd 30g",
-		method: `${legumeCook("Chickpeas")}\nMix curd with salt, pepper and cumin; toss with chickpeas, cucumber, tomato and coriander.`,
 	},
 	{
 		dishName: "Tuna Salad",
 		category: "Salads",
-		yieldNote: "Large 750ml bowl · small / medium 500ml bowl · dressing in 50ml cups",
-		ingredients: sized(
-			"Lettuce 140g · tuna, drained 90g · cherry tomato 50g · cucumber 50g · mixed seeds 10–20g · Apple cider & herb dressing 100ml",
-			"Lettuce 84g · tuna, drained 54g · cherry tomato 30g · cucumber 30g · mixed seeds 6–12g · Apple cider & herb dressing 50ml",
-		),
-		method: `Tuna: open the can slightly and drain all the water or oil out first, then use as per the recipe.\n${DRESSING_CUPS}`,
+		yieldNote: "Large 750ml bowl · small / medium 500ml bowl",
+		columns: SALAD_COLS,
+		rows: [
+			r("Lettuce", "140g", "84g"),
+			r("Tuna, drained", "90g", "54g"),
+			r("Cherry tomato", "50g", "30g"),
+			r("Cucumber", "50g", "30g"),
+			r("Mixed seeds", "10–20g", "6–12g"),
+			r("Apple cider & herb dressing (50ml cups)", "100ml · 2 cups", "50ml · 1 cup"),
+		],
+		steps: [
+			"Open the tuna can slightly and drain all the water or oil out first.",
+			"Build the salad with the drained tuna.",
+			"Pack the dressing on the side.",
+		],
+		notes: [SALAD_DRESSING_NOTE],
 		dressings: [APPLE_CIDER_HERB],
 	},
 	{
 		dishName: "Quinoa Paneer Salad",
 		category: "Salads",
-		yieldNote: "Large 750ml bowl · small / medium 500ml bowl · dressing in 50ml cups",
-		ingredients: sized(
-			"Cooked quinoa 110g · paneer 90g · cucumber 50g · tomato 50g · greens 40g · Citrus dressing 100ml",
-			"Cooked quinoa 66g · paneer 54g · cucumber 30g · tomato 30g · greens 24g · Citrus dressing 50ml",
-		),
-		method: `Cook quinoa once (40g dry ≈ 110–120g cooked).\n${PANEER_COOK}\n${DRESSING_CUPS}`,
+		yieldNote: "Large 750ml bowl · small / medium 500ml bowl",
+		columns: SALAD_COLS,
+		rows: [
+			r("Cooked quinoa", "110g", "66g"),
+			r("Paneer", "90g", "54g"),
+			r("Cucumber", "50g", "30g"),
+			r("Tomato", "50g", "30g"),
+			r("Greens", "40g", "24g"),
+			r("Citrus dressing (50ml cups)", "100ml · 2 cups", "50ml · 1 cup"),
+		],
+		steps: ["Cook the quinoa once (40g dry ≈ 110–120g cooked).", ...PANEER_STEPS, "Build the salad and pack the dressing on the side."],
+		notes: [SALAD_DRESSING_NOTE],
 		dressings: [CITRUS],
 	},
 	{
 		dishName: "Egg Salad",
 		category: "Salads",
 		yieldNote: "Bowl ~330g",
-		ingredients: "Lettuce 150g · boiled eggs 2 (~110–120g) · spring onion 20g · cherry tomato 40g",
-		method: "Batch-boil eggs, ice shock, peel when cool. Assemble cold. Side dressing.",
+		columns: ["Qty"],
+		rows: [
+			r("Lettuce", "150g"),
+			r("Boiled eggs", "2 (~110–120g)"),
+			r("Spring onion", "20g"),
+			r("Cherry tomato", "40g"),
+		],
+		steps: ["Batch-boil the eggs, ice shock and peel when cool.", "Assemble cold.", "Pack the dressing on the side."],
 	},
 	{
 		dishName: "Quinoa Avocado Salad",
 		category: "Salads",
-		yieldNote: "Bowl ~340g · citrus cup",
-		ingredients: "Cooked quinoa 120g · avocado 80g · cherry tomato 50g · cucumber 50g · greens 40g · citrus cup",
-		method: "Cut avocado last to avoid browning; lemon on cut face if holding 10+ min.",
+		yieldNote: "Bowl ~340g",
+		columns: ["Qty"],
+		rows: [
+			r("Cooked quinoa", "120g"),
+			r("Avocado", "80g"),
+			r("Cherry tomato", "50g"),
+			r("Cucumber", "50g"),
+			r("Greens", "40g"),
+			r("Citrus dressing (50ml cup)", "1 cup"),
+		],
+		steps: ["Cut the avocado last to avoid browning.", "Squeeze lemon on the cut face if holding for 10+ min."],
 		dressings: [CITRUS],
 	},
 
@@ -279,47 +431,86 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		dishName: "Paneer Tortilla Wrap",
 		category: "Wraps & Bowls",
 		yieldNote: "1 wrap",
-		ingredients:
-			"Wheat tortilla 1 · paneer 70g · iceberg lettuce 60–70g · tomato 15g · bell peppers 15g · shredded cheese 15g · tomato sauce 1 sachet\nPaneer marinade: mixed herbs, or oregano + a little chilli flakes + parsley",
-		method: [
-			PANEER_COOK,
-			"After cooking, add a little diluted lemon juice on the stove, mix and add a little salt.",
-			"Heat the wrap for 20 seconds. Fill with lettuce, paneer, tomato, bell peppers and cheese, then roll.",
+		columns: ["Qty"],
+		rows: [
+			r("Wheat tortilla", "1"),
+			r("Paneer", "70g"),
+			r("Iceberg lettuce", "60–70g"),
+			r("Tomato", "15g"),
+			r("Bell peppers", "15g"),
+			r("Shredded cheese", "15g"),
+			r("Tomato sauce", "1 sachet (in the bag)"),
+		],
+		steps: [
+			"Marinate the paneer with mixed herbs, or oregano + a little chilli flakes + parsley.",
+			"Cook on low flame for 2–3 min with the lid on until soft and spongy.",
+			"After cooking add a little diluted lemon juice on the stove, mix and add a little salt.",
+			"Heat the wrap for 20 seconds.",
+			"Fill with lettuce, paneer, tomato, bell peppers and cheese, then roll.",
 			"Put one tomato sauce sachet in the bag.",
-		].join("\n"),
+		],
 	},
 	{
 		dishName: "Caesar Chicken Tortilla Wrap",
 		aliases: ["Chicken Tortilla Wrap"],
 		category: "Wraps & Bowls",
 		yieldNote: "1 wrap",
-		ingredients: [
-			"Wheat tortilla 1 · chicken breast 70g · iceberg lettuce 40g · capsicum · shredded cheese · tomato ketchup 1 sachet",
-			"Chicken marinade: Cajun spice 2 tsp · diluted lemon juice 5ml · yogurt ½ tbsp",
-			"Herb mayo: mayo 60g · salt & pepper · oregano · parsley · a little water or diluted lime to thin if needed",
-		].join("\n"),
-		method: [
-			"Marinate chicken with Cajun spice and diluted lemon juice, then mix with yogurt.",
-			"Cook the chicken uncut along with the capsicum until it reaches 71°C. Slice into strips after cooking.",
-			"Warm the tortilla, spread herb mayo, add lettuce, chicken, capsicum and shredded cheese.",
-			"Roll and cook on the grill on both sides. Wrap in paper and send with 1 ketchup sachet.",
-		].join("\n"),
+		columns: ["Qty"],
+		rows: [
+			h("Wrap"),
+			r("Wheat tortilla", "1"),
+			r("Iceberg lettuce", "40g"),
+			r("Capsicum", "to fill"),
+			r("Shredded cheese", "to fill"),
+			r("Tomato ketchup", "1 sachet (in the bag)"),
+			h("Chicken & marinade"),
+			r("Chicken breast", "70g"),
+			r("Cajun spice", "2 tsp"),
+			r("Diluted lemon juice", "5ml"),
+			r("Yogurt", "½ tbsp"),
+			h("Herb mayo"),
+			r("Mayo", "60g"),
+			r("Salt, pepper, oregano, parsley", "to taste"),
+			r("Water or diluted lime", "a little, to thin"),
+		],
+		steps: [
+			"Marinate the chicken with Cajun spice and diluted lemon juice, then mix with the yogurt.",
+			"Cook the chicken uncut along with the capsicum until it reaches 71°C.",
+			"Slice the chicken into strips after cooking.",
+			"Warm the tortilla and spread the herb mayo.",
+			"Add lettuce, chicken, capsicum and shredded cheese.",
+			"Roll and cook on the grill on both sides.",
+			"Wrap in paper and send with 1 ketchup sachet.",
+		],
 	},
 	{
 		dishName: "Double Egg Roll",
 		aliases: ["Double Egg Wrap"],
 		category: "Wraps & Bowls",
 		yieldNote: "1 wrap",
-		ingredients: "Wheat paratha/wrap 1 (70–80g) · eggs 2 · onion 40g · spices · lemon · optional mayo 15g",
-		method: "Scramble eggs with onion on flat top; roll in warm wrap with lemon squeeze.",
+		columns: ["Qty"],
+		rows: [
+			r("Wheat paratha / wrap", "1 (70–80g)"),
+			r("Eggs", "2"),
+			r("Onion", "40g"),
+			r("Spices & lemon", "to taste"),
+			r("Mayo (optional)", "15g"),
+		],
+		steps: ["Scramble the eggs with the onion on the flat top.", "Roll in a warm wrap with a squeeze of lemon."],
 	},
 	{
 		dishName: "Tomato Mutti Rice Bowl",
 		aliases: ["Tomato Mutti Wrap", "Tomato Mutti Bowl", "Tomato Mutti Wrap/Bowl"],
 		category: "Wraps & Bowls",
 		yieldNote: "Bowl or wrap fill",
-		ingredients: "Tomato mutti gravy 100g · spiced base/veg 80–100g · rice 150g cooked OR wrap 1",
-		method: "Reheat gravy + rice; assemble bowl hot. For wrap, reduce gravy so it doesn’t soak.",
+		columns: ["Qty"],
+		rows: [
+			r("Tomato mutti gravy", "100g"),
+			r("Spiced base / veg", "80–100g"),
+			r("Cooked rice (bowl)", "150g"),
+			r("Wrap (instead of rice)", "1"),
+		],
+		steps: ["Reheat the gravy and rice.", "Assemble the bowl hot.", "For a wrap, reduce the gravy so it doesn't soak through."],
 	},
 
 	// ── Pasta bowls ───────────────────────────────────────────────────────────
@@ -327,24 +518,39 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		dishName: "Veg Pasta Bowl",
 		category: "Pasta Bowls",
 		yieldNote: "500ml bowl",
-		ingredients: "Pasta 80–90g (dry) · water 1½ cups · Cajun cream pasta base · mushroom, bell peppers, capsicum",
-		method: [
-			"Cook pasta in the electric pressure cooker with 1½ cups water for 5 min. Drain the water out.",
-			"Meanwhile, cook the cream pasta base with the veg in the Nosh machine (as per the Cajun pasta recipe).",
-			"Mix the drained pasta into the cream base and serve in a 500ml bowl.",
-		].join("\n"),
+		columns: ["Qty"],
+		rows: [
+			r("Pasta, dry", "80–90g"),
+			r("Water (pressure cooker)", "1½ cups"),
+			r("Cajun cream pasta base", "as per Cajun pasta recipe"),
+			r("Mushroom, bell peppers, capsicum", "as per menu"),
+		],
+		steps: [
+			"Cook the pasta in the electric pressure cooker with 1½ cups water for 5 min, then drain.",
+			"Meanwhile cook the cream pasta base with the veg in the Nosh machine (Cajun pasta recipe).",
+			"Mix the drained pasta into the cream base.",
+			"Serve in a 500ml bowl.",
+		],
 	},
 	{
 		dishName: "Chicken Pasta Bowl",
 		category: "Pasta Bowls",
 		yieldNote: "500ml bowl",
-		ingredients: "Pasta 80–90g (dry) · water 1½ cups · Cajun cream pasta base · Cajun grilled chicken · mushroom, bell peppers, capsicum",
-		method: [
-			CHICKEN_GRILL,
-			"Cook pasta in the electric pressure cooker with 1½ cups water for 5 min. Drain the water out.",
-			"Meanwhile, cook the cream pasta base with the veg in the Nosh machine (as per the Cajun pasta recipe).",
-			"Mix the drained pasta and chicken into the cream base and serve in a 500ml bowl.",
-		].join("\n"),
+		columns: ["Qty"],
+		rows: [
+			r("Pasta, dry", "80–90g"),
+			r("Water (pressure cooker)", "1½ cups"),
+			r("Cajun grilled chicken", "as per menu"),
+			r("Cajun cream pasta base", "as per Cajun pasta recipe"),
+			r("Mushroom, bell peppers, capsicum", "as per menu"),
+		],
+		steps: [
+			...CHICKEN_STEPS,
+			"Cook the pasta in the electric pressure cooker with 1½ cups water for 5 min, then drain.",
+			"Meanwhile cook the cream pasta base with the veg in the Nosh machine (Cajun pasta recipe).",
+			"Mix the drained pasta and chicken into the cream base.",
+			"Serve in a 500ml bowl.",
+		],
 	},
 
 	// ── Snacks ────────────────────────────────────────────────────────────────
@@ -352,36 +558,55 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		dishName: "Cajun Grilled Chicken",
 		category: "Snacks",
 		yieldNote: "1 serve",
-		ingredients: "Boneless chicken breast · Cajun spice marinade",
-		method: CHICKEN_GRILL,
+		rows: [r("Boneless chicken breast", "1 serve"), r("Cajun spice marinade", "to coat")],
+		steps: CHICKEN_STEPS,
 	},
 	{
 		dishName: "Peri Peri Grilled Paneer",
 		category: "Snacks",
 		yieldNote: "1 serve",
-		ingredients: "Paneer cubes · peri peri spice marinade",
-		method: PANEER_COOK,
+		rows: [r("Paneer cubes", "1 serve"), r("Peri peri spice marinade", "to coat")],
+		steps: PANEER_STEPS,
 	},
 	{
 		dishName: "Cilantro Grill Paneer",
 		category: "Snacks",
 		yieldNote: "1 serve",
-		ingredients: "Paneer cubes · crushed cilantro, minced garlic and green chilli marinade",
-		method: PANEER_COOK,
+		rows: [r("Paneer cubes", "1 serve"), r("Crushed cilantro, minced garlic, green chilli marinade", "to coat")],
+		steps: PANEER_STEPS,
 	},
 	{
 		dishName: "Paneer Crunch Snack",
 		category: "Snacks",
 		yieldNote: "1 serve",
-		ingredients: "Paneer 60–70g · tomato 4 slices · onion 2 slices · cheese 1 slice · tomato sauce 20g",
-		method: PANEER_COOK,
+		rows: [
+			r("Paneer", "60–70g"),
+			r("Tomato", "4 slices"),
+			r("Onion", "2 slices"),
+			r("Cheese", "1 slice"),
+			r("Tomato sauce", "20g"),
+		],
+		steps: PANEER_STEPS,
 	},
 	{
 		dishName: "Rice Kheer",
 		category: "Desserts",
 		yieldNote: "1 serve",
-		ingredients: "Rice 100g · milk 150g · cream 20g · raisins (kismis) 8 pcs · almonds (badam) 2 pcs · cashews 2 pcs · jaggery (bellam)",
-		method: "Tadka the almonds and cashews. Add milk and bring to a boil. Add jaggery, then the rice. Finish with cream.",
+		rows: [
+			r("Rice", "100g"),
+			r("Milk", "150g"),
+			r("Cream", "20g"),
+			r("Raisins (kismis)", "8 pcs"),
+			r("Almonds (badam)", "2 pcs"),
+			r("Cashews", "2 pcs"),
+			r("Jaggery (bellam)", "to taste"),
+		],
+		steps: [
+			"Tadka the almonds and cashews.",
+			"Add the milk and bring to a boil.",
+			"Add the jaggery, then the rice.",
+			"Finish with the cream.",
+		],
 	},
 
 	// ── Overnight oats & chia ─────────────────────────────────────────────────
@@ -390,46 +615,94 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		aliases: ["Overnight Oats With Dry Fruits", "Overnight oats with dry fruits"],
 		category: "Overnight Oats",
 		yieldNote: "1 jar · soak overnight",
-		ingredients:
-			"Rolled oats 40g · milk 115ml · chia base (chia 15g + milk 100ml) · berries 10g · honey 5g · dry fruits & nuts on top (as per menu)",
-		method: "Mix oats with milk, stir in the chia base and honey. Refrigerate overnight. Top with berries, dry fruits and nuts before sealing.",
+		columns: ["Qty"],
+		rows: [
+			r("Rolled oats", "40g"),
+			r("Milk", "115ml"),
+			r("Chia base", "chia 15g + milk 100ml"),
+			r("Berries", "10g"),
+			r("Honey", "5g"),
+			r("Dry fruits & nuts (topping)", "as per menu"),
+		],
+		steps: [
+			"Mix the oats with the milk.",
+			"Stir in the chia base and honey.",
+			"Refrigerate overnight.",
+			"Top with berries, dry fruits and nuts before sealing.",
+		],
 	},
 	{
 		dishName: "Chia Pudding With Dry Fruits",
 		aliases: ["Chia Pudding"],
 		category: "Overnight Oats",
 		yieldNote: "1 serve",
-		ingredients: "Chia 25g · milk 135ml · honey 5g · dry fruits, mixed berries & granola crunch on top (as per menu)",
-		method: "Mix chia, milk and honey. Refrigerate until set. Top with dry fruits, berries and granola before sealing.",
+		columns: ["Qty"],
+		rows: [
+			r("Chia seeds", "25g"),
+			r("Milk", "135ml"),
+			r("Honey", "5g"),
+			r("Dry fruits, mixed berries, granola crunch (topping)", "as per menu"),
+		],
+		steps: ["Mix the chia, milk and honey.", "Refrigerate until set.", "Top with dry fruits, berries and granola before sealing."],
 	},
 	{
 		dishName: "Chia Jam Overnight Oats",
 		category: "Overnight Oats",
 		yieldNote: "Jar finished weight 250–280g · soak 6–8h",
-		ingredients: "Rolled oats 60g · chilled milk 155ml · chia 8g · fruit jam 25g · honey 8g",
-		method: "Mix night before in cold bain. Weigh to 250–280g before seal. Serve cold.",
+		columns: ["Qty"],
+		rows: [
+			r("Rolled oats", "60g"),
+			r("Chilled milk", "155ml"),
+			r("Chia", "8g"),
+			r("Fruit jam", "25g"),
+			r("Honey", "8g"),
+		],
+		steps: ["Mix the night before.", "Weigh to 250–280g before sealing.", "Serve cold."],
 	},
 	{
 		dishName: "Mango Chia Overnight Oats",
 		category: "Overnight Oats",
 		yieldNote: "250–280g",
-		ingredients: "Rolled oats 55g · milk 150ml · chia 8g · mango 70g · honey 10g",
-		method: "Mix oats+milk+chia+honey; fold mango. Soak cold. Weigh jar.",
+		columns: ["Qty"],
+		rows: [
+			r("Rolled oats", "55g"),
+			r("Milk", "150ml"),
+			r("Chia", "8g"),
+			r("Mango", "70g"),
+			r("Honey", "10g"),
+		],
+		steps: ["Mix the oats, milk, chia and honey.", "Fold in the mango.", "Soak cold and weigh the jar."],
 	},
 	{
 		dishName: "Mixed Berries Overnight Oats",
 		aliases: ["Mixed Berry Overnight Oats"],
 		category: "Overnight Oats",
 		yieldNote: "250–280g",
-		ingredients: "Oats 60g · milk 160ml · chia 8g · blueberries 30g · strawberries 30g · honey 10g",
-		method: "Mix base; top berries. Soak. Weigh.",
+		columns: ["Qty"],
+		rows: [
+			r("Oats", "60g"),
+			r("Milk", "160ml"),
+			r("Chia", "8g"),
+			r("Blueberries", "30g"),
+			r("Strawberries", "30g"),
+			r("Honey", "10g"),
+		],
+		steps: ["Mix the base.", "Top with the berries.", "Soak and weigh."],
 	},
 	{
 		dishName: "Apple Cinnamon Overnight Oats",
 		category: "Overnight Oats",
 		yieldNote: "250–280g",
-		ingredients: "Oats 60g · milk 155ml · apple 50g · raisins 12g · cinnamon · honey 10g",
-		method: "Dice apple small so it softens overnight. Mix, soak, weigh.",
+		columns: ["Qty"],
+		rows: [
+			r("Oats", "60g"),
+			r("Milk", "155ml"),
+			r("Apple", "50g"),
+			r("Raisins", "12g"),
+			r("Cinnamon", "to taste"),
+			r("Honey", "10g"),
+		],
+		steps: ["Dice the apple small so it softens overnight.", "Mix, soak and weigh."],
 	},
 
 	// ── Juices ────────────────────────────────────────────────────────────────
@@ -536,140 +809,119 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 	},
 
 	// ── Milkshakes & thick shakes ─────────────────────────────────────────────
-	{
-		dishName: "Triple Chocolate Thick Shake",
-		aliases: ["Chocolate Thick Shake"],
-		category: "Milkshakes",
-		yieldNote: "300ml glass",
-		ingredients:
-			"Chocolate ice cream 3 large scoops (~220g) + 1 scoop for topping · milk 40ml · 300ml glass · aluminium foil · glass lid · thick straw",
-		method: `Prepare the glass and aluminium foil.\n${THICK_SHAKE_BASE}, put one scoop of ice cream on top.\n${THICK_SHAKE_PACK}`,
-	},
-	{
-		dishName: "Crunchy Butterscotch Thick Shake",
-		aliases: ["Butterscotch Thick Shake"],
-		category: "Milkshakes",
-		yieldNote: "300ml glass",
-		ingredients:
-			"Butterscotch ice cream 3 large scoops (~220g) + 1 scoop for topping · milk 40ml · 300ml glass · aluminium foil · glass lid · thick straw",
-		method: `Prepare the glass and aluminium foil.\n${THICK_SHAKE_BASE}, put one scoop of ice cream on top.\n${THICK_SHAKE_PACK}`,
-	},
+	thickShake("Triple Chocolate Thick Shake", "Chocolate", ["Chocolate Thick Shake"]),
+	thickShake("Crunchy Butterscotch Thick Shake", "Butterscotch", ["Butterscotch Thick Shake"]),
 	{
 		dishName: "Vanilla Thick Shake With Chocolate",
 		aliases: ["Vanilla Milkshake With Chocolate", "Vanilla Thick Shake"],
 		category: "Milkshakes",
 		yieldNote: "300ml glass",
-		ingredients:
-			"Vanilla ice cream 3 large scoops (~220g) + 1 scoop for topping · milk 40ml · chocolate syrup · choco sprinkles · 300ml glass · aluminium foil · glass lid · thick straw",
-		method: `Prepare the glass and aluminium foil. Coat the inside of the glass with chocolate syrup.\n${THICK_SHAKE_BASE}, put one scoop of ice cream on top, then drizzle chocolate syrup and add choco sprinkles.\n${THICK_SHAKE_PACK}`,
+		rows: [
+			r("Vanilla ice cream", "3 large scoops (~220g) + 1 scoop for topping"),
+			r("Milk", "40ml"),
+			r("Chocolate syrup", "to coat the glass + drizzle"),
+			r("Choco sprinkles", "to top"),
+			r("Glass", "300ml with glass lid"),
+			r("Aluminium foil", "1 sheet"),
+			r("Thick straw", "1"),
+		],
+		steps: [
+			"Prepare the 300ml glass and aluminium foil.",
+			"Coat the inside of the glass with chocolate syrup.",
+			"Put 3 large scoops of ice cream and 40ml milk into the big blender.",
+			"Press whip 3–5 times at 1-second intervals until thick.",
+			"Pour into the glass and put one scoop of ice cream on top.",
+			"Drizzle chocolate syrup and add choco sprinkles.",
+			"Cover with aluminium foil and tighten the glass lid.",
+			"Put a thick straw into the packaging.",
+		],
 	},
 	{
 		dishName: "Classic Milk Shake",
 		category: "Milkshakes",
 		yieldNote: "1 serve",
-		ingredients: "Milk 100ml · ice cream 140g · a few chocolate sprinkles on top",
-		method: "Blend milk and ice cream until smooth. Pour and finish with chocolate sprinkles.",
+		rows: [r("Milk", "100ml"), r("Ice cream", "140g"), r("Chocolate sprinkles", "a little, on top")],
+		steps: ["Blend the milk and ice cream until smooth.", "Pour and finish with chocolate sprinkles."],
 	},
 	{
 		dishName: "Kitkat Chocolate Milk Shake",
 		aliases: ["Chocolate Milk Shake", "Chocolate Milkshake"],
 		category: "Milkshakes",
 		yieldNote: "1 tall serve",
-		ingredients: "Milk · cocoa or chocolate syrup · ice cream scoop · ice · optional KitKat crush",
-		method: "Blend milk + syrup + 1 scoop ice cream + ice 20–30s. Top crush if SKU needs it.",
+		rows: [
+			r("Milk", "as per menu"),
+			r("Cocoa or chocolate syrup", "to taste"),
+			r("Ice cream", "1 scoop"),
+			r("Ice", "as needed"),
+			r("KitKat crush (optional)", "to top"),
+		],
+		steps: ["Blend the milk, syrup, ice cream and ice for 20–30 seconds.", "Top with the KitKat crush if the dish needs it."],
 	},
 	{
 		dishName: "Apple Milkshake",
 		category: "Milkshakes",
 		yieldNote: "1 serve",
-		ingredients: "Apple · milk · honey · ice",
-		method: "Blend peeled apple + milk + honey + ice until smooth.",
+		rows: [r("Apple, peeled", "1"), r("Milk", "as per menu"), r("Honey", "to taste"), r("Ice", "as needed")],
+		steps: ["Blend everything until smooth."],
 	},
 	{
 		dishName: "Banana Milkshake",
 		aliases: ["Banana Milk Shake"],
 		category: "Milkshakes",
 		yieldNote: "1 serve",
-		ingredients: "Banana · milk · honey · ice",
-		method: "Blend until smooth. Spotty bananas = sweeter, less honey.",
-	},
-	{
-		dishName: "Oat Smoothie With Dry Fruits",
-		aliases: ["Oat Milk Shake With Dry Fruits", "Oat Smoothie with Dry Fruits"],
-		category: "Smoothies",
-		yieldNote: "1 serve",
-		ingredients: "Milk 200ml · rolled oats 50g · dry fruits 20g · dates 2 pcs",
-		method: "Blend everything until smooth.",
+		rows: [r("Banana", "1"), r("Milk", "as per menu"), r("Honey", "to taste"), r("Ice", "as needed")],
+		steps: ["Blend until smooth."],
+		notes: ["Spotty bananas are sweeter — use less honey."],
 	},
 
 	// ── Smoothies & smoothie bowls ────────────────────────────────────────────
 	{
-		dishName: "Blueberry Smoothie",
-		aliases: ["Blueberry Yogurt Smoothie"],
+		dishName: "Oat Smoothie With Dry Fruits",
+		aliases: ["Oat Milk Shake With Dry Fruits", "Oat Smoothie with Dry Fruits"],
 		category: "Smoothies",
 		yieldNote: "200ml",
-		ingredients: SMOOTHIE_BASE,
-		method: "Blend until smooth.",
+		rows: [r("Milk", "200ml"), r("Rolled oats", "50g"), r("Dry fruits", "20g"), r("Dates", "2 pieces")],
+		steps: ["Blend everything until smooth."],
 	},
-	{
-		dishName: "Strawberry Smoothie",
-		category: "Smoothies",
-		yieldNote: "200ml",
-		ingredients: `${SMOOTHIE_BASE}\nSwap the blueberry for 35g frozen strawberry`,
-		method: "Blend until smooth.",
-	},
-	{
-		dishName: "Mango Smoothie",
-		category: "Smoothies",
-		yieldNote: "200ml",
-		ingredients: `${SMOOTHIE_BASE}\nSwap the blueberry for 35g mango`,
-		method: "Blend until smooth.",
-	},
-	{
-		dishName: "Muesli Blueberry Smoothie Bowl",
-		category: "Smoothies",
-		yieldNote: "1 bowl",
-		ingredients: `${SMOOTHIE_BASE}\nToppings: toasted muesli, banana, honey (as per menu)`,
-		method: "Blend the smoothie base thick. Pour into the bowl and add toppings.",
-	},
-	{
-		dishName: "Muesli Banana Smoothie Bowl",
-		category: "Smoothies",
-		yieldNote: "1 bowl",
-		ingredients: `${SMOOTHIE_BASE}\nSwap the blueberry for extra banana\nToppings: toasted muesli, berries, walnuts, honey (as per menu)`,
-		method: "Blend the smoothie base thick. Pour into the bowl and add toppings.",
-	},
-	{
-		dishName: "Muesli Mango Smoothie Bowl",
-		category: "Smoothies",
-		yieldNote: "1 bowl",
-		ingredients: `${SMOOTHIE_BASE}\nSwap the blueberry for 35g mango\nToppings: crunchy muesli, mixed nuts (as per menu)`,
-		method: "Blend the smoothie base thick. Pour into the bowl and add toppings.",
-	},
+	smoothie("Blueberry Smoothie", "Smoothies", "Frozen blueberry", "200ml", [], ["Blueberry Yogurt Smoothie"]),
+	smoothie("Strawberry Smoothie", "Smoothies", "Frozen strawberry", "200ml"),
+	smoothie("Mango Smoothie", "Smoothies", "Mango", "200ml"),
+	smoothie("Muesli Blueberry Smoothie Bowl", "Smoothies", "Frozen blueberry", "1 bowl", [
+		h("Toppings"),
+		r("Toasted muesli, banana, honey", "as per menu"),
+	]),
+	smoothie("Muesli Banana Smoothie Bowl", "Smoothies", "Extra banana (instead of berries)", "1 bowl", [
+		h("Toppings"),
+		r("Toasted muesli, berries, walnuts, honey", "as per menu"),
+	]),
+	smoothie("Muesli Mango Smoothie Bowl", "Smoothies", "Mango", "1 bowl", [
+		h("Toppings"),
+		r("Crunchy muesli, mixed nuts", "as per menu"),
+	]),
 
 	// ── Ice creams ────────────────────────────────────────────────────────────
 	{
 		dishName: "Vanilla With Chocolate Topping",
 		category: "Ice Creams",
 		yieldNote: "1 cup",
-		ingredients: "Vanilla ice cream · chocolate syrup",
-		method: "Scoop into the cup, drizzle chocolate syrup, lid and send.",
+		rows: [r("Vanilla ice cream", "as per menu"), r("Chocolate syrup", "drizzle")],
+		steps: ["Scoop into the cup.", "Drizzle with chocolate syrup.", "Lid and send."],
 	},
 	{
 		dishName: "Chocolate Ice Cream",
 		aliases: ["Chocolate"],
 		category: "Ice Creams",
 		yieldNote: "1 cup",
-		ingredients: "Chocolate ice cream",
-		method: "Scoop into the cup, lid and send.",
+		rows: [r("Chocolate ice cream", "as per menu")],
+		steps: ["Scoop into the cup.", "Lid and send."],
 	},
 	{
 		dishName: "Butterscotch Ice Cream",
 		aliases: ["Butterscotch"],
 		category: "Ice Creams",
 		yieldNote: "1 cup",
-		ingredients: "Butterscotch ice cream",
-		method: "Scoop into the cup, lid and send.",
+		rows: [r("Butterscotch ice cream", "as per menu")],
+		steps: ["Scoop into the cup.", "Lid and send."],
 	},
 ];
 
