@@ -723,7 +723,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		category: "Fresh Juices",
 		yieldNote: "1 serve chilled",
 		ingredients: "Apple · beetroot · carrot · lemon · ginger (see menu ingredients)",
-		steps: ["Wash and rough chop the apple, beetroot and carrot.", "Juice, or high-speed blend and fine strain.", JUICE_FREEZE],
+		steps: ["Wash and rough chop the apple, beetroot and carrot.", "Juice, or high-speed blend (no straining).", JUICE_FREEZE],
 	},
 	{
 		dishName: "Orange Immunity Boost",
@@ -731,7 +731,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		category: "Fresh Juices",
 		yieldNote: "1 serve",
 		ingredients: "Fresh oranges only",
-		steps: ["Juice the oranges and strain the pulp if needed.", JUICE_FREEZE],
+		steps: ["Juice the oranges (no straining — keep the pulp).", JUICE_FREEZE],
 	},
 	{
 		dishName: "Watermelon Hydrator",
@@ -755,7 +755,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		category: "Fresh Juices",
 		yieldNote: "1 serve",
 		ingredients: "Apple · carrot · lemon (see menu ingredients)",
-		steps: ["Wash and chop the apple and carrot.", "Juice, or blend and strain.", JUICE_FREEZE],
+		steps: ["Wash and chop the apple and carrot.", "Juice, or blend (no straining).", JUICE_FREEZE],
 	},
 	{
 		dishName: "Crisp Apple Vitality",
@@ -786,7 +786,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		category: "Fresh Juices",
 		yieldNote: "1 serve",
 		ingredients: "Apple · pomegranate · optional carrot (see menu)",
-		steps: ["Juice or blend; strain the seeds if needed.", JUICE_FREEZE],
+		steps: ["Juice or blend (no straining — keep the pulp and seeds).", JUICE_FREEZE],
 	},
 	{
 		dishName: "Seasonal Mango Refresh",
