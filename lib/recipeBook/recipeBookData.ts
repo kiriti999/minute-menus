@@ -107,6 +107,16 @@ const legumeSalad = (name: string, dishName: string, aliases?: string[]): Recipe
 	dressings: [YOGURT_DRESSING],
 });
 
+const NOSH_RECIPE = "As per Nosh recipe";
+const NOSH_STEPS = ["Cook in the Nosh machine as per the Nosh recipe."];
+const noshSnack = (dishName: string, items: string[], steps = NOSH_STEPS, rows: RecipeRow[] = []): RecipeEntry => ({
+	dishName,
+	category: "Snacks",
+	yieldNote: "Cooked in the Nosh machine",
+	rows: [...items.map((item) => r(item, NOSH_RECIPE)), ...rows],
+	steps,
+});
+
 const THICK_SHAKE_STEPS = [
 	"Prepare the 300ml glass and aluminium foil.",
 	"Put 3 large scoops of ice cream and 40ml milk into the big blender.",
@@ -616,6 +626,16 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		],
 		steps: PANEER_STEPS,
 	},
+	noshSnack("Chicken Fricassee", ["Chicken", "Fricassee cream sauce"]),
+	noshSnack("Mushroom, Spinach and Cherry Tomato Skillet", ["Mushrooms", "Spinach", "Cherry tomato", "Shaved cheese"]),
+	noshSnack("Creamy Mushroom", ["Mushrooms", "Garlic", "Butter", "Fresh cream", "Black pepper", "Parsley"]),
+	noshSnack("Honey Chilli Mushroom", ["Mushrooms", "Honey", "Chilli"]),
+	noshSnack(
+		"Rava Upma",
+		["Rava (semolina)", "Fresh coriander (garnish)"],
+		[...NOSH_STEPS, "Add 25ml ghee to keep the upma smooth."],
+		[r("Ghee", "25ml")],
+	),
 	{
 		dishName: "Rice Kheer",
 		category: "Desserts",
