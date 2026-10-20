@@ -1,6 +1,8 @@
 import type React from "react";
 import { useEffect, useState } from "react";
-import type { OfferLetterDetails, RestaurantStaffMember, StaffDocument } from "@minute-menus/types";
+import { createPortal } from "react-dom";
+import type { EmploymentType, OfferLetterDetails, RestaurantStaffMember, StaffDocument } from "@minute-menus/types";
+import { SECURITY_DEPOSIT_BY_TYPE, defaultOfferLetterDetails } from "../../lib/offerLetterTemplate";
 import { OFFER_LETTER_PRINT_STYLE, OfferLetterPaper } from "./OfferLetterPaper";
 
 interface ThemeProps {
@@ -37,19 +39,15 @@ export const OfferLetterFormModal: React.FC<FormModalProps> = ({
 	onSave,
 	onClose,
 }) => {
-	const [details, setDetails] = useState<OfferLetterDetails>({
-		role: "",
-		monthlySalary: 0,
-		joiningDate: new Date().toISOString().slice(0, 10),
+	const [details, setDetails] = useState<OfferLetterDetails>(() => ({
+		...defaultOfferLetterDetails(new Date().toISOString().slice(0, 10)),
 		location: restaurantName,
-		probationMonths: 3,
-		noticeDays: 30,
-		issuedBy: "",
-		notes: "",
-	});
+	}));
 	const input = inputClass(isDarkTheme);
 	const set = <K extends keyof OfferLetterDetails>(key: K, value: OfferLetterDetails[K]) =>
 		setDetails((prev) => ({ ...prev, [key]: value }));
+	const setEmploymentType = (type: EmploymentType) =>
+		setDetails((prev) => ({ ...prev, employmentType: type, securityDeposit: SECURITY_DEPOSIT_BY_TYPE[type] }));
 	const valid = details.role.trim() !== "" && details.monthlySalary > 0 && details.joiningDate !== "";
 
 	return (
@@ -62,6 +60,25 @@ export const OfferLetterFormModal: React.FC<FormModalProps> = ({
 						<input className={input} value={details.role} onChange={(e) => set("role", e.target.value)} />
 					</label>
 					<label className="text-xs space-y-1">
+						<span>Employment type</span>
+						<select
+							className={input}
+							value={details.employmentType}
+							onChange={(e) => setEmploymentType(e.target.value as EmploymentType)}
+						>
+							<option value="full_time">Full-time</option>
+							<option value="part_time">Part-time</option>
+						</select>
+					</label>
+					<label className="text-xs space-y-1">
+						<span>Reporting to</span>
+						<input className={input} value={details.reportingTo} onChange={(e) => set("reportingTo", e.target.value)} />
+					</label>
+					<label className="text-xs space-y-1 sm:col-span-2">
+						<span>Employee email (optional)</span>
+						<input type="email" className={input} value={details.email} onChange={(e) => set("email", e.target.value)} />
+					</label>
+					<label className="text-xs space-y-1">
 						<span>Monthly salary</span>
 						<input
 							type="number"
@@ -72,12 +89,31 @@ export const OfferLetterFormModal: React.FC<FormModalProps> = ({
 						/>
 					</label>
 					<label className="text-xs space-y-1">
+						<span>Refundable security deposit</span>
+						<input
+							type="number"
+							min={0}
+							className={input}
+							value={details.securityDeposit}
+							onChange={(e) => set("securityDeposit", Number(e.target.value))}
+						/>
+					</label>
+					<label className="text-xs space-y-1">
 						<span>Joining date</span>
 						<input
 							type="date"
 							className={input}
 							value={details.joiningDate}
 							onChange={(e) => set("joiningDate", e.target.value)}
+						/>
+					</label>
+					<label className="text-xs space-y-1">
+						<span>Accept offer by</span>
+						<input
+							type="date"
+							className={input}
+							value={details.acceptByDate}
+							onChange={(e) => set("acceptByDate", e.target.value)}
 						/>
 					</label>
 					<label className="text-xs space-y-1">
@@ -101,8 +137,16 @@ export const OfferLetterFormModal: React.FC<FormModalProps> = ({
 						/>
 					</label>
 					<label className="text-xs space-y-1 sm:col-span-2">
-						<span>Work location</span>
+						<span>City / work location (optional)</span>
 						<input className={input} value={details.location} onChange={(e) => set("location", e.target.value)} />
+					</label>
+					<label className="text-xs space-y-1 sm:col-span-2">
+						<span>ID proof number (optional)</span>
+						<input
+							className={input}
+							value={details.idProofNumber}
+							onChange={(e) => set("idProofNumber", e.target.value)}
+						/>
 					</label>
 					<label className="text-xs space-y-1 sm:col-span-2">
 						<span>Issued by (name, title)</span>
@@ -141,6 +185,7 @@ interface PreviewModalProps extends ThemeProps {
 	staffName: string;
 	restaurantName: string;
 	currency: string;
+	sopUrl?: string;
 	onClose: () => void;
 }
 
@@ -150,6 +195,7 @@ export const OfferLetterPreviewModal: React.FC<PreviewModalProps> = ({
 	staffName,
 	restaurantName,
 	currency,
+	sopUrl,
 	onClose,
 }) => {
 	useEffect(() => {
@@ -158,6 +204,16 @@ export const OfferLetterPreviewModal: React.FC<PreviewModalProps> = ({
 	}, []);
 
 	if (!doc.details) return null;
+	const paper = (
+		<OfferLetterPaper
+			staffName={staffName}
+			restaurantName={restaurantName}
+			currency={currency}
+			issuedOn={doc.createdAt.slice(0, 10)}
+			details={doc.details}
+			sopUrl={sopUrl}
+		/>
+	);
 	return (
 		<div className={overlay}>
 			<style>{OFFER_LETTER_PRINT_STYLE}</style>
@@ -177,14 +233,9 @@ export const OfferLetterPreviewModal: React.FC<PreviewModalProps> = ({
 						</button>
 					</div>
 				</div>
-				<OfferLetterPaper
-					staffName={staffName}
-					restaurantName={restaurantName}
-					currency={currency}
-					issuedOn={doc.createdAt.slice(0, 10)}
-					details={doc.details}
-				/>
+				{paper}
 			</div>
+			{createPortal(<div id="offer-letter-print-portal">{paper}</div>, document.body)}
 		</div>
 	);
 };

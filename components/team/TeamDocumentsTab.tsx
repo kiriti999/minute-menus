@@ -12,6 +12,7 @@ interface Props {
 
 interface RestaurantInfo {
 	name: string;
+	slug: string;
 	currency: string;
 }
 
@@ -110,7 +111,7 @@ const StaffDocumentsCard: React.FC<StaffCardProps> = ({
 export const TeamDocumentsTab: React.FC<Props> = ({ isDarkTheme }) => {
 	const [staff, setStaff] = useState<RestaurantStaffMember[]>([]);
 	const [docs, setDocs] = useState<StaffDocument[]>([]);
-	const [restaurant, setRestaurant] = useState<RestaurantInfo>({ name: "", currency: "INR" });
+	const [restaurant, setRestaurant] = useState<RestaurantInfo>({ name: "", slug: "", currency: "INR" });
 	const [loading, setLoading] = useState(true);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -126,7 +127,7 @@ export const TeamDocumentsTab: React.FC<Props> = ({ isDarkTheme }) => {
 			]);
 			setStaff(staffList.filter((s) => s.active));
 			setDocs(docList);
-			setRestaurant({ name: details.name, currency: details.currency });
+			setRestaurant({ name: details.name, slug: details.slug, currency: details.currency });
 		} catch (err) {
 			setError(getErrorMessage(err));
 		} finally {
@@ -224,6 +225,7 @@ export const TeamDocumentsTab: React.FC<Props> = ({ isDarkTheme }) => {
 					staffName={previewStaff?.name ?? "Employee"}
 					restaurantName={restaurant.name}
 					currency={restaurant.currency}
+					sopUrl={restaurant.slug ? `${window.location.origin}/${restaurant.slug}/sop` : undefined}
 					onClose={() => setPreview(null)}
 				/>
 			)}

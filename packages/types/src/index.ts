@@ -872,13 +872,21 @@ export interface StaffBadge {
   createdAt: string;
 }
 
+export type EmploymentType = "full_time" | "part_time";
+
 export interface OfferLetterDetails {
   role: string;
+  employmentType: EmploymentType;
+  email: string;
+  reportingTo: string;
   monthlySalary: number;
+  securityDeposit: number;
   joiningDate: string;
+  acceptByDate: string;
   location: string;
   probationMonths: number;
   noticeDays: number;
+  idProofNumber: string;
   issuedBy: string;
   notes: string;
 }
