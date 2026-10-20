@@ -24,6 +24,7 @@ import type {
     OrderStatus,
     OrderItem,
     PurchaseUnit,
+    RecipeLink,
     RestaurantOverhead,
     RefundRequest,
     RefundStatus,
@@ -1569,6 +1570,18 @@ export class SupabaseService {
             { onConflict: "restaurant_id,month" },
         );
         if (error) throw error;
+    }
+
+    /** Video / article links for the recipe-book cards of a restaurant (public read). */
+    async getRecipeLinks(restaurantId: string): Promise<RecipeLink[]> {
+        const { getRecipeLinks } = await import("./recipeLinks");
+        return getRecipeLinks(this.client, restaurantId);
+    }
+
+    /** Owner-only (RLS). Clearing both links removes the row. */
+    async saveRecipeLink(restaurantId: string, link: RecipeLink): Promise<void> {
+        const { saveRecipeLink } = await import("./recipeLinks");
+        return saveRecipeLink(this.client, restaurantId, link);
     }
 
     /** Invoices for a given month, most recent first. */

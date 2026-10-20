@@ -439,6 +439,13 @@ export interface RestaurantOverhead {
   expectedOrders?: number | null;
 }
 
+/** Optional video / article links for one recipe-book card (keyed by lower-cased dish name). */
+export interface RecipeLink {
+  recipeKey: string;
+  videoUrl: string | null;
+  articleUrl: string | null;
+}
+
 export interface InvoiceLineItem {
   name: string;
   quantity: number;

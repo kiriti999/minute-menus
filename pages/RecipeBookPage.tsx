@@ -1,10 +1,13 @@
+import type { RecipeLink } from "@minute-menus/types";
 import { LoadingScreen } from "@minute-menus/ui";
-import { ArrowLeft, Printer, RefreshCw } from "lucide-react";
+import { ArrowLeft, Printer, RefreshCw, Search, X } from "lucide-react";
 import type React from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { RecipeLinksModal } from "../components/RecipeLinksModal";
 import {
 	buildRecipeBookHtml,
 	dishesFromMenu,
+	type RecipeBookDish,
 } from "../lib/recipeBook/buildRecipeBookHtml";
 import { supabaseService } from "../services/supabaseService";
 
@@ -15,14 +18,38 @@ export interface RecipeBookPageProps {
 	isAuthenticated?: boolean;
 }
 
-async function fetchMenuAndRestaurant(slug: string) {
+interface RecipeBookData {
+	restaurantId: string;
+	restaurantName: string;
+	dishes: RecipeBookDish[];
+	links: RecipeLink[];
+}
+
+interface EditTarget {
+	key: string;
+	title: string;
+}
+
+async function fetchMenuAndRestaurant(slug: string): Promise<RecipeBookData> {
 	const restaurant = await supabaseService.getRestaurantBySlug(slug);
 	if (!restaurant) throw new Error(`Restaurant "${slug}" not found`);
 	const menu = await supabaseService.getMenu(restaurant.id);
+	// Links are optional — a failed fetch must never break the recipe book.
+	const links = await supabaseService.getRecipeLinks(restaurant.id).catch(() => []);
 	return {
-		menu,
+		restaurantId: restaurant.id,
 		restaurantName: restaurant.name || "Recipe book",
+		dishes: dishesFromMenu(menu),
+		links,
 	};
+}
+
+/** Reads an "edit-links" message posted by the recipe-book iframe. */
+function parseEditMessage(data: unknown): EditTarget | null {
+	const msg = data as { type?: unknown; key?: unknown; title?: unknown } | null;
+	if (msg?.type !== "edit-links") return null;
+	if (typeof msg.key !== "string" || typeof msg.title !== "string") return null;
+	return { key: msg.key, title: msg.title };
 }
 
 /**
@@ -34,7 +61,9 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 	slug,
 	isAuthenticated,
 }) => {
-	const [html, setHtml] = useState("");
+	const [data, setData] = useState<RecipeBookData | null>(null);
+	const [query, setQuery] = useState("");
+	const [editing, setEditing] = useState<EditTarget | null>(null);
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
@@ -50,15 +79,9 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 		else setLoading(true);
 		setError("");
 		try {
-			const { menu, restaurantName } = await fetchMenuAndRestaurant(slug);
+			const next = await fetchMenuAndRestaurant(slug);
 			if (id !== requestId.current) return;
-			setHtml(
-				buildRecipeBookHtml({
-					restaurantName,
-					menuDishes: dishesFromMenu(menu),
-					embedded: true,
-				}),
-			);
+			setData(next);
 			setLoadedAt(new Date());
 		} catch (e) {
 			if (id !== requestId.current) return;
@@ -100,14 +123,57 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 			: "bg-zinc-100 text-black overflow-hidden";
 	}, [isDarkTheme]);
 
-	const printBook = () => {
-		const win = frameRef.current?.contentWindow;
-		if (win) win.print();
+	const html = useMemo(
+		() =>
+			data
+				? buildRecipeBookHtml({
+						restaurantName: data.restaurantName,
+						menuDishes: data.dishes,
+						links: data.links,
+						editable: Boolean(isAuthenticated),
+						embedded: true,
+					})
+				: "",
+		[data, isAuthenticated],
+	);
+
+	const postToFrame = useCallback((message: object) => {
+		frameRef.current?.contentWindow?.postMessage(message, "*");
+	}, []);
+
+	// The iframe is sandboxed without same-origin, so search / print / edit go through postMessage.
+	useEffect(() => {
+		postToFrame({ type: "filter", query });
+	}, [query, postToFrame]);
+
+	useEffect(() => {
+		const onMessage = (e: MessageEvent) => {
+			if (e.source !== frameRef.current?.contentWindow) return;
+			const target = parseEditMessage(e.data);
+			if (target) setEditing(target);
+		};
+		window.addEventListener("message", onMessage);
+		return () => window.removeEventListener("message", onMessage);
+	}, []);
+
+	const saveLinks = async (videoUrl: string, articleUrl: string) => {
+		if (!data || !editing) return;
+		const link: RecipeLink = {
+			recipeKey: editing.key,
+			videoUrl: videoUrl.trim() || null,
+			articleUrl: articleUrl.trim() || null,
+		};
+		await supabaseService.saveRecipeLink(data.restaurantId, link);
+		const links = await supabaseService.getRecipeLinks(data.restaurantId);
+		setData({ ...data, links });
+		setEditing(null);
 	};
+
+	const editingLink = data?.links.find((l) => l.recipeKey === editing?.key);
 
 	if (loading && !html) return <LoadingScreen label="Loading latest menu…" />;
 
-	if (error && !html) {
+	if (error && !data) {
 		return (
 			<div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6">
 				<p className="text-sm text-red-500">{error}</p>
@@ -153,6 +219,29 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 						{currentSlug ? `/${currentSlug}/recipe-book` : "/recipe-book"} · {updatedLabel}
 					</p>
 				</div>
+				<div
+					className={`relative w-36 sm:w-56 ${isDarkTheme ? "text-white" : "text-zinc-900"}`}
+				>
+					<Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-60" />
+					<input
+						type="search"
+						value={query}
+						onChange={(e) => setQuery(e.target.value)}
+						placeholder="Search recipes…"
+						aria-label="Search recipes"
+						className={`w-full rounded-full border py-2 pl-8 pr-8 text-sm outline-none focus:ring-2 focus:ring-[#0B4A42] ${isDarkTheme ? "bg-zinc-800 border-zinc-700" : "bg-white border-zinc-300"}`}
+					/>
+					{query && (
+						<button
+							type="button"
+							onClick={() => setQuery("")}
+							aria-label="Clear search"
+							className="absolute right-2 top-1/2 -translate-y-1/2 opacity-60 hover:opacity-100"
+						>
+							<X size={14} />
+						</button>
+					)}
+				</div>
 				<button
 					type="button"
 					disabled={refreshing || loading}
@@ -165,7 +254,7 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 				</button>
 				<button
 					type="button"
-					onClick={printBook}
+					onClick={() => postToFrame({ type: "print" })}
 					className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-[#0B4A42] text-white hover:opacity-90"
 				>
 					<Printer size={16} />
@@ -178,8 +267,19 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 				title="Kitchen Recipe Book"
 				srcDoc={html}
 				className="flex-1 w-full border-0 bg-white"
-				sandbox="allow-modals allow-same-origin"
+				sandbox="allow-scripts allow-modals allow-popups allow-popups-to-escape-sandbox"
+				onLoad={() => postToFrame({ type: "filter", query })}
 			/>
+			{editing && (
+				<RecipeLinksModal
+					title={editing.title}
+					initialVideoUrl={editingLink?.videoUrl ?? ""}
+					initialArticleUrl={editingLink?.articleUrl ?? ""}
+					isDarkTheme={isDarkTheme}
+					onSave={saveLinks}
+					onClose={() => setEditing(null)}
+				/>
+			)}
 		</div>
 	);
 };

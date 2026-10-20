@@ -1716,3 +1716,31 @@ insert into payment_claims (payment_id, purpose)
 select provider_subscription_id, 'plus' from subscriptions
 where provider = 'razorpay' and provider_subscription_id is not null
 on conflict (payment_id) do nothing;
+
+-- ─────────────────────────────────────────────
+-- RECIPE LINKS — optional video / article link per recipe-book card.
+-- recipe_key = lower-cased card title (live dish name). The recipe book is a
+-- public page, so links are publicly readable; only the restaurant owner can
+-- write. URLs must be http(s) so they can't smuggle javascript: links.
+-- ─────────────────────────────────────────────
+create table if not exists recipe_links (
+  restaurant_id  uuid not null references restaurants(id) on delete cascade,
+  recipe_key     text not null,
+  video_url      text,
+  article_url    text,
+  updated_at     timestamptz not null default now(),
+  primary key (restaurant_id, recipe_key),
+  constraint recipe_links_video_http   check (video_url   is null or video_url   ~* '^https?://'),
+  constraint recipe_links_article_http check (article_url is null or article_url ~* '^https?://')
+);
+
+alter table recipe_links enable row level security;
+
+create policy "Owner can manage recipe links"
+  on recipe_links for all
+  using (exists (select 1 from restaurants r where r.id = recipe_links.restaurant_id and r.owner_id = auth.uid()))
+  with check (exists (select 1 from restaurants r where r.id = recipe_links.restaurant_id and r.owner_id = auth.uid()));
+
+create policy "Public can read recipe links"
+  on recipe_links for select
+  using (true);

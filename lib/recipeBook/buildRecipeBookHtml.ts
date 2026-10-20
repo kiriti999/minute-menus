@@ -1,4 +1,4 @@
-import type { Category } from "@minute-menus/types";
+import type { Category, RecipeLink } from "@minute-menus/types";
 import {
 	type RecipeEntry,
 	type RecipeRow,
@@ -242,17 +242,99 @@ function renderNotes(card: RecipeCardModel): string {
 	return card.notes.length ? section("Notes", renderList("ul", card.notes)) : "";
 }
 
-function renderCard(card: RecipeCardModel): string {
+/** Key a card's saved links are stored under (live dish name, lower-cased). */
+export const recipeKey = (title: string): string => title.trim().toLowerCase();
+
+export type RecipeCardContext = {
+	links: Map<string, RecipeLink>;
+	/** Show the per-card "Edit links" button (embedded owner view only). */
+	editable: boolean;
+};
+
+const HTTP_URL = /^https?:\/\//i;
+
+function linkChip(label: string, url: string | null | undefined): string {
+	if (!url || !HTTP_URL.test(url)) return "";
+	return `<a class="chip" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+}
+
+function renderLinks(card: RecipeCardModel, ctx: RecipeCardContext): string {
+	const link = ctx.links.get(recipeKey(card.title));
+	const chips = linkChip("▶ Video", link?.videoUrl) + linkChip("📄 Article", link?.articleUrl);
+	const label = chips ? "Edit links" : "+ Add video / article links";
+	const edit = ctx.editable
+		? `<button type="button" class="edit-links no-print" data-edit-links="${escapeHtml(recipeKey(card.title))}" data-title="${escapeHtml(card.title)}">${label}</button>`
+		: "";
+	return chips || edit ? `<div class="links">${chips ? `<span class="no-print">${chips}</span>` : ""}${edit}</div>` : "";
+}
+
+function cardSearchText(card: RecipeCardModel): string {
+	const rows = card.rows.flatMap((row) => [row.item, ...row.qty]);
+	return [
+		card.title,
+		card.category,
+		card.yieldNote ?? "",
+		card.kitchenBuild,
+		card.kitchenMethod,
+		...rows,
+		...card.steps,
+		...card.notes,
+	]
+		.join(" ")
+		.toLowerCase();
+}
+
+function renderCard(card: RecipeCardModel, ctx: RecipeCardContext): string {
 	const yieldLine = card.yieldNote ? `<p class="yield">${escapeHtml(card.yieldNote)}</p>` : "";
 	return `
-<article class="card">
+<article class="card" data-search="${escapeHtml(cardSearchText(card))}">
   <h3>${escapeHtml(card.title)}</h3>
   ${yieldLine}
+  ${renderLinks(card, ctx)}
   ${renderBuild(card)}
   ${renderMethod(card)}
   ${renderNotes(card)}
 </article>`;
 }
+
+/**
+ * Runs inside the sandboxed iframe (scripts only, no same-origin access).
+ * The parent page drives it by postMessage: live search filter and print.
+ * Edit-links clicks are reported back to the parent the same way.
+ */
+const FRAME_SCRIPT = `(function () {
+  var cards = [].slice.call(document.querySelectorAll(".card"));
+  var sections = [].slice.call(document.querySelectorAll("section"));
+  var empty = document.getElementById("no-match");
+  function filter(query) {
+    var terms = query.toLowerCase().split(/\\s+/).filter(Boolean);
+    var shown = 0;
+    cards.forEach(function (card) {
+      var hay = card.getAttribute("data-search") || "";
+      var ok = terms.every(function (t) { return hay.indexOf(t) > -1; });
+      card.classList.toggle("hide", !ok);
+      if (ok) shown += 1;
+    });
+    sections.forEach(function (sec) {
+      sec.classList.toggle("hide", !sec.querySelector(".card:not(.hide)"));
+    });
+    empty.classList.toggle("hide", shown > 0);
+  }
+  window.addEventListener("message", function (e) {
+    if (e.source !== window.parent) return;
+    var d = e.data || {};
+    if (d.type === "filter") filter(String(d.query || ""));
+    if (d.type === "print") window.print();
+  });
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest && e.target.closest("[data-edit-links]");
+    if (!btn) return;
+    window.parent.postMessage(
+      { type: "edit-links", key: btn.getAttribute("data-edit-links"), title: btn.getAttribute("data-title") },
+      "*"
+    );
+  });
+})();`;
 
 /** Full printable HTML document for the recipe book. */
 export function buildRecipeBookHtml(opts: {
@@ -260,12 +342,20 @@ export function buildRecipeBookHtml(opts: {
 	menuDishes: RecipeBookDish[];
 	/** Hide in-document nav when embedded in the app shell. */
 	embedded?: boolean;
+	/** Saved video / article links, shown as chips on each card. */
+	links?: RecipeLink[];
+	/** Show "Edit links" buttons (owner view). */
+	editable?: boolean;
 }): string {
 	const cards = buildRecipeCards(opts.menuDishes);
 	const groups = groupByCategory(cards);
+	const ctx: RecipeCardContext = {
+		links: new Map((opts.links ?? []).map((l) => [l.recipeKey, l])),
+		editable: Boolean(opts.editable && opts.embedded),
+	};
 	const sections = groups
 		.map((g) => {
-			const cardHtml = g.items.map(renderCard).join("\n");
+			const cardHtml = g.items.map((c) => renderCard(c, ctx)).join("\n");
 			return `<section><h2>${escapeHtml(g.category)}</h2><div class="grid">${cardHtml}</div></section>`;
 		})
 		.join("\n");
@@ -347,6 +437,18 @@ export function buildRecipeBookHtml(opts: {
     .ing tr.grp th { background: #f0f7f4; color: #1b5e20; font-size: 9.5px; }
     .list { margin: 2px 0 0; padding-left: 18px; }
     .list li { margin-bottom: 2px; }
+    .hide { display: none !important; }
+    .muted-note { color: #5a7a74; font-style: italic; padding: 24px 0; text-align: center; }
+    .links { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 2px 0 4px; }
+    .chip {
+      display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 10px; font-weight: 700;
+      background: #e8f5e9; color: #1b5e20; border: 1px solid #2e7d32; text-decoration: none;
+    }
+    .edit-links {
+      appearance: none; border: 1px dashed #5a7a74; background: transparent; color: #3f5e57;
+      font-size: 10px; padding: 2px 10px; border-radius: 999px; cursor: pointer;
+    }
+    .edit-links:hover { background: #f0f7f4; }
     .no-print { margin: 0 0 14px; display: flex; gap: 8px; flex-wrap: wrap; }
     .btn {
       appearance: none;
@@ -378,7 +480,9 @@ export function buildRecipeBookHtml(opts: {
       </div>
     </header>
     ${sections}
+    <p id="no-match" class="hide muted-note">No recipes match your search.</p>
   </div>
+  ${opts.embedded ? `<script>${FRAME_SCRIPT}</script>` : ""}
 </body>
 </html>`;
 }

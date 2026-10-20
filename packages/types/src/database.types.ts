@@ -630,6 +630,30 @@ export type Database = {
                 };
                 Relationships: [];
             };
+            recipe_links: {
+                Row: {
+                    restaurant_id: string;
+                    recipe_key: string;
+                    video_url: string | null;
+                    article_url: string | null;
+                    updated_at: string;
+                };
+                Insert: {
+                    restaurant_id: string;
+                    recipe_key: string;
+                    video_url?: string | null;
+                    article_url?: string | null;
+                    updated_at?: string;
+                };
+                Update: {
+                    restaurant_id?: string;
+                    recipe_key?: string;
+                    video_url?: string | null;
+                    article_url?: string | null;
+                    updated_at?: string;
+                };
+                Relationships: [];
+            };
             restaurant_overhead: {
                 Row: {
                     id: string;
