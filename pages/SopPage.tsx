@@ -87,7 +87,9 @@ export const SopPage: React.FC<SopPageProps> = ({ isDarkTheme, slug, onBack }) =
 	}, [slug]);
 
 	useEffect(() => {
-		document.body.className = isDarkTheme ? "bg-zinc-950 text-white" : "bg-zinc-100 text-black";
+		document.body.className = isDarkTheme
+			? "bg-zinc-950 text-white overflow-auto"
+			: "bg-zinc-100 text-black overflow-auto";
 	}, [isDarkTheme]);
 
 	const toggle = (id: string) =>

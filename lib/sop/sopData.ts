@@ -19,10 +19,12 @@ export const SOP_SECTIONS: SopSection[] = [
 		checklist: [
 			"Clock in by scanning your own QR badge.",
 			"Wash hands, put on apron, hair cover and fresh gloves.",
-			"Check the fridge (5°C or below) and freezer (−18°C or below) and note the temperatures.",
+			"Check the fridge (4°C or below) and freezer (−18°C or below) and note the temperatures.",
 			"Check dates and labels — throw away anything expired or unlabelled.",
 			"Set up stations: clean boards and knives, sanitiser bottle filled, Nosh machine and grill ready.",
-			"Check packing stock: 750ml, 500ml and 300ml containers, 200ml PET bottles, 50ml dressing cups, lids, foil, thick straws, sauce sachets.",
+			"Refill the Nosh machine spices, oils and water.",
+			"Wash the lettuce, chicken and other veggies and keep them ready for prep.",
+			"Check packing stock: 750ml, 500ml and 300ml containers, 200ml PET bottles, 50ml dressing cups, lids, foil, thick straws, sauce sachets. Also check cleaning and hygiene supplies: soap, detergent, gloves, tissues and so on.",
 		],
 	},
 	{
