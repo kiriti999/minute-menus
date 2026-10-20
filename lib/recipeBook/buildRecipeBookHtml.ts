@@ -190,13 +190,6 @@ function groupByCategory(cards: RecipeCardModel[]): { category: string; items: R
 	return order.map((category) => ({ category, items: map.get(category)! }));
 }
 
-function fieldBlock(label: string, value: string, emptyHint: string): string {
-	if (value) {
-		return `<p class="label">${escapeHtml(label)}</p><p class="body menu-field">${escapeHtml(value)}</p>`;
-	}
-	return `<p class="label">${escapeHtml(label)}</p><p class="body muted">${escapeHtml(emptyHint)}</p>`;
-}
-
 const splitLines = (text: string): string[] =>
 	text.split("\n").map((l) => l.trim()).filter(Boolean);
 
@@ -238,26 +231,12 @@ function renderNotes(card: RecipeCardModel): string {
 	return card.notes.length ? section("Notes", renderList("ul", card.notes)) : "";
 }
 
-function renderMenuFields(card: RecipeCardModel): string {
-	if (card.isDressing) return "";
-	return `${fieldBlock(
-		"Description (from menu)",
-		card.liveDescription,
-		"Not set in menu editor — save a description on this dish, then refresh.",
-	)}${fieldBlock(
-		"Ingredients (from menu)",
-		card.liveIngredients,
-		"Not set in menu editor — save ingredients on this dish, then refresh.",
-	)}`;
-}
-
 function renderCard(card: RecipeCardModel): string {
 	const yieldLine = card.yieldNote ? `<p class="yield">${escapeHtml(card.yieldNote)}</p>` : "";
 	return `
 <article class="card">
   <h3>${escapeHtml(card.title)}</h3>
   ${yieldLine}
-  ${renderMenuFields(card)}
   ${renderBuild(card)}
   ${renderMethod(card)}
   ${renderNotes(card)}
@@ -350,14 +329,6 @@ export function buildRecipeBookHtml(opts: {
       color: #5a7a74;
     }
     .body { margin: 0; white-space: pre-line; }
-    .menu-field {
-      background: #f0f7f4;
-      border: 1px solid #d5e5e0;
-      border-radius: 6px;
-      padding: 6px 8px;
-      white-space: pre-wrap;
-    }
-    .muted { color: #8a9e97; font-style: italic; }
     table.ing { width: 100%; border-collapse: collapse; margin-top: 2px; }
     .ing th, .ing td { border: 1px solid #d5e5e0; padding: 3px 6px; text-align: left; vertical-align: top; }
     .ing thead th { background: #e8f0ed; color: #3f5e57; font-size: 9px; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -382,7 +353,6 @@ export function buildRecipeBookHtml(opts: {
       .wrap { max-width: none; padding: 0; }
       .no-print { display: none !important; }
       .card { box-shadow: none; }
-      .menu-field { background: #f0f7f4 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
   </style>
 </head>
@@ -391,10 +361,8 @@ export function buildRecipeBookHtml(opts: {
     ${nav}
     <header>
       <h1>${name} — Kitchen Recipe Book</h1>
-      <p class="meta">Live menu description &amp; ingredients · kitchen builds · printable A4</p>
+      <p class="meta">Kitchen builds · methods · printable A4</p>
       <div class="banner">
-        <strong>From your saved menu:</strong> green boxes are the exact <strong>description</strong> and <strong>ingredients</strong> from the menu editor (after Save Changes).
-        Grey kitchen build / method text is station guidance only — not the customer-facing description.
         Containers: large salads <strong>750ml</strong> · small / medium salads <strong>500ml</strong> (60% of large) · pasta <strong>500ml</strong> · appetizer rice items <strong>300ml</strong> · dressing <strong>50ml</strong> cups · thick shakes <strong>300ml</strong> glass.
       </div>
     </header>
