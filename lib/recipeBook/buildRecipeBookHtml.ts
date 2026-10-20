@@ -305,10 +305,17 @@ function renderCard(card: RecipeCardModel, ctx: RecipeCardContext): string {
 const FRAME_SCRIPT = `(function () {
   var cards = [].slice.call(document.querySelectorAll(".card"));
   var sections = [].slice.call(document.querySelectorAll("section"));
+  var details = [].slice.call(document.querySelectorAll("details.sec"));
   var empty = document.getElementById("no-match");
+  var saved = null;
+  var beforePrint = null;
+  function category(d) { return d.getAttribute("data-category"); }
+  function openCategories() { return details.filter(function (d) { return d.open; }).map(category); }
+  function restore(open) { details.forEach(function (d) { d.open = open.indexOf(category(d)) > -1; }); }
   function filter(query) {
     var terms = query.toLowerCase().split(/\\s+/).filter(Boolean);
     var shown = 0;
+    if (terms.length && !saved) saved = openCategories();
     cards.forEach(function (card) {
       var hay = card.getAttribute("data-search") || "";
       var ok = terms.every(function (t) { return hay.indexOf(t) > -1; });
@@ -316,8 +323,11 @@ const FRAME_SCRIPT = `(function () {
       if (ok) shown += 1;
     });
     sections.forEach(function (sec) {
-      sec.classList.toggle("hide", !sec.querySelector(".card:not(.hide)"));
+      var any = !!sec.querySelector(".card:not(.hide)");
+      sec.classList.toggle("hide", !any);
+      if (terms.length) sec.querySelector("details").open = any;
     });
+    if (!terms.length && saved) { restore(saved); saved = null; }
     empty.classList.toggle("hide", shown > 0);
   }
   window.addEventListener("message", function (e) {
@@ -326,7 +336,19 @@ const FRAME_SCRIPT = `(function () {
     if (d.type === "filter") filter(String(d.query || ""));
     if (d.type === "print") window.print();
   });
+  window.addEventListener("beforeprint", function () {
+    beforePrint = openCategories();
+    details.forEach(function (d) { d.open = true; });
+  });
+  window.addEventListener("afterprint", function () {
+    if (beforePrint) restore(beforePrint);
+    beforePrint = null;
+  });
   document.addEventListener("click", function (e) {
+    var summary = e.target.closest && e.target.closest("summary");
+    if (summary && !saved) {
+      setTimeout(function () { window.parent.postMessage({ type: "sections", open: openCategories() }, "*"); }, 0);
+    }
     var btn = e.target.closest && e.target.closest("[data-edit-links]");
     if (!btn) return;
     window.parent.postMessage(
@@ -346,6 +368,8 @@ export function buildRecipeBookHtml(opts: {
 	links?: RecipeLink[];
 	/** Show "Edit links" buttons (owner view). */
 	editable?: boolean;
+	/** Categories to render expanded (embedded view collapses the rest). */
+	openSections?: string[];
 }): string {
 	const cards = buildRecipeCards(opts.menuDishes);
 	const groups = groupByCategory(cards);
@@ -353,10 +377,13 @@ export function buildRecipeBookHtml(opts: {
 		links: new Map((opts.links ?? []).map((l) => [l.recipeKey, l])),
 		editable: Boolean(opts.editable && opts.embedded),
 	};
+	const openSections = new Set(opts.openSections ?? []);
 	const sections = groups
 		.map((g) => {
 			const cardHtml = g.items.map((c) => renderCard(c, ctx)).join("\n");
-			return `<section><h2>${escapeHtml(g.category)}</h2><div class="grid">${cardHtml}</div></section>`;
+			// Standalone (non-embedded) documents have no script, so keep everything open for print.
+			const open = !opts.embedded || openSections.has(g.category) ? " open" : "";
+			return `<section><details class="sec" data-category="${escapeHtml(g.category)}"${open}><summary><h2>${escapeHtml(g.category)} <span class="count">${g.items.length}</span></h2></summary><div class="grid">${cardHtml}</div></details></section>`;
 		})
 		.join("\n");
 
@@ -403,6 +430,16 @@ export function buildRecipeBookHtml(opts: {
       padding-bottom: 4px;
       margin: 22px 0 10px;
       page-break-after: avoid;
+    }
+    summary { list-style: none; cursor: pointer; }
+    summary::-webkit-details-marker { display: none; }
+    summary h2 { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+    summary h2::before { content: "▸"; font-size: 14px; width: 14px; }
+    details[open] > summary h2::before { content: "▾"; }
+    summary:hover h2 { color: #0b4a42; }
+    .count {
+      font-weight: 600; font-size: 10px; letter-spacing: 0; color: #5a7a74;
+      background: #e8f0ed; border-radius: 999px; padding: 1px 8px;
     }
     .grid {
       display: grid;

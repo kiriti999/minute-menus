@@ -45,6 +45,12 @@ async function fetchMenuAndRestaurant(slug: string): Promise<RecipeBookData> {
 }
 
 /** Reads an "edit-links" message posted by the recipe-book iframe. */
+function parseOpenSections(data: unknown): string[] | null {
+	const msg = data as { type?: unknown; open?: unknown } | null;
+	if (msg?.type !== "sections" || !Array.isArray(msg.open)) return null;
+	return msg.open.filter((c): c is string => typeof c === "string");
+}
+
 function parseEditMessage(data: unknown): EditTarget | null {
 	const msg = data as { type?: unknown; key?: unknown; title?: unknown } | null;
 	if (msg?.type !== "edit-links") return null;
@@ -71,6 +77,8 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 	const [fetchTick, setFetchTick] = useState(0);
 	const [currentSlug] = useState<string>(slug);
 	const frameRef = useRef<HTMLIFrameElement>(null);
+	// Expanded categories survive iframe reloads (e.g. after saving a link); read when the HTML is built.
+	const openSections = useRef<string[]>([]);
 	const requestId = useRef(0);
 
 	const loadLatest = useCallback(async (opts?: { silent?: boolean }) => {
@@ -131,6 +139,7 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 						menuDishes: data.dishes,
 						links: data.links,
 						editable: Boolean(isAuthenticated),
+						openSections: openSections.current,
 						embedded: true,
 					})
 				: "",
@@ -149,6 +158,8 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 	useEffect(() => {
 		const onMessage = (e: MessageEvent) => {
 			if (e.source !== frameRef.current?.contentWindow) return;
+			const open = parseOpenSections(e.data);
+			if (open) openSections.current = open;
 			const target = parseEditMessage(e.data);
 			if (target) setEditing(target);
 		};
