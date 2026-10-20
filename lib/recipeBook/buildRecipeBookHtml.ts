@@ -117,16 +117,27 @@ function cardFromLiveDish(dish: RecipeBookDish, kitchen: RecipeEntry): RecipeCar
 	};
 }
 
-function cardFromDressing(entry: RecipeEntry): RecipeCardModel {
+function cardFromEntry(entry: RecipeEntry, isDressing: boolean): RecipeCardModel {
 	return {
 		title: entry.dishName,
-		category: "Dressings",
+		category: entry.category,
 		liveDescription: "",
 		liveIngredients: "",
 		...kitchenFields(entry),
 		yieldNote: entry.yieldNote,
-		isDressing: true,
+		isDressing,
 	};
+}
+
+/** Cards for recipes a dish names as companions (e.g. the PET-bottle variant), once each. */
+function companionCards(kitchen: RecipeEntry, seen: Set<string>): RecipeCardModel[] {
+	return (kitchen.companions ?? []).flatMap((name) => {
+		const key = name.toLowerCase();
+		const entry = RECIPE_BOOK.find((r) => r.dishName.toLowerCase() === key);
+		if (!entry || seen.has(key)) return [];
+		seen.add(key);
+		return [cardFromEntry(entry, false)];
+	});
 }
 
 /**
@@ -148,13 +159,13 @@ export function buildRecipeCards(menuDishes: RecipeBookDish[]): RecipeCardModel[
 		const kitchen =
 			curated ??
 			recipeFromMenuFields(d.name, d.category, d.ingredients, d.description);
-		fromMenu.push(cardFromLiveDish(d, kitchen));
+		fromMenu.push(cardFromLiveDish(d, kitchen), ...companionCards(kitchen, seen));
 		collectDressingsForDish(d, kitchen, neededDressingKeys);
 	}
 
 	const dressings = RECIPE_BOOK.filter(
 		(r) => r.category === "Dressings" && neededDressingKeys.has(r.dishName.toLowerCase()),
-	).map(cardFromDressing);
+	).map((e) => cardFromEntry(e, true));
 
 	return [...dressings, ...fromMenu];
 }

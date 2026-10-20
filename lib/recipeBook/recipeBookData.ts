@@ -33,6 +33,8 @@ export type RecipeEntry = {
 	ingredients?: string;
 	/** Plain-text method — used when `steps` is absent. */
 	method?: string;
+	/** Other recipe card names (RECIPE_BOOK dishName) to print right after this dish. */
+	companions?: string[];
 	/** Dressing card names (RECIPE_BOOK dishName) to print alongside this dish. */
 	dressings?: string[];
 };
@@ -857,6 +859,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 	{
 		dishName: "Cold Coffee With IceCream",
 		aliases: ["Cold Coffee With Ice Cream"],
+		companions: ["Cold Coffee"],
 		category: "Milkshakes",
 		yieldNote: "300ml glass · ~220ml liquid, leaving room for the ice cream scoop",
 		rows: [
