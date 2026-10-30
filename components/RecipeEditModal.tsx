@@ -1,10 +1,26 @@
-import { Loader2, X } from "lucide-react";
+import { ImagePlus, Loader2, X } from "lucide-react";
 import type React from "react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { RecipeDraft } from "../lib/recipeBook/recipeEditText";
+
+const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
+
+function readAsDataUrl(file: File): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(String(reader.result));
+		reader.onerror = () => reject(new Error("Could not read the image"));
+		reader.readAsDataURL(file);
+	});
+}
 
 export interface RecipeEditModalProps {
 	title: string;
+	/** Current photo of the card, if any. */
+	imageUrl?: string;
+	/** Uploads a photo (data URL) right away — independent of Save. */
+	onUploadImage: (dataUrl: string) => Promise<void>;
+	onRemoveImage: () => Promise<void>;
 	initialDraft: RecipeDraft;
 	/** True when the card already has an owner edit, so "Reset to default" applies. */
 	isEdited: boolean;
@@ -21,6 +37,9 @@ const FIELD = "mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none focu
 /** Edit the kitchen build and method of one recipe card (text in, text out — parsing lives in recipeEditText). */
 export const RecipeEditModal: React.FC<RecipeEditModalProps> = ({
 	title,
+	imageUrl,
+	onUploadImage,
+	onRemoveImage,
 	initialDraft,
 	isEdited,
 	isDarkTheme,
@@ -33,6 +52,8 @@ export const RecipeEditModal: React.FC<RecipeEditModalProps> = ({
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
+	const [photoBusy, setPhotoBusy] = useState(false);
+	const fileInput = useRef<HTMLInputElement>(null);
 
 	const card = isDarkTheme ? "bg-zinc-900 border-zinc-700 text-white" : "bg-white border-zinc-200 text-zinc-900";
 	const field = `${FIELD} ${isDarkTheme ? "bg-zinc-800 border-zinc-700 text-white" : "bg-white border-zinc-300"}`;
@@ -50,6 +71,27 @@ export const RecipeEditModal: React.FC<RecipeEditModalProps> = ({
 			setError(err instanceof Error ? err.message : "Could not save recipe");
 			setBusy(false);
 		}
+	};
+
+	const runPhoto = async (action: () => Promise<void>) => {
+		setPhotoBusy(true);
+		setError("");
+		try {
+			await action();
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Could not update the photo");
+		} finally {
+			setPhotoBusy(false);
+		}
+	};
+
+	const pickPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0];
+		e.target.value = "";
+		if (!file) return;
+		if (!file.type.startsWith("image/")) return setError("Choose an image file");
+		if (file.size > MAX_PHOTO_BYTES) return setError("Image is too large (max 15MB)");
+		void runPhoto(async () => onUploadImage(await readAsDataUrl(file)));
 	};
 
 	const submit = (e: React.FormEvent) => {
@@ -71,6 +113,38 @@ export const RecipeEditModal: React.FC<RecipeEditModalProps> = ({
 					<button type="button" onClick={onClose} aria-label="Close" className="p-1 rounded-full hover:bg-black/10">
 						<X size={18} />
 					</button>
+				</div>
+
+				<div className="mt-4 flex items-center gap-3">
+					{imageUrl ? (
+						<img src={imageUrl} alt="" className="h-20 w-28 rounded-lg object-cover border border-black/10" />
+					) : (
+						<div className="h-20 w-28 rounded-lg border border-dashed border-black/20 flex items-center justify-center opacity-60">
+							<ImagePlus size={22} />
+						</div>
+					)}
+					<div className="flex flex-col items-start gap-2">
+						<input ref={fileInput} type="file" accept="image/*" onChange={pickPhoto} className="hidden" />
+						<button
+							type="button"
+							disabled={photoBusy || busy}
+							onClick={() => fileInput.current?.click()}
+							className={`inline-flex items-center gap-2 ${outline}`}
+						>
+							{photoBusy && <Loader2 size={14} className="animate-spin" />}
+							{imageUrl ? "Replace image" : "Upload image"}
+						</button>
+						{imageUrl && (
+							<button
+								type="button"
+								disabled={photoBusy || busy}
+								onClick={() => void runPhoto(onRemoveImage)}
+								className="text-xs underline opacity-70 disabled:opacity-40"
+							>
+								Remove image
+							</button>
+						)}
+					</div>
 				</div>
 
 				<label className="mt-4 block text-sm font-medium">

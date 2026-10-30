@@ -446,6 +446,12 @@ export interface RecipeLink {
   articleUrl: string | null;
 }
 
+/** Optional photo for one recipe-book card (keyed by lower-cased dish name). */
+export interface RecipeImage {
+  recipeKey: string;
+  imageUrl: string;
+}
+
 /** One ingredient line of an owner-edited recipe; a heading row labels a group. */
 export interface RecipeOverrideRow {
   item: string;

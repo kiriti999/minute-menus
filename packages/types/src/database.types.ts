@@ -654,6 +654,27 @@ export type Database = {
                 };
                 Relationships: [];
             };
+            recipe_images: {
+                Row: {
+                    restaurant_id: string;
+                    recipe_key: string;
+                    image_url: string;
+                    updated_at: string;
+                };
+                Insert: {
+                    restaurant_id: string;
+                    recipe_key: string;
+                    image_url: string;
+                    updated_at?: string;
+                };
+                Update: {
+                    restaurant_id?: string;
+                    recipe_key?: string;
+                    image_url?: string;
+                    updated_at?: string;
+                };
+                Relationships: [];
+            };
             recipe_overrides: {
                 Row: {
                     restaurant_id: string;

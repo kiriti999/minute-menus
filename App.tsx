@@ -191,6 +191,7 @@ const App: React.FC = () => {
                 slug={recipeBookSlug}
                 isAuthenticated={isAuthenticated}
                 isDarkTheme={isDarkTheme}
+                onToggleTheme={toggleTheme}
                 onBack={() => {
                     if (isAuthenticated) {
                         window.history.pushState({}, "", "/");

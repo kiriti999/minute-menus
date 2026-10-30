@@ -25,6 +25,7 @@ import type {
     OrderItem,
     PurchaseUnit,
     RecipeLink,
+    RecipeImage,
     RecipeOverride,
     RestaurantOverhead,
     RefundRequest,
@@ -1585,6 +1586,24 @@ export class SupabaseService {
     async saveRecipeLink(restaurantId: string, link: RecipeLink): Promise<void> {
         const { saveRecipeLink } = await import("./recipeLinks");
         return saveRecipeLink(this.client, restaurantId, link);
+    }
+
+    /** Photos for recipe-book cards (public read). */
+    async getRecipeImages(restaurantId: string): Promise<RecipeImage[]> {
+        const { getRecipeImages } = await import("./recipeImages");
+        return getRecipeImages(this.client, restaurantId);
+    }
+
+    /** Owner-only. Uploads the (data URL) image and links it to the card; returns its public URL. */
+    async saveRecipeImage(restaurantId: string, recipeKey: string, dataUrl: string): Promise<string> {
+        const { saveRecipeImage } = await import("./recipeImages");
+        return saveRecipeImage(this.client, restaurantId, recipeKey, dataUrl);
+    }
+
+    /** Owner-only. */
+    async removeRecipeImage(restaurantId: string, recipeKey: string): Promise<void> {
+        const { removeRecipeImage } = await import("./recipeImages");
+        return removeRecipeImage(this.client, restaurantId, recipeKey);
     }
 
     /** Owner-edited kitchen builds / methods for recipe-book cards (public read). */

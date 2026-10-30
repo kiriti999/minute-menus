@@ -1,6 +1,6 @@
-import type { RecipeLink, RecipeOverride } from "@minute-menus/types";
+import type { RecipeImage, RecipeLink, RecipeOverride } from "@minute-menus/types";
 import { LoadingScreen } from "@minute-menus/ui";
-import { ArrowLeft, Printer, RefreshCw, Search, Trash2, X } from "lucide-react";
+import { ArrowLeft, Moon, Printer, RefreshCw, Search, Sun, Trash2, X } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RecipeEditModal } from "../components/RecipeEditModal";
@@ -19,6 +19,7 @@ import { supabaseService } from "../services/supabaseService";
 
 export interface RecipeBookPageProps {
 	isDarkTheme: boolean;
+	onToggleTheme: () => void;
 	onBack: () => void;
 	slug: string;
 	isAuthenticated?: boolean;
@@ -30,6 +31,7 @@ interface RecipeBookData {
 	dishes: RecipeBookDish[];
 	links: RecipeLink[];
 	overrides: RecipeOverride[];
+	images: RecipeImage[];
 }
 
 interface EditTarget {
@@ -44,12 +46,14 @@ async function fetchMenuAndRestaurant(slug: string): Promise<RecipeBookData> {
 	// Links are optional — a failed fetch must never break the recipe book.
 	const links = await supabaseService.getRecipeLinks(restaurant.id).catch(() => []);
 	const overrides = await supabaseService.getRecipeOverrides(restaurant.id).catch(() => []);
+	const images = await supabaseService.getRecipeImages(restaurant.id).catch(() => []);
 	return {
 		restaurantId: restaurant.id,
 		restaurantName: restaurant.name || "Recipe book",
 		dishes: dishesFromMenu(menu),
 		links,
 		overrides,
+		images,
 	};
 }
 
@@ -72,6 +76,7 @@ function parseEditMessage(data: unknown, type: "edit-links" | "edit-recipe"): Ed
  */
 export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 	isDarkTheme,
+	onToggleTheme,
 	onBack,
 	slug,
 	isAuthenticated,
@@ -91,6 +96,9 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 	// Expanded categories survive iframe reloads (e.g. after saving a link); read when the HTML is built.
 	const openSections = useRef<string[]>([]);
 	const requestId = useRef(0);
+	// Read only when the HTML is (re)built; later theme changes reach the iframe by postMessage so it never reloads.
+	const darkRef = useRef(isDarkTheme);
+	darkRef.current = isDarkTheme;
 
 	const loadLatest = useCallback(async (opts?: { silent?: boolean }) => {
 		const id = ++requestId.current;
@@ -150,6 +158,8 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 						menuDishes: data.dishes,
 						links: data.links,
 						overrides: data.overrides,
+						images: data.images,
+						dark: darkRef.current,
 						editable: Boolean(isAuthenticated),
 						openSections: openSections.current,
 						embedded: true,
@@ -161,6 +171,10 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 	const postToFrame = useCallback((message: object) => {
 		frameRef.current?.contentWindow?.postMessage(message, "*");
 	}, []);
+
+	useEffect(() => {
+		postToFrame({ type: "theme", dark: isDarkTheme });
+	}, [isDarkTheme, postToFrame]);
 
 	// The iframe is sandboxed without same-origin, so search / print / edit go through postMessage.
 	useEffect(() => {
@@ -216,6 +230,24 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 		const override = overrideFromDraft(editingRecipe.key, draft);
 		await supabaseService.saveRecipeOverride(data.restaurantId, override);
 		await reloadOverrides();
+	};
+
+	const reloadImages = async () => {
+		if (!data) return;
+		const images = await supabaseService.getRecipeImages(data.restaurantId);
+		setData({ ...data, images });
+	};
+
+	const uploadRecipeImage = async (dataUrl: string) => {
+		if (!data || !editingRecipe) return;
+		await supabaseService.saveRecipeImage(data.restaurantId, editingRecipe.key, dataUrl);
+		await reloadImages();
+	};
+
+	const removeRecipeImage = async () => {
+		if (!data || !editingRecipe) return;
+		await supabaseService.removeRecipeImage(data.restaurantId, editingRecipe.key);
+		await reloadImages();
 	};
 
 	const deleteRecipe = async () => {
@@ -333,6 +365,15 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 				</button>
 				<button
 					type="button"
+					onClick={onToggleTheme}
+					aria-label={isDarkTheme ? "Switch to light theme" : "Switch to dark theme"}
+					title={isDarkTheme ? "Light theme" : "Dark theme"}
+					className={`inline-flex items-center justify-center w-9 h-9 rounded-full border ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
+				>
+					{isDarkTheme ? <Sun size={16} /> : <Moon size={16} />}
+				</button>
+				<button
+					type="button"
 					onClick={() => postToFrame({ type: "print" })}
 					className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-[#0B4A42] text-white hover:opacity-90"
 				>
@@ -347,7 +388,10 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 				srcDoc={html}
 				className="flex-1 w-full border-0 bg-white"
 				sandbox="allow-scripts allow-modals allow-popups allow-popups-to-escape-sandbox"
-				onLoad={() => postToFrame({ type: "filter", query })}
+				onLoad={() => {
+					postToFrame({ type: "filter", query });
+					postToFrame({ type: "theme", dark: isDarkTheme });
+				}}
 			/>
 			{editing && (
 				<RecipeLinksModal
@@ -370,6 +414,9 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 			{editingRecipe && recipeDraft && (
 				<RecipeEditModal
 					title={editingRecipe.title}
+					imageUrl={data?.images.find((i) => i.recipeKey === editingRecipe.key)?.imageUrl}
+					onUploadImage={uploadRecipeImage}
+					onRemoveImage={removeRecipeImage}
 					initialDraft={recipeDraft}
 					isEdited={Boolean(
 						data?.overrides.some((o) => o.recipeKey === editingRecipe.key && hasRecipeContent(o)),

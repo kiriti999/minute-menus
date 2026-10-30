@@ -1,4 +1,4 @@
-import type { Category, RecipeLink, RecipeOverride } from "@minute-menus/types";
+import type { Category, RecipeImage, RecipeLink, RecipeOverride } from "@minute-menus/types";
 import {
 	type RecipeEntry,
 	type RecipeRow,
@@ -275,6 +275,8 @@ export const recipeKey = (title: string): string => title.trim().toLowerCase();
 
 export type RecipeCardContext = {
 	links: Map<string, RecipeLink>;
+	/** Photo URL per card key. */
+	images: Map<string, string>;
 	/** Keys of cards the owner has edited (shown as "Edit recipe · edited"). */
 	editedKeys: Set<string>;
 	/** Show the per-card edit buttons (embedded owner view only). */
@@ -302,6 +304,12 @@ function renderLinks(card: RecipeCardModel, ctx: RecipeCardContext): string {
 	return chips || edit ? `<div class="links">${chips ? `<span class="no-print">${chips}</span>` : ""}${edit}</div>` : "";
 }
 
+function renderPhoto(card: RecipeCardModel, ctx: RecipeCardContext): string {
+	const url = ctx.images.get(recipeKey(card.title));
+	if (!url || !HTTP_URL.test(url)) return "";
+	return `<img class="photo" src="${escapeHtml(url)}" alt="${escapeHtml(card.title)}" loading="lazy" />`;
+}
+
 function cardSearchText(card: RecipeCardModel): string {
 	const rows = card.rows.flatMap((row) => [row.item, ...row.qty]);
 	return [
@@ -324,6 +332,7 @@ function renderCard(card: RecipeCardModel, ctx: RecipeCardContext): string {
 <article class="card" data-search="${escapeHtml(cardSearchText(card))}">
   <h3>${escapeHtml(card.title)}</h3>
   ${yieldLine}
+  ${renderPhoto(card, ctx)}
   ${renderLinks(card, ctx)}
   ${renderBuild(card)}
   ${renderMethod(card)}
@@ -369,6 +378,7 @@ const FRAME_SCRIPT = `(function () {
     var d = e.data || {};
     if (d.type === "filter") filter(String(d.query || ""));
     if (d.type === "print") window.print();
+    if (d.type === "theme") document.body.classList.toggle("dark", d.dark === true);
   });
   window.addEventListener("beforeprint", function () {
     beforePrint = openCategories();
@@ -405,6 +415,10 @@ export function buildRecipeBookHtml(opts: {
 	embedded?: boolean;
 	/** Saved video / article links, shown as chips on each card. */
 	links?: RecipeLink[];
+	/** Photo per card, shown at the top of the card. */
+	images?: RecipeImage[];
+	/** Start in the dark screen theme (printing is always light). */
+	dark?: boolean;
 	/** Owner edits that replace the built-in kitchen build / method of a card. */
 	overrides?: RecipeOverride[];
 	/** Show "Edit links" / "Edit recipe" buttons (owner view). */
@@ -416,6 +430,7 @@ export function buildRecipeBookHtml(opts: {
 	const groups = groupByCategory(cards);
 	const ctx: RecipeCardContext = {
 		links: new Map((opts.links ?? []).map((l) => [l.recipeKey, l])),
+		images: new Map((opts.images ?? []).map((i) => [i.recipeKey, i.imageUrl])),
 		editedKeys: new Set((opts.overrides ?? []).filter(hasRecipeContent).map((o) => o.recipeKey)),
 		editable: Boolean(opts.editable && opts.embedded),
 	};
@@ -540,6 +555,26 @@ export function buildRecipeBookHtml(opts: {
       border-radius: 999px;
       cursor: pointer;
     }
+    .photo {
+      display: block; width: 100%; max-height: 160px; object-fit: cover;
+      border-radius: 6px; margin: 0 0 6px; border: 1px solid #d5e5e0;
+    }
+    @media screen {
+      body.dark { background: #0d1512; color: #e3eeea; }
+      .dark .meta, .dark .label, .dark .muted-note { color: #93b0a8; }
+      .dark .banner { background: #14261d; border-color: #3d8f43; }
+      .dark h2 { color: #7fd18a; border-bottom-color: #3d8f43; }
+      .dark summary:hover h2 { color: #b6ebbd; }
+      .dark .count { background: #1c2e29; color: #9fc2b8; }
+      .dark .card { background: #131d1a; border-color: #243630; }
+      .dark .yield { color: #7fd18a; }
+      .dark .ing th, .dark .ing td, .dark .photo { border-color: #2a3d37; }
+      .dark .ing thead th { background: #1c2e29; color: #b4cdc5; }
+      .dark .ing tr.grp th { background: #172722; color: #7fd18a; }
+      .dark .chip { background: #14261d; color: #9be0a5; border-color: #3d8f43; }
+      .dark .edit-links { border-color: #6f8f87; color: #b4cdc5; }
+      .dark .edit-links:hover { background: #1c2e29; }
+    }
     @media print {
       body { background: #fff; font-size: 10px; }
       .wrap { max-width: none; padding: 0; }
@@ -548,7 +583,7 @@ export function buildRecipeBookHtml(opts: {
     }
   </style>
 </head>
-<body>
+<body${opts.dark ? ' class="dark"' : ""}>
   <div class="wrap">
     ${nav}
     <header>

@@ -1815,3 +1815,28 @@ create policy "Owner can manage recipe overrides"
 create policy "Public can read recipe overrides"
   on recipe_overrides for select
   using (true);
+
+-- ─────────────────────────────────────────────
+-- RECIPE IMAGES — optional photo per recipe-book card.
+-- recipe_key = lower-cased card title. The file lives in the dish-media bucket
+-- under <restaurant_id>/…; this row stores its public URL. Public read, owner-only write.
+-- ─────────────────────────────────────────────
+create table if not exists recipe_images (
+  restaurant_id  uuid not null references restaurants(id) on delete cascade,
+  recipe_key     text not null,
+  image_url      text not null,
+  updated_at     timestamptz not null default now(),
+  primary key (restaurant_id, recipe_key),
+  constraint recipe_images_http check (image_url ~* '^https?://')
+);
+
+alter table recipe_images enable row level security;
+
+create policy "Owner can manage recipe images"
+  on recipe_images for all
+  using (exists (select 1 from restaurants r where r.id = recipe_images.restaurant_id and r.owner_id = auth.uid()))
+  with check (exists (select 1 from restaurants r where r.id = recipe_images.restaurant_id and r.owner_id = auth.uid()));
+
+create policy "Public can read recipe images"
+  on recipe_images for select
+  using (true);
