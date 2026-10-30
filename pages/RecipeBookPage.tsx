@@ -1,14 +1,16 @@
 import type { RecipeLink, RecipeOverride } from "@minute-menus/types";
 import { LoadingScreen } from "@minute-menus/ui";
-import { ArrowLeft, Printer, RefreshCw, Search, X } from "lucide-react";
+import { ArrowLeft, Printer, RefreshCw, Search, Trash2, X } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RecipeEditModal } from "../components/RecipeEditModal";
 import { RecipeLinksModal } from "../components/RecipeLinksModal";
+import { RecipeRestoreModal } from "../components/RecipeRestoreModal";
 import {
 	buildRecipeBookHtml,
 	buildRecipeCards,
 	dishesFromMenu,
+	hasRecipeContent,
 	recipeKey,
 	type RecipeBookDish,
 } from "../lib/recipeBook/buildRecipeBookHtml";
@@ -78,6 +80,7 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 	const [query, setQuery] = useState("");
 	const [editing, setEditing] = useState<EditTarget | null>(null);
 	const [editingRecipe, setEditingRecipe] = useState<EditTarget | null>(null);
+	const [restoring, setRestoring] = useState(false);
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
@@ -215,6 +218,21 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 		await reloadOverrides();
 	};
 
+	const deleteRecipe = async () => {
+		if (!data || !editingRecipe) return;
+		await supabaseService.setRecipeHidden(data.restaurantId, editingRecipe.key, true);
+		await reloadOverrides();
+	};
+
+	const restoreRecipe = async (key: string) => {
+		if (!data) return;
+		await supabaseService.setRecipeHidden(data.restaurantId, key, false);
+		const overrides = await supabaseService.getRecipeOverrides(data.restaurantId);
+		setData({ ...data, overrides });
+	};
+
+	const deletedKeys = data?.overrides.filter((o) => o.hidden).map((o) => o.recipeKey) ?? [];
+
 	const resetRecipe = async () => {
 		if (!data || !editingRecipe) return;
 		await supabaseService.deleteRecipeOverride(data.restaurantId, editingRecipe.key);
@@ -292,6 +310,17 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 						</button>
 					)}
 				</div>
+				{isAuthenticated && deletedKeys.length > 0 && (
+					<button
+						type="button"
+						onClick={() => setRestoring(true)}
+						className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold border ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
+						title="Restore recipes you deleted"
+					>
+						<Trash2 size={16} />
+						Deleted ({deletedKeys.length})
+					</button>
+				)}
 				<button
 					type="button"
 					disabled={refreshing || loading}
@@ -330,14 +359,25 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 					onClose={() => setEditing(null)}
 				/>
 			)}
+			{restoring && (
+				<RecipeRestoreModal
+					recipeKeys={deletedKeys}
+					isDarkTheme={isDarkTheme}
+					onRestore={restoreRecipe}
+					onClose={() => setRestoring(false)}
+				/>
+			)}
 			{editingRecipe && recipeDraft && (
 				<RecipeEditModal
 					title={editingRecipe.title}
 					initialDraft={recipeDraft}
-					isEdited={Boolean(data?.overrides.some((o) => o.recipeKey === editingRecipe.key))}
+					isEdited={Boolean(
+						data?.overrides.some((o) => o.recipeKey === editingRecipe.key && hasRecipeContent(o)),
+					)}
 					isDarkTheme={isDarkTheme}
 					onSave={saveRecipe}
 					onReset={resetRecipe}
+					onDelete={deleteRecipe}
 					onClose={() => setEditingRecipe(null)}
 				/>
 			)}

@@ -1599,6 +1599,12 @@ export class SupabaseService {
         return saveRecipeOverride(this.client, restaurantId, override);
     }
 
+    /** Owner-only (RLS). Deletes (hides) or restores a recipe-book card; edits are kept. */
+    async setRecipeHidden(restaurantId: string, recipeKey: string, hidden: boolean): Promise<void> {
+        const { setRecipeHidden } = await import("./recipeOverrides");
+        return setRecipeHidden(this.client, restaurantId, recipeKey, hidden);
+    }
+
     /** Owner-only (RLS). Restores the built-in recipe for the card. */
     async deleteRecipeOverride(restaurantId: string, recipeKey: string): Promise<void> {
         const { deleteRecipeOverride } = await import("./recipeOverrides");

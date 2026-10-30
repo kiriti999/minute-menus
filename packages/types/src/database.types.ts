@@ -663,6 +663,7 @@ export type Database = {
                     rows: Json;
                     steps: Json;
                     notes: Json;
+                    hidden: boolean;
                     updated_at: string;
                 };
                 Insert: {
@@ -673,6 +674,7 @@ export type Database = {
                     rows?: Json;
                     steps?: Json;
                     notes?: Json;
+                    hidden?: boolean;
                     updated_at?: string;
                 };
                 Update: {
@@ -683,6 +685,7 @@ export type Database = {
                     rows?: Json;
                     steps?: Json;
                     notes?: Json;
+                    hidden?: boolean;
                     updated_at?: string;
                 };
                 Relationships: [];

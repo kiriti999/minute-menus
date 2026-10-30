@@ -140,9 +140,12 @@ function companionCards(kitchen: RecipeEntry, seen: Set<string>): RecipeCardMode
 	});
 }
 
+/** A deleted-only row carries no edit; only rows with content replace the built-in recipe. */
+export const hasRecipeContent = (o: RecipeOverride): boolean => o.rows.length > 0 || o.steps.length > 0;
+
 /** Owner edit replaces the built-in kitchen build, method, notes and yield of a card. */
 function applyOverride(card: RecipeCardModel, override: RecipeOverride | undefined): RecipeCardModel {
-	if (!override) return card;
+	if (!override || !hasRecipeContent(override)) return card;
 	const width = override.columns.length;
 	return {
 		...card,
@@ -190,7 +193,9 @@ export function buildRecipeCards(
 
 	const byKey = new Map(overrides.map((o) => [o.recipeKey, o]));
 	const prep = RECIPE_BOOK.filter((r) => r.prep && !seen.has(r.dishName.toLowerCase())).map((e) => cardFromEntry(e, true));
-	return [...dressings, ...fromMenu, ...prep].map((card) => applyOverride(card, byKey.get(recipeKey(card.title))));
+	return [...dressings, ...fromMenu, ...prep]
+		.filter((card) => !byKey.get(recipeKey(card.title))?.hidden)
+		.map((card) => applyOverride(card, byKey.get(recipeKey(card.title))));
 }
 
 /** @deprecated Use buildRecipeCards — kept for any older imports. */
@@ -289,7 +294,7 @@ function renderLinks(card: RecipeCardModel, ctx: RecipeCardContext): string {
 	const label = chips ? "Edit links" : "+ Add video / article links";
 	const key = escapeHtml(recipeKey(card.title));
 	const title = escapeHtml(card.title);
-	const recipeLabel = ctx.editedKeys.has(recipeKey(card.title)) ? "✎ Edit recipe · edited" : "✎ Edit recipe";
+	const recipeLabel = ctx.editedKeys.has(recipeKey(card.title)) ? "✎ Edit / delete · edited" : "✎ Edit / delete";
 	const edit = ctx.editable
 		? `<button type="button" class="edit-links no-print" data-edit-links="${key}" data-title="${title}">${label}</button>` +
 			`<button type="button" class="edit-links no-print" data-edit-recipe="${key}" data-title="${title}">${recipeLabel}</button>`
@@ -411,7 +416,7 @@ export function buildRecipeBookHtml(opts: {
 	const groups = groupByCategory(cards);
 	const ctx: RecipeCardContext = {
 		links: new Map((opts.links ?? []).map((l) => [l.recipeKey, l])),
-		editedKeys: new Set((opts.overrides ?? []).map((o) => o.recipeKey)),
+		editedKeys: new Set((opts.overrides ?? []).filter(hasRecipeContent).map((o) => o.recipeKey)),
 		editable: Boolean(opts.editable && opts.embedded),
 	};
 	const openSections = new Set(opts.openSections ?? []);

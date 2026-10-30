@@ -1786,8 +1786,9 @@ create policy "Public can read recipe links"
 -- ─────────────────────────────────────────────
 -- RECIPE OVERRIDES — owner-edited kitchen build / method for a recipe-book card.
 -- recipe_key = lower-cased card title. A row replaces the built-in recipe for that
--- card; deleting it restores the default. Public read (the recipe book is public),
--- owner-only write.
+-- card; deleting it restores the default. `hidden` removes the card from the book
+-- (recipe "delete" — restorable, edits are kept). Public read (the recipe book is
+-- public), owner-only write.
 -- ─────────────────────────────────────────────
 create table if not exists recipe_overrides (
   restaurant_id  uuid not null references restaurants(id) on delete cascade,
@@ -1797,9 +1798,12 @@ create table if not exists recipe_overrides (
   rows           jsonb not null default '[]'::jsonb,
   steps          jsonb not null default '[]'::jsonb,
   notes          jsonb not null default '[]'::jsonb,
+  hidden         boolean not null default false,
   updated_at     timestamptz not null default now(),
   primary key (restaurant_id, recipe_key)
 );
+
+alter table recipe_overrides add column if not exists hidden boolean not null default false;
 
 alter table recipe_overrides enable row level security;
 

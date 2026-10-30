@@ -31,6 +31,7 @@ export function sanitizeRecipeOverride(raw: {
 	rows?: unknown;
 	steps?: unknown;
 	notes?: unknown;
+	hidden?: boolean;
 }): RecipeOverride {
 	const columns = cleanList(raw.columns, MAX_COLUMNS);
 	const rows = (Array.isArray(raw.rows) ? raw.rows : []).map(cleanRow).filter((r): r is RecipeOverrideRow => r !== null);
@@ -41,13 +42,14 @@ export function sanitizeRecipeOverride(raw: {
 		rows: rows.slice(0, MAX_ROWS),
 		steps: cleanList(raw.steps, MAX_STEPS),
 		notes: cleanList(raw.notes, MAX_STEPS),
+		hidden: raw.hidden === true,
 	};
 }
 
 export async function getRecipeOverrides(client: Client, restaurantId: string): Promise<RecipeOverride[]> {
 	const { data, error } = await client
 		.from("recipe_overrides")
-		.select("recipe_key, yield_note, columns, rows, steps, notes")
+		.select("recipe_key, yield_note, columns, rows, steps, notes, hidden")
 		.eq("restaurant_id", restaurantId);
 	if (error) throw error;
 	return (data ?? []).map((row) =>
@@ -58,6 +60,7 @@ export async function getRecipeOverrides(client: Client, restaurantId: string): 
 			rows: row.rows,
 			steps: row.steps,
 			notes: row.notes,
+			hidden: row.hidden,
 		}),
 	);
 }
@@ -91,5 +94,24 @@ export async function deleteRecipeOverride(client: Client, restaurantId: string,
 		.delete()
 		.eq("restaurant_id", restaurantId)
 		.eq("recipe_key", recipeKey.trim().toLowerCase());
+	if (error) throw error;
+}
+
+/** Delete (hide) or restore a card. Hiding keeps any saved edits so a restore brings them back. */
+export async function setRecipeHidden(
+	client: Client,
+	restaurantId: string,
+	recipeKey: string,
+	hidden: boolean,
+): Promise<void> {
+	const key = recipeKey.trim().toLowerCase();
+	if (!key) throw new Error("Recipe name is missing");
+	const query = hidden
+		? client.from("recipe_overrides").upsert(
+				{ restaurant_id: restaurantId, recipe_key: key, hidden: true, updated_at: new Date().toISOString() },
+				{ onConflict: "restaurant_id,recipe_key" },
+			)
+		: client.from("recipe_overrides").update({ hidden: false }).eq("restaurant_id", restaurantId).eq("recipe_key", key);
+	const { error } = await query;
 	if (error) throw error;
 }

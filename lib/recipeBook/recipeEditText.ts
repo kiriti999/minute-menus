@@ -65,5 +65,6 @@ export function overrideFromDraft(recipeKey: string, draft: RecipeDraft): Recipe
 		rows,
 		steps: lines(draft.steps).map(stripStepNumber),
 		notes: lines(draft.notes),
+		hidden: false,
 	};
 }

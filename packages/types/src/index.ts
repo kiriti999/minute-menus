@@ -461,6 +461,8 @@ export interface RecipeOverride {
   rows: RecipeOverrideRow[];
   steps: string[];
   notes: string[];
+  /** Recipe deleted from the book (restorable; any edits are kept). */
+  hidden: boolean;
 }
 
 export interface InvoiceLineItem {

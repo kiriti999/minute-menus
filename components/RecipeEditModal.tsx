@@ -11,6 +11,8 @@ export interface RecipeEditModalProps {
 	isDarkTheme: boolean;
 	onSave: (draft: RecipeDraft) => Promise<void>;
 	onReset: () => Promise<void>;
+	/** Deletes (hides) the recipe from the book. */
+	onDelete: () => Promise<void>;
 	onClose: () => void;
 }
 
@@ -24,11 +26,13 @@ export const RecipeEditModal: React.FC<RecipeEditModalProps> = ({
 	isDarkTheme,
 	onSave,
 	onReset,
+	onDelete,
 	onClose,
 }) => {
 	const [draft, setDraft] = useState<RecipeDraft>(initialDraft);
 	const [busy, setBusy] = useState(false);
 	const [error, setError] = useState("");
+	const [confirmingDelete, setConfirmingDelete] = useState(false);
 
 	const card = isDarkTheme ? "bg-zinc-900 border-zinc-700 text-white" : "bg-white border-zinc-200 text-zinc-900";
 	const field = `${FIELD} ${isDarkTheme ? "bg-zinc-800 border-zinc-700 text-white" : "bg-white border-zinc-300"}`;
@@ -105,14 +109,40 @@ export const RecipeEditModal: React.FC<RecipeEditModalProps> = ({
 				</label>
 
 				{error && <p className="mt-3 text-sm text-red-500">{error}</p>}
+				{confirmingDelete && (
+					<div className="mt-4 rounded-lg border border-red-500/50 p-3 text-sm">
+						<p>Delete this recipe from the book? You can restore it later from "Deleted recipes".</p>
+						<div className="mt-2 flex gap-2">
+							<button
+								type="button"
+								disabled={busy}
+								onClick={() => void run(onDelete)}
+								className="px-4 py-1.5 rounded-full text-sm font-semibold bg-red-600 text-white disabled:opacity-50"
+							>
+								Yes, delete
+							</button>
+							<button type="button" disabled={busy} onClick={() => setConfirmingDelete(false)} className={outline}>
+								Keep
+							</button>
+						</div>
+					</div>
+				)}
 				<div className="mt-5 flex flex-wrap items-center justify-between gap-2">
-					{isEdited ? (
-						<button type="button" disabled={busy} onClick={() => void run(onReset)} className={outline}>
-							Reset to default
+					<div className="flex flex-wrap gap-2">
+						{isEdited && (
+							<button type="button" disabled={busy} onClick={() => void run(onReset)} className={outline}>
+								Reset to default
+							</button>
+						)}
+						<button
+							type="button"
+							disabled={busy || confirmingDelete}
+							onClick={() => setConfirmingDelete(true)}
+							className="px-4 py-2 rounded-full text-sm font-semibold border border-red-500/60 text-red-500 disabled:opacity-50"
+						>
+							Delete recipe
 						</button>
-					) : (
-						<span />
-					)}
+					</div>
 					<div className="flex gap-2">
 						<button type="button" disabled={busy} onClick={onClose} className={outline}>
 							Cancel
