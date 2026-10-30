@@ -446,6 +446,23 @@ export interface RecipeLink {
   articleUrl: string | null;
 }
 
+/** One ingredient line of an owner-edited recipe; a heading row labels a group. */
+export interface RecipeOverrideRow {
+  item: string;
+  qty: string[];
+  heading?: boolean;
+}
+
+/** Owner edit of a recipe-book card's kitchen build / method (replaces the built-in recipe). */
+export interface RecipeOverride {
+  recipeKey: string;
+  yieldNote: string | null;
+  columns: string[];
+  rows: RecipeOverrideRow[];
+  steps: string[];
+  notes: string[];
+}
+
 export interface InvoiceLineItem {
   name: string;
   quantity: number;

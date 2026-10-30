@@ -1,14 +1,18 @@
-import type { RecipeLink } from "@minute-menus/types";
+import type { RecipeLink, RecipeOverride } from "@minute-menus/types";
 import { LoadingScreen } from "@minute-menus/ui";
 import { ArrowLeft, Printer, RefreshCw, Search, X } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { RecipeEditModal } from "../components/RecipeEditModal";
 import { RecipeLinksModal } from "../components/RecipeLinksModal";
 import {
 	buildRecipeBookHtml,
+	buildRecipeCards,
 	dishesFromMenu,
+	recipeKey,
 	type RecipeBookDish,
 } from "../lib/recipeBook/buildRecipeBookHtml";
+import { draftFromCard, overrideFromDraft, type RecipeDraft } from "../lib/recipeBook/recipeEditText";
 import { supabaseService } from "../services/supabaseService";
 
 export interface RecipeBookPageProps {
@@ -23,6 +27,7 @@ interface RecipeBookData {
 	restaurantName: string;
 	dishes: RecipeBookDish[];
 	links: RecipeLink[];
+	overrides: RecipeOverride[];
 }
 
 interface EditTarget {
@@ -36,24 +41,26 @@ async function fetchMenuAndRestaurant(slug: string): Promise<RecipeBookData> {
 	const menu = await supabaseService.getMenu(restaurant.id);
 	// Links are optional — a failed fetch must never break the recipe book.
 	const links = await supabaseService.getRecipeLinks(restaurant.id).catch(() => []);
+	const overrides = await supabaseService.getRecipeOverrides(restaurant.id).catch(() => []);
 	return {
 		restaurantId: restaurant.id,
 		restaurantName: restaurant.name || "Recipe book",
 		dishes: dishesFromMenu(menu),
 		links,
+		overrides,
 	};
 }
 
-/** Reads an "edit-links" message posted by the recipe-book iframe. */
 function parseOpenSections(data: unknown): string[] | null {
 	const msg = data as { type?: unknown; open?: unknown } | null;
 	if (msg?.type !== "sections" || !Array.isArray(msg.open)) return null;
 	return msg.open.filter((c): c is string => typeof c === "string");
 }
 
-function parseEditMessage(data: unknown): EditTarget | null {
+/** Reads an "edit-links" / "edit-recipe" message posted by the recipe-book iframe. */
+function parseEditMessage(data: unknown, type: "edit-links" | "edit-recipe"): EditTarget | null {
 	const msg = data as { type?: unknown; key?: unknown; title?: unknown } | null;
-	if (msg?.type !== "edit-links") return null;
+	if (msg?.type !== type) return null;
 	if (typeof msg.key !== "string" || typeof msg.title !== "string") return null;
 	return { key: msg.key, title: msg.title };
 }
@@ -70,6 +77,7 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 	const [data, setData] = useState<RecipeBookData | null>(null);
 	const [query, setQuery] = useState("");
 	const [editing, setEditing] = useState<EditTarget | null>(null);
+	const [editingRecipe, setEditingRecipe] = useState<EditTarget | null>(null);
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
@@ -138,6 +146,7 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 						restaurantName: data.restaurantName,
 						menuDishes: data.dishes,
 						links: data.links,
+						overrides: data.overrides,
 						editable: Boolean(isAuthenticated),
 						openSections: openSections.current,
 						embedded: true,
@@ -160,8 +169,10 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 			if (e.source !== frameRef.current?.contentWindow) return;
 			const open = parseOpenSections(e.data);
 			if (open) openSections.current = open;
-			const target = parseEditMessage(e.data);
+			const target = parseEditMessage(e.data, "edit-links");
 			if (target) setEditing(target);
+			const recipe = parseEditMessage(e.data, "edit-recipe");
+			if (recipe) setEditingRecipe(recipe);
 		};
 		window.addEventListener("message", onMessage);
 		return () => window.removeEventListener("message", onMessage);
@@ -181,6 +192,34 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 	};
 
 	const editingLink = data?.links.find((l) => l.recipeKey === editing?.key);
+
+	const recipeDraft = useMemo(() => {
+		if (!data || !editingRecipe) return null;
+		const card = buildRecipeCards(data.dishes, data.overrides).find(
+			(c) => recipeKey(c.title) === editingRecipe.key,
+		);
+		return card ? draftFromCard(card) : null;
+	}, [data, editingRecipe]);
+
+	const reloadOverrides = async () => {
+		if (!data) return;
+		const overrides = await supabaseService.getRecipeOverrides(data.restaurantId);
+		setData({ ...data, overrides });
+		setEditingRecipe(null);
+	};
+
+	const saveRecipe = async (draft: RecipeDraft) => {
+		if (!data || !editingRecipe) return;
+		const override = overrideFromDraft(editingRecipe.key, draft);
+		await supabaseService.saveRecipeOverride(data.restaurantId, override);
+		await reloadOverrides();
+	};
+
+	const resetRecipe = async () => {
+		if (!data || !editingRecipe) return;
+		await supabaseService.deleteRecipeOverride(data.restaurantId, editingRecipe.key);
+		await reloadOverrides();
+	};
 
 	if (loading && !html) return <LoadingScreen label="Loading latest menu…" />;
 
@@ -289,6 +328,17 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 					isDarkTheme={isDarkTheme}
 					onSave={saveLinks}
 					onClose={() => setEditing(null)}
+				/>
+			)}
+			{editingRecipe && recipeDraft && (
+				<RecipeEditModal
+					title={editingRecipe.title}
+					initialDraft={recipeDraft}
+					isEdited={Boolean(data?.overrides.some((o) => o.recipeKey === editingRecipe.key))}
+					isDarkTheme={isDarkTheme}
+					onSave={saveRecipe}
+					onReset={resetRecipe}
+					onClose={() => setEditingRecipe(null)}
 				/>
 			)}
 		</div>

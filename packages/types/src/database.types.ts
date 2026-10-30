@@ -654,6 +654,39 @@ export type Database = {
                 };
                 Relationships: [];
             };
+            recipe_overrides: {
+                Row: {
+                    restaurant_id: string;
+                    recipe_key: string;
+                    yield_note: string | null;
+                    columns: Json;
+                    rows: Json;
+                    steps: Json;
+                    notes: Json;
+                    updated_at: string;
+                };
+                Insert: {
+                    restaurant_id: string;
+                    recipe_key: string;
+                    yield_note?: string | null;
+                    columns?: Json;
+                    rows?: Json;
+                    steps?: Json;
+                    notes?: Json;
+                    updated_at?: string;
+                };
+                Update: {
+                    restaurant_id?: string;
+                    recipe_key?: string;
+                    yield_note?: string | null;
+                    columns?: Json;
+                    rows?: Json;
+                    steps?: Json;
+                    notes?: Json;
+                    updated_at?: string;
+                };
+                Relationships: [];
+            };
             restaurant_overhead: {
                 Row: {
                     id: string;

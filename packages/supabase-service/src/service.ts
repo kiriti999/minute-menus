@@ -25,6 +25,7 @@ import type {
     OrderItem,
     PurchaseUnit,
     RecipeLink,
+    RecipeOverride,
     RestaurantOverhead,
     RefundRequest,
     RefundStatus,
@@ -1584,6 +1585,24 @@ export class SupabaseService {
     async saveRecipeLink(restaurantId: string, link: RecipeLink): Promise<void> {
         const { saveRecipeLink } = await import("./recipeLinks");
         return saveRecipeLink(this.client, restaurantId, link);
+    }
+
+    /** Owner-edited kitchen builds / methods for recipe-book cards (public read). */
+    async getRecipeOverrides(restaurantId: string): Promise<RecipeOverride[]> {
+        const { getRecipeOverrides } = await import("./recipeOverrides");
+        return getRecipeOverrides(this.client, restaurantId);
+    }
+
+    /** Owner-only (RLS). */
+    async saveRecipeOverride(restaurantId: string, override: RecipeOverride): Promise<void> {
+        const { saveRecipeOverride } = await import("./recipeOverrides");
+        return saveRecipeOverride(this.client, restaurantId, override);
+    }
+
+    /** Owner-only (RLS). Restores the built-in recipe for the card. */
+    async deleteRecipeOverride(restaurantId: string, recipeKey: string): Promise<void> {
+        const { deleteRecipeOverride } = await import("./recipeOverrides");
+        return deleteRecipeOverride(this.client, restaurantId, recipeKey);
     }
 
     /** Invoices for a given month, most recent first. */

@@ -1,4 +1,4 @@
-import type { Category, RecipeLink } from "@minute-menus/types";
+import type { Category, RecipeLink, RecipeOverride } from "@minute-menus/types";
 import {
 	type RecipeEntry,
 	type RecipeRow,
@@ -140,12 +140,33 @@ function companionCards(kitchen: RecipeEntry, seen: Set<string>): RecipeCardMode
 	});
 }
 
+/** Owner edit replaces the built-in kitchen build, method, notes and yield of a card. */
+function applyOverride(card: RecipeCardModel, override: RecipeOverride | undefined): RecipeCardModel {
+	if (!override) return card;
+	const width = override.columns.length;
+	return {
+		...card,
+		kitchenBuild: "",
+		kitchenMethod: "",
+		yieldNote: override.yieldNote ?? undefined,
+		columns: override.columns,
+		rows: override.rows.map((row) =>
+			row.heading ? row : { ...row, qty: Array.from({ length: width }, (_, i) => row.qty[i] ?? "") },
+		),
+		steps: override.steps,
+		notes: override.notes,
+	};
+}
+
 /**
  * Build cards from the latest menu pull.
  * Title / description / ingredients always come from live menu rows.
  * Curated RECIPE_BOOK only supplies kitchen build and method.
  */
-export function buildRecipeCards(menuDishes: RecipeBookDish[]): RecipeCardModel[] {
+export function buildRecipeCards(
+	menuDishes: RecipeBookDish[],
+	overrides: RecipeOverride[] = [],
+): RecipeCardModel[] {
 	const seen = new Set<string>();
 	const fromMenu: RecipeCardModel[] = [];
 	const neededDressingKeys = new Set<string>();
@@ -167,7 +188,8 @@ export function buildRecipeCards(menuDishes: RecipeBookDish[]): RecipeCardModel[
 		(r) => r.category === "Dressings" && neededDressingKeys.has(r.dishName.toLowerCase()),
 	).map((e) => cardFromEntry(e, true));
 
-	return [...dressings, ...fromMenu];
+	const byKey = new Map(overrides.map((o) => [o.recipeKey, o]));
+	return [...dressings, ...fromMenu].map((card) => applyOverride(card, byKey.get(recipeKey(card.title))));
 }
 
 /** @deprecated Use buildRecipeCards — kept for any older imports. */
@@ -247,7 +269,9 @@ export const recipeKey = (title: string): string => title.trim().toLowerCase();
 
 export type RecipeCardContext = {
 	links: Map<string, RecipeLink>;
-	/** Show the per-card "Edit links" button (embedded owner view only). */
+	/** Keys of cards the owner has edited (shown as "Edit recipe · edited"). */
+	editedKeys: Set<string>;
+	/** Show the per-card edit buttons (embedded owner view only). */
 	editable: boolean;
 };
 
@@ -262,8 +286,12 @@ function renderLinks(card: RecipeCardModel, ctx: RecipeCardContext): string {
 	const link = ctx.links.get(recipeKey(card.title));
 	const chips = linkChip("▶ Video", link?.videoUrl) + linkChip("📄 Article", link?.articleUrl);
 	const label = chips ? "Edit links" : "+ Add video / article links";
+	const key = escapeHtml(recipeKey(card.title));
+	const title = escapeHtml(card.title);
+	const recipeLabel = ctx.editedKeys.has(recipeKey(card.title)) ? "✎ Edit recipe · edited" : "✎ Edit recipe";
 	const edit = ctx.editable
-		? `<button type="button" class="edit-links no-print" data-edit-links="${escapeHtml(recipeKey(card.title))}" data-title="${escapeHtml(card.title)}">${label}</button>`
+		? `<button type="button" class="edit-links no-print" data-edit-links="${key}" data-title="${title}">${label}</button>` +
+			`<button type="button" class="edit-links no-print" data-edit-recipe="${key}" data-title="${title}">${recipeLabel}</button>`
 		: "";
 	return chips || edit ? `<div class="links">${chips ? `<span class="no-print">${chips}</span>` : ""}${edit}</div>` : "";
 }
@@ -349,10 +377,15 @@ const FRAME_SCRIPT = `(function () {
     if (summary && !saved) {
       setTimeout(function () { window.parent.postMessage({ type: "sections", open: openCategories() }, "*"); }, 0);
     }
-    var btn = e.target.closest && e.target.closest("[data-edit-links]");
+    var btn = e.target.closest && e.target.closest("[data-edit-links], [data-edit-recipe]");
     if (!btn) return;
+    var isRecipe = btn.hasAttribute("data-edit-recipe");
     window.parent.postMessage(
-      { type: "edit-links", key: btn.getAttribute("data-edit-links"), title: btn.getAttribute("data-title") },
+      {
+        type: isRecipe ? "edit-recipe" : "edit-links",
+        key: btn.getAttribute(isRecipe ? "data-edit-recipe" : "data-edit-links"),
+        title: btn.getAttribute("data-title")
+      },
       "*"
     );
   });
@@ -366,15 +399,18 @@ export function buildRecipeBookHtml(opts: {
 	embedded?: boolean;
 	/** Saved video / article links, shown as chips on each card. */
 	links?: RecipeLink[];
-	/** Show "Edit links" buttons (owner view). */
+	/** Owner edits that replace the built-in kitchen build / method of a card. */
+	overrides?: RecipeOverride[];
+	/** Show "Edit links" / "Edit recipe" buttons (owner view). */
 	editable?: boolean;
 	/** Categories to render expanded (embedded view collapses the rest). */
 	openSections?: string[];
 }): string {
-	const cards = buildRecipeCards(opts.menuDishes);
+	const cards = buildRecipeCards(opts.menuDishes, opts.overrides);
 	const groups = groupByCategory(cards);
 	const ctx: RecipeCardContext = {
 		links: new Map((opts.links ?? []).map((l) => [l.recipeKey, l])),
+		editedKeys: new Set((opts.overrides ?? []).map((o) => o.recipeKey)),
 		editable: Boolean(opts.editable && opts.embedded),
 	};
 	const openSections = new Set(opts.openSections ?? []);

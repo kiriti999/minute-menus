@@ -1782,3 +1782,32 @@ create policy "Owner can manage recipe links"
 create policy "Public can read recipe links"
   on recipe_links for select
   using (true);
+
+-- ─────────────────────────────────────────────
+-- RECIPE OVERRIDES — owner-edited kitchen build / method for a recipe-book card.
+-- recipe_key = lower-cased card title. A row replaces the built-in recipe for that
+-- card; deleting it restores the default. Public read (the recipe book is public),
+-- owner-only write.
+-- ─────────────────────────────────────────────
+create table if not exists recipe_overrides (
+  restaurant_id  uuid not null references restaurants(id) on delete cascade,
+  recipe_key     text not null,
+  yield_note     text,
+  columns        jsonb not null default '["Qty"]'::jsonb,
+  rows           jsonb not null default '[]'::jsonb,
+  steps          jsonb not null default '[]'::jsonb,
+  notes          jsonb not null default '[]'::jsonb,
+  updated_at     timestamptz not null default now(),
+  primary key (restaurant_id, recipe_key)
+);
+
+alter table recipe_overrides enable row level security;
+
+create policy "Owner can manage recipe overrides"
+  on recipe_overrides for all
+  using (exists (select 1 from restaurants r where r.id = recipe_overrides.restaurant_id and r.owner_id = auth.uid()))
+  with check (exists (select 1 from restaurants r where r.id = recipe_overrides.restaurant_id and r.owner_id = auth.uid()));
+
+create policy "Public can read recipe overrides"
+  on recipe_overrides for select
+  using (true);
