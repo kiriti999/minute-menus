@@ -37,6 +37,8 @@ export type RecipeEntry = {
 	companions?: string[];
 	/** Dressing card names (RECIPE_BOOK dishName) to print alongside this dish. */
 	dressings?: string[];
+	/** Kitchen prep recipe (rice, dip, sauce…) — always printed, never matched to a menu dish. */
+	prep?: boolean;
 };
 
 function n(s: string): string {
@@ -166,19 +168,17 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 	{
 		dishName: CAESAR_MAYO,
 		category: "Dressings",
-		yieldNote: "Portion into 50ml cups",
-		columns: SERVE_COLS,
+		yieldNote: "100ml per serve · portion into 50ml cups",
+		columns: ["100ml"],
 		rows: [
-			r("Unsweetened mayo", "34g", "102g", "204g"),
-			r("Extra virgin olive oil", "7.5ml", "22.5ml", "45ml"),
-			r("Concentrated lemon juice", "3ml", "9ml", "18ml"),
-			r("Worcestershire sauce", "1.5ml", "4.5ml", "9ml"),
-			r("Dijon mustard", "3g", "9g", "18g"),
-			r("Garlic powder", "¼ tsp (0.8g)", "¾ tsp (2.3g)", "1½ tsp (4.7g)"),
-			r("Black pepper", "¼ tsp (0.6g)", "¾ tsp (1.7g)", "1½ tsp (3.5g)"),
-			r("Water", "10ml", "30ml", "60ml"),
-			r("Salt", "to taste", "1.5g", "3g"),
-			r("Synthetic vinegar (optional)", "2ml", "6ml", "12ml"),
+			r("Mayo", "70g"),
+			r("Olive oil", "10ml"),
+			r("Concentrated lemon juice", "10ml"),
+			r("Dijon mustard", "5ml"),
+			r("Worcestershire sauce", "5ml"),
+			r("Garlic powder", "2g"),
+			r("Apple cider vinegar", "10ml"),
+			r("Salt & pepper", "1 pinch each"),
 		],
 		steps: ["Whisk everything until smooth and pourable.", "Chill.", "Portion into 50ml cups."],
 	},
@@ -600,14 +600,19 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		dishName: "Cajun Grilled Chicken",
 		category: "Snacks",
 		yieldNote: "1 serve",
-		rows: [r("Boneless chicken breast", "120–130g"), r("Cajun spice", "2 tsp"), r("Diluted lemon juice", "5ml")],
-		steps: CHICKEN_STEPS,
+		rows: [r("Boneless chicken breast", "220–240g"), r("Cajun spice", "to coat"), r("Salt", "very little")],
+		steps: [
+			"Mix or marinate the chicken breast with Cajun spice and very little salt.",
+			"Cook on a grill pan with the lid closed, 5 min each side.",
+			"Check the core temperature — it must reach at least 71.1°C.",
+			"Slice after cooking.",
+		],
 	},
 	{
 		dishName: "Peri Peri Grilled Paneer",
 		category: "Snacks",
 		yieldNote: "1 serve",
-		rows: [r("Paneer cubes", "70g"), r("Peri peri spice", "1½ tsp"), r("Diluted lemon juice", "5ml")],
+		rows: [r("Paneer cubes", "200g"), r("Peri peri spice", "1½ tsp"), r("Diluted lemon juice", "5ml")],
 		steps: PANEER_STEPS,
 	},
 	{
@@ -615,7 +620,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		category: "Snacks",
 		yieldNote: "1 serve",
 		rows: [
-			r("Paneer cubes", "70g"),
+			r("Paneer cubes", "200g"),
 			r("Fresh coriander, crushed", "10g"),
 			r("Garlic, minced", "1 clove (3g)"),
 			r("Green chilli, minced", "½ pc"),
@@ -763,6 +768,64 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 			r("Honey", "10g"),
 		],
 		steps: ["Dice the apple small so it softens overnight.", "Mix, soak and weigh."],
+	},
+
+	// ── Oat meal bowls ────────────────────────────────────────────────────────
+	{
+		dishName: "Ripe Mango Oat Meal Bowl",
+		aliases: ["Mango Oatmeal Bowl", "Mango Oat Meal Bowl"],
+		category: "Oats",
+		yieldNote: "300ml bowl",
+		columns: ["Qty"],
+		rows: [
+			h("Blend together"),
+			r("Milk", "140g"),
+			r("Oats", "50g"),
+			r("Honey", "20g"),
+			r("Mango", "100g"),
+			h("Toppings"),
+			r("Mango pieces", "3–4"),
+			r("Banana slices", "as per plating"),
+			r("Muesli", "on top of the banana slices"),
+			r("Mixed berries", "beside the banana slices"),
+			r("Walnuts", "2"),
+			r("Blueberries", "3 pcs"),
+			r("Raisins", "optional"),
+		],
+		steps: [
+			"Blend the milk, oats, honey and mango.",
+			"Pour into a 300ml bowl and add 3–4 mango pieces.",
+			"Top with banana slices, muesli on the banana, mixed berries beside it, walnuts, blueberries and raisins (optional).",
+		],
+	},
+	{
+		dishName: "Blueberry Oat Meal Bowl",
+		aliases: ["Blueberry Oatmeal Bowl"],
+		category: "Oats",
+		yieldNote: "300ml bowl",
+		columns: ["Qty"],
+		rows: [
+			h("Blueberry blend"),
+			r("Oats, thin", "30g"),
+			r("Blueberry", "50g"),
+			r("Honey", "20g"),
+			r("Milk", "20g"),
+			h("Cooked oats"),
+			r("Oats, rolled", "30g"),
+			r("Water", "50ml"),
+			r("Milk (mixed into the cooked oats)", "10ml"),
+			h("Toppings"),
+			r("Banana slices", "as per plating"),
+			r("Muesli", "on top"),
+			r("Walnuts, crushed", "as per plating"),
+			r("Mixed berries", "as per plating"),
+		],
+		steps: [
+			"Blend the thin oats, blueberry, honey and milk.",
+			"Cook the rolled oats with the water, then mix in the 10ml milk.",
+			"Take a 300ml bowl, put in the cooked oats and pour the blueberry blend on top.",
+			"Add banana slices, put muesli on top, then crushed walnuts and mixed berries.",
+		],
 	},
 
 	// ── Juices ────────────────────────────────────────────────────────────────
@@ -1041,6 +1104,150 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 		rows: [r("Butterscotch ice cream", "2 scoops (~150g)")],
 		steps: ["Scoop into the cup.", "Lid and send."],
 	},
+
+	// ── Kitchen prep recipes (always printed, not tied to a menu dish) ───────
+	{
+		dishName: "Butter Garlic Rice",
+		category: "Rice",
+		prep: true,
+		yieldNote: "1 serve",
+		columns: ["Qty"],
+		rows: [
+			r("Butter", "15g"),
+			r("Garlic", "8g"),
+			r("Chilli flakes", "1g"),
+			r("Salt", "to taste"),
+			r("Pepper", "to taste"),
+			r("Cooked rice", "130g"),
+		],
+		steps: ["Melt the butter and sauté the garlic with the chilli flakes.", "Add the cooked rice, salt and pepper.", "Mix well and serve hot."],
+	},
+	{
+		dishName: "Cilantro Rice",
+		category: "Rice",
+		prep: true,
+		yieldNote: "1 serve",
+		columns: ["Qty"],
+		rows: [
+			h("Blend together"),
+			r("Fresh coriander", "60g"),
+			r("Garlic", "6g"),
+			r("Lemon juice", "6ml"),
+			r("Olive oil", "10ml"),
+			h("Mix in"),
+			r("Rice", "130g"),
+			r("Salt & pepper", "to taste"),
+		],
+		steps: ["Blend the coriander, garlic, lemon juice and olive oil.", "Mix the blend through the rice.", "Season with salt and pepper."],
+	},
+	{
+		dishName: "Soya Chunks Pulao",
+		aliases: ["Pulao Soya Chunks"],
+		category: "Rice",
+		prep: true,
+		yieldNote: "1 serve",
+		columns: ["Qty"],
+		rows: [
+			r("Soya chunks (weighed before boiling)", "15g"),
+			r("Ghee", "6g"),
+			r("Jeera", "3g"),
+			r("Onion", "20g"),
+			r("Tomato", "20g"),
+			r("Garam masala, coriander powder, chilli powder, turmeric powder", "1 spoon"),
+			r("Curd", "1 spoon"),
+			r("Rice", "150g"),
+		],
+		steps: [
+			"Boil the soya chunks.",
+			"Heat the ghee, add the jeera, onion and tomato and cook.",
+			"Add the boiled soya chunks.",
+			"Add the garam masala, coriander, chilli and turmeric powders.",
+			"Add the curd.",
+			"Add the rice and mix well.",
+		],
+	},
+	{
+		dishName: "Lemon Dressing",
+		category: "Dips & Sauces",
+		prep: true,
+		yieldNote: "100ml",
+		columns: ["Qty"],
+		rows: [
+			r("Dijon or American mustard", "20g"),
+			r("Concentrated lemon juice", "15ml"),
+			r("Olive oil", "60ml"),
+			r("Honey", "5ml"),
+			r("Salt & pepper", "1 pinch each"),
+		],
+		steps: ["Whisk everything until emulsified.", "Add a little water to dilute if required."],
+	},
+	{
+		dishName: "Honey Mustard Dressing",
+		category: "Dips & Sauces",
+		prep: true,
+		yieldNote: "100ml",
+		columns: ["Qty"],
+		rows: [
+			r("Dijon or American mustard", "25ml"),
+			r("Honey", "25ml"),
+			r("Concentrated lemon juice", "20ml"),
+			r("Olive oil", "25–30ml"),
+			r("Salt & pepper", "1 pinch each"),
+		],
+		steps: ["Whisk everything until emulsified.", "Add a little water to dilute if required."],
+	},
+	{
+		dishName: "Honey Mustard Dip",
+		category: "Dips & Sauces",
+		prep: true,
+		yieldNote: "100ml",
+		columns: ["Qty"],
+		rows: [
+			r("Honey", "20g"),
+			r("American or Dijon mustard", "20g"),
+			r("Extra virgin olive oil", "10ml"),
+			r("Hung curd", "45ml"),
+			r("Concentrated lemon juice", "5ml"),
+			r("Salt & pepper", "1 pinch"),
+		],
+		steps: [
+			"Method 1: whisk the hung curd and mustard together until smooth, pour in the oil slowly while mixing to build an emulsion, then mix in the rest.",
+			"Method 2: mix everything and blend in a mixer for 2 seconds.",
+		],
+	},
+	{
+		dishName: "Garlic Sauce (Dip)",
+		category: "Dips & Sauces",
+		prep: true,
+		yieldNote: "50ml",
+		columns: ["Qty"],
+		rows: [
+			r("Hung curd", "20g"),
+			r("Olive oil", "20g"),
+			r("Lemon juice or vinegar", "5g"),
+			r("Garlic granules", "3g"),
+			r("Red chilli flakes", "1g"),
+			r("Mixed herbs", "1g"),
+			r("Crushed black pepper", "1 pinch"),
+			r("Salt", "1 pinch"),
+		],
+		steps: ["Mix everything until smooth.", "Chill before serving."],
+	},
+	{
+		dishName: "Fresh Lemon Drink",
+		category: "Fresh Juices",
+		prep: true,
+		yieldNote: "1 serve",
+		columns: ["Qty"],
+		rows: [
+			r("Fresh lemon juice", "30ml"),
+			r("Sugar", "20g"),
+			r("Water", "150ml"),
+			r("Black salt", "1 pinch"),
+			r("Mint leaves", "2–3 leaves"),
+		],
+		steps: ["Mix everything until the sugar dissolves.", "Keep it in the freezer until delivery."],
+	},
 ];
 
 export function normalizeDishKey(name: string): string {
@@ -1062,6 +1269,7 @@ const MATCH_STOP = new Set([
 	"bowl",
 	"oats",
 	"overnight",
+	"meal",
 ]);
 
 function significantTokens(name: string): Set<string> {
@@ -1078,7 +1286,7 @@ function recipeMatchNames(recipe: RecipeEntry): string[] {
 
 /** Higher score = better match. 0 = no usable match. */
 function scoreRecipeMatch(menuName: string, recipe: RecipeEntry): number {
-	if (recipe.category === "Dressings") return 0;
+	if (recipe.category === "Dressings" || recipe.prep) return 0;
 	const menuKey = n(menuName);
 	const candidates = recipeMatchNames(recipe).map(n);
 

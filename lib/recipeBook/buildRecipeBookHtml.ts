@@ -189,7 +189,8 @@ export function buildRecipeCards(
 	).map((e) => cardFromEntry(e, true));
 
 	const byKey = new Map(overrides.map((o) => [o.recipeKey, o]));
-	return [...dressings, ...fromMenu].map((card) => applyOverride(card, byKey.get(recipeKey(card.title))));
+	const prep = RECIPE_BOOK.filter((r) => r.prep && !seen.has(r.dishName.toLowerCase())).map((e) => cardFromEntry(e, true));
+	return [...dressings, ...fromMenu, ...prep].map((card) => applyOverride(card, byKey.get(recipeKey(card.title))));
 }
 
 /** @deprecated Use buildRecipeCards — kept for any older imports. */
