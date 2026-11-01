@@ -23,6 +23,21 @@ export type SlugRouteState = SlugRestaurantContext & {
     resetRestaurantContext: () => void;
 };
 
+/** Restaurant slug in the current URL, or null when the path isn't a slug route. */
+function currentSlugCandidate(): string | null {
+    let path = window.location.pathname;
+    const localMenuSlug = devMenuSlug();
+    if (localMenuSlug && (path === "/" || path === "")) {
+        path = `/${localMenuSlug}`;
+    }
+
+    const slugMatch = path.match(/^\/([a-z0-9-]+)$/i);
+    if (!slugMatch) return null;
+
+    const potentialSlug = slugMatch[1].toLowerCase();
+    return RESERVED_PATHS.includes(potentialSlug) ? null : potentialSlug;
+}
+
 export const useRestaurantSlugRoute = (): SlugRouteState => {
     const [slug, setSlug] = useState<string | null>(null);
     const [id, setId] = useState<string | null>(null);
@@ -31,21 +46,13 @@ export const useRestaurantSlugRoute = (): SlugRouteState => {
     const [timezone, setTimezone] = useState("Asia/Kolkata");
     const [deliveryEnabled, setDeliveryEnabled] = useState(true);
     const [operatingHours, setOperatingHours] = useState<WeeklyOperatingHours>({});
-    const [loading, setLoading] = useState(false);
+    // Already loading on the first render of a slug URL, so the landing page never flashes before the lookup starts.
+    const [loading, setLoading] = useState(() => currentSlugCandidate() !== null);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        let path = window.location.pathname;
-        const localMenuSlug = devMenuSlug();
-        if (localMenuSlug && (path === "/" || path === "")) {
-            path = `/${localMenuSlug}`;
-        }
-
-        const slugMatch = path.match(/^\/([a-z0-9-]+)$/i);
-        if (!slugMatch) return;
-
-        const potentialSlug = slugMatch[1].toLowerCase();
-        if (RESERVED_PATHS.includes(potentialSlug)) return;
+        const potentialSlug = currentSlugCandidate();
+        if (!potentialSlug) return;
 
         setLoading(true);
         supabaseService

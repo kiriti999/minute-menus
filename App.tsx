@@ -126,6 +126,10 @@ const App: React.FC = () => {
 
     const isAuthenticated = session !== null || skipOwnerLogin;
 
+    // A resolved slug means the customer menu, even on the render before the effect below syncs `mode`
+    // (otherwise the landing page flashes for one frame).
+    const activeMode = mode === AppMode.LANDING && slugRoute.slug ? AppMode.CUSTOMER : mode;
+
     // Deep links like /dashboard/team open the owner dashboard (login first if signed out).
     useEffect(() => {
         if (authLoading || mode !== AppMode.LANDING || !isDashboardTeamPath(path)) return;
@@ -280,7 +284,7 @@ const App: React.FC = () => {
         );
     }
 
-    if (mode === AppMode.CUSTOMER) {
+    if (activeMode === AppMode.CUSTOMER) {
         return (
             <CustomerApp
                 onNavigateToDashboard={() => {
