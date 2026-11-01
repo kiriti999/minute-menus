@@ -16,6 +16,8 @@ function readAsDataUrl(file: File): Promise<string> {
 
 export interface RecipeEditModalProps {
 	title: string;
+	/** Other recipes' titles, offered by "Insert link to recipe". */
+	linkTargets: string[];
 	/** Current photo of the card, if any. */
 	imageUrl?: string;
 	/** Uploads a photo (data URL) right away — independent of Save. */
@@ -37,6 +39,7 @@ const FIELD = "mt-1 w-full rounded-lg border px-3 py-2 text-sm outline-none focu
 /** Edit the kitchen build and method of one recipe card (text in, text out — parsing lives in recipeEditText). */
 export const RecipeEditModal: React.FC<RecipeEditModalProps> = ({
 	title,
+	linkTargets,
 	imageUrl,
 	onUploadImage,
 	onRemoveImage,
@@ -54,6 +57,7 @@ export const RecipeEditModal: React.FC<RecipeEditModalProps> = ({
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
 	const [photoBusy, setPhotoBusy] = useState(false);
 	const fileInput = useRef<HTMLInputElement>(null);
+	const lastText = useRef<HTMLTextAreaElement | null>(null);
 
 	const card = isDarkTheme ? "bg-zinc-900 border-zinc-700 text-white" : "bg-white border-zinc-200 text-zinc-900";
 	const field = `${FIELD} ${isDarkTheme ? "bg-zinc-800 border-zinc-700 text-white" : "bg-white border-zinc-300"}`;
@@ -92,6 +96,20 @@ export const RecipeEditModal: React.FC<RecipeEditModalProps> = ({
 		if (!file.type.startsWith("image/")) return setError("Choose an image file");
 		if (file.size > MAX_PHOTO_BYTES) return setError("Image is too large (max 15MB)");
 		void runPhoto(async () => onUploadImage(await readAsDataUrl(file)));
+	};
+
+	const trackText = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+		lastText.current = e.target;
+	};
+
+	const insertLink = (name: string) => {
+		const el = lastText.current;
+		if (!name || !el) return;
+		const key = el.name as keyof RecipeDraft;
+		const tag = `[[${name}]]`;
+		const text = draft[key];
+		const at = el.selectionStart ?? text.length;
+		setDraft((d) => ({ ...d, [key]: text.slice(0, at) + tag + text.slice(el.selectionEnd ?? at) }));
 	};
 
 	const submit = (e: React.FormEvent) => {
@@ -163,6 +181,8 @@ export const RecipeEditModal: React.FC<RecipeEditModalProps> = ({
 				<label className="mt-3 block text-sm font-medium">
 					Ingredients
 					<textarea
+						name="ingredients"
+						onFocus={trackText}
 						value={draft.ingredients}
 						onChange={set("ingredients")}
 						rows={9}
@@ -175,11 +195,29 @@ export const RecipeEditModal: React.FC<RecipeEditModalProps> = ({
 				</p>
 				<label className="mt-3 block text-sm font-medium">
 					Method (one step per line)
-					<textarea value={draft.steps} onChange={set("steps")} rows={7} className={field} />
+					<textarea name="steps" onFocus={trackText} value={draft.steps} onChange={set("steps")} rows={7} className={field} />
 				</label>
 				<label className="mt-3 block text-sm font-medium">
+					Insert link to recipe
+					<select
+						value=""
+						onChange={(e) => insertLink(e.target.value)}
+						className={field}
+					>
+						<option value="">Choose a recipe (click in a box above first)…</option>
+						{linkTargets.map((name) => (
+							<option key={name} value={name}>
+								{name}
+							</option>
+						))}
+					</select>
+				</label>
+				<p className="mt-1 text-xs opacity-60">
+					Or type <b>[[Recipe name]]</b> in an ingredient, step or note — it becomes a 🔗 link to that recipe.
+				</p>
+				<label className="mt-3 block text-sm font-medium">
 					Notes (one per line, optional)
-					<textarea value={draft.notes} onChange={set("notes")} rows={3} className={field} />
+					<textarea name="notes" onFocus={trackText} value={draft.notes} onChange={set("notes")} rows={3} className={field} />
 				</label>
 
 				{error && <p className="mt-3 text-sm text-red-500">{error}</p>}

@@ -218,6 +218,17 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 		return card ? draftFromCard(card) : null;
 	}, [data, editingRecipe]);
 
+	const linkTargets = useMemo(
+		() =>
+			data && editingRecipe
+				? buildRecipeCards(data.dishes, data.overrides)
+						.map((c) => c.title)
+						.filter((t) => recipeKey(t) !== editingRecipe.key)
+						.sort((a, b) => a.localeCompare(b))
+				: [],
+		[data, editingRecipe],
+	);
+
 	const reloadOverrides = async () => {
 		if (!data) return;
 		const overrides = await supabaseService.getRecipeOverrides(data.restaurantId);
@@ -414,6 +425,7 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 			{editingRecipe && recipeDraft && (
 				<RecipeEditModal
 					title={editingRecipe.title}
+					linkTargets={linkTargets}
 					imageUrl={data?.images.find((i) => i.recipeKey === editingRecipe.key)?.imageUrl}
 					onUploadImage={uploadRecipeImage}
 					onRemoveImage={removeRecipeImage}

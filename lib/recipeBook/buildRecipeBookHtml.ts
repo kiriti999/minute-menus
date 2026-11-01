@@ -235,45 +235,67 @@ const splitLines = (text: string): string[] =>
 const section = (label: string, body: string): string =>
 	`<p class="label">${escapeHtml(label)}</p>${body}`;
 
-function renderRow(row: RecipeRow, cols: number): string {
+/** Key a card's saved links are stored under (live dish name, lower-cased). */
+export const recipeKey = (title: string): string => title.trim().toLowerCase();
+
+const cardAnchor = (title: string): string => `recipe-${recipeKey(title).replace(/[^a-z0-9]+/g, "-")}`;
+
+const RECIPE_REF = /\[\[([^\]]+)\]\]/g;
+
+/** Escapes text and turns `[[Recipe name]]` into an anchor to that card (plain text if no such recipe). */
+function renderInline(text: string, ctx: RecipeCardContext): string {
+	let out = "";
+	let last = 0;
+	for (const m of text.matchAll(RECIPE_REF)) {
+		const title = ctx.titles.get(recipeKey(m[1]));
+		out += escapeHtml(text.slice(last, m.index));
+		const label = escapeHtml(title ?? m[1].trim());
+		out += title
+			? `<a class="xref" href="#${cardAnchor(title)}" data-goto="${cardAnchor(title)}">${label}<span class="xref-icon" aria-hidden="true">🔗</span></a>`
+			: label;
+		last = m.index + m[0].length;
+	}
+	return out + escapeHtml(text.slice(last));
+}
+
+function renderRow(row: RecipeRow, cols: number, ctx: RecipeCardContext): string {
 	if (row.heading) {
 		return `<tr class="grp"><th colspan="${cols + 1}">${escapeHtml(row.item)}</th></tr>`;
 	}
 	const cells = row.qty.map((q) => `<td class="qty">${escapeHtml(q)}</td>`).join("");
-	return `<tr><td>${escapeHtml(row.item)}</td>${cells}</tr>`;
+	return `<tr><td>${renderInline(row.item, ctx)}</td>${cells}</tr>`;
 }
 
-function renderTable(columns: string[], rows: RecipeRow[]): string {
+function renderTable(columns: string[], rows: RecipeRow[], ctx: RecipeCardContext): string {
 	const head = ["Ingredient", ...columns].map((c) => `<th>${escapeHtml(c)}</th>`).join("");
-	const body = rows.map((row) => renderRow(row, columns.length)).join("");
+	const body = rows.map((row) => renderRow(row, columns.length, ctx)).join("");
 	return `<table class="ing"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
-function renderList(tag: "ul" | "ol", items: string[]): string {
-	const lis = items.map((i) => `<li>${escapeHtml(i)}</li>`).join("");
+function renderList(tag: "ul" | "ol", items: string[], ctx: RecipeCardContext): string {
+	const lis = items.map((i) => `<li>${renderInline(i, ctx)}</li>`).join("");
 	return `<${tag} class="list">${lis}</${tag}>`;
 }
 
-function renderBuild(card: RecipeCardModel): string {
+function renderBuild(card: RecipeCardModel, ctx: RecipeCardContext): string {
 	const label = card.isDressing ? "Recipe" : "Kitchen build (portion guide)";
-	if (card.rows.length) return section(label, renderTable(card.columns, card.rows));
-	if (card.kitchenBuild) return section(label, renderList("ul", splitLines(card.kitchenBuild)));
+	if (card.rows.length) return section(label, renderTable(card.columns, card.rows, ctx));
+	if (card.kitchenBuild) return section(label, renderList("ul", splitLines(card.kitchenBuild), ctx));
 	return "";
 }
 
-function renderMethod(card: RecipeCardModel): string {
+function renderMethod(card: RecipeCardModel, ctx: RecipeCardContext): string {
 	const steps = card.steps.length ? card.steps : splitLines(card.kitchenMethod);
-	return steps.length ? section("Method", renderList("ol", steps)) : "";
+	return steps.length ? section("Method", renderList("ol", steps, ctx)) : "";
 }
 
-function renderNotes(card: RecipeCardModel): string {
-	return card.notes.length ? section("Notes", renderList("ul", card.notes)) : "";
+function renderNotes(card: RecipeCardModel, ctx: RecipeCardContext): string {
+	return card.notes.length ? section("Notes", renderList("ul", card.notes, ctx)) : "";
 }
-
-/** Key a card's saved links are stored under (live dish name, lower-cased). */
-export const recipeKey = (title: string): string => title.trim().toLowerCase();
 
 export type RecipeCardContext = {
+	/** Card title per key — targets for `[[Recipe name]]` links. */
+	titles: Map<string, string>;
 	links: Map<string, RecipeLink>;
 	/** Photo URL per card key. */
 	images: Map<string, string>;
@@ -329,14 +351,14 @@ function cardSearchText(card: RecipeCardModel): string {
 function renderCard(card: RecipeCardModel, ctx: RecipeCardContext): string {
 	const yieldLine = card.yieldNote ? `<p class="yield">${escapeHtml(card.yieldNote)}</p>` : "";
 	return `
-<article class="card" data-search="${escapeHtml(cardSearchText(card))}">
+<article class="card" id="${cardAnchor(card.title)}" data-search="${escapeHtml(cardSearchText(card))}">
   <h3>${escapeHtml(card.title)}</h3>
   ${yieldLine}
   ${renderPhoto(card, ctx)}
   ${renderLinks(card, ctx)}
-  ${renderBuild(card)}
-  ${renderMethod(card)}
-  ${renderNotes(card)}
+  ${renderBuild(card, ctx)}
+  ${renderMethod(card, ctx)}
+  ${renderNotes(card, ctx)}
 </article>`;
 }
 
@@ -393,6 +415,19 @@ const FRAME_SCRIPT = `(function () {
     if (summary && !saved) {
       setTimeout(function () { window.parent.postMessage({ type: "sections", open: openCategories() }, "*"); }, 0);
     }
+    var go = e.target.closest && e.target.closest("[data-goto]");
+    if (go) {
+      var target = document.getElementById(go.getAttribute("data-goto"));
+      e.preventDefault();
+      if (target) {
+        var sec = target.closest("details.sec");
+        if (sec) sec.open = true;
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        target.classList.add("flash");
+        setTimeout(function () { target.classList.remove("flash"); }, 1600);
+      }
+      return;
+    }
     var btn = e.target.closest && e.target.closest("[data-edit-links], [data-edit-recipe]");
     if (!btn) return;
     var isRecipe = btn.hasAttribute("data-edit-recipe");
@@ -429,6 +464,7 @@ export function buildRecipeBookHtml(opts: {
 	const cards = buildRecipeCards(opts.menuDishes, opts.overrides);
 	const groups = groupByCategory(cards);
 	const ctx: RecipeCardContext = {
+		titles: new Map(cards.map((c) => [recipeKey(c.title), c.title])),
 		links: new Map((opts.links ?? []).map((l) => [l.recipeKey, l])),
 		images: new Map((opts.images ?? []).map((i) => [i.recipeKey, i.imageUrl])),
 		editedKeys: new Set((opts.overrides ?? []).filter(hasRecipeContent).map((o) => o.recipeKey)),
@@ -543,6 +579,9 @@ export function buildRecipeBookHtml(opts: {
       font-size: 10px; padding: 2px 10px; border-radius: 999px; cursor: pointer;
     }
     .edit-links:hover { background: #f0f7f4; }
+    .xref { color: #1b5e20; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+    .xref-icon { font-size: 0.85em; margin-left: 2px; }
+    .card.flash { outline: 2px solid #2e7d32; }
     .no-print { margin: 0 0 14px; display: flex; gap: 8px; flex-wrap: wrap; }
     .btn {
       appearance: none;
@@ -571,6 +610,7 @@ export function buildRecipeBookHtml(opts: {
       .dark .ing th, .dark .ing td, .dark .photo { border-color: #2a3d37; }
       .dark .ing thead th { background: #1c2e29; color: #b4cdc5; }
       .dark .ing tr.grp th { background: #172722; color: #7fd18a; }
+      .dark .xref { color: #9be0a5; }
       .dark .chip { background: #14261d; color: #9be0a5; border-color: #3d8f43; }
       .dark .edit-links { border-color: #6f8f87; color: #b4cdc5; }
       .dark .edit-links:hover { background: #1c2e29; }
