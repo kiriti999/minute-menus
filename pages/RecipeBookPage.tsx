@@ -1,6 +1,6 @@
 import type { RecipeEntry, RecipeImage, RecipeLink, RecipeOverride } from "@minute-menus/types";
 import { LoadingScreen } from "@minute-menus/ui";
-import { ArrowLeft, ChevronsDownUp, ChevronsUpDown, Moon, Printer, RefreshCw, Search, Sun, Trash2, X } from "lucide-react";
+import { ArrowLeft, ChevronsDownUp, ChevronsUpDown, Moon, Printer, QrCode, RefreshCw, Search, Sun, Trash2, X } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RecipeBookSignIn } from "../components/RecipeBookSignIn";
@@ -18,6 +18,7 @@ import {
 } from "../lib/recipeBook/buildRecipeBookHtml";
 import { draftFromCard, overrideFromDraft, type RecipeDraft } from "../lib/recipeBook/recipeEditText";
 import { isNewVersionAvailable } from "../lib/newVersion";
+import { RecipeBookQrModal } from "../components/RecipeBookQrModal";
 import { supabaseService } from "../services/supabaseService";
 
 export interface RecipeBookPageProps {
@@ -104,6 +105,7 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 	const [editing, setEditing] = useState<EditTarget | null>(null);
 	const [editingRecipe, setEditingRecipe] = useState<EditTarget | null>(null);
 	const [restoring, setRestoring] = useState(false);
+	const [showingQr, setShowingQr] = useState(false);
 	const [updateReady, setUpdateReady] = useState(false);
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(true);
@@ -418,6 +420,17 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 						Deleted ({deletedKeys.length})
 					</button>
 				)}
+				{isOwner && (
+					<button
+						type="button"
+						onClick={() => setShowingQr(true)}
+						className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold border ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
+						title="QR code for this page"
+					>
+						<QrCode size={16} />
+						QR
+					</button>
+				)}
 				<button
 					type="button"
 					disabled={refreshing || loading}
@@ -477,6 +490,14 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 					isDarkTheme={isDarkTheme}
 					onSave={saveLinks}
 					onClose={() => setEditing(null)}
+				/>
+			)}
+			{showingQr && (
+				<RecipeBookQrModal
+					url={`${import.meta.env.VITE_SITE_URL || window.location.origin}/${currentSlug}/recipe-book`}
+					restaurantName={data?.restaurantName ?? "Recipe book"}
+					isDarkTheme={isDarkTheme}
+					onClose={() => setShowingQr(false)}
 				/>
 			)}
 			{restoring && (
