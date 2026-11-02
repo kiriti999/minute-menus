@@ -1,11 +1,5 @@
-import type { Category, RecipeImage, RecipeLink, RecipeOverride } from "@minute-menus/types";
-import {
-	type RecipeEntry,
-	type RecipeRow,
-	findRecipeForDish,
-	recipeFromMenuFields,
-	RECIPE_BOOK,
-} from "./recipeBookData";
+import type { Category, RecipeEntry, RecipeImage, RecipeLink, RecipeOverride, RecipeRow } from "@minute-menus/types";
+import { findRecipeForDish, recipeFromMenuFields } from "./recipeMatching";
 
 function escapeHtml(text: string): string {
 	return text
@@ -47,8 +41,8 @@ function textMentionsDressing(text: string, dressingName: string): boolean {
 	return tokens.some((t) => hay.includes(t));
 }
 
-function collectDressingsForText(text: string, into: Set<string>): void {
-	for (const dressing of RECIPE_BOOK) {
+function collectDressingsForText(text: string, book: RecipeEntry[], into: Set<string>): void {
+	for (const dressing of book) {
 		if (dressing.category !== "Dressings") continue;
 		if (textMentionsDressing(text, dressing.dishName)) {
 			into.add(dressing.dishName.toLowerCase());
@@ -63,18 +57,24 @@ function kitchenText(kitchen: RecipeEntry): string {
 }
 
 /** Curated recipes name their dressings; otherwise infer from menu + kitchen text. */
-function collectDressingsForDish(dish: RecipeBookDish, kitchen: RecipeEntry, into: Set<string>): void {
+function collectDressingsForDish(
+	dish: RecipeBookDish,
+	kitchen: RecipeEntry,
+	book: RecipeEntry[],
+	into: Set<string>,
+): void {
 	if (kitchen.dressings) {
 		for (const name of kitchen.dressings) into.add(name.toLowerCase());
 		return;
 	}
 	collectDressingsForText(
 		`${dish.ingredients} ${dish.description} ${kitchenText(kitchen)}`,
+		book,
 		into,
 	);
 }
 
-/** Printable card — live menu fields are never taken from curated RECIPE_BOOK. */
+/** Printable card — live menu fields are never taken from the curated book. */
 export type RecipeCardModel = {
 	title: string;
 	/** Menu / book name the card's saved links, photo and edits are keyed by (title can be renamed). */
@@ -134,10 +134,10 @@ function cardFromEntry(entry: RecipeEntry, isDressing: boolean): RecipeCardModel
 }
 
 /** Cards for recipes a dish names as companions (e.g. the PET-bottle variant), once each. */
-function companionCards(kitchen: RecipeEntry, seen: Set<string>): RecipeCardModel[] {
+function companionCards(kitchen: RecipeEntry, book: RecipeEntry[], seen: Set<string>): RecipeCardModel[] {
 	return (kitchen.companions ?? []).flatMap((name) => {
 		const key = name.toLowerCase();
-		const entry = RECIPE_BOOK.find((r) => r.dishName.toLowerCase() === key);
+		const entry = book.find((r) => r.dishName.toLowerCase() === key);
 		if (!entry || seen.has(key)) return [];
 		seen.add(key);
 		return [cardFromEntry(entry, false)];
@@ -169,11 +169,12 @@ function applyOverride(card: RecipeCardModel, override: RecipeOverride | undefin
 /**
  * Build cards from the latest menu pull.
  * Title / description / ingredients always come from live menu rows.
- * Curated RECIPE_BOOK only supplies kitchen build and method.
+ * `book` (the built-in recipes) only supplies kitchen build and method.
  */
 export function buildRecipeCards(
 	menuDishes: RecipeBookDish[],
 	overrides: RecipeOverride[] = [],
+	book: RecipeEntry[] = [],
 ): RecipeCardModel[] {
 	const seen = new Set<string>();
 	const fromMenu: RecipeCardModel[] = [];
@@ -184,40 +185,23 @@ export function buildRecipeCards(
 		if (!key || seen.has(key)) continue;
 		seen.add(key);
 
-		const curated = findRecipeForDish(d.name);
+		const curated = findRecipeForDish(d.name, book);
 		const kitchen =
 			curated ??
 			recipeFromMenuFields(d.name, d.category, d.ingredients, d.description);
-		fromMenu.push(cardFromLiveDish(d, kitchen), ...companionCards(kitchen, seen));
-		collectDressingsForDish(d, kitchen, neededDressingKeys);
+		fromMenu.push(cardFromLiveDish(d, kitchen), ...companionCards(kitchen, book, seen));
+		collectDressingsForDish(d, kitchen, book, neededDressingKeys);
 	}
 
-	const dressings = RECIPE_BOOK.filter(
+	const dressings = book.filter(
 		(r) => r.category === "Dressings" && neededDressingKeys.has(r.dishName.toLowerCase()),
 	).map((e) => cardFromEntry(e, true));
 
 	const byKey = new Map(overrides.map((o) => [o.recipeKey, o]));
-	const prep = RECIPE_BOOK.filter((r) => r.prep && !seen.has(r.dishName.toLowerCase())).map((e) => cardFromEntry(e, true));
+	const prep = book.filter((r) => r.prep && !seen.has(r.dishName.toLowerCase())).map((e) => cardFromEntry(e, true));
 	return [...dressings, ...fromMenu, ...prep]
 		.filter((card) => !byKey.get(cardKey(card))?.hidden)
 		.map((card) => applyOverride(card, byKey.get(cardKey(card))));
-}
-
-/** @deprecated Use buildRecipeCards — kept for any older imports. */
-export function buildRecipeEntries(menuDishes: RecipeBookDish[]): RecipeEntry[] {
-	return buildRecipeCards(menuDishes).map((c) => ({
-		dishName: c.title,
-		category: c.category,
-		menuDescription: c.liveDescription || undefined,
-		menuIngredients: c.liveIngredients || undefined,
-		ingredients: c.kitchenBuild,
-		method: c.kitchenMethod,
-		columns: c.columns,
-		rows: c.rows,
-		steps: c.steps,
-		notes: c.notes,
-		yieldNote: c.yieldNote,
-	}));
 }
 
 function groupByCategory(cards: RecipeCardModel[]): { category: string; items: RecipeCardModel[] }[] {
@@ -469,12 +453,14 @@ export function buildRecipeBookHtml(opts: {
 	dark?: boolean;
 	/** Owner edits that replace the built-in kitchen build / method of a card. */
 	overrides?: RecipeOverride[];
+	/** Built-in recipes (from get_recipe_book_defaults). */
+	book?: RecipeEntry[];
 	/** Show "Edit links" / "Edit recipe" buttons (owner view). */
 	editable?: boolean;
 	/** Categories to render expanded (embedded view collapses the rest). */
 	openSections?: string[];
 }): string {
-	const cards = buildRecipeCards(opts.menuDishes, opts.overrides);
+	const cards = buildRecipeCards(opts.menuDishes, opts.overrides, opts.book);
 	const groups = groupByCategory(cards);
 	const ctx: RecipeCardContext = {
 		titles: new Map(cards.map((c) => [recipeKey(c.title), c.title])),

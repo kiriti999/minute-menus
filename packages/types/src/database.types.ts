@@ -894,6 +894,7 @@ export type Database = {
                     restaurant_id: string;
                     name: string;
                     phone: string | null;
+                    email: string | null;
                     active: boolean;
                     resigned_at: string | null;
                     created_at: string;
@@ -903,6 +904,7 @@ export type Database = {
                     restaurant_id: string;
                     name: string;
                     phone?: string | null;
+                    email?: string | null;
                     active?: boolean;
                     resigned_at?: string | null;
                     created_at?: string;
@@ -912,6 +914,7 @@ export type Database = {
                     restaurant_id?: string;
                     name?: string;
                     phone?: string | null;
+                    email?: string | null;
                     active?: boolean;
                     resigned_at?: string | null;
                     created_at?: string;
@@ -1124,6 +1127,14 @@ export type Database = {
                     p_cancel_reason?: string | null;
                 };
                 Returns: string;
+            };
+            recipe_book_role: {
+                Args: { p_restaurant_id: string };
+                Returns: string | null;
+            };
+            get_recipe_book_defaults: {
+                Args: { p_restaurant_id: string };
+                Returns: Json;
             };
             get_staff_clock_status: {
                 Args: { p_badge_token: string };

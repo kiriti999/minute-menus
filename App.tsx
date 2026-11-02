@@ -193,17 +193,15 @@ const App: React.FC = () => {
             <RecipeBookPage
                 key={path}
                 slug={recipeBookSlug}
-                isAuthenticated={isAuthenticated}
                 isDarkTheme={isDarkTheme}
                 onToggleTheme={toggleTheme}
-                onBack={() => {
-                    if (isAuthenticated) {
+                onBack={(isOwner) => {
+                    if (isOwner) {
                         window.history.pushState({}, "", "/");
                         setPath("/");
                         setMode(AppMode.OWNER);
                     } else {
-                        // Full navigation so slugRoute hook re-runs and loads the customer menu
-                        window.location.href = `/${recipeBookSlug}`;
+                        window.location.href = `/${recipeBookSlug}/sop`;
                     }
                 }}
             />

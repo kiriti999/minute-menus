@@ -514,10 +514,12 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 
 	const [newStaffName, setNewStaffName] = useState("");
 	const [newStaffPhone, setNewStaffPhone] = useState("");
+	const [newStaffEmail, setNewStaffEmail] = useState("");
 	const [assignStaffId, setAssignStaffId] = useState<Record<string, string>>({});
 	const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
 	const [editStaffName, setEditStaffName] = useState("");
 	const [editStaffPhone, setEditStaffPhone] = useState("");
+	const [editStaffEmail, setEditStaffEmail] = useState("");
 
 	const text = isDarkTheme ? "text-white" : "text-zinc-900";
 	const card = isDarkTheme ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200";
@@ -673,9 +675,11 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 			await supabaseService.upsertRestaurantStaff({
 				name: newStaffName.trim(),
 				phone: newStaffPhone.trim() || null,
+				email: newStaffEmail.trim() || null,
 			});
 			setNewStaffName("");
 			setNewStaffPhone("");
+			setNewStaffEmail("");
 			await reloadStaffAndBadges();
 		} catch (err) {
 			setError(getErrorMessage(err));
@@ -715,12 +719,14 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 		setEditingStaffId(member.id);
 		setEditStaffName(member.name);
 		setEditStaffPhone(member.phone ?? "");
+		setEditStaffEmail(member.email ?? "");
 	};
 
 	const cancelEditStaff = () => {
 		setEditingStaffId(null);
 		setEditStaffName("");
 		setEditStaffPhone("");
+		setEditStaffEmail("");
 	};
 
 	const handleSaveStaff = async () => {
@@ -731,6 +737,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 				id: editingStaffId,
 				name: editStaffName.trim(),
 				phone: editStaffPhone.trim() || null,
+				email: editStaffEmail.trim() || null,
 			});
 			cancelEditStaff();
 			await reloadStaffAndBadges();
@@ -881,6 +888,13 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 									onChange={(e) => setNewStaffPhone(e.target.value)}
 									className={`w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm ${input}`}
 								/>
+								<input
+									type="email"
+									placeholder="Email for recipe book access (optional)"
+									value={newStaffEmail}
+									onChange={(e) => setNewStaffEmail(e.target.value)}
+									className={`w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm ${input}`}
+								/>
 								<button
 									type="button"
 									onClick={() => void handleAddStaff()}
@@ -920,6 +934,13 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 															value={editStaffPhone}
 															onChange={(e) => setEditStaffPhone(e.target.value)}
 															placeholder="Mobile (optional)"
+															className={`w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm ${input}`}
+														/>
+														<input
+															type="email"
+															value={editStaffEmail}
+															onChange={(e) => setEditStaffEmail(e.target.value)}
+															placeholder="Email for recipe book access (optional)"
 															className={`w-full min-w-0 rounded-xl border px-3 py-2.5 text-sm ${input}`}
 														/>
 														<div className="flex items-center gap-2">
@@ -962,6 +983,9 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 															</p>
 															<p className={`text-xs mt-0.5 truncate ${muted}`}>
 																{s.phone || "No mobile number"}
+															</p>
+															<p className={`text-xs truncate ${muted}`}>
+																{s.email ? `Recipe book: ${s.email}` : "No recipe book access"}
 															</p>
 														</div>
 														<div className="flex items-center gap-1 shrink-0">

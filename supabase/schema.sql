@@ -1757,9 +1757,9 @@ on conflict (payment_id) do nothing;
 
 -- ─────────────────────────────────────────────
 -- RECIPE LINKS — optional video / article link per recipe-book card.
--- recipe_key = lower-cased card title (live dish name). The recipe book is a
--- public page, so links are publicly readable; only the restaurant owner can
--- write. URLs must be http(s) so they can't smuggle javascript: links.
+-- recipe_key = lower-cased card title (live dish name). The recipe book is for
+-- the owner and team members only (recipe_book_role, defined at the end of this
+-- file); only the restaurant owner can write. URLs must be http(s) so they can't smuggle javascript: links.
 -- ─────────────────────────────────────────────
 create table if not exists recipe_links (
   restaurant_id  uuid not null references restaurants(id) on delete cascade,
@@ -1779,16 +1779,11 @@ create policy "Owner can manage recipe links"
   using (exists (select 1 from restaurants r where r.id = recipe_links.restaurant_id and r.owner_id = auth.uid()))
   with check (exists (select 1 from restaurants r where r.id = recipe_links.restaurant_id and r.owner_id = auth.uid()));
 
-create policy "Public can read recipe links"
-  on recipe_links for select
-  using (true);
-
 -- ─────────────────────────────────────────────
 -- RECIPE OVERRIDES — owner-edited kitchen build / method for a recipe-book card.
 -- recipe_key = lower-cased card title. A row replaces the built-in recipe for that
 -- card; deleting it restores the default. `hidden` removes the card from the book
--- (recipe "delete" — restorable, edits are kept). Public read (the recipe book is
--- public), owner-only write.
+-- (recipe "delete" — restorable, edits are kept). Owner and team read, owner-only write.
 -- ─────────────────────────────────────────────
 create table if not exists recipe_overrides (
   restaurant_id  uuid not null references restaurants(id) on delete cascade,
@@ -1813,14 +1808,10 @@ create policy "Owner can manage recipe overrides"
   using (exists (select 1 from restaurants r where r.id = recipe_overrides.restaurant_id and r.owner_id = auth.uid()))
   with check (exists (select 1 from restaurants r where r.id = recipe_overrides.restaurant_id and r.owner_id = auth.uid()));
 
-create policy "Public can read recipe overrides"
-  on recipe_overrides for select
-  using (true);
-
 -- ─────────────────────────────────────────────
 -- RECIPE IMAGES — optional photo per recipe-book card.
 -- recipe_key = lower-cased card title. The file lives in the dish-media bucket
--- under <restaurant_id>/…; this row stores its public URL. Public read, owner-only write.
+-- under <restaurant_id>/…; this row stores its public URL. Owner and team read, owner-only write.
 -- ─────────────────────────────────────────────
 create table if not exists recipe_images (
   restaurant_id  uuid not null references restaurants(id) on delete cascade,
@@ -1838,6 +1829,89 @@ create policy "Owner can manage recipe images"
   using (exists (select 1 from restaurants r where r.id = recipe_images.restaurant_id and r.owner_id = auth.uid()))
   with check (exists (select 1 from restaurants r where r.id = recipe_images.restaurant_id and r.owner_id = auth.uid()));
 
-create policy "Public can read recipe images"
+-- ─────────────────────────────────────────────
+-- RECIPE BOOK ACCESS — owner and team members only.
+-- Team members sign in (email code or Google) with the email the owner saved on
+-- their restaurant_staff row. Access ends when the owner clears the email or marks
+-- the person inactive / resigned. The auth email must be confirmed so nobody can
+-- claim a staff address by signing up with it.
+-- ─────────────────────────────────────────────
+alter table restaurant_staff add column if not exists email text;
+
+create unique index if not exists idx_restaurant_staff_active_email
+  on restaurant_staff (restaurant_id, lower(email))
+  where email is not null and active;
+
+-- 'owner', 'team', or null (no access).
+create or replace function public.recipe_book_role(p_restaurant_id uuid)
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case
+    when exists (
+      select 1 from restaurants r
+      where r.id = p_restaurant_id and r.owner_id = auth.uid()
+    ) then 'owner'
+    when exists (
+      select 1
+      from restaurant_staff s
+      join auth.users u on lower(u.email) = lower(s.email)
+      where s.restaurant_id = p_restaurant_id
+        and s.active = true
+        and s.email is not null
+        and u.id = auth.uid()
+        and u.email_confirmed_at is not null
+    ) then 'team'
+  end
+$$;
+
+revoke execute on function public.recipe_book_role(uuid) from public;
+-- anon needs it too: the read policies below call it, and it simply returns null without a session.
+grant execute on function public.recipe_book_role(uuid) to anon, authenticated;
+
+create policy "Owner and team can read recipe links"
+  on recipe_links for select
+  using (public.recipe_book_role(restaurant_id) is not null);
+
+create policy "Owner and team can read recipe overrides"
+  on recipe_overrides for select
+  using (public.recipe_book_role(restaurant_id) is not null);
+
+create policy "Owner and team can read recipe images"
   on recipe_images for select
-  using (true);
+  using (public.recipe_book_role(restaurant_id) is not null);
+
+-- Built-in kitchen recipes, in display order (some dishes have more than one entry).
+-- Kept out of the client bundle: RLS is on with no policies, so the table is only
+-- reachable through get_recipe_book_defaults. Filled by `pnpm seed:recipes`
+-- (scripts/seed-recipe-defaults.ts).
+create table if not exists recipe_book_defaults (
+  position   integer primary key,
+  entry      jsonb not null
+);
+
+alter table recipe_book_defaults enable row level security;
+
+create or replace function public.get_recipe_book_defaults(p_restaurant_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if public.recipe_book_role(p_restaurant_id) is null then
+    raise exception 'Recipe book is for the owner and team members only' using errcode = '42501';
+  end if;
+  return coalesce(
+    (select jsonb_agg(entry order by position) from recipe_book_defaults),
+    '[]'::jsonb
+  );
+end;
+$$;
+
+revoke execute on function public.get_recipe_book_defaults(uuid) from public, anon;
+grant execute on function public.get_recipe_book_defaults(uuid) to authenticated;

@@ -452,6 +452,48 @@ export interface RecipeImage {
   imageUrl: string;
 }
 
+/** One ingredient line of a built-in recipe; `qty` aligns with the recipe's `columns`. A heading row labels a group. */
+export type RecipeRow = {
+  item: string;
+  qty: string[];
+  heading?: boolean;
+};
+
+/** Built-in kitchen recipe (served from the recipe_book_defaults table to owner / team only). */
+export type RecipeEntry = {
+  /** Primary dish name used for matching. */
+  dishName: string;
+  aliases?: string[];
+  category: string;
+  /** Portion / yield note shown under the title. */
+  yieldNote?: string;
+  /** Exact description from the menu editor (live). */
+  menuDescription?: string;
+  /** Exact ingredients from the menu editor (live). */
+  menuIngredients?: string;
+  /** Column headings for the quantity cells (serve sizes, bowl sizes). Defaults to one "Qty" column. */
+  columns?: string[];
+  /** Structured ingredient table. */
+  rows?: RecipeRow[];
+  /** Numbered method steps. */
+  steps?: string[];
+  /** Extra bullet notes (conversions, safety temperatures). */
+  notes?: string[];
+  /** Plain-text build — used when `rows` is absent (older cards, generic fallback). */
+  ingredients?: string;
+  /** Plain-text method — used when `steps` is absent. */
+  method?: string;
+  /** Other recipe card names (dishName) to print right after this dish. */
+  companions?: string[];
+  /** Dressing card names (dishName) to print alongside this dish. */
+  dressings?: string[];
+  /** Kitchen prep recipe (rice, dip, sauce…) — always printed, never matched to a menu dish. */
+  prep?: boolean;
+};
+
+/** Who may open the recipe book of a restaurant. */
+export type RecipeBookRole = "owner" | "team";
+
 /** One ingredient line of an owner-edited recipe; a heading row labels a group. */
 export interface RecipeOverrideRow {
   item: string;
@@ -934,6 +976,8 @@ export interface RestaurantStaffMember {
   restaurantId: string;
   name: string;
   phone: string | null;
+  /** Sign-in email for recipe-book access (team members only). */
+  email: string | null;
   active: boolean;
   resignedAt: string | null;
   createdAt: string;

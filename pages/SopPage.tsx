@@ -131,7 +131,9 @@ export const SopPage: React.FC<SopPageProps> = ({ isDarkTheme, slug, onBack }) =
 						<BookOpen size={22} className={`mt-0.5 ${icon}`} />
 						<div>
 							<p className="font-semibold">Recipe book</p>
-							<p className={`text-xs ${muted}`}>Portions, methods and videos for every dish.</p>
+							<p className={`text-xs ${muted}`}>
+								Portions, methods and videos for every dish. Team sign-in required.
+							</p>
 						</div>
 					</a>
 					<div className={`flex items-start gap-3 rounded-2xl border p-4 ${card}`}>

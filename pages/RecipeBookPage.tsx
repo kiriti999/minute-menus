@@ -1,11 +1,13 @@
-import type { RecipeImage, RecipeLink, RecipeOverride } from "@minute-menus/types";
+import type { RecipeEntry, RecipeImage, RecipeLink, RecipeOverride } from "@minute-menus/types";
 import { LoadingScreen } from "@minute-menus/ui";
 import { ArrowLeft, ChevronsDownUp, ChevronsUpDown, Moon, Printer, RefreshCw, Search, Sun, Trash2, X } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { RecipeBookSignIn } from "../components/RecipeBookSignIn";
 import { RecipeEditModal } from "../components/RecipeEditModal";
 import { RecipeLinksModal } from "../components/RecipeLinksModal";
 import { RecipeRestoreModal } from "../components/RecipeRestoreModal";
+import { useRecipeBookAccess } from "../hooks/useRecipeBookAccess";
 import {
 	buildRecipeBookHtml,
 	buildRecipeCards,
@@ -21,9 +23,18 @@ import { supabaseService } from "../services/supabaseService";
 export interface RecipeBookPageProps {
 	isDarkTheme: boolean;
 	onToggleTheme: () => void;
+	/** `isOwner` lets the app send owners to the dashboard and everyone else to the SOP page. */
+	onBack: (isOwner: boolean) => void;
+	slug: string;
+}
+
+interface RecipeBookViewerProps {
+	isDarkTheme: boolean;
+	onToggleTheme: () => void;
 	onBack: () => void;
 	slug: string;
-	isAuthenticated?: boolean;
+	/** Only the owner can edit; team members get a read-only book. */
+	isOwner: boolean;
 }
 
 interface RecipeBookData {
@@ -33,6 +44,7 @@ interface RecipeBookData {
 	links: RecipeLink[];
 	overrides: RecipeOverride[];
 	images: RecipeImage[];
+	book: RecipeEntry[];
 }
 
 interface EditTarget {
@@ -50,6 +62,7 @@ async function fetchMenuAndRestaurant(slug: string): Promise<RecipeBookData> {
 	const links = await supabaseService.getRecipeLinks(restaurant.id).catch(() => []);
 	const overrides = await supabaseService.getRecipeOverrides(restaurant.id).catch(() => []);
 	const images = await supabaseService.getRecipeImages(restaurant.id).catch(() => []);
+	const book = await supabaseService.getRecipeBookDefaults(restaurant.id);
 	return {
 		restaurantId: restaurant.id,
 		restaurantName: restaurant.name || "Recipe book",
@@ -57,6 +70,7 @@ async function fetchMenuAndRestaurant(slug: string): Promise<RecipeBookData> {
 		links,
 		overrides,
 		images,
+		book,
 	};
 }
 
@@ -76,13 +90,14 @@ function parseEditMessage(data: unknown, type: "edit-links" | "edit-recipe"): Ed
 
 /**
  * Printable recipe book — always fetches the latest menu when opened or revisited.
+ * Rendered only after the gate confirmed the user is the owner or an active team member.
  */
-export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
+const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 	isDarkTheme,
 	onToggleTheme,
 	onBack,
 	slug,
-	isAuthenticated,
+	isOwner,
 }) => {
 	const [data, setData] = useState<RecipeBookData | null>(null);
 	const [query, setQuery] = useState("");
@@ -174,13 +189,14 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 						links: data.links,
 						overrides: data.overrides,
 						images: data.images,
+						book: data.book,
 						dark: darkRef.current,
-						editable: Boolean(isAuthenticated),
+						editable: isOwner,
 						openSections: openSections.current,
 						embedded: true,
 					})
 				: "",
-		[data, isAuthenticated],
+		[data, isOwner],
 	);
 
 	const postToFrame = useCallback((message: object) => {
@@ -227,7 +243,7 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 
 	const recipeDraft = useMemo(() => {
 		if (!data || !editingRecipe) return null;
-		const card = buildRecipeCards(data.dishes, data.overrides).find(
+		const card = buildRecipeCards(data.dishes, data.overrides, data.book).find(
 			(c) => cardKey(c) === editingRecipe.key,
 		);
 		return card ? draftFromCard(card) : null;
@@ -236,7 +252,7 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 	const linkTargets = useMemo(
 		() =>
 			data && editingRecipe
-				? buildRecipeCards(data.dishes, data.overrides)
+				? buildRecipeCards(data.dishes, data.overrides, data.book)
 						.filter((c) => cardKey(c) !== editingRecipe.key)
 						.map((c) => c.title)
 						.sort((a, b) => a.localeCompare(b))
@@ -253,7 +269,7 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 
 	const saveRecipe = async (draft: RecipeDraft) => {
 		if (!data || !editingRecipe) return;
-		const card = buildRecipeCards(data.dishes, data.overrides).find((c) => cardKey(c) === editingRecipe.key);
+		const card = buildRecipeCards(data.dishes, data.overrides, data.book).find((c) => cardKey(c) === editingRecipe.key);
 		const override = overrideFromDraft(editingRecipe.key, card?.sourceTitle ?? editingRecipe.title, draft);
 		await supabaseService.saveRecipeOverride(data.restaurantId, override);
 		await reloadOverrides();
@@ -338,7 +354,7 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 					className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold border ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
 				>
 					<ArrowLeft size={16} />
-					{isAuthenticated ? "Dashboard" : "Menu"}
+					{isOwner ? "Dashboard" : "SOP"}
 				</button>
 				<div className="flex-1 min-w-0">
 					<p className="text-sm font-semibold truncate">Kitchen Recipe Book</p>
@@ -391,7 +407,7 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 						<span className="hidden md:inline">Collapse all</span>
 					</button>
 				</div>
-				{isAuthenticated && deletedKeys.length > 0 && (
+				{isOwner && deletedKeys.length > 0 && (
 					<button
 						type="button"
 						onClick={() => setRestoring(true)}
@@ -490,5 +506,47 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 				/>
 			)}
 		</div>
+	);
+};
+
+/** Gate: the recipe book renders only for the owner or an active team member. */
+export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({ isDarkTheme, onToggleTheme, onBack, slug }) => {
+	const access = useRecipeBookAccess(slug);
+
+	useEffect(() => {
+		document.body.className = isDarkTheme
+			? "bg-zinc-950 text-white overflow-auto"
+			: "bg-zinc-100 text-black overflow-auto";
+	}, [isDarkTheme]);
+
+	if (access.status === "checking") return <LoadingScreen label="Checking access…" />;
+	if (access.status === "error") {
+		return (
+			<div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6">
+				<p className="text-sm text-red-500">{access.message}</p>
+				<button type="button" onClick={() => onBack(false)} className="px-4 py-2 rounded-full border text-sm font-semibold">
+					Back
+				</button>
+			</div>
+		);
+	}
+	if (access.status === "granted") {
+		return (
+			<RecipeBookViewer
+				slug={slug}
+				isDarkTheme={isDarkTheme}
+				onToggleTheme={onToggleTheme}
+				isOwner={access.role === "owner"}
+				onBack={() => onBack(access.role === "owner")}
+			/>
+		);
+	}
+	return (
+		<RecipeBookSignIn
+			isDarkTheme={isDarkTheme}
+			restaurantName={access.restaurantName}
+			deniedEmail={access.status === "denied" ? access.email : undefined}
+			onBack={() => onBack(false)}
+		/>
 	);
 };

@@ -25,6 +25,8 @@ import type {
     OrderItem,
     PurchaseUnit,
     RecipeLink,
+    RecipeBookRole,
+    RecipeEntry,
     RecipeImage,
     RecipeOverride,
     RestaurantOverhead,
@@ -1576,7 +1578,40 @@ export class SupabaseService {
         if (error) throw error;
     }
 
-    /** Video / article links for the recipe-book cards of a restaurant (public read). */
+    /** Owner / team role of the signed-in user for this restaurant's recipe book, or null (no access). */
+    async getRecipeBookRole(restaurantId: string): Promise<RecipeBookRole | null> {
+        const { getRecipeBookRole } = await import("./recipeBookAccess");
+        return getRecipeBookRole(this.client, restaurantId);
+    }
+
+    /** Built-in recipes; refused by the database unless the user is the owner or an active team member. */
+    async getRecipeBookDefaults(restaurantId: string): Promise<RecipeEntry[]> {
+        const { getRecipeBookDefaults } = await import("./recipeBookAccess");
+        return getRecipeBookDefaults(this.client, restaurantId);
+    }
+
+    /** Emails a one-time recipe-book sign-in code. */
+    async sendRecipeBookCode(email: string): Promise<void> {
+        const { sendRecipeBookCode } = await import("./recipeBookAccess");
+        return sendRecipeBookCode(this.client, email);
+    }
+
+    async verifyRecipeBookCode(email: string, code: string): Promise<void> {
+        const { verifyRecipeBookCode } = await import("./recipeBookAccess");
+        return verifyRecipeBookCode(this.client, email, code);
+    }
+
+    async signInWithGoogleHere(): Promise<void> {
+        const { signInWithGoogleHere } = await import("./recipeBookAccess");
+        return signInWithGoogleHere(this.client);
+    }
+
+    async signOut(): Promise<void> {
+        const { error } = await this.client.auth.signOut();
+        if (error) throw error;
+    }
+
+    /** Video / article links for the recipe-book cards of a restaurant (owner and team read). */
     async getRecipeLinks(restaurantId: string): Promise<RecipeLink[]> {
         const { getRecipeLinks } = await import("./recipeLinks");
         return getRecipeLinks(this.client, restaurantId);
@@ -1588,7 +1623,7 @@ export class SupabaseService {
         return saveRecipeLink(this.client, restaurantId, link);
     }
 
-    /** Photos for recipe-book cards (public read). */
+    /** Photos for recipe-book cards (owner and team read). */
     async getRecipeImages(restaurantId: string): Promise<RecipeImage[]> {
         const { getRecipeImages } = await import("./recipeImages");
         return getRecipeImages(this.client, restaurantId);
@@ -1606,7 +1641,7 @@ export class SupabaseService {
         return removeRecipeImage(this.client, restaurantId, recipeKey);
     }
 
-    /** Owner-edited kitchen builds / methods for recipe-book cards (public read). */
+    /** Owner-edited kitchen builds / methods for recipe-book cards (owner and team read). */
     async getRecipeOverrides(restaurantId: string): Promise<RecipeOverride[]> {
         const { getRecipeOverrides } = await import("./recipeOverrides");
         return getRecipeOverrides(this.client, restaurantId);
@@ -1829,7 +1864,13 @@ export class SupabaseService {
         return deleteStaffBadge(this.client, badgeId);
     }
 
-    async upsertRestaurantStaff(input: { id?: string; name: string; phone?: string | null; active?: boolean }) {
+    async upsertRestaurantStaff(input: {
+        id?: string;
+        name: string;
+        phone?: string | null;
+        email?: string | null;
+        active?: boolean;
+    }) {
         const { upsertRestaurantStaff } = await import("./teamTime");
         const rid = await this.getRestaurantId();
         return upsertRestaurantStaff(this.client, rid, input);

@@ -101,6 +101,7 @@ export async function listRestaurantStaff(client: Client, restaurantId: string):
 		restaurantId: row.restaurant_id,
 		name: row.name,
 		phone: row.phone,
+		email: row.email,
 		active: row.active,
 		resignedAt: row.resigned_at,
 		createdAt: row.created_at,
@@ -124,10 +125,23 @@ export async function createStaffBadge(client: Client, restaurantId: string, lab
 	};
 }
 
+const UNIQUE_VIOLATION = "23505";
+
+function cleanEmail(email: string | null | undefined): string | null {
+	return email?.trim().toLowerCase() || null;
+}
+
+function staffWriteError(error: { code?: string; message: string }): Error {
+	if (error.code === UNIQUE_VIOLATION) {
+		return new Error("That email is already used by another active team member.");
+	}
+	return new Error(error.message);
+}
+
 export async function upsertRestaurantStaff(
 	client: Client,
 	restaurantId: string,
-	input: { id?: string; name: string; phone?: string | null; active?: boolean },
+	input: { id?: string; name: string; phone?: string | null; email?: string | null; active?: boolean },
 ): Promise<string> {
 	if (input.id) {
 		const { error } = await client
@@ -135,11 +149,14 @@ export async function upsertRestaurantStaff(
 			.update({
 				name: input.name.trim(),
 				phone: input.phone?.trim() || null,
-				active: input.active ?? true,
-				resigned_at: input.active === false ? new Date().toISOString() : null,
+				email: cleanEmail(input.email),
+				// Editing details must not reactivate someone the owner marked as resigned.
+				...(input.active === undefined
+					? {}
+					: { active: input.active, resigned_at: input.active ? null : new Date().toISOString() }),
 			})
 			.eq("id", input.id);
-		if (error) throw error;
+		if (error) throw staffWriteError(error);
 		return input.id;
 	}
 
@@ -149,11 +166,12 @@ export async function upsertRestaurantStaff(
 			restaurant_id: restaurantId,
 			name: input.name.trim(),
 			phone: input.phone?.trim() || null,
+			email: cleanEmail(input.email),
 			active: true,
 		})
 		.select("id")
 		.single();
-	if (error) throw error;
+	if (error) throw staffWriteError(error);
 	return data.id;
 }
 
