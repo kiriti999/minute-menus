@@ -20,10 +20,16 @@ export async function getRecipeBookDefaults(client: Client, restaurantId: string
 	return Array.isArray(data) ? (data as unknown as RecipeEntry[]) : [];
 }
 
-/** Emails a one-time sign-in code. */
-export async function sendRecipeBookCode(client: Client, email: string): Promise<void> {
-	const { error } = await client.auth.signInWithOtp({ email: email.trim().toLowerCase() });
-	if (error) throw error;
+/** Asks the server to email a one-time sign-in code; it only sends to the owner and active team emails. */
+export async function sendRecipeBookCode(slug: string, email: string): Promise<void> {
+	const response = await fetch("/api/keepalive?action=recipe-code", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ slug, email }),
+	});
+	if (response.ok) return;
+	const body = (await response.json().catch(() => null)) as { error?: string } | null;
+	throw new Error(body?.error ?? "Could not send the code. Try again.");
 }
 
 export async function verifyRecipeBookCode(client: Client, email: string, code: string): Promise<void> {

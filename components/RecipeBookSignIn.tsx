@@ -6,6 +6,7 @@ import { supabaseService } from "../services/supabaseService";
 export interface RecipeBookSignInProps {
 	isDarkTheme: boolean;
 	restaurantName: string;
+	slug: string;
 	/** Set when someone is signed in but is not on the team. */
 	deniedEmail?: string;
 	onBack: () => void;
@@ -17,6 +18,7 @@ const messageOf = (e: unknown): string => (e instanceof Error ? e.message : "Som
 export const RecipeBookSignIn: React.FC<RecipeBookSignInProps> = ({
 	isDarkTheme,
 	restaurantName,
+	slug,
 	deniedEmail,
 	onBack,
 }) => {
@@ -48,7 +50,7 @@ export const RecipeBookSignIn: React.FC<RecipeBookSignInProps> = ({
 	const sendCode = (e: React.FormEvent) => {
 		e.preventDefault();
 		void run(async () => {
-			await supabaseService.sendRecipeBookCode(email);
+			await supabaseService.sendRecipeBookCode(slug, email);
 			setCodeSent(true);
 		});
 	};
@@ -108,7 +110,7 @@ export const RecipeBookSignIn: React.FC<RecipeBookSignInProps> = ({
 						<p className={`text-center text-xs ${muted}`}>or use an emailed code</p>
 						{codeSent ? (
 							<form onSubmit={verifyCode} className="space-y-3">
-								<p className={`text-xs ${muted}`}>Enter the code we sent to {email}.</p>
+								<p className={`text-xs ${muted}`}>If {email} is on the team, we sent it a code. Enter it here.</p>
 								<input
 									value={code}
 									onChange={(e) => setCode(e.target.value)}

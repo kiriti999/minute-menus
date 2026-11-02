@@ -545,6 +545,7 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({ isDarkTheme, onT
 		<RecipeBookSignIn
 			isDarkTheme={isDarkTheme}
 			restaurantName={access.restaurantName}
+			slug={slug}
 			deniedEmail={access.status === "denied" ? access.email : undefined}
 			onBack={() => onBack(false)}
 		/>

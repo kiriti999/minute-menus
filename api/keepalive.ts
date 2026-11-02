@@ -7,6 +7,7 @@
  * Also serves public SEO (Hobby plan is at 12/12 functions — see lib/server/seo.ts):
  *   ?action=page&slug=…  → restaurant page HTML (rewritten from /:slug and /:slug/menu)
  *   ?action=sitemap      → sitemap.xml
+ *   ?action=recipe-code  → POST: emails a recipe-book sign-in code to the owner / team only
  *
  * Required env vars:
  *   VITE_SUPABASE_URL / SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
@@ -17,6 +18,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { ensureDishMediaStorage } from "../lib/ensure-dish-media-storage.js";
 import { expirePlusSubscriptions } from "../lib/server/plusSubscriptions.js";
 import { getSupabaseAdmin } from "../lib/supabase-admin.js";
+import { handleRecipeBookCode } from "../lib/server/recipeBookCode.js";
 import { handleSeoPage, handleSitemap } from "../lib/server/seo.js";
 
 const log = createLogger("keepalive");
@@ -24,6 +26,7 @@ const log = createLogger("keepalive");
 const SEO_ACTIONS: Record<string, (req: VercelRequest, res: VercelResponse) => Promise<unknown>> = {
     page: handleSeoPage,
     sitemap: handleSitemap,
+    "recipe-code": handleRecipeBookCode,
 };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

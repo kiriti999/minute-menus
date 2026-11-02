@@ -1590,10 +1590,10 @@ export class SupabaseService {
         return getRecipeBookDefaults(this.client, restaurantId);
     }
 
-    /** Emails a one-time recipe-book sign-in code. */
-    async sendRecipeBookCode(email: string): Promise<void> {
+    /** Emails a one-time recipe-book sign-in code (owner and team emails only). */
+    async sendRecipeBookCode(slug: string, email: string): Promise<void> {
         const { sendRecipeBookCode } = await import("./recipeBookAccess");
-        return sendRecipeBookCode(this.client, email);
+        return sendRecipeBookCode(slug, email);
     }
 
     async verifyRecipeBookCode(email: string, code: string): Promise<void> {
