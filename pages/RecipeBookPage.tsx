@@ -15,6 +15,7 @@ import {
 	type RecipeBookDish,
 } from "../lib/recipeBook/buildRecipeBookHtml";
 import { draftFromCard, overrideFromDraft, type RecipeDraft } from "../lib/recipeBook/recipeEditText";
+import { isNewVersionAvailable } from "../lib/newVersion";
 import { supabaseService } from "../services/supabaseService";
 
 export interface RecipeBookPageProps {
@@ -88,6 +89,7 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 	const [editing, setEditing] = useState<EditTarget | null>(null);
 	const [editingRecipe, setEditingRecipe] = useState<EditTarget | null>(null);
 	const [restoring, setRestoring] = useState(false);
+	const [updateReady, setUpdateReady] = useState(false);
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
@@ -140,6 +142,9 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 	useEffect(() => {
 		const onVisible = () => {
 			if (document.visibilityState !== "visible") return;
+			isNewVersionAvailable()
+				.then((available) => available && setUpdateReady(true))
+				.catch(() => undefined);
 			if (Date.now() - lastLoadMs.current < RETURN_REFRESH_MIN_MS) return;
 			setFetchTick((n) => n + 1);
 		};
@@ -425,6 +430,18 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 					Print / PDF
 				</button>
 			</div>
+			{updateReady && (
+				<div className="flex-shrink-0 flex items-center justify-center gap-3 bg-amber-500 px-4 py-2 text-sm font-semibold text-black">
+					A newer version of the recipe book is available.
+					<button
+						type="button"
+						onClick={() => window.location.reload()}
+						className="rounded-full bg-black px-3 py-1 text-xs font-semibold text-white"
+					>
+						Reload
+					</button>
+				</div>
+			)}
 			<iframe
 				ref={frameRef}
 				title="Kitchen Recipe Book"
