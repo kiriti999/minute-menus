@@ -224,6 +224,79 @@ const splitLines = (text: string): string[] =>
 const section = (label: string, body: string): string =>
 	`<p class="label">${escapeHtml(label)}</p>${body}`;
 
+type ConversionMeasure = { label: string; milliliters: number };
+type ConversionIngredient = { label: string; gramsPerCup: number };
+
+const CONVERSION_MEASURES: ConversionMeasure[] = [
+	{ label: "1/8 tsp", milliliters: 0.625 },
+	{ label: "1/4 tsp", milliliters: 1.25 },
+	{ label: "1/2 tsp", milliliters: 2.5 },
+	{ label: "3/4 tsp", milliliters: 3.75 },
+	{ label: "1 tsp", milliliters: 5 },
+	{ label: "1 tbsp", milliliters: 15 },
+	{ label: "2 tbsp", milliliters: 30 },
+	{ label: "1/8 cup", milliliters: 30 },
+	{ label: "1/4 cup", milliliters: 60 },
+	{ label: "1/3 cup", milliliters: 80 },
+	{ label: "1/2 cup", milliliters: 120 },
+	{ label: "2/3 cup", milliliters: 160 },
+	{ label: "3/4 cup", milliliters: 180 },
+	{ label: "1 cup", milliliters: 240 },
+];
+
+const LIQUID_CONVERSIONS: ConversionIngredient[] = [
+	{ label: "Water", gramsPerCup: 240 },
+	{ label: "Whole milk", gramsPerCup: 244 },
+	{ label: "Vegetable oil", gramsPerCup: 218 },
+	{ label: "Honey", gramsPerCup: 340 },
+];
+
+const DRY_CONVERSIONS: { title: string; ingredients: ConversionIngredient[] }[] = [
+	{
+		title: "Baking basics (approx. grams)",
+		ingredients: [
+			{ label: "All-purpose flour", gramsPerCup: 120 },
+			{ label: "Granulated sugar", gramsPerCup: 200 },
+			{ label: "Packed brown sugar", gramsPerCup: 220 },
+			{ label: "Rolled oats", gramsPerCup: 90 },
+		],
+	},
+	{
+		title: "Other pantry ingredients (approx. grams)",
+		ingredients: [
+			{ label: "Powdered sugar", gramsPerCup: 120 },
+			{ label: "Butter", gramsPerCup: 227 },
+			{ label: "Uncooked white rice", gramsPerCup: 185 },
+			{ label: "Cocoa powder", gramsPerCup: 85 },
+		],
+	},
+];
+
+function renderConversionTable(title: string, ingredients: ConversionIngredient[]): string {
+	const headers = ["Measure", "Volume", ...ingredients.map((ingredient) => ingredient.label)]
+		.map((label) => `<th scope="col">${escapeHtml(label)}</th>`)
+		.join("");
+	const rows = CONVERSION_MEASURES.map(({ label, milliliters }) => {
+		const grams = ingredients
+			.map((ingredient) => `<td>${Math.round((ingredient.gramsPerCup * milliliters / 240) * 10) / 10} g</td>`)
+			.join("");
+		return `<tr><th scope="row">${label}</th><td>${milliliters} mL</td>${grams}</tr>`;
+	}).join("");
+	return `<div class="conversion-table-wrap"><table class="ing conversion-table"><caption>${escapeHtml(title)}</caption><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function renderConversionGuide(): string {
+	const dryTables = DRY_CONVERSIONS
+		.map(({ title, ingredients }) => renderConversionTable(title, ingredients))
+		.join("");
+	return `<aside class="conversion-guide" aria-labelledby="conversion-title">
+  <h2 id="conversion-title">Kitchen Measurement Conversions</h2>
+  <p class="conversion-note">Standard measures: 1 tsp = 5 mL · 1 tbsp = 15 mL · 1 US cup = 240 mL. Gram weights are approximate: liquids have different densities, and dry ingredients vary with brand and how they are measured. Spoon and level flour; pack brown sugar. Use a kitchen scale when precision matters.</p>
+  ${renderConversionTable("Common liquids (approx. grams)", LIQUID_CONVERSIONS)}
+  ${dryTables}
+</aside>`;
+}
+
 /** Key a card's saved links are stored under (live dish name, lower-cased). */
 export const recipeKey = (title: string): string => title.trim().toLowerCase();
 
@@ -597,6 +670,13 @@ export function buildRecipeBookHtml(opts: {
       display: block; width: 100%; max-height: 160px; object-fit: cover;
       border-radius: 6px; margin: 0 0 6px; border: 1px solid #d5e5e0;
     }
+    .conversion-guide { margin-top: 28px; padding-top: 8px; border-top: 2px solid #d5e5e0; }
+    .conversion-guide h2 { margin-top: 18px; }
+    .conversion-note { margin: 0 0 12px; color: #4a635c; }
+    .conversion-table-wrap { max-width: 100%; overflow-x: auto; margin: 0 0 14px; }
+    .conversion-table { min-width: 640px; font-size: 9px; }
+    .conversion-table caption { text-align: left; font-weight: 700; color: #1b5e20; padding: 4px 0; }
+    .conversion-table th:first-child, .conversion-table td { white-space: nowrap; }
     @media screen {
       body.dark { background: #0d1512; color: #e3eeea; }
       .dark .meta, .dark .label, .dark .muted-note { color: #93b0a8; }
@@ -613,12 +693,20 @@ export function buildRecipeBookHtml(opts: {
       .dark .chip { background: #14261d; color: #9be0a5; border-color: #3d8f43; }
       .dark .edit-links { border-color: #6f8f87; color: #b4cdc5; }
       .dark .edit-links:hover { background: #1c2e29; }
+      .dark .conversion-guide { border-top-color: #2a3d37; }
+      .dark .conversion-note { color: #93b0a8; }
+      .dark .conversion-table caption { color: #7fd18a; }
     }
     @media print {
       body { background: #fff; font-size: 10px; }
       .wrap { max-width: none; padding: 0; }
       .no-print { display: none !important; }
       .card { box-shadow: none; }
+      .conversion-guide { page-break-before: always; }
+      .conversion-table-wrap { overflow: visible; }
+      .conversion-table { min-width: 0; font-size: 8px; }
+      .conversion-table th, .conversion-table td { padding: 2px 3px; white-space: normal; }
+      .conversion-table caption { page-break-after: avoid; }
     }
   </style>
 </head>
@@ -634,6 +722,7 @@ export function buildRecipeBookHtml(opts: {
     </header>
     ${sections}
     <p id="no-match" class="hide muted-note">No recipes match your search.</p>
+    ${renderConversionGuide()}
   </div>
   ${opts.embedded ? `<script>${FRAME_SCRIPT}</script>` : ""}
 </body>
