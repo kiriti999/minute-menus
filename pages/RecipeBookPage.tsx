@@ -39,6 +39,8 @@ interface EditTarget {
 	title: string;
 }
 
+const RETURN_REFRESH_MIN_MS = 60_000;
+
 async function fetchMenuAndRestaurant(slug: string): Promise<RecipeBookData> {
 	const restaurant = await supabaseService.getRestaurantBySlug(slug);
 	if (!restaurant) throw new Error(`Restaurant "${slug}" not found`);
@@ -96,19 +98,25 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 	// Expanded categories survive iframe reloads (e.g. after saving a link); read when the HTML is built.
 	const openSections = useRef<string[]>([]);
 	const requestId = useRef(0);
+	const hasData = useRef(false);
+	const lastLoadMs = useRef(0);
 	// Read only when the HTML is (re)built; later theme changes reach the iframe by postMessage so it never reloads.
 	const darkRef = useRef(isDarkTheme);
 	darkRef.current = isDarkTheme;
 
 	const loadLatest = useCallback(async (opts?: { silent?: boolean }) => {
 		const id = ++requestId.current;
-		if (opts?.silent) setRefreshing(true);
+		// Once something is on screen, reloads are background refreshes — never a loading state.
+		if (opts?.silent || hasData.current) setRefreshing(true);
 		else setLoading(true);
 		setError("");
 		try {
 			const next = await fetchMenuAndRestaurant(slug);
 			if (id !== requestId.current) return;
-			setData(next);
+			// Keep the same object when nothing changed so the recipe frame isn't rebuilt (it would reset scroll).
+			setData((prev) => (prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+			hasData.current = true;
+			lastLoadMs.current = Date.now();
 			setLoadedAt(new Date());
 		} catch (e) {
 			if (id !== requestId.current) return;
@@ -128,10 +136,12 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 		void loadLatest();
 	}, [loadLatest, fetchTick]);
 
-	// Re-pull when returning to this tab or restoring from bfcache.
+	// Re-pull when returning to this tab or restoring from bfcache — at most once a minute.
 	useEffect(() => {
 		const onVisible = () => {
-			if (document.visibilityState === "visible") setFetchTick((n) => n + 1);
+			if (document.visibilityState !== "visible") return;
+			if (Date.now() - lastLoadMs.current < RETURN_REFRESH_MIN_MS) return;
+			setFetchTick((n) => n + 1);
 		};
 		const onPageShow = (e: PageTransitionEvent) => {
 			if (e.persisted) setFetchTick((n) => n + 1);
@@ -394,7 +404,6 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 				</button>
 			</div>
 			<iframe
-				key={loadedAt?.getTime() ?? 0}
 				ref={frameRef}
 				title="Kitchen Recipe Book"
 				srcDoc={html}
