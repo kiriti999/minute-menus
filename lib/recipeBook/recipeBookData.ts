@@ -1222,7 +1222,7 @@ export const RECIPE_BOOK: RecipeEntry[] = [
 	{
 		dishName: "Soya Chunks Pulao",
 		aliases: ["Pulao Soya Chunks"],
-		category: "Rice",
+		category: "Rice bowls",
 		prep: true,
 		yieldNote: "1 serve",
 		columns: ["Qty"],
@@ -1363,11 +1363,13 @@ function recipeMatchNames(recipe: RecipeEntry): string[] {
 
 /** Higher score = better match. 0 = no usable match. */
 function scoreRecipeMatch(menuName: string, recipe: RecipeEntry): number {
-	if (recipe.category === "Dressings" || recipe.prep) return 0;
+	if (recipe.category === "Dressings") return 0;
 	const menuKey = n(menuName);
 	const candidates = recipeMatchNames(recipe).map(n);
 
 	if (candidates.some((c) => c === menuKey)) return 10_000;
+	// Prep recipes only attach to a dish of the very same name, never by fuzzy overlap.
+	if (recipe.prep) return 0;
 
 	let best = 0;
 	for (const c of candidates) {
