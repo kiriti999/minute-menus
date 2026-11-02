@@ -1,6 +1,6 @@
 import type { RecipeImage, RecipeLink, RecipeOverride } from "@minute-menus/types";
 import { LoadingScreen } from "@minute-menus/ui";
-import { ArrowLeft, Moon, Printer, RefreshCw, Search, Sun, Trash2, X } from "lucide-react";
+import { ArrowLeft, ChevronsDownUp, ChevronsUpDown, Moon, Printer, RefreshCw, Search, Sun, Trash2, X } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RecipeEditModal } from "../components/RecipeEditModal";
@@ -363,6 +363,28 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 							<X size={14} />
 						</button>
 					)}
+				</div>
+				<div className={`inline-flex rounded-full border overflow-hidden ${isDarkTheme ? "border-zinc-700" : "border-zinc-300"}`}>
+					<button
+						type="button"
+						onClick={() => postToFrame({ type: "toggle-all", open: true })}
+						title="Expand all sections"
+						aria-label="Expand all sections"
+						className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold ${isDarkTheme ? "hover:bg-zinc-800" : "hover:bg-zinc-100"}`}
+					>
+						<ChevronsUpDown size={16} />
+						<span className="hidden md:inline">Expand all</span>
+					</button>
+					<button
+						type="button"
+						onClick={() => postToFrame({ type: "toggle-all", open: false })}
+						title="Collapse all sections"
+						aria-label="Collapse all sections"
+						className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold border-l ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
+					>
+						<ChevronsDownUp size={16} />
+						<span className="hidden md:inline">Collapse all</span>
+					</button>
 				</div>
 				{isAuthenticated && deletedKeys.length > 0 && (
 					<button

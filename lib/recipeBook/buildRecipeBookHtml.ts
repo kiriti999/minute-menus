@@ -408,6 +408,11 @@ const FRAME_SCRIPT = `(function () {
     var d = e.data || {};
     if (d.type === "filter") filter(String(d.query || ""));
     if (d.type === "print") window.print();
+    if (d.type === "toggle-all") {
+      saved = null;
+      details.forEach(function (x) { x.open = d.open === true; });
+      window.parent.postMessage({ type: "sections", open: openCategories() }, "*");
+    }
     if (d.type === "theme") document.body.classList.toggle("dark", d.dark === true);
   });
   window.addEventListener("beforeprint", function () {
