@@ -113,10 +113,13 @@ export const SOP_SECTIONS: SopSection[] = [
 		title: "Attendance & conduct",
 		summary: "Shift rules every team member agrees to.",
 		checklist: [
+			"Arrive on time. Make the required arrangements, such as rain jackets, in case of weather changes.",
 			"Shift timings cannot be changed without prior notice to the manager.",
 			"A no-show is marked as an absence, and a penalty can apply for business loss.",
 			"Absence without notice for 2 days can be treated as termination, unless it is an emergency backed by proper medical or other documents.",
 			"A security deposit applies as agreed with the manager.",
+			"Staff discount is 5%. Food you consume is chargeable by the owner.",
+			"Always send a snap of the food prepared for yourself and pay for it immediately.",
 		],
 	},
 	{
