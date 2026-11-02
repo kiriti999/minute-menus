@@ -679,6 +679,7 @@ export type Database = {
                 Row: {
                     restaurant_id: string;
                     recipe_key: string;
+                    title: string | null;
                     yield_note: string | null;
                     columns: Json;
                     rows: Json;
@@ -690,6 +691,7 @@ export type Database = {
                 Insert: {
                     restaurant_id: string;
                     recipe_key: string;
+                    title?: string | null;
                     yield_note?: string | null;
                     columns?: Json;
                     rows?: Json;
@@ -701,6 +703,7 @@ export type Database = {
                 Update: {
                     restaurant_id?: string;
                     recipe_key?: string;
+                    title?: string | null;
                     yield_note?: string | null;
                     columns?: Json;
                     rows?: Json;

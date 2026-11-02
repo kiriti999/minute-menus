@@ -77,6 +77,8 @@ function collectDressingsForDish(dish: RecipeBookDish, kitchen: RecipeEntry, int
 /** Printable card — live menu fields are never taken from curated RECIPE_BOOK. */
 export type RecipeCardModel = {
 	title: string;
+	/** Menu / book name the card's saved links, photo and edits are keyed by (title can be renamed). */
+	sourceTitle: string;
 	category: string;
 	/** Live menu editor description (customer-facing). */
 	liveDescription: string;
@@ -108,6 +110,7 @@ function kitchenFields(kitchen: RecipeEntry) {
 function cardFromLiveDish(dish: RecipeBookDish, kitchen: RecipeEntry): RecipeCardModel {
 	return {
 		title: dish.name,
+		sourceTitle: dish.name,
 		category: dish.category || kitchen.category || "Menu",
 		liveDescription: dish.description,
 		liveIngredients: dish.ingredients,
@@ -120,6 +123,7 @@ function cardFromLiveDish(dish: RecipeBookDish, kitchen: RecipeEntry): RecipeCar
 function cardFromEntry(entry: RecipeEntry, isDressing: boolean): RecipeCardModel {
 	return {
 		title: entry.dishName,
+		sourceTitle: entry.dishName,
 		category: entry.category,
 		liveDescription: "",
 		liveIngredients: "",
@@ -149,6 +153,7 @@ function applyOverride(card: RecipeCardModel, override: RecipeOverride | undefin
 	const width = override.columns.length;
 	return {
 		...card,
+		title: override.title ?? card.title,
 		kitchenBuild: "",
 		kitchenMethod: "",
 		yieldNote: override.yieldNote ?? undefined,
@@ -194,8 +199,8 @@ export function buildRecipeCards(
 	const byKey = new Map(overrides.map((o) => [o.recipeKey, o]));
 	const prep = RECIPE_BOOK.filter((r) => r.prep && !seen.has(r.dishName.toLowerCase())).map((e) => cardFromEntry(e, true));
 	return [...dressings, ...fromMenu, ...prep]
-		.filter((card) => !byKey.get(recipeKey(card.title))?.hidden)
-		.map((card) => applyOverride(card, byKey.get(recipeKey(card.title))));
+		.filter((card) => !byKey.get(cardKey(card))?.hidden)
+		.map((card) => applyOverride(card, byKey.get(cardKey(card))));
 }
 
 /** @deprecated Use buildRecipeCards — kept for any older imports. */
@@ -237,6 +242,9 @@ const section = (label: string, body: string): string =>
 
 /** Key a card's saved links are stored under (live dish name, lower-cased). */
 export const recipeKey = (title: string): string => title.trim().toLowerCase();
+
+/** Stable key of a card — unaffected by an owner rename. */
+export const cardKey = (card: RecipeCardModel): string => recipeKey(card.sourceTitle);
 
 const cardAnchor = (title: string): string => `recipe-${recipeKey(title).replace(/[^a-z0-9]+/g, "-")}`;
 
@@ -313,12 +321,12 @@ function linkChip(label: string, url: string | null | undefined): string {
 }
 
 function renderLinks(card: RecipeCardModel, ctx: RecipeCardContext): string {
-	const link = ctx.links.get(recipeKey(card.title));
+	const link = ctx.links.get(cardKey(card));
 	const chips = linkChip("▶ Video", link?.videoUrl) + linkChip("📄 Article", link?.articleUrl);
 	const label = chips ? "Edit links" : "+ Add video / article links";
-	const key = escapeHtml(recipeKey(card.title));
+	const key = escapeHtml(cardKey(card));
 	const title = escapeHtml(card.title);
-	const recipeLabel = ctx.editedKeys.has(recipeKey(card.title)) ? "✎ Edit / delete · edited" : "✎ Edit / delete";
+	const recipeLabel = ctx.editedKeys.has(cardKey(card)) ? "✎ Edit / delete · edited" : "✎ Edit / delete";
 	const edit = ctx.editable
 		? `<button type="button" class="edit-links no-print" data-edit-links="${key}" data-title="${title}">${label}</button>` +
 			`<button type="button" class="edit-links no-print" data-edit-recipe="${key}" data-title="${title}">${recipeLabel}</button>`
@@ -327,7 +335,7 @@ function renderLinks(card: RecipeCardModel, ctx: RecipeCardContext): string {
 }
 
 function renderPhoto(card: RecipeCardModel, ctx: RecipeCardContext): string {
-	const url = ctx.images.get(recipeKey(card.title));
+	const url = ctx.images.get(cardKey(card));
 	if (!url || !HTTP_URL.test(url)) return "";
 	return `<img class="photo" src="${escapeHtml(url)}" alt="${escapeHtml(card.title)}" loading="lazy" />`;
 }

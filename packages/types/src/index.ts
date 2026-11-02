@@ -462,6 +462,8 @@ export interface RecipeOverrideRow {
 /** Owner edit of a recipe-book card's kitchen build / method (replaces the built-in recipe). */
 export interface RecipeOverride {
   recipeKey: string;
+  /** Display name shown instead of the menu dish name (the key stays the original name). */
+  title: string | null;
   yieldNote: string | null;
   columns: string[];
   rows: RecipeOverrideRow[];

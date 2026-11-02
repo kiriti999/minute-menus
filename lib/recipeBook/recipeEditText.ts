@@ -3,6 +3,7 @@ import type { RecipeCardModel } from "./buildRecipeBookHtml";
 
 /** Plain-text form of a recipe, as typed into the edit modal. */
 export type RecipeDraft = {
+	title: string;
 	yieldNote: string;
 	/** Quantity column headings separated by "|". */
 	columns: string;
@@ -39,6 +40,7 @@ export function draftFromCard(card: RecipeCardModel): RecipeDraft {
 	const ingredients = card.rows.length ? card.rows.map(rowToLine) : lines(card.kitchenBuild);
 	const steps = card.steps.length ? card.steps : lines(card.kitchenMethod);
 	return {
+		title: card.title,
 		yieldNote: card.yieldNote ?? "",
 		columns: card.columns.join(" | "),
 		ingredients: ingredients.join("\n"),
@@ -48,7 +50,8 @@ export function draftFromCard(card: RecipeCardModel): RecipeDraft {
 }
 
 /** Parse the modal text into an override; throws a user-facing message when a row doesn't fit the columns. */
-export function overrideFromDraft(recipeKey: string, draft: RecipeDraft): RecipeOverride {
+export function overrideFromDraft(recipeKey: string, sourceTitle: string, draft: RecipeDraft): RecipeOverride {
+	const title = draft.title.trim();
 	const named = cells(draft.columns).filter(Boolean);
 	const columns = named.length ? named : ["Qty"];
 	const rows = lines(draft.ingredients).map(parseRow);
@@ -60,6 +63,7 @@ export function overrideFromDraft(recipeKey: string, draft: RecipeDraft): Recipe
 	}
 	return {
 		recipeKey,
+		title: title && title !== sourceTitle ? title : null,
 		yieldNote: draft.yieldNote.trim() || null,
 		columns,
 		rows,

@@ -166,6 +166,10 @@ export const RecipeEditModal: React.FC<RecipeEditModalProps> = ({
 				</div>
 
 				<label className="mt-4 block text-sm font-medium">
+					Recipe name
+					<input value={draft.title} onChange={set("title")} required className={field} />
+				</label>
+				<label className="mt-3 block text-sm font-medium">
 					Yield / portion note
 					<input value={draft.yieldNote} onChange={set("yieldNote")} placeholder="e.g. 1 wrap" className={field} />
 				</label>

@@ -1804,6 +1804,7 @@ create table if not exists recipe_overrides (
 );
 
 alter table recipe_overrides add column if not exists hidden boolean not null default false;
+alter table recipe_overrides add column if not exists title text;
 
 alter table recipe_overrides enable row level security;
 

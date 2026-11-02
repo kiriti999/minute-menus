@@ -26,6 +26,7 @@ function cleanRow(value: unknown): RecipeOverrideRow | null {
 /** Trim, drop blanks and cap sizes — applied on read and write so stored JSON can never break the page. */
 export function sanitizeRecipeOverride(raw: {
 	recipeKey: string;
+	title?: string | null;
 	yieldNote?: string | null;
 	columns?: unknown;
 	rows?: unknown;
@@ -37,6 +38,7 @@ export function sanitizeRecipeOverride(raw: {
 	const rows = (Array.isArray(raw.rows) ? raw.rows : []).map(cleanRow).filter((r): r is RecipeOverrideRow => r !== null);
 	return {
 		recipeKey: raw.recipeKey.trim().toLowerCase(),
+		title: clean(raw.title) || null,
 		yieldNote: clean(raw.yieldNote) || null,
 		columns: columns.length ? columns : ["Qty"],
 		rows: rows.slice(0, MAX_ROWS),
@@ -49,12 +51,13 @@ export function sanitizeRecipeOverride(raw: {
 export async function getRecipeOverrides(client: Client, restaurantId: string): Promise<RecipeOverride[]> {
 	const { data, error } = await client
 		.from("recipe_overrides")
-		.select("recipe_key, yield_note, columns, rows, steps, notes, hidden")
+		.select("recipe_key, title, yield_note, columns, rows, steps, notes, hidden")
 		.eq("restaurant_id", restaurantId);
 	if (error) throw error;
 	return (data ?? []).map((row) =>
 		sanitizeRecipeOverride({
 			recipeKey: row.recipe_key,
+			title: row.title,
 			yieldNote: row.yield_note,
 			columns: row.columns,
 			rows: row.rows,
@@ -75,6 +78,7 @@ export async function saveRecipeOverride(client: Client, restaurantId: string, o
 		{
 			restaurant_id: restaurantId,
 			recipe_key: safe.recipeKey,
+			title: safe.title,
 			yield_note: safe.yieldNote,
 			columns: safe.columns,
 			rows: safe.rows as unknown as Json,

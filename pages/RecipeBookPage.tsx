@@ -9,9 +9,9 @@ import { RecipeRestoreModal } from "../components/RecipeRestoreModal";
 import {
 	buildRecipeBookHtml,
 	buildRecipeCards,
+	cardKey,
 	dishesFromMenu,
 	hasRecipeContent,
-	recipeKey,
 	type RecipeBookDish,
 } from "../lib/recipeBook/buildRecipeBookHtml";
 import { draftFromCard, overrideFromDraft, type RecipeDraft } from "../lib/recipeBook/recipeEditText";
@@ -213,7 +213,7 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 	const recipeDraft = useMemo(() => {
 		if (!data || !editingRecipe) return null;
 		const card = buildRecipeCards(data.dishes, data.overrides).find(
-			(c) => recipeKey(c.title) === editingRecipe.key,
+			(c) => cardKey(c) === editingRecipe.key,
 		);
 		return card ? draftFromCard(card) : null;
 	}, [data, editingRecipe]);
@@ -222,8 +222,8 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 		() =>
 			data && editingRecipe
 				? buildRecipeCards(data.dishes, data.overrides)
+						.filter((c) => cardKey(c) !== editingRecipe.key)
 						.map((c) => c.title)
-						.filter((t) => recipeKey(t) !== editingRecipe.key)
 						.sort((a, b) => a.localeCompare(b))
 				: [],
 		[data, editingRecipe],
@@ -238,7 +238,8 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({
 
 	const saveRecipe = async (draft: RecipeDraft) => {
 		if (!data || !editingRecipe) return;
-		const override = overrideFromDraft(editingRecipe.key, draft);
+		const card = buildRecipeCards(data.dishes, data.overrides).find((c) => cardKey(c) === editingRecipe.key);
+		const override = overrideFromDraft(editingRecipe.key, card?.sourceTitle ?? editingRecipe.title, draft);
 		await supabaseService.saveRecipeOverride(data.restaurantId, override);
 		await reloadOverrides();
 	};
