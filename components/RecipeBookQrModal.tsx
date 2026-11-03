@@ -1,7 +1,7 @@
 import { Download, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import type React from "react";
-import { useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 export interface RecipeBookQrModalProps {
 	url: string;
@@ -58,6 +58,14 @@ export const RecipeBookQrModal: React.FC<RecipeBookQrModalProps> = ({
 	onClose,
 }) => {
 	const posterRef = useRef<SVGSVGElement>(null);
+	// The preview is an <img> of the exact file that downloads, so page themes cannot recolour it.
+	const [previewSrc, setPreviewSrc] = useState("");
+	useLayoutEffect(() => {
+		if (posterRef.current)
+			setPreviewSrc(
+				`data:image/svg+xml;charset=utf-8,${encodeURIComponent(serialize(posterRef.current))}`,
+			);
+	}, []);
 	const filename = "recipe-book-qr";
 	const card = isDarkTheme
 		? "bg-zinc-900 border-zinc-800 text-white"
@@ -105,7 +113,7 @@ export const RecipeBookQrModal: React.FC<RecipeBookQrModalProps> = ({
 					viewBox={`0 0 ${POSTER} ${POSTER}`}
 					width={POSTER}
 					height={POSTER}
-					className="w-full h-auto rounded-xl"
+					className="hidden"
 					fontFamily="Helvetica, Arial, sans-serif"
 				>
 					<title>Recipe book QR code</title>
@@ -147,6 +155,13 @@ export const RecipeBookQrModal: React.FC<RecipeBookQrModalProps> = ({
 						Scan, enter your team email, then the emailed code
 					</text>
 				</svg>
+				{previewSrc && (
+					<img
+						src={previewSrc}
+						alt="Recipe book QR code"
+						className="w-full h-auto rounded-xl bg-white"
+					/>
+				)}
 				<div className="flex flex-wrap gap-2">
 					<button type="button" onClick={downloadPng} className={button}>
 						<Download size={16} />
