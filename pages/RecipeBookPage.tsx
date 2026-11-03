@@ -1,6 +1,6 @@
 import type { RecipeEntry, RecipeImage, RecipeLink, RecipeOverride } from "@minute-menus/types";
 import { LoadingScreen } from "@minute-menus/ui";
-import { ArrowLeft, ChevronsDownUp, ChevronsUpDown, Moon, Printer, QrCode, Search, Sun, Trash2, X } from "lucide-react";
+import { ArrowLeft, ChevronsDownUp, ChevronsUpDown, Menu, Moon, Printer, QrCode, Search, Sun, Trash2, X } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RecipeBookSignIn } from "../components/RecipeBookSignIn";
@@ -18,6 +18,7 @@ import {
 } from "../lib/recipeBook/buildRecipeBookHtml";
 import { draftFromCard, overrideFromDraft, type RecipeDraft } from "../lib/recipeBook/recipeEditText";
 import { isNewVersionAvailable } from "../lib/newVersion";
+import { RecipeBookMobileMenu } from "../components/RecipeBookMobileMenu";
 import { RecipeBookQrModal } from "../components/RecipeBookQrModal";
 import { supabaseService } from "../services/supabaseService";
 
@@ -107,6 +108,7 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 	const [restoring, setRestoring] = useState(false);
 	const [showingQr, setShowingQr] = useState(false);
 	const [searchOpen, setSearchOpen] = useState(false);
+	const [menuOpen, setMenuOpen] = useState(false);
 	// Closing the phone search box also clears it, so a hidden filter never lingers.
 	const toggleSearch = () => {
 		if (searchOpen) setQuery("");
@@ -355,12 +357,12 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 				<button
 					type="button"
 					onClick={onBack}
-					className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold border ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
+					className={`mr-auto sm:mr-0 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold border ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
 				>
 					<ArrowLeft size={16} />
 					<span className="hidden sm:inline">{isOwner ? "Dashboard" : "SOP"}</span>
 				</button>
-				<p className={`flex-1 min-w-0 truncate text-xs ${isDarkTheme ? "text-zinc-400" : "text-zinc-500"}`}>{updatedLabel}</p>
+				<p className={`order-last w-full sm:order-none sm:w-auto sm:flex-1 min-w-0 truncate text-xs ${isDarkTheme ? "text-zinc-400" : "text-zinc-500"}`}>{updatedLabel}</p>
 				<div
 					className={`relative hidden sm:block sm:w-56 ${isDarkTheme ? "text-white" : "text-zinc-900"}`}
 				>
@@ -418,25 +420,24 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 					<button
 						type="button"
 						onClick={() => setRestoring(true)}
-						className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold border ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
+						className={`hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold border ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
 						title="Restore recipes you deleted"
 						aria-label={`Deleted recipes (${deletedKeys.length})`}
 					>
 						<Trash2 size={16} />
-						<span className="sm:hidden">{deletedKeys.length}</span>
-						<span className="hidden sm:inline">Deleted ({deletedKeys.length})</span>
+						Deleted ({deletedKeys.length})
 					</button>
 				)}
 				{isOwner && (
 					<button
 						type="button"
 						onClick={() => setShowingQr(true)}
-						className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold border ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
+						className={`hidden sm:inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold border ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
 						title="QR code for this page"
 						aria-label="QR code for this page"
 					>
 						<QrCode size={16} />
-						<span className="hidden sm:inline">QR</span>
+						QR
 					</button>
 				)}
 				<button
@@ -452,10 +453,18 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 					type="button"
 					onClick={() => postToFrame({ type: "print" })}
 					aria-label="Print or save as PDF"
-					className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-semibold bg-[#0B4A42] text-white hover:opacity-90"
+					className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-[#0B4A42] text-white hover:opacity-90"
 				>
 					<Printer size={16} />
-					<span className="hidden sm:inline">Print / PDF</span>
+					Print / PDF
+				</button>
+				<button
+					type="button"
+					onClick={() => setMenuOpen(true)}
+					aria-label="Open menu"
+					className={`sm:hidden inline-flex items-center justify-center w-9 h-9 rounded-full border ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
+				>
+					<Menu size={16} />
 				</button>
 			</div>
 			{searchOpen && (
@@ -509,6 +518,17 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 					isDarkTheme={isDarkTheme}
 					onSave={saveLinks}
 					onClose={() => setEditing(null)}
+				/>
+			)}
+			{menuOpen && (
+				<RecipeBookMobileMenu
+					isDarkTheme={isDarkTheme}
+					isOwner={isOwner}
+					deletedCount={deletedKeys.length}
+					onDeleted={() => setRestoring(true)}
+					onQr={() => setShowingQr(true)}
+					onPrint={() => postToFrame({ type: "print" })}
+					onClose={() => setMenuOpen(false)}
 				/>
 			)}
 			{showingQr && (
