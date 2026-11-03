@@ -682,7 +682,7 @@ export function buildRecipeBookHtml(opts: {
     .conversion-table caption { text-align: left; font-weight: 700; color: #1b5e20; padding: 4px 0; }
     .conversion-table th:first-child, .conversion-table td { white-space: nowrap; }
     .updated-m { display: none; }
-    @media screen and (max-width: 640px) { .updated-m { display: inline; } }
+    @media screen { .updated-m { display: inline; } }
     @media screen {
       body.dark { background: #0d1512; color: #e3eeea; }
       .dark .meta, .dark .label, .dark .muted-note { color: #93b0a8; }

@@ -212,7 +212,7 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 		postToFrame({ type: "theme", dark: isDarkTheme });
 	}, [isDarkTheme, postToFrame]);
 
-	// Phones show the update time inside the page header; the bar shows it from `sm` up.
+	// The update time lives in the recipe page header (next to "printable A4").
 	useEffect(() => {
 		postToFrame({ type: "updated", label: formatUpdated(loadedAt) });
 	}, [loadedAt, postToFrame]);
@@ -352,7 +352,6 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 	const bar = isDarkTheme
 		? "bg-zinc-900 border-zinc-800 text-white"
 		: "bg-white border-zinc-200 text-zinc-900";
-	const updatedLabel = formatUpdated(loadedAt) || "Pulling latest menu…";
 
 	return (
 		<div className="fixed inset-0 flex flex-col min-w-0 overflow-hidden">
@@ -360,12 +359,11 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 				<button
 					type="button"
 					onClick={onBack}
-					className={`mr-auto sm:mr-0 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold border ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
+					className={`mr-auto inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold border ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
 				>
 					<ArrowLeft size={16} />
 					<span className="hidden sm:inline">{isOwner ? "Dashboard" : "SOP"}</span>
 				</button>
-				<p className={`hidden sm:block sm:flex-1 min-w-0 truncate text-xs ${isDarkTheme ? "text-zinc-400" : "text-zinc-500"}`}>{updatedLabel}</p>
 				<div
 					className={`relative hidden sm:block sm:w-56 ${isDarkTheme ? "text-white" : "text-zinc-900"}`}
 				>
