@@ -2149,7 +2149,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       </aside>
 
       {/* Main Content */}
-      <main className={`flex-1 overflow-hidden flex flex-col relative pt-14 md:pt-0 ${isDarkTheme ? 'bg-black' : 'bg-zinc-50'}`}>
+      <main className={`flex-1 min-w-0 overflow-hidden flex flex-col relative pt-14 md:pt-0 ${isDarkTheme ? 'bg-black' : 'bg-zinc-50'}`}>
         <Suspense fallback={<PanelLoader label="Loading…" labelClassName={`text-sm font-medium ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`} />}>
         {/* Dashboard View */}
         {currentView === "DASHBOARD" && metricsError && (
@@ -2751,7 +2751,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
             {/* Category Title + Actions bar */}
             {menuItems.length > 0 && (
-              <div className={`px-4 md:px-8 py-4 border-b flex items-center justify-between gap-4 ${isDarkTheme ? 'bg-black border-zinc-900' : 'bg-white border-zinc-200'}`}>
+              <div className={`px-4 md:px-8 py-4 border-b flex flex-wrap items-center justify-between gap-3 sm:gap-4 ${isDarkTheme ? 'bg-black border-zinc-900' : 'bg-white border-zinc-200'}`}>
                 {isEditingCategory ? (
                   <div className="flex items-center gap-2 animate-in fade-in duration-200 flex-1">
                     <input
@@ -2790,7 +2790,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-3 group cursor-pointer" onClick={() => {
+                  <div className="flex min-w-0 items-center gap-3 group cursor-pointer" onClick={() => {
                     setTempCategoryTitle(menuItems[selectedCategoryIdx].title);
                     setIsEditingCategory(true);
                   }}>
@@ -2801,7 +2801,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                   </div>
                 )}
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex w-full items-center gap-2 sm:w-auto sm:shrink-0">
                   {/* Category Discount */}
                   <div className={`flex items-center gap-1.5 border rounded-lg px-2.5 py-1.5 ${isDarkTheme ? 'bg-zinc-900 border-zinc-700' : 'bg-zinc-50 border-zinc-300'}`}>
                     <Percent size={12} className={isDarkTheme ? 'text-zinc-500' : 'text-zinc-400'} />
@@ -2830,17 +2830,21 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                   <button
                     type="button"
                     onClick={() => handleRequestDeleteCategory(selectedCategoryIdx)}
-                    className={`flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-bold transition-all ${isDarkTheme ? "bg-transparent hover:bg-red-500/10 border-zinc-700 text-red-400 hover:border-red-500/50" : "bg-transparent hover:bg-red-50 border-zinc-300 text-red-600 hover:border-red-300"}`}
+                    aria-label="Remove category"
+                    title="Remove category"
+                    className={`flex items-center gap-2 border px-3 sm:px-4 py-2 rounded-lg text-sm font-bold transition-all ${isDarkTheme ? "bg-transparent hover:bg-red-500/10 border-zinc-700 text-red-400 hover:border-red-500/50" : "bg-transparent hover:bg-red-50 border-zinc-300 text-red-600 hover:border-red-300"}`}
                   >
                     <Trash2 size={15} />
-                    Remove Category
+                    <span className="hidden sm:inline">Remove Category</span>
                   </button>
                   <button
                     onClick={handleAddDish}
-                    className={`flex items-center gap-2 border px-4 py-2 rounded-lg text-sm font-bold transition-all ${isDarkTheme ? 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-white hover:border-zinc-500' : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-300 text-zinc-900 hover:border-zinc-400'}`}
+                    aria-label="Add item"
+                    title="Add item"
+                    className={`flex items-center gap-2 border px-3 sm:px-4 py-2 rounded-lg text-sm font-bold transition-all ${isDarkTheme ? 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-white hover:border-zinc-500' : 'bg-zinc-100 hover:bg-zinc-200 border-zinc-300 text-zinc-900 hover:border-zinc-400'}`}
                   >
                     <Plus size={15} />
-                    Add Item
+                    <span className="hidden sm:inline">Add Item</span>
                   </button>
                 </div>
               </div>
@@ -3544,14 +3548,14 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
                   </p>
                 </div>
                 {/* Search */}
-                <div className={`relative flex items-center ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                <div className={`relative flex w-full md:w-auto items-center ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-500'}`}>
                   <Search size={15} className="absolute left-3 pointer-events-none" />
                   <input
                     type="text"
                     value={custSearch}
                     onChange={(e) => { setCustSearch(e.target.value); setCustPage(0); }}
                     placeholder="Search by name or phone…"
-                    className={`pl-9 pr-4 py-2 rounded-lg border text-sm outline-none w-64 ${isDarkTheme ? 'bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 focus:border-zinc-600' : 'bg-white border-zinc-300 text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400'}`}
+                    className={`pl-9 pr-4 py-2 rounded-lg border text-sm outline-none w-full md:w-64 ${isDarkTheme ? 'bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600 focus:border-zinc-600' : 'bg-white border-zinc-300 text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400'}`}
                   />
                   {custSearch && (
                     <button onClick={() => { setCustSearch(""); setCustPage(0); }} className="absolute right-3">
@@ -3700,10 +3704,10 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             </header>
 
             {/* Sub-tabs */}
-            <div className={`flex gap-1 mb-8 rounded-md p-1 w-fit ${isDarkTheme ? 'bg-zinc-900' : 'bg-zinc-200'}`}>
+            <div className={`flex gap-1 mb-8 rounded-md p-1 w-fit max-w-full overflow-x-auto no-scrollbar ${isDarkTheme ? 'bg-zinc-900' : 'bg-zinc-200'}`}>
               {(["plans", "subscribers", "tomorrow", "tickets", "refunds"] as SubTab[]).map((t) => (
                 <button key={t} onClick={() => setSubTab(t)}
-                  className={`px-4 py-1.5 text-xs font-bold rounded capitalize ${subTab === t ? (isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white") : isDarkTheme ? "text-zinc-500 hover:text-white" : "text-zinc-500 hover:text-zinc-900"}`}>
+                  className={`px-4 py-1.5 text-xs font-bold rounded capitalize whitespace-nowrap shrink-0 ${subTab === t ? (isDarkTheme ? "bg-white text-black" : "bg-zinc-900 text-white") : isDarkTheme ? "text-zinc-500 hover:text-white" : "text-zinc-500 hover:text-zinc-900"}`}>
                   {t === "tomorrow" ? "Tomorrow" : t.charAt(0).toUpperCase() + t.slice(1)}
                   {t === "tickets" && deliveryTickets.filter(tk => tk.status !== "resolved").length > 0 && (
                     <span className="ml-1.5 text-[10px] bg-red-500 text-white rounded-full px-1.5 py-0.5">

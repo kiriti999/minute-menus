@@ -13,7 +13,7 @@ A restaurant platform with TikTok-style dish reels for customers and an owner da
 - Follow **`.claude/rules/`**: `coding-standards.md`, `typescript-conventions.md`, `react-conventions.md`, `workspace-packages.md`, **`vercel-api.md`** (mandatory before touching `api/`, `lib/server/`, `vercel.json`, or packages API routes import). Cursor loads **`.cursor/rules/`** including `workspace-packages.mdc`.
 - Respect cyclomatic complexity limits (functions and plain `.ts`: 6, TSX: 11).
 - Target **under 2 seconds** initial load; use React hooks only for state; Tailwind only for styling.
-- **Every page and modal must be responsive** — usable from ~360px phones to desktop. Mobile-first Tailwind (`sm:`/`md:` breakpoints), toolbars wrap instead of overflowing, labels collapse to icons on small screens. Check at phone width before finishing UI work.
+- **Every page and modal must be responsive** — usable from ~360px phones to desktop. Mobile-first Tailwind (`sm:`/`md:` breakpoints), toolbars wrap instead of overflowing, labels collapse to icons on small screens. Check at phone width before finishing UI work. **On phones prefer icons over text** for secondary actions (delete, add, edit, refresh, back): icon-only with an `aria-label`/`title`; from `sm:` up show icon + text. Keep text for primary actions (Save, Checkout).
 
 ## Commands
 

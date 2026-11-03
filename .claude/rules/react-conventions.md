@@ -26,7 +26,7 @@ Tailwind is the styling layer; stay within utility-first patterns already used f
 
 ## Responsive by default
 
-Every page, modal and toolbar must work from ~360px phones up to desktop — no horizontal overflow, no clipped controls. Write mobile-first Tailwind with `sm:` / `md:` / `lg:` breakpoints; let rows `flex-wrap`, put full-width controls (search, inputs) on their own line on small screens, collapse button labels to icons below `sm` (keep `aria-label`), and cap modals with `max-h-full overflow-y-auto`. Verify in the browser's device toolbar (e.g. iPhone SE and iPhone Pro Max widths) before calling UI work done.
+Every page, modal and toolbar must work from ~360px phones up to desktop — no horizontal overflow, no clipped controls. Write mobile-first Tailwind with `sm:` / `md:` / `lg:` breakpoints; let rows `flex-wrap`, put full-width controls (search, inputs) on their own line on small screens, collapse button labels to icons below `sm` (keep `aria-label` and `title`) — on phones prefer icon-only buttons for secondary actions such as delete, add, edit, refresh and back, and show icon + text from `sm` up (keep text for primary actions like Save); make tab strips and wide tables scroll inside their own `overflow-x-auto` box so the page never scrolls sideways, and cap modals with `max-h-full overflow-y-auto`. Verify in the browser's device toolbar (e.g. iPhone SE and iPhone Pro Max widths) before calling UI work done.
 
 ## Data into the tree
 

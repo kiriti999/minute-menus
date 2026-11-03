@@ -523,12 +523,12 @@ export const PrintDesignsView: React.FC<PrintDesignsViewProps> = ({
   return (
     <div className={`flex-1 overflow-y-auto pb-24 ${isDarkTheme ? 'bg-black' : 'bg-zinc-50'}`}>
       {/* Header */}
-      <header className={`sticky top-0 z-20 backdrop-blur-md px-6 py-5 border-b flex items-center justify-between ${isDarkTheme ? 'bg-black/80 border-zinc-800' : 'bg-white/80 border-zinc-200'}`}>
-        <div>
+      <header className={`sticky top-0 z-20 backdrop-blur-md px-4 md:px-6 py-5 border-b flex items-center justify-between gap-3 ${isDarkTheme ? 'bg-black/80 border-zinc-800' : 'bg-white/80 border-zinc-200'}`}>
+        <div className="min-w-0">
           <h1 className={`text-2xl font-light tracking-tight ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>Print Designs</h1>
           <p className={`text-xs mt-0.5 ${muted}`}>Menus, wall boards, pamphlets, hiring flyers, and stickers</p>
         </div>
-        <div className={`flex items-center gap-1 text-[10px] font-bold tracking-widest ${muted}`}>
+        <div className={`flex shrink-0 items-center gap-1 text-[10px] font-bold tracking-widest ${muted}`}>
           <Printer size={14} />
           <span className="normal-case font-mono">{formatDimensionsLabel(fmt.widthMm, fmt.heightMm)}</span>
         </div>
