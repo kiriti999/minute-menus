@@ -1,6 +1,6 @@
 import type { RecipeEntry, RecipeImage, RecipeLink, RecipeOverride } from "@minute-menus/types";
 import { LoadingScreen } from "@minute-menus/ui";
-import { ArrowLeft, ChevronsDownUp, ChevronsUpDown, Moon, Printer, QrCode, RefreshCw, Search, Sun, Trash2, X } from "lucide-react";
+import { ArrowLeft, ChevronsDownUp, ChevronsUpDown, Moon, Printer, QrCode, Search, Sun, Trash2, X } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RecipeBookSignIn } from "../components/RecipeBookSignIn";
@@ -115,7 +115,6 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 	const [updateReady, setUpdateReady] = useState(false);
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(true);
-	const [refreshing, setRefreshing] = useState(false);
 	const [loadedAt, setLoadedAt] = useState<Date | null>(null);
 	const [fetchTick, setFetchTick] = useState(0);
 	const [currentSlug] = useState<string>(slug);
@@ -132,8 +131,7 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 	const loadLatest = useCallback(async (opts?: { silent?: boolean }) => {
 		const id = ++requestId.current;
 		// Once something is on screen, reloads are background refreshes — never a loading state.
-		if (opts?.silent || hasData.current) setRefreshing(true);
-		else setLoading(true);
+		if (!opts?.silent && !hasData.current) setLoading(true);
 		setError("");
 		try {
 			const next = await fetchMenuAndRestaurant(slug);
@@ -149,10 +147,7 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 				e instanceof Error ? e.message : "Could not load menu for recipe book",
 			);
 		} finally {
-			if (id === requestId.current) {
-				setLoading(false);
-				setRefreshing(false);
-			}
+			if (id === requestId.current) setLoading(false);
 		}
 	}, [slug]);
 
@@ -351,7 +346,7 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 		? "bg-zinc-900 border-zinc-800 text-white"
 		: "bg-white border-zinc-200 text-zinc-900";
 	const updatedLabel = loadedAt
-		? `Updated ${loadedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
+		? `Updated ${loadedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
 		: "Pulling latest menu…";
 
 	return (
@@ -365,12 +360,7 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 					<ArrowLeft size={16} />
 					<span className="hidden sm:inline">{isOwner ? "Dashboard" : "SOP"}</span>
 				</button>
-				<div className="flex-1 min-w-0">
-					<p className="text-sm font-semibold truncate">Kitchen Recipe Book</p>
-					<p className={`hidden sm:block text-[11px] ${isDarkTheme ? "text-zinc-400" : "text-zinc-500"}`}>
-						{currentSlug ? `/${currentSlug}/recipe-book` : "/recipe-book"} · {updatedLabel}
-					</p>
-				</div>
+				<p className={`flex-1 min-w-0 truncate text-xs ${isDarkTheme ? "text-zinc-400" : "text-zinc-500"}`}>{updatedLabel}</p>
 				<div
 					className={`relative hidden sm:block sm:w-56 ${isDarkTheme ? "text-white" : "text-zinc-900"}`}
 				>
@@ -449,16 +439,6 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 						<span className="hidden sm:inline">QR</span>
 					</button>
 				)}
-				<button
-					type="button"
-					disabled={refreshing || loading}
-					onClick={() => setFetchTick((n) => n + 1)}
-					className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold border disabled:opacity-50 ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
-					title="Reload latest menu from database"
-				>
-					<RefreshCw size={16} className={refreshing || loading ? "animate-spin" : undefined} />
-					<span className="hidden sm:inline">Refresh</span>
-				</button>
 				<button
 					type="button"
 					onClick={onToggleTheme}
