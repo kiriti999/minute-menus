@@ -35,6 +35,7 @@ export const SOP_SECTIONS: SopSection[] = [
 			"Nosh machine dishes: cook as per the Nosh recipe.",
 			"Use separate boards and knives for raw chicken and ready-to-eat food. Wash hands between the two.",
 			"Wash your gloved hands whenever they get dirty, before touching any other utensils.",
+			"Trial recipes must be calculated and documented for one serving, with a reference video link or website link.",
 		],
 	},
 	{
