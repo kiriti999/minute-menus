@@ -471,6 +471,10 @@ const FRAME_SCRIPT = `(function () {
       window.parent.postMessage({ type: "sections", open: openCategories() }, "*");
     }
     if (d.type === "theme") document.body.classList.toggle("dark", d.dark === true);
+    if (d.type === "updated") {
+      var u = document.getElementById("updated-m");
+      if (u) u.textContent = d.label ? " · " + String(d.label) : "";
+    }
   });
   window.addEventListener("beforeprint", function () {
     beforePrint = openCategories();
@@ -677,6 +681,8 @@ export function buildRecipeBookHtml(opts: {
     .conversion-table { min-width: 640px; font-size: 9px; }
     .conversion-table caption { text-align: left; font-weight: 700; color: #1b5e20; padding: 4px 0; }
     .conversion-table th:first-child, .conversion-table td { white-space: nowrap; }
+    .updated-m { display: none; }
+    @media screen and (max-width: 640px) { .updated-m { display: inline; } }
     @media screen {
       body.dark { background: #0d1512; color: #e3eeea; }
       .dark .meta, .dark .label, .dark .muted-note { color: #93b0a8; }
@@ -715,7 +721,7 @@ export function buildRecipeBookHtml(opts: {
     ${nav}
     <header>
       <h1>${name} — Kitchen Recipe Book</h1>
-      <p class="meta">Kitchen builds · methods · printable A4</p>
+      <p class="meta">Kitchen builds · methods · printable A4<span class="updated-m" id="updated-m"></span></p>
       <div class="banner">
         Containers: large salads <strong>750ml</strong> · small / medium salads <strong>500ml</strong> (60% of large) · pasta <strong>500ml</strong> · appetizer rice items <strong>300ml</strong> · dressing <strong>50ml</strong> cups · thick shakes <strong>300ml</strong> glass.
       </div>

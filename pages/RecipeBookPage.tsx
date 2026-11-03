@@ -212,6 +212,11 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 		postToFrame({ type: "theme", dark: isDarkTheme });
 	}, [isDarkTheme, postToFrame]);
 
+	// Phones show the update time inside the page header; the bar shows it from `sm` up.
+	useEffect(() => {
+		postToFrame({ type: "updated", label: formatUpdated(loadedAt) });
+	}, [loadedAt, postToFrame]);
+
 	// The iframe is sandboxed without same-origin, so search / print / edit go through postMessage.
 	useEffect(() => {
 		postToFrame({ type: "filter", query });
@@ -347,9 +352,7 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 	const bar = isDarkTheme
 		? "bg-zinc-900 border-zinc-800 text-white"
 		: "bg-white border-zinc-200 text-zinc-900";
-	const updatedLabel = loadedAt
-		? `Updated ${loadedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
-		: "Pulling latest menu…";
+	const updatedLabel = formatUpdated(loadedAt) || "Pulling latest menu…";
 
 	return (
 		<div className="fixed inset-0 flex flex-col min-w-0 overflow-hidden">
@@ -362,7 +365,7 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 					<ArrowLeft size={16} />
 					<span className="hidden sm:inline">{isOwner ? "Dashboard" : "SOP"}</span>
 				</button>
-				<p className={`order-last w-full sm:order-none sm:w-auto sm:flex-1 min-w-0 truncate text-xs ${isDarkTheme ? "text-zinc-400" : "text-zinc-500"}`}>{updatedLabel}</p>
+				<p className={`hidden sm:block sm:flex-1 min-w-0 truncate text-xs ${isDarkTheme ? "text-zinc-400" : "text-zinc-500"}`}>{updatedLabel}</p>
 				<div
 					className={`relative hidden sm:block sm:w-56 ${isDarkTheme ? "text-white" : "text-zinc-900"}`}
 				>
@@ -508,6 +511,7 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 				onLoad={() => {
 					postToFrame({ type: "filter", query });
 					postToFrame({ type: "theme", dark: isDarkTheme });
+					postToFrame({ type: "updated", label: formatUpdated(loadedAt) });
 				}}
 			/>
 			{editing && (
@@ -568,6 +572,11 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 		</div>
 	);
 };
+
+/** "Updated 10:54", or an empty string before the first load. */
+function formatUpdated(loadedAt: Date | null): string {
+	return loadedAt ? `Updated ${loadedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}` : "";
+}
 
 /** Gate: the recipe book renders only for the owner or an active team member. */
 export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({ isDarkTheme, onToggleTheme, onBack, slug }) => {
