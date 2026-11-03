@@ -24,6 +24,10 @@ Use React hooks for component state. Derive values with memoization only when me
 
 Tailwind is the styling layer; stay within utility-first patterns already used for light and dark themes. Avoid ad-hoc inline style objects unless addressing something utilities cannot express cleanly.
 
+## Responsive by default
+
+Every page, modal and toolbar must work from ~360px phones up to desktop — no horizontal overflow, no clipped controls. Write mobile-first Tailwind with `sm:` / `md:` / `lg:` breakpoints; let rows `flex-wrap`, put full-width controls (search, inputs) on their own line on small screens, collapse button labels to icons below `sm` (keep `aria-label`), and cap modals with `max-h-full overflow-y-auto`. Verify in the browser's device toolbar (e.g. iPhone SE and iPhone Pro Max widths) before calling UI work done.
+
 ## Data into the tree
 
 Feed components through props and established data hooks; do not introduce alternative client state stores. For owner and customer flows, route reads and writes through `@minute-menus/supabase-service` (app facade: `services/supabaseService.ts`) per agents.md rather than duplicating fetch logic in leaves.

@@ -15,3 +15,4 @@ Aligned with `.claude/rules/react-conventions.md` and coding-standards.
 - **Shared UI:** use `@minute-menus/ui` and `@minute-menus/reels` before adding one-off loaders or reel markup in pages.
 
 Full detail in `.claude/rules/react-conventions.md`.
+- **Responsive:** every page, modal and toolbar must work from ~360px phones to desktop — mobile-first `sm:`/`md:` Tailwind, `flex-wrap` rows, labels collapse to icons on small screens, modals `max-h-full overflow-y-auto`. Check at phone width before finishing.

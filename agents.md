@@ -117,7 +117,8 @@ User tier defaults to FREE; Plus upgrades go through Razorpay (`create-plus-orde
 5. Wire UI in CustomerApp or OwnerDashboard; use `@minute-menus/reels` or `@minute-menus/ui` where applicable.
 6. Add env vars to `.env.example` with a one-line comment — never commit secrets.
 7. If Plus-only, wrap with the paywall modal pattern.
-8. Run **pnpm install** (if new package) and **pnpm build**; if any API route can reach the change, also **pnpm verify:api** (Node 24) and, after deploy, confirm changed routes don't return `500 FUNCTION_INVOCATION_FAILED`.
+8. Check the UI at phone width (~360–440px) and desktop — every page and modal must be responsive (see `.claude/rules/react-conventions.md`).
+9. Run **pnpm install** (if new package) and **pnpm build**; if any API route can reach the change, also **pnpm verify:api** (Node 24) and, after deploy, confirm changed routes don't return `500 FUNCTION_INVOCATION_FAILED`.
 
 ---
 

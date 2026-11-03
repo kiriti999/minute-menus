@@ -94,7 +94,7 @@ export const RecipeBookQrModal: React.FC<RecipeBookQrModalProps> = ({
 			aria-modal="true"
 		>
 			<div
-				className={`w-full max-w-md space-y-4 rounded-2xl border p-5 ${card}`}
+				className={`w-full max-w-md max-h-full overflow-y-auto space-y-4 rounded-2xl border p-4 sm:p-5 ${card}`}
 			>
 				<div className="flex items-center justify-between">
 					<h2 className="text-lg font-bold">Recipe book QR code</h2>

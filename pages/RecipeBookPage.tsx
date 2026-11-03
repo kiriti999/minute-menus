@@ -332,6 +332,7 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 				<button
 					type="button"
 					onClick={onBack}
+					aria-label={isOwner ? "Back to dashboard" : "Back to SOP"}
 					className={`px-4 py-2 rounded-full text-sm font-semibold border ${isDarkTheme ? "border-zinc-700" : "border-zinc-300"}`}
 				>
 					Back
@@ -348,24 +349,24 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 		: "Pulling latest menu…";
 
 	return (
-		<div className="h-screen flex flex-col">
-			<div className={`flex-shrink-0 border-b px-4 py-3 flex items-center gap-3 ${bar}`}>
+		<div className="h-screen flex flex-col min-w-0 overflow-hidden">
+			<div className={`flex-shrink-0 border-b px-3 py-2 sm:px-4 sm:py-3 flex flex-wrap items-center gap-2 sm:gap-3 ${bar}`}>
 				<button
 					type="button"
 					onClick={onBack}
 					className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold border ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
 				>
 					<ArrowLeft size={16} />
-					{isOwner ? "Dashboard" : "SOP"}
+					<span className="hidden sm:inline">{isOwner ? "Dashboard" : "SOP"}</span>
 				</button>
 				<div className="flex-1 min-w-0">
 					<p className="text-sm font-semibold truncate">Kitchen Recipe Book</p>
-					<p className={`text-[11px] ${isDarkTheme ? "text-zinc-400" : "text-zinc-500"}`}>
+					<p className={`hidden sm:block text-[11px] ${isDarkTheme ? "text-zinc-400" : "text-zinc-500"}`}>
 						{currentSlug ? `/${currentSlug}/recipe-book` : "/recipe-book"} · {updatedLabel}
 					</p>
 				</div>
 				<div
-					className={`relative w-36 sm:w-56 ${isDarkTheme ? "text-white" : "text-zinc-900"}`}
+					className={`relative order-last w-full sm:order-none sm:w-56 ${isDarkTheme ? "text-white" : "text-zinc-900"}`}
 				>
 					<Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-60" />
 					<input
@@ -417,7 +418,7 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 						title="Restore recipes you deleted"
 					>
 						<Trash2 size={16} />
-						Deleted ({deletedKeys.length})
+						<span className="hidden sm:inline">Deleted </span>({deletedKeys.length})
 					</button>
 				)}
 				{isOwner && (
@@ -439,7 +440,7 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 					title="Reload latest menu from database"
 				>
 					<RefreshCw size={16} className={refreshing || loading ? "animate-spin" : undefined} />
-					Refresh
+					<span className="hidden sm:inline">Refresh</span>
 				</button>
 				<button
 					type="button"
@@ -453,10 +454,11 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 				<button
 					type="button"
 					onClick={() => postToFrame({ type: "print" })}
-					className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-[#0B4A42] text-white hover:opacity-90"
+					aria-label="Print or save as PDF"
+					className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-semibold bg-[#0B4A42] text-white hover:opacity-90"
 				>
 					<Printer size={16} />
-					Print / PDF
+					<span className="hidden sm:inline">Print / PDF</span>
 				</button>
 			</div>
 			{updateReady && (
