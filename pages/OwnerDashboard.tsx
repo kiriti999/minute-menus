@@ -2108,17 +2108,18 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
       {/* Mobile Navigation Overlay */}
       {isMobileMenuOpen && (
         <div className={`fixed inset-0 z-[60] overflow-y-auto overscroll-y-contain backdrop-blur-xl flex flex-col animate-in slide-in-from-right duration-300 ${isDarkTheme ? 'bg-black/95' : 'bg-white/95'}`}>
-          <div className="p-4 flex justify-end">
+          <div className="px-6 pt-5 mb-6 flex items-start justify-between gap-4">
+            <div>
+              <h2 className={`text-2xl font-bold mb-1 ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>Navigation</h2>
+              <p className={`text-sm ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>Manage your restaurant.</p>
+            </div>
             <button
               onClick={() => setIsMobileMenuOpen(false)}
-              className={`p-2 ${isDarkTheme ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-900'}`}
+              aria-label="Close navigation"
+              className={`p-2 -mr-2 -mt-1 ${isDarkTheme ? 'text-zinc-400 hover:text-white' : 'text-zinc-500 hover:text-zinc-900'}`}
             >
               <X size={24} />
             </button>
-          </div>
-          <div className="px-6 mb-8">
-            <h2 className={`text-2xl font-bold mb-2 ${isDarkTheme ? 'text-white' : 'text-zinc-900'}`}>Navigation</h2>
-            <p className={`text-sm ${isDarkTheme ? 'text-zinc-500' : 'text-zinc-600'}`}>Manage your restaurant.</p>
           </div>
           <NavigationLinks />
           <PlanInfo />
