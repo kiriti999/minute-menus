@@ -106,6 +106,12 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 	const [editingRecipe, setEditingRecipe] = useState<EditTarget | null>(null);
 	const [restoring, setRestoring] = useState(false);
 	const [showingQr, setShowingQr] = useState(false);
+	const [searchOpen, setSearchOpen] = useState(false);
+	// Closing the phone search box also clears it, so a hidden filter never lingers.
+	const toggleSearch = () => {
+		if (searchOpen) setQuery("");
+		setSearchOpen(!searchOpen);
+	};
 	const [updateReady, setUpdateReady] = useState(false);
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(true);
@@ -349,7 +355,7 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 		: "Pulling latest menu…";
 
 	return (
-		<div className="h-screen flex flex-col min-w-0 overflow-hidden">
+		<div className="fixed inset-0 flex flex-col min-w-0 overflow-hidden">
 			<div className={`flex-shrink-0 border-b px-3 py-2 sm:px-4 sm:py-3 flex flex-wrap items-center gap-2 sm:gap-3 ${bar}`}>
 				<button
 					type="button"
@@ -366,11 +372,12 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 					</p>
 				</div>
 				<div
-					className={`relative order-last w-full sm:order-none sm:w-56 ${isDarkTheme ? "text-white" : "text-zinc-900"}`}
+					className={`relative order-last w-full sm:order-none sm:block sm:w-56 ${searchOpen ? "" : "hidden"} ${isDarkTheme ? "text-white" : "text-zinc-900"}`}
 				>
 					<Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-60" />
 					<input
 						type="search"
+						autoFocus={searchOpen}
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}
 						placeholder="Search recipes…"
@@ -388,6 +395,15 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 						</button>
 					)}
 				</div>
+				<button
+					type="button"
+					onClick={toggleSearch}
+					aria-label="Search recipes"
+					aria-expanded={searchOpen}
+					className={`sm:hidden inline-flex items-center justify-center w-9 h-9 rounded-full border ${searchOpen ? "bg-[#0B4A42] border-[#0B4A42] text-white" : isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
+				>
+					<Search size={16} />
+				</button>
 				<div className={`inline-flex rounded-full border overflow-hidden ${isDarkTheme ? "border-zinc-700" : "border-zinc-300"}`}>
 					<button
 						type="button"
@@ -416,9 +432,11 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 						onClick={() => setRestoring(true)}
 						className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold border ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
 						title="Restore recipes you deleted"
+						aria-label={`Deleted recipes (${deletedKeys.length})`}
 					>
 						<Trash2 size={16} />
-						<span className="hidden sm:inline">Deleted </span>({deletedKeys.length})
+						<span className="sm:hidden">{deletedKeys.length}</span>
+						<span className="hidden sm:inline">Deleted ({deletedKeys.length})</span>
 					</button>
 				)}
 				{isOwner && (
@@ -427,9 +445,10 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 						onClick={() => setShowingQr(true)}
 						className={`inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-semibold border ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
 						title="QR code for this page"
+						aria-label="QR code for this page"
 					>
 						<QrCode size={16} />
-						QR
+						<span className="hidden sm:inline">QR</span>
 					</button>
 				)}
 				<button
