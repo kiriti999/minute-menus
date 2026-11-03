@@ -1,18 +1,23 @@
 import { LoadingScreen } from "@minute-menus/ui";
 import { formatPriceInCurrency, getEffectivePrice, resolveDiscountPercent } from "@minute-menus/currency";
 import type { Category, Dish } from "@minute-menus/types";
-import { ArrowLeft, Printer, RefreshCw } from "lucide-react";
+import type { RecipeBookRole } from "@minute-menus/types";
+import { Printer, RefreshCw } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BackButton } from "../components/BackButton";
+import { type BackTo, priceListBack } from "../lib/backNavigation";
 import { supabaseService } from "../services/supabaseService";
 
 export interface MenuListPageProps {
 	slug: string;
 	isDarkTheme: boolean;
-	onBack: () => void;
+	/** Receives the destination chosen for this visitor (see lib/backNavigation.ts). */
+	onBack: (to: BackTo) => void;
 }
 
 interface RestaurantInfo {
+	id: string;
 	name: string;
 	slug: string;
 	currency: string;
@@ -27,6 +32,7 @@ async function fetchMenuList(slug: string): Promise<{ categories: Category[]; re
 	return {
 		categories,
 		restaurant: {
+			id: restaurant.id,
 			name: restaurant.name,
 			slug: restaurant.slug,
 			currency: restaurant.currency,
@@ -184,6 +190,8 @@ export const MenuListPage: React.FC<MenuListPageProps> = ({
 	const [loadedAt, setLoadedAt] = useState<Date | null>(null);
 	const [fetchTick, setFetchTick] = useState(0);
 	const requestId = useRef(0);
+	// Signed-in staff only: lets the owner go back to the dashboard. Public visitors never trigger this lookup.
+	const [role, setRole] = useState<RecipeBookRole | null>(null);
 
 	const load = useCallback(async (opts?: { silent?: boolean }) => {
 		const id = ++requestId.current;
@@ -208,6 +216,12 @@ export const MenuListPage: React.FC<MenuListPageProps> = ({
 	}, [slug]);
 
 	useEffect(() => { void load(); }, [load, fetchTick]);
+
+	const restaurantId = restaurant?.id;
+	useEffect(() => {
+		if (!restaurantId) return;
+		supabaseService.getRecipeBookRole(restaurantId).then(setRole, () => setRole(null));
+	}, [restaurantId]);
 
 	useEffect(() => {
 		const onVisible = () => {
@@ -238,6 +252,7 @@ export const MenuListPage: React.FC<MenuListPageProps> = ({
 		? `Updated ${loadedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
 		: "Loading…";
 
+	const back = priceListBack(role);
 	const totalItems = categories.reduce((sum, c) => sum + c.items.length, 0);
 
 	if (loading && !categories.length) return <LoadingScreen label="Loading menu…" />;
@@ -253,13 +268,7 @@ export const MenuListPage: React.FC<MenuListPageProps> = ({
 				>
 					Retry
 				</button>
-				<button
-					type="button"
-					onClick={onBack}
-					className={`px-4 py-2 rounded-full text-sm font-semibold border ${isDarkTheme ? "border-zinc-700" : "border-zinc-300"}`}
-				>
-					Back
-				</button>
+				<BackButton label={back.label} onClick={() => onBack(back.to)} isDarkTheme={isDarkTheme} />
 			</div>
 		);
 	}
@@ -270,18 +279,7 @@ export const MenuListPage: React.FC<MenuListPageProps> = ({
 			<div
 				className={`sticky top-0 z-10 flex-shrink-0 border-b px-4 py-3 flex items-center gap-3 ${bar} print:hidden`}
 			>
-				<button
-					id="menu-list-back-btn"
-					type="button"
-					onClick={onBack}
-					aria-label="Back to home"
-					className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold border ${
-						isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"
-					}`}
-				>
-					<ArrowLeft size={16} />
-					<span className="hidden sm:inline">Home</span>
-				</button>
+				<BackButton label={back.label} onClick={() => onBack(back.to)} isDarkTheme={isDarkTheme} />
 
 				<div className="flex-1 min-w-0">
 					<p className="text-sm font-semibold truncate">

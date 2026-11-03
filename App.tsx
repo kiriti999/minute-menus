@@ -14,6 +14,7 @@ import { supabase } from "./lib/supabase";
 import { LoadingScreen } from "@minute-menus/ui";
 import { devMenuSlug, devSkipOwnerLogin } from "./lib/devFlags";
 import { isDashboardPath, isDashboardTeamPath } from "./lib/dashboardRoute";
+import { type BackTo, DASHBOARD } from "./lib/backNavigation";
 import { useRestaurantSlugRoute } from "./hooks/useRestaurantSlugRoute";
 import { AppMode } from "@minute-menus/types";
 
@@ -175,6 +176,17 @@ const AppRoutes: React.FC = () => {
         return <LoadingScreen />;
     }
 
+    // Every page's back button ends up here: the dashboard in-app, anything else as a normal navigation.
+    const navigateBack = (to: BackTo) => {
+        if (to !== DASHBOARD) {
+            window.location.href = to;
+            return;
+        }
+        window.history.pushState({}, "", "/");
+        setPath("/");
+        setMode(AppMode.OWNER);
+    };
+
     const sopSlug = parseSopRoute(path);
     if (sopSlug) {
         return (
@@ -182,9 +194,7 @@ const AppRoutes: React.FC = () => {
                 key={path}
                 slug={sopSlug}
                 isDarkTheme={isDarkTheme}
-                onBack={() => {
-                    window.location.href = `/${sopSlug}`;
-                }}
+                onBack={navigateBack}
             />
         );
     }
@@ -197,15 +207,7 @@ const AppRoutes: React.FC = () => {
                 slug={recipeBookSlug}
                 isDarkTheme={isDarkTheme}
                 onToggleTheme={toggleTheme}
-                onBack={(isOwner) => {
-                    if (isOwner) {
-                        window.history.pushState({}, "", "/");
-                        setPath("/");
-                        setMode(AppMode.OWNER);
-                    } else {
-                        window.location.href = `/${recipeBookSlug}/sop`;
-                    }
-                }}
+                onBack={navigateBack}
             />
         );
     }
@@ -217,9 +219,7 @@ const AppRoutes: React.FC = () => {
                 key={path}
                 slug={menuListSlug}
                 isDarkTheme={isDarkTheme}
-                onBack={() => {
-                    window.location.href = "/";
-                }}
+                onBack={navigateBack}
             />
         );
     }
@@ -232,9 +232,7 @@ const AppRoutes: React.FC = () => {
                 slug={myOrdersSlug}
                 isDarkTheme={isDarkTheme}
                 onToggleTheme={toggleTheme}
-                onBack={() => {
-                    window.location.href = `/${myOrdersSlug}`;
-                }}
+                onBack={navigateBack}
             />
         );
     }

@@ -1,16 +1,19 @@
 import { LoadingScreen } from "@minute-menus/ui";
 import type { SopSection } from "@minute-menus/types";
-import { ArrowLeft, BookOpen, ChevronDown, ChevronsDownUp, ChevronsUpDown, Printer, QrCode } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronsDownUp, ChevronsUpDown, Printer, QrCode } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
+import { BackButton } from "../components/BackButton";
 import { RecipeBookSignIn } from "../components/RecipeBookSignIn";
+import { type BackDestination, type BackTo, staffBack } from "../lib/backNavigation";
 import { useRecipeBookAccess } from "../hooks/useRecipeBookAccess";
 import { supabaseService } from "../services/supabaseService";
 
 export interface SopPageProps {
 	isDarkTheme: boolean;
 	slug: string;
-	onBack: () => void;
+	/** Receives the destination chosen for this visitor (see lib/backNavigation.ts). */
+	onBack: (to: BackTo) => void;
 }
 
 const titleFromSlug = (slug: string): string =>
@@ -66,7 +69,7 @@ const SopAccordion: React.FC<{
 };
 
 /** Signed-in view of the SOP: quick links plus expandable procedures, printable as PDF. */
-const SopContent: React.FC<SopPageProps> = ({ isDarkTheme, slug, onBack }) => {
+const SopContent: React.FC<SopPageProps & { back: BackDestination }> = ({ isDarkTheme, slug, back, onBack }) => {
 	const [openIds, setOpenIds] = useState<Set<string>>(new Set());
 	const [name, setName] = useState(titleFromSlug(slug));
 	const [sections, setSections] = useState<SopSection[] | null>(null);
@@ -110,15 +113,7 @@ const SopContent: React.FC<SopPageProps> = ({ isDarkTheme, slug, onBack }) => {
 		<div className="min-h-screen print:!bg-white print:!text-black">
 			<div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
 				<div className="flex items-center gap-2 print:hidden">
-					<button
-						type="button"
-						onClick={onBack}
-						aria-label="Back to menu"
-						className={`mr-auto inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold border ${pill}`}
-					>
-						<ArrowLeft size={16} />
-						<span className="hidden sm:inline">Menu</span>
-					</button>
+					<BackButton label={back.label} onClick={() => onBack(back.to)} isDarkTheme={isDarkTheme} className="mr-auto" />
 					<button
 						type="button"
 						onClick={() => window.print()}
@@ -196,6 +191,7 @@ const SopContent: React.FC<SopPageProps> = ({ isDarkTheme, slug, onBack }) => {
  */
 export const SopPage: React.FC<SopPageProps> = (props) => {
 	const access = useRecipeBookAccess(props.slug);
+	const publicBack = staffBack("sop", null, props.slug);
 	useNoIndex();
 	useEffect(() => {
 		document.body.className = props.isDarkTheme
@@ -208,9 +204,7 @@ export const SopPage: React.FC<SopPageProps> = (props) => {
 		return (
 			<div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6">
 				<p className="text-sm text-red-500">{access.message}</p>
-				<button type="button" onClick={props.onBack} className="px-4 py-2 rounded-full border text-sm font-semibold">
-					Back
-				</button>
+				<BackButton label={publicBack.label} onClick={() => props.onBack(publicBack.to)} isDarkTheme={props.isDarkTheme} />
 			</div>
 		);
 	}
@@ -221,10 +215,11 @@ export const SopPage: React.FC<SopPageProps> = (props) => {
 				restaurantName={access.restaurantName}
 				slug={props.slug}
 				title="SOP"
+				backLabel={publicBack.label}
 				deniedEmail={access.status === "denied" ? access.email : undefined}
-				onBack={props.onBack}
+				onBack={() => props.onBack(publicBack.to)}
 			/>
 		);
 	}
-	return <SopContent {...props} />;
+	return <SopContent {...props} back={staffBack("sop", access.role, props.slug)} />;
 };

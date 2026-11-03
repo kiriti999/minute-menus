@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CUSTOMER_STATUS_COPY } from "../components/orderStatus";
 import { brandInitials } from "../lib/brandInitials";
 import { downloadOrderInvoice, orderNumber } from "../lib/orderInvoicePdf";
+import { type BackTo, customerBack } from "../lib/backNavigation";
 import { supabaseService } from "../services/supabaseService";
 
 const PAGE_SIZE = 10;
@@ -14,7 +15,8 @@ const PAGE_SIZE = 10;
 export interface MyOrdersPageProps {
 	slug: string;
 	isDarkTheme: boolean;
-	onBack: () => void;
+	/** Receives the destination (the restaurant menu — see lib/backNavigation.ts). */
+	onBack: (to: BackTo) => void;
 	onToggleTheme: () => void;
 }
 
@@ -112,7 +114,9 @@ const Pagination: React.FC<{ page: number; totalPages: number; onChange: (page: 
 	);
 };
 
-export const MyOrdersPage: React.FC<MyOrdersPageProps> = ({ slug, isDarkTheme, onBack, onToggleTheme }) => {
+export const MyOrdersPage: React.FC<MyOrdersPageProps> = ({ slug, isDarkTheme, onBack: navigate, onToggleTheme }) => {
+	const back = customerBack(slug);
+	const onBack = () => navigate(back.to);
 	const [restaurant, setRestaurant] = useState<{ name: string; currency: string } | null>(null);
 	const [email, setEmail] = useState<string | null | undefined>(undefined);
 	const [page, setPage] = useState(1);
@@ -188,7 +192,7 @@ export const MyOrdersPage: React.FC<MyOrdersPageProps> = ({ slug, isDarkTheme, o
 						<p className="truncate text-left text-base font-bold leading-tight tracking-tight sm:text-lg">{restaurant?.name ?? "Menu"}</p>
 					</button>
 					<div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-						<button type="button" onClick={onBack} title="Back to menu" className={`rounded-full border p-2.5 shadow-lg ${iconBtn}`}>
+						<button type="button" onClick={onBack} title={`Back to ${back.label}`} aria-label={`Back to ${back.label}`} className={`rounded-full border p-2.5 shadow-lg ${iconBtn}`}>
 							<ArrowLeft size={18} />
 						</button>
 						{email && (

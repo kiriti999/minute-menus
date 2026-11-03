@@ -1,7 +1,8 @@
-import { ArrowLeft, Mail } from "lucide-react";
+import { Mail } from "lucide-react";
 import type React from "react";
 import { useState } from "react";
 import { supabaseService } from "../services/supabaseService";
+import { BackButton } from "./BackButton";
 
 export interface RecipeBookSignInProps {
 	isDarkTheme: boolean;
@@ -11,6 +12,8 @@ export interface RecipeBookSignInProps {
 	title?: string;
 	/** Set when someone is signed in but is not on the team. */
 	deniedEmail?: string;
+	/** Destination name shown on the back button. */
+	backLabel: string;
 	onBack: () => void;
 }
 
@@ -23,6 +26,7 @@ export const RecipeBookSignIn: React.FC<RecipeBookSignInProps> = ({
 	slug,
 	title = "Recipe book",
 	deniedEmail,
+	backLabel,
 	onBack,
 }) => {
 	const [email, setEmail] = useState("");
@@ -70,14 +74,7 @@ export const RecipeBookSignIn: React.FC<RecipeBookSignInProps> = ({
 	return (
 		<div className="min-h-screen flex items-center justify-center p-4">
 			<div className={`w-full max-w-sm space-y-4 rounded-2xl border p-6 ${card}`}>
-				<button
-					type="button"
-					onClick={onBack}
-					className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold border ${pill}`}
-				>
-					<ArrowLeft size={16} />
-					Back
-				</button>
+				<BackButton label={backLabel} onClick={onBack} isDarkTheme={isDarkTheme} />
 				<div>
 					<h1 className="text-xl font-bold">{title}</h1>
 					<p className={`text-sm ${muted}`}>

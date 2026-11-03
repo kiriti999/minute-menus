@@ -1,6 +1,6 @@
 import type { RecipeEntry, RecipeImage, RecipeLink, RecipeOverride } from "@minute-menus/types";
 import { LoadingScreen } from "@minute-menus/ui";
-import { ArrowLeft, ChevronsDownUp, ChevronsUpDown, Menu, Moon, Printer, QrCode, Search, Sun, Trash2, X } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, Menu, Moon, Printer, QrCode, Search, Sun, Trash2, X } from "lucide-react";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RecipeBookSignIn } from "../components/RecipeBookSignIn";
@@ -17,7 +17,9 @@ import {
 	type RecipeBookDish,
 } from "../lib/recipeBook/buildRecipeBookHtml";
 import { draftFromCard, overrideFromDraft, type RecipeDraft } from "../lib/recipeBook/recipeEditText";
+import { type BackDestination, type BackTo, staffBack } from "../lib/backNavigation";
 import { isNewVersionAvailable } from "../lib/newVersion";
+import { BackButton } from "../components/BackButton";
 import { RecipeBookMobileMenu } from "../components/RecipeBookMobileMenu";
 import { RecipeBookQrModal } from "../components/RecipeBookQrModal";
 import { supabaseService } from "../services/supabaseService";
@@ -25,15 +27,16 @@ import { supabaseService } from "../services/supabaseService";
 export interface RecipeBookPageProps {
 	isDarkTheme: boolean;
 	onToggleTheme: () => void;
-	/** `isOwner` lets the app send owners to the dashboard and everyone else to the SOP page. */
-	onBack: (isOwner: boolean) => void;
+	/** Receives the destination chosen for this visitor (see lib/backNavigation.ts). */
+	onBack: (to: BackTo) => void;
 	slug: string;
 }
 
 interface RecipeBookViewerProps {
 	isDarkTheme: boolean;
 	onToggleTheme: () => void;
-	onBack: () => void;
+	back: BackDestination;
+	onBack: (to: BackTo) => void;
 	slug: string;
 	/** Only the owner can edit; team members get a read-only book. */
 	isOwner: boolean;
@@ -97,6 +100,7 @@ function parseEditMessage(data: unknown, type: "edit-links" | "edit-recipe"): Ed
 const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 	isDarkTheme,
 	onToggleTheme,
+	back,
 	onBack,
 	slug,
 	isOwner,
@@ -337,14 +341,7 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 				>
 					Retry
 				</button>
-				<button
-					type="button"
-					onClick={onBack}
-					aria-label={isOwner ? "Back to dashboard" : "Back to SOP"}
-					className={`px-4 py-2 rounded-full text-sm font-semibold border ${isDarkTheme ? "border-zinc-700" : "border-zinc-300"}`}
-				>
-					Back
-				</button>
+				<BackButton label={back.label} onClick={() => onBack(back.to)} isDarkTheme={isDarkTheme} />
 			</div>
 		);
 	}
@@ -356,14 +353,7 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 	return (
 		<div className="fixed inset-0 flex flex-col min-w-0 overflow-hidden">
 			<div className={`flex-shrink-0 border-b px-3 py-2 sm:px-4 sm:py-3 flex-wrap items-center gap-2 sm:gap-3 ${searchOpen ? "hidden sm:flex" : "flex"} ${bar}`}>
-				<button
-					type="button"
-					onClick={onBack}
-					className={`mr-auto inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold border ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
-				>
-					<ArrowLeft size={16} />
-					<span className="hidden sm:inline">{isOwner ? "Dashboard" : "SOP"}</span>
-				</button>
+				<BackButton label={back.label} onClick={() => onBack(back.to)} isDarkTheme={isDarkTheme} className="mr-auto" />
 				<div
 					className={`relative hidden sm:block sm:w-56 ${isDarkTheme ? "text-white" : "text-zinc-900"}`}
 				>
@@ -579,6 +569,7 @@ function formatUpdated(loadedAt: Date | null): string {
 /** Gate: the recipe book renders only for the owner or an active team member. */
 export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({ isDarkTheme, onToggleTheme, onBack, slug }) => {
 	const access = useRecipeBookAccess(slug);
+	const publicBack = staffBack("recipe-book", null, slug);
 
 	useEffect(() => {
 		document.body.className = isDarkTheme
@@ -591,9 +582,7 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({ isDarkTheme, onT
 		return (
 			<div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6">
 				<p className="text-sm text-red-500">{access.message}</p>
-				<button type="button" onClick={() => onBack(false)} className="px-4 py-2 rounded-full border text-sm font-semibold">
-					Back
-				</button>
+				<BackButton label={publicBack.label} onClick={() => onBack(publicBack.to)} isDarkTheme={isDarkTheme} />
 			</div>
 		);
 	}
@@ -604,7 +593,8 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({ isDarkTheme, onT
 				isDarkTheme={isDarkTheme}
 				onToggleTheme={onToggleTheme}
 				isOwner={access.role === "owner"}
-				onBack={() => onBack(access.role === "owner")}
+				back={staffBack("recipe-book", access.role, slug)}
+				onBack={onBack}
 			/>
 		);
 	}
@@ -614,7 +604,8 @@ export const RecipeBookPage: React.FC<RecipeBookPageProps> = ({ isDarkTheme, onT
 			restaurantName={access.restaurantName}
 			slug={slug}
 			deniedEmail={access.status === "denied" ? access.email : undefined}
-			onBack={() => onBack(false)}
+			backLabel={publicBack.label}
+			onBack={() => onBack(publicBack.to)}
 		/>
 	);
 };

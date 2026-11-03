@@ -28,6 +28,10 @@ Tailwind is the styling layer; stay within utility-first patterns already used f
 
 Every page, modal and toolbar must work from ~360px phones up to desktop — no horizontal overflow, no clipped controls. Write mobile-first Tailwind with `sm:` / `md:` / `lg:` breakpoints; let rows `flex-wrap`, put full-width controls (search, inputs) on their own line on small screens, collapse button labels to icons below `sm` (keep `aria-label` and `title`) — on phones prefer icon-only buttons for secondary actions such as delete, add, edit, refresh and back, and show icon + text from `sm` up (keep text for primary actions like Save); make tab strips and wide tables scroll inside their own `overflow-x-auto` box so the page never scrolls sideways, and cap modals with `max-h-full overflow-y-auto`. Verify in the browser's device toolbar (e.g. iPhone SE and iPhone Pro Max widths) before calling UI work done.
 
+## Back buttons
+
+Use `components/BackButton` (arrow only on phones, arrow + destination name from `sm` up) and pick the destination with `lib/backNavigation.ts`: the owner goes to the dashboard, a team member goes one level up (recipe book → SOP, SOP → the restaurant menu), and a public visitor goes to the restaurant menu. Pages call `onBack(destination.to)`; `App.tsx` performs the navigation. Never hard-code a back target inside a page.
+
 ## Data into the tree
 
 Feed components through props and established data hooks; do not introduce alternative client state stores. For owner and customer flows, route reads and writes through `@minute-menus/supabase-service` (app facade: `services/supabaseService.ts`) per agents.md rather than duplicating fetch logic in leaves.
