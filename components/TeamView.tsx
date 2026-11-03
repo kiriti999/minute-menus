@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import type React from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
 	exportWeeklyHoursCsv,
@@ -540,6 +540,9 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 		if (preset === "month") setMonthValue(nextMonth);
 	};
 
+	// Range whose hours are already on screen, so the range effect does not refetch what the initial load just got.
+	const loadedRange = useRef("");
+
 	// Initial page load: fetches restaurant details, badges, staff, and initial hours once on mount
 	useEffect(() => {
 		let cancelled = false;
@@ -561,6 +564,7 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 					setBadges(badgeRows);
 					setStaff(staffRows);
 					setWeeklyHours(hours);
+					loadedRange.current = `${from}|${toExclusive}`;
 					const assign: Record<string, string> = {};
 					for (const b of badgeRows) {
 						if (b.assignedStaffId) assign[b.id] = b.assignedStaffId;
@@ -584,13 +588,17 @@ export const TeamView: React.FC<TeamViewProps> = ({ isDarkTheme }) => {
 		if (initialLoading) return;
 		let cancelled = false;
 		const fetchHours = async () => {
-			setHoursLoading(true);
 			try {
 				const from = rangeFrom <= rangeTo ? rangeFrom : rangeTo;
 				const to = rangeFrom <= rangeTo ? rangeTo : rangeFrom;
 				const toExclusive = addDaysIso(to, 1);
+				if (loadedRange.current === `${from}|${toExclusive}`) return;
+				setHoursLoading(true);
 				const hours = await supabaseService.getStaffHoursInRange(from, toExclusive);
-				if (!cancelled) setWeeklyHours(hours);
+				if (!cancelled) {
+					setWeeklyHours(hours);
+					loadedRange.current = `${from}|${toExclusive}`;
+				}
 			} catch (err) {
 				if (!cancelled) setError(getErrorMessage(err));
 			} finally {

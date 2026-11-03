@@ -9,22 +9,24 @@ import {
     Sun,
 } from "lucide-react";
 import type React from "react";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { supabase } from "./lib/supabase";
 import { LoadingScreen } from "@minute-menus/ui";
 import { devMenuSlug, devSkipOwnerLogin } from "./lib/devFlags";
 import { isDashboardPath, isDashboardTeamPath } from "./lib/dashboardRoute";
 import { useRestaurantSlugRoute } from "./hooks/useRestaurantSlugRoute";
-import { CustomerApp } from "./pages/CustomerApp";
-import { LoginPage } from "./pages/LoginPage";
-import { OwnerDashboard } from "./pages/OwnerDashboard";
-import { QrLandingPage } from "./pages/QrLandingPage";
-import { MenuListPage } from "./pages/MenuListPage";
-import { MyOrdersPage } from "./pages/MyOrdersPage";
-import { RecipeBookPage } from "./pages/RecipeBookPage";
-import { SopPage } from "./pages/SopPage";
-import { StaffClockPage } from "./pages/StaffClockPage";
 import { AppMode } from "@minute-menus/types";
+
+// Each page is its own chunk, so opening one page does not download the whole app.
+const CustomerApp = lazy(() => import("./pages/CustomerApp").then((m) => ({ default: m.CustomerApp })));
+const LoginPage = lazy(() => import("./pages/LoginPage").then((m) => ({ default: m.LoginPage })));
+const OwnerDashboard = lazy(() => import("./pages/OwnerDashboard").then((m) => ({ default: m.OwnerDashboard })));
+const QrLandingPage = lazy(() => import("./pages/QrLandingPage").then((m) => ({ default: m.QrLandingPage })));
+const MenuListPage = lazy(() => import("./pages/MenuListPage").then((m) => ({ default: m.MenuListPage })));
+const MyOrdersPage = lazy(() => import("./pages/MyOrdersPage").then((m) => ({ default: m.MyOrdersPage })));
+const RecipeBookPage = lazy(() => import("./pages/RecipeBookPage").then((m) => ({ default: m.RecipeBookPage })));
+const SopPage = lazy(() => import("./pages/SopPage").then((m) => ({ default: m.SopPage })));
+const StaffClockPage = lazy(() => import("./pages/StaffClockPage").then((m) => ({ default: m.StaffClockPage })));
 
 function parseClockRoute(): { slug: string; badge: string | null } | null {
     const match = window.location.pathname.match(/^\/clock\/([a-z0-9-]+)$/i);
@@ -58,7 +60,7 @@ function parseMyOrdersRoute(pathname: string): string | null {
     return match ? match[1].toLowerCase() : null;
 }
 
-const App: React.FC = () => {
+const AppRoutes: React.FC = () => {
     const [mode, setMode] = useState<AppMode>(AppMode.LANDING);
     const [session, setSession] = useState<Session | null>(null);
     const [targetMode, setTargetMode] = useState<AppMode | null>(null);
@@ -216,7 +218,7 @@ const App: React.FC = () => {
                 slug={menuListSlug}
                 isDarkTheme={isDarkTheme}
                 onBack={() => {
-                    window.location.href = `/${menuListSlug}`;
+                    window.location.href = "/";
                 }}
             />
         );
@@ -395,5 +397,11 @@ const App: React.FC = () => {
         </div>
     );
 };
+
+const App: React.FC = () => (
+    <Suspense fallback={<LoadingScreen />}>
+        <AppRoutes />
+    </Suspense>
+);
 
 export default App;

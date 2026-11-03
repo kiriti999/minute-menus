@@ -235,7 +235,7 @@ export const MenuListPage: React.FC<MenuListPageProps> = ({
 		: "bg-white border-zinc-200 text-zinc-900";
 
 	const updatedLabel = loadedAt
-		? `Updated ${loadedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`
+		? `Updated ${loadedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
 		: "Loading…";
 
 	const totalItems = categories.reduce((sum, c) => sum + c.items.length, 0);
@@ -274,12 +274,13 @@ export const MenuListPage: React.FC<MenuListPageProps> = ({
 					id="menu-list-back-btn"
 					type="button"
 					onClick={onBack}
+					aria-label="Back to home"
 					className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold border ${
 						isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"
 					}`}
 				>
 					<ArrowLeft size={16} />
-					Menu
+					<span className="hidden sm:inline">Home</span>
 				</button>
 
 				<div className="flex-1 min-w-0">
@@ -287,7 +288,8 @@ export const MenuListPage: React.FC<MenuListPageProps> = ({
 						{restaurant?.name ?? "Menu"}
 					</p>
 					<p className={`text-[11px] ${isDarkTheme ? "text-zinc-400" : "text-zinc-500"}`}>
-						/{slug}/menu · {updatedLabel}
+						<span className="hidden sm:inline">/{slug}/menu · </span>
+						{updatedLabel}
 					</p>
 				</div>
 
@@ -300,6 +302,7 @@ export const MenuListPage: React.FC<MenuListPageProps> = ({
 						isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"
 					}`}
 					title="Reload latest menu"
+					aria-label="Refresh menu"
 				>
 					<RefreshCw size={16} className={refreshing || loading ? "animate-spin" : undefined} />
 					<span className="hidden sm:inline">Refresh</span>
@@ -309,7 +312,8 @@ export const MenuListPage: React.FC<MenuListPageProps> = ({
 					id="menu-list-print-btn"
 					type="button"
 					onClick={() => window.print()}
-					className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold bg-[#0B4A42] text-white hover:opacity-90"
+					aria-label="Print or save as PDF"
+					className="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-full text-sm font-semibold bg-[#0B4A42] text-white hover:opacity-90"
 				>
 					<Printer size={16} />
 					<span className="hidden sm:inline">Print / PDF</span>

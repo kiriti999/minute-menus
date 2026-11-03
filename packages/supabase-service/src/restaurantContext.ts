@@ -84,7 +84,9 @@ export const createRestaurantContext = (client: SupabaseClient<Database>) => {
     };
 
     const getRestaurantId = async (): Promise<string> => {
-        const { data: { user } } = await client.auth.getUser();
+        // Local session, not getUser(): that is a network round trip on every data call. RLS still checks the token server-side.
+        const { data: { session } } = await client.auth.getSession();
+        const user = session?.user;
         if (!user) throw new Error("Not authenticated");
 
         if (cachedForUserId === user.id && cachedRestaurantId) {

@@ -1,11 +1,3 @@
-import { ImageEditorView } from "../components/ImageEditorView";
-import { CostingView } from "../components/CostingView";
-import { PrintDesignsView } from "../components/PrintDesignsView";
-import { TeamPage } from "../components/TeamPage";
-import { CounterBillView } from "../components/CounterBillView";
-import { SalesView } from "../components/SalesView";
-import { OrderQueueView } from "../components/OrderQueueView";
-import { AvailabilitySettings } from "../components/AvailabilitySettings";
 import {
   AlertTriangle,
   Bell,
@@ -61,7 +53,7 @@ import {
 } from "lucide-react";
 import { QRCodeCanvas, QRCodeSVG } from "qrcode.react";
 import type React from "react";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -120,6 +112,16 @@ import {
   SaveChangesButton,
   Spinner,
 } from "@minute-menus/ui";
+
+// Heavy views load on demand so the dashboard shell (and the Team page) opens quickly.
+const ImageEditorView = lazy(() => import("../components/ImageEditorView").then((m) => ({ default: m.ImageEditorView })));
+const CostingView = lazy(() => import("../components/CostingView").then((m) => ({ default: m.CostingView })));
+const PrintDesignsView = lazy(() => import("../components/PrintDesignsView").then((m) => ({ default: m.PrintDesignsView })));
+const TeamPage = lazy(() => import("../components/TeamPage").then((m) => ({ default: m.TeamPage })));
+const CounterBillView = lazy(() => import("../components/CounterBillView").then((m) => ({ default: m.CounterBillView })));
+const SalesView = lazy(() => import("../components/SalesView").then((m) => ({ default: m.SalesView })));
+const OrderQueueView = lazy(() => import("../components/OrderQueueView").then((m) => ({ default: m.OrderQueueView })));
+const AvailabilitySettings = lazy(() => import("../components/AvailabilitySettings").then((m) => ({ default: m.AvailabilitySettings })));
 
 type ViewMode = "DASHBOARD" | "MENU" | "IMAGE_EDITOR" | "COSTING" | "PRINT_DESIGNS" | "CUSTOMERS" | "TEAM" | "SALES" | "COUNTER" | "ORDERS" | "SUBSCRIPTIONS" | "AVAILABILITY";
 type SubTab = "plans" | "subscribers" | "tomorrow" | "tickets" | "refunds";
@@ -2148,6 +2150,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
 
       {/* Main Content */}
       <main className={`flex-1 overflow-hidden flex flex-col relative pt-14 md:pt-0 ${isDarkTheme ? 'bg-black' : 'bg-zinc-50'}`}>
+        <Suspense fallback={<PanelLoader label="Loading…" labelClassName={`text-sm font-medium ${isDarkTheme ? 'text-zinc-400' : 'text-zinc-600'}`} />}>
         {/* Dashboard View */}
         {currentView === "DASHBOARD" && metricsError && (
           <div className="mx-3 sm:mx-4 md:mx-10 mt-6 flex items-center gap-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
@@ -4086,6 +4089,7 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
             )}
           </div>
         )}
+        </Suspense>
       </main>
     </div>
   );
