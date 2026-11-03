@@ -356,7 +356,7 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 
 	return (
 		<div className="fixed inset-0 flex flex-col min-w-0 overflow-hidden">
-			<div className={`flex-shrink-0 border-b px-3 py-2 sm:px-4 sm:py-3 flex flex-wrap items-center gap-2 sm:gap-3 ${bar}`}>
+			<div className={`flex-shrink-0 border-b px-3 py-2 sm:px-4 sm:py-3 flex-wrap items-center gap-2 sm:gap-3 ${searchOpen ? "hidden sm:flex" : "flex"} ${bar}`}>
 				<button
 					type="button"
 					onClick={onBack}
@@ -372,12 +372,11 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 					</p>
 				</div>
 				<div
-					className={`relative order-last w-full sm:order-none sm:block sm:w-56 ${searchOpen ? "" : "hidden"} ${isDarkTheme ? "text-white" : "text-zinc-900"}`}
+					className={`relative hidden sm:block sm:w-56 ${isDarkTheme ? "text-white" : "text-zinc-900"}`}
 				>
 					<Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 opacity-60" />
 					<input
 						type="search"
-						autoFocus={searchOpen}
 						value={query}
 						onChange={(e) => setQuery(e.target.value)}
 						placeholder="Search recipes…"
@@ -399,8 +398,7 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 					type="button"
 					onClick={toggleSearch}
 					aria-label="Search recipes"
-					aria-expanded={searchOpen}
-					className={`sm:hidden inline-flex items-center justify-center w-9 h-9 rounded-full border ${searchOpen ? "bg-[#0B4A42] border-[#0B4A42] text-white" : isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
+					className={`sm:hidden inline-flex items-center justify-center w-9 h-9 rounded-full border ${isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100"}`}
 				>
 					<Search size={16} />
 				</button>
@@ -480,6 +478,26 @@ const RecipeBookViewer: React.FC<RecipeBookViewerProps> = ({
 					<span className="hidden sm:inline">Print / PDF</span>
 				</button>
 			</div>
+			{searchOpen && (
+				<div className={`sm:hidden flex-shrink-0 border-b px-3 py-2 flex items-center gap-3 ${bar}`}>
+					<div className="relative flex-1 min-w-0">
+						<input
+							type="search"
+							// biome-ignore lint/a11y/noAutofocus: the user just tapped the search icon to type
+							autoFocus
+							value={query}
+							onChange={(e) => setQuery(e.target.value)}
+							placeholder="Search…"
+							aria-label="Search recipes"
+							className={`w-full rounded-full border py-2.5 pl-4 pr-11 text-sm outline-none focus:ring-2 focus:ring-[#0B4A42] ${isDarkTheme ? "bg-zinc-800 border-zinc-700 text-white" : "bg-white border-zinc-300 text-zinc-900"}`}
+						/>
+						<Search size={18} className="absolute right-4 top-1/2 -translate-y-1/2 opacity-60 pointer-events-none" />
+					</div>
+					<button type="button" onClick={toggleSearch} aria-label="Close search" className="p-1 opacity-70 hover:opacity-100">
+						<X size={22} />
+					</button>
+				</div>
+			)}
 			{updateReady && (
 				<div className="flex-shrink-0 flex items-center justify-center gap-3 bg-amber-500 px-4 py-2 text-sm font-semibold text-black">
 					A newer version of the recipe book is available.
