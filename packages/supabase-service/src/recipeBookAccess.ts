@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { RecipeBookRole, RecipeEntry } from "@minute-menus/types";
+import type { RecipeBookRole, RecipeEntry, SopSection } from "@minute-menus/types";
 import type { Database } from "@minute-menus/types/db";
 
 type Client = SupabaseClient<Database>;
@@ -18,6 +18,13 @@ export async function getRecipeBookDefaults(client: Client, restaurantId: string
 	const { data, error } = await client.rpc("get_recipe_book_defaults", { p_restaurant_id: restaurantId });
 	if (error) throw error;
 	return Array.isArray(data) ? (data as unknown as RecipeEntry[]) : [];
+}
+
+/** Kitchen SOP. The database refuses anyone who is not the owner or an active team member. */
+export async function getSopSections(client: Client, restaurantId: string): Promise<SopSection[]> {
+	const { data, error } = await client.rpc("get_sop_sections", { p_restaurant_id: restaurantId });
+	if (error) throw error;
+	return Array.isArray(data) ? (data as unknown as SopSection[]) : [];
 }
 
 /** Asks the server to email a one-time sign-in code; it only sends to the owner and active team emails. */

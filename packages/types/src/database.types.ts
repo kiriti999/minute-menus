@@ -1136,6 +1136,10 @@ export type Database = {
                 Args: { p_restaurant_id: string };
                 Returns: Json;
             };
+            get_sop_sections: {
+                Args: { p_restaurant_id: string };
+                Returns: Json;
+            };
             get_staff_clock_status: {
                 Args: { p_badge_token: string };
                 Returns: Json;

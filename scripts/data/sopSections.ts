@@ -1,15 +1,9 @@
 /**
  * Kitchen SOP content shown at /:slug/sop.
- * Starter checklists drafted from the recipe book and standard kitchen practice —
- * the owner reviews and edits them here before staff rely on them.
+ * Source for `pnpm seed:sop`, which loads it into the sop_sections table.
+ * Never import this from app code: the SOP must stay out of the public client bundle.
  */
-
-export type SopSection = {
-	id: string;
-	title: string;
-	summary: string;
-	checklist: string[];
-};
+import type { SopSection } from "@minute-menus/types";
 
 export const SOP_SECTIONS: SopSection[] = [
 	{

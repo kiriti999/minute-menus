@@ -7,6 +7,8 @@ export interface RecipeBookSignInProps {
 	isDarkTheme: boolean;
 	restaurantName: string;
 	slug: string;
+	/** Page being unlocked, e.g. "Recipe book" or "SOP". */
+	title?: string;
 	/** Set when someone is signed in but is not on the team. */
 	deniedEmail?: string;
 	onBack: () => void;
@@ -19,6 +21,7 @@ export const RecipeBookSignIn: React.FC<RecipeBookSignInProps> = ({
 	isDarkTheme,
 	restaurantName,
 	slug,
+	title = "Recipe book",
 	deniedEmail,
 	onBack,
 }) => {
@@ -76,7 +79,7 @@ export const RecipeBookSignIn: React.FC<RecipeBookSignInProps> = ({
 					Back
 				</button>
 				<div>
-					<h1 className="text-xl font-bold">Recipe book</h1>
+					<h1 className="text-xl font-bold">{title}</h1>
 					<p className={`text-sm ${muted}`}>
 						Only the owner and team members of {restaurantName} can open this page.
 					</p>

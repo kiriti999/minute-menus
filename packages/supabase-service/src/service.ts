@@ -30,6 +30,7 @@ import type {
     RecipeImage,
     RecipeOverride,
     RestaurantOverhead,
+    SopSection,
     RefundRequest,
     RefundStatus,
     SubDeliveryType,
@@ -1588,6 +1589,12 @@ export class SupabaseService {
     async getRecipeBookDefaults(restaurantId: string): Promise<RecipeEntry[]> {
         const { getRecipeBookDefaults } = await import("./recipeBookAccess");
         return getRecipeBookDefaults(this.client, restaurantId);
+    }
+
+    /** Kitchen SOP; refused by the database unless the user is the owner or an active team member. */
+    async getSopSections(restaurantId: string): Promise<SopSection[]> {
+        const { getSopSections } = await import("./recipeBookAccess");
+        return getSopSections(this.client, restaurantId);
     }
 
     /** Emails a one-time recipe-book sign-in code (owner and team emails only). */

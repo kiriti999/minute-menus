@@ -1915,3 +1915,34 @@ $$;
 
 revoke execute on function public.get_recipe_book_defaults(uuid) from public, anon;
 grant execute on function public.get_recipe_book_defaults(uuid) to authenticated;
+
+-- Kitchen SOP procedures, in display order. Same protection as the built-in recipes:
+-- RLS is on with no policies, so the table is only reachable through get_sop_sections
+-- (owner and team members). Filled by `pnpm seed:sop` (scripts/seed-sop-sections.ts).
+create table if not exists sop_sections (
+  position   integer primary key,
+  section    jsonb not null
+);
+
+alter table sop_sections enable row level security;
+
+create or replace function public.get_sop_sections(p_restaurant_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if public.recipe_book_role(p_restaurant_id) is null then
+    raise exception 'The SOP is for the owner and team members only' using errcode = '42501';
+  end if;
+  return coalesce(
+    (select jsonb_agg(section order by position) from sop_sections),
+    '[]'::jsonb
+  );
+end;
+$$;
+
+revoke execute on function public.get_sop_sections(uuid) from public, anon;
+grant execute on function public.get_sop_sections(uuid) to authenticated;

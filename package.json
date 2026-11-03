@@ -12,6 +12,7 @@
     "seed": "tsx scripts/seed.ts",
     "seed:reset": "tsx scripts/seed.ts --reset",
     "seed:recipes": "tsx scripts/seed-recipe-defaults.ts",
+    "seed:sop": "tsx scripts/seed-sop-sections.ts",
     "test:emails": "tsx scripts/test-emails.ts",
     "db:push": "tsx scripts/db-push.ts",
     "seed:menu-categories": "tsx scripts/seed-menu-categories.ts",

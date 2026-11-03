@@ -1,7 +1,10 @@
-import { ArrowLeft, BookOpen, ChevronDown, QrCode } from "lucide-react";
+import { LoadingScreen } from "@minute-menus/ui";
+import type { SopSection } from "@minute-menus/types";
+import { ArrowLeft, BookOpen, ChevronDown, ChevronsDownUp, ChevronsUpDown, Printer, QrCode } from "lucide-react";
 import type React from "react";
 import { useEffect, useState } from "react";
-import { SOP_SECTIONS, type SopSection } from "../lib/sop/sopData";
+import { RecipeBookSignIn } from "../components/RecipeBookSignIn";
+import { useRecipeBookAccess } from "../hooks/useRecipeBookAccess";
 import { supabaseService } from "../services/supabaseService";
 
 export interface SopPageProps {
@@ -36,61 +39,57 @@ const SopAccordion: React.FC<{
 	const card = isDarkTheme ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200";
 	const muted = isDarkTheme ? "text-zinc-400" : "text-zinc-500";
 	return (
-		<section className={`rounded-2xl border ${card}`}>
+		<section className={`rounded-2xl border print:break-inside-avoid print:!bg-white print:!border-zinc-300 ${card}`}>
 			<button
 				type="button"
 				onClick={onToggle}
 				aria-expanded={open}
-				className="w-full flex items-center gap-3 px-4 py-3 text-left"
+				className="w-full flex items-center gap-3 px-4 py-3 text-left print:cursor-default"
 			>
 				<div className="flex-1 min-w-0">
 					<h2 className="text-base font-semibold">{section.title}</h2>
 					<p className={`text-xs ${muted}`}>{section.summary}</p>
 				</div>
 				<span className={`text-xs ${muted}`}>{section.checklist.length} steps</span>
-				<ChevronDown size={18} className={`transition-transform ${open ? "rotate-180" : ""}`} />
+				<ChevronDown size={18} className={`transition-transform print:hidden ${open ? "rotate-180" : ""}`} />
 			</button>
-			{open && (
-				<ol className="px-4 pb-4 space-y-2 text-sm list-decimal list-inside marker:font-semibold">
-					{section.checklist.map((step) => (
-						<li key={step} className="leading-relaxed">
-							{step}
-						</li>
-					))}
-				</ol>
-			)}
+			{/* Always in the DOM so printing / saving as PDF includes every procedure. */}
+			<ol className={`px-4 pb-4 space-y-2 text-sm list-decimal list-inside marker:font-semibold ${open ? "" : "hidden print:block"}`}>
+				{section.checklist.map((step) => (
+					<li key={step} className="leading-relaxed">
+						{step}
+					</li>
+				))}
+			</ol>
 		</section>
 	);
 };
 
-/**
- * Staff SOP hub: quick links plus collapsed, expandable SOP sections.
- * Public to anyone with the link (staff have badges, not accounts) but noindex.
- */
-export const SopPage: React.FC<SopPageProps> = ({ isDarkTheme, slug, onBack }) => {
+/** Signed-in view of the SOP: quick links plus expandable procedures, printable as PDF. */
+const SopContent: React.FC<SopPageProps> = ({ isDarkTheme, slug, onBack }) => {
 	const [openIds, setOpenIds] = useState<Set<string>>(new Set());
 	const [name, setName] = useState(titleFromSlug(slug));
-	useNoIndex();
+	const [sections, setSections] = useState<SopSection[] | null>(null);
+	const [error, setError] = useState("");
 
-	// Real restaurant name; the slug-derived title stays if the lookup fails.
+	// Real restaurant name plus the SOP itself; the database only answers for the owner and team.
 	useEffect(() => {
 		let cancelled = false;
 		supabaseService
 			.getRestaurantBySlug(slug)
-			.then((r) => {
-				if (r?.name && !cancelled) setName(r.name);
+			.then(async (restaurant) => {
+				if (!restaurant) throw new Error(`Restaurant "${slug}" not found`);
+				if (restaurant.name && !cancelled) setName(restaurant.name);
+				const rows = await supabaseService.getSopSections(restaurant.id);
+				if (!cancelled) setSections(rows);
 			})
-			.catch(() => undefined);
+			.catch((e: unknown) => {
+				if (!cancelled) setError(e instanceof Error ? e.message : "Could not load the SOP");
+			});
 		return () => {
 			cancelled = true;
 		};
 	}, [slug]);
-
-	useEffect(() => {
-		document.body.className = isDarkTheme
-			? "bg-zinc-950 text-white overflow-auto"
-			: "bg-zinc-100 text-black overflow-auto";
-	}, [isDarkTheme]);
 
 	const toggle = (id: string) =>
 		setOpenIds((prev) => {
@@ -98,8 +97,9 @@ export const SopPage: React.FC<SopPageProps> = ({ isDarkTheme, slug, onBack }) =
 			if (!next.delete(id)) next.add(id);
 			return next;
 		});
-	const allOpen = openIds.size === SOP_SECTIONS.length;
-	const setAll = () => setOpenIds(allOpen ? new Set() : new Set(SOP_SECTIONS.map((s) => s.id)));
+	const list = sections ?? [];
+	const allOpen = list.length > 0 && openIds.size === list.length;
+	const setAll = () => setOpenIds(allOpen ? new Set() : new Set(list.map((s) => s.id)));
 
 	const card = isDarkTheme ? "bg-zinc-900 border-zinc-800" : "bg-white border-zinc-200";
 	const muted = isDarkTheme ? "text-zinc-400" : "text-zinc-500";
@@ -107,23 +107,36 @@ export const SopPage: React.FC<SopPageProps> = ({ isDarkTheme, slug, onBack }) =
 	const pill = isDarkTheme ? "border-zinc-700 hover:bg-zinc-800" : "border-zinc-300 hover:bg-zinc-100";
 
 	return (
-		<div className="min-h-screen">
+		<div className="min-h-screen print:!bg-white print:!text-black">
 			<div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
-				<button
-					type="button"
-					onClick={onBack}
-					className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold border ${pill}`}
-				>
-					<ArrowLeft size={16} />
-					Menu
-				</button>
+				<div className="flex items-center gap-2 print:hidden">
+					<button
+						type="button"
+						onClick={onBack}
+						aria-label="Back to menu"
+						className={`mr-auto inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold border ${pill}`}
+					>
+						<ArrowLeft size={16} />
+						<span className="hidden sm:inline">Menu</span>
+					</button>
+					<button
+						type="button"
+						onClick={() => window.print()}
+						aria-label="Print or save as PDF"
+						title="Print / save as PDF"
+						className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-full text-sm font-semibold bg-[#0B4A42] text-white hover:opacity-90"
+					>
+						<Printer size={16} />
+						<span className="hidden sm:inline">Print / PDF</span>
+					</button>
+				</div>
 
 				<header>
 					<h1 className="text-2xl font-bold tracking-tight">{name} — SOP</h1>
-					<p className={`text-sm ${muted}`}>Standard operating procedures for the kitchen team.</p>
+					<p className={`text-sm ${muted} print:!text-zinc-600`}>Standard operating procedures for the kitchen team.</p>
 				</header>
 
-				<div className="grid gap-3 sm:grid-cols-2">
+				<div className="grid gap-3 sm:grid-cols-2 print:hidden">
 					<a
 						href={`/${slug}/recipe-book`}
 						className={`flex items-start gap-3 rounded-2xl border p-4 hover:opacity-90 ${card}`}
@@ -153,12 +166,16 @@ export const SopPage: React.FC<SopPageProps> = ({ isDarkTheme, slug, onBack }) =
 						<button
 							type="button"
 							onClick={setAll}
-							className={`px-3 py-1 rounded-full text-xs font-semibold border ${pill}`}
+							aria-label={allOpen ? "Collapse all procedures" : "Expand all procedures"}
+							className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border print:hidden ${pill}`}
 						>
-							{allOpen ? "Collapse all" : "Expand all"}
+							{allOpen ? <ChevronsDownUp size={14} /> : <ChevronsUpDown size={14} />}
+							<span className="hidden sm:inline">{allOpen ? "Collapse all" : "Expand all"}</span>
 						</button>
 					</div>
-					{SOP_SECTIONS.map((section) => (
+					{error && <p className="text-sm text-red-500">{error}</p>}
+					{!error && sections === null && <p className={`text-sm ${muted}`}>Loading procedures…</p>}
+					{list.map((section) => (
 						<SopAccordion
 							key={section.id}
 							section={section}
@@ -171,4 +188,43 @@ export const SopPage: React.FC<SopPageProps> = ({ isDarkTheme, slug, onBack }) =
 			</div>
 		</div>
 	);
+};
+
+/**
+ * Staff SOP hub. Only the owner and team members (the same people as the recipe book) can open it:
+ * the procedures live in the database behind that check, not in the public bundle.
+ */
+export const SopPage: React.FC<SopPageProps> = (props) => {
+	const access = useRecipeBookAccess(props.slug);
+	useNoIndex();
+	useEffect(() => {
+		document.body.className = props.isDarkTheme
+			? "bg-zinc-950 text-white overflow-auto"
+			: "bg-zinc-100 text-black overflow-auto";
+	}, [props.isDarkTheme]);
+
+	if (access.status === "checking") return <LoadingScreen label="Checking access…" />;
+	if (access.status === "error") {
+		return (
+			<div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6">
+				<p className="text-sm text-red-500">{access.message}</p>
+				<button type="button" onClick={props.onBack} className="px-4 py-2 rounded-full border text-sm font-semibold">
+					Back
+				</button>
+			</div>
+		);
+	}
+	if (access.status !== "granted") {
+		return (
+			<RecipeBookSignIn
+				isDarkTheme={props.isDarkTheme}
+				restaurantName={access.restaurantName}
+				slug={props.slug}
+				title="SOP"
+				deniedEmail={access.status === "denied" ? access.email : undefined}
+				onBack={props.onBack}
+			/>
+		);
+	}
+	return <SopContent {...props} />;
 };

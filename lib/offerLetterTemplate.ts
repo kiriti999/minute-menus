@@ -16,7 +16,7 @@ export interface LetterClause {
 	body: string;
 }
 
-/** Duties mirror the Kitchen SOP (lib/sop/sopData.ts) — keep the two in step. */
+/** Duties mirror the Kitchen SOP (scripts/data/sopSections.ts) — keep the two in step. */
 export const RESPONSIBILITIES: LetterClause[] = [
 	{
 		title: "Cleanliness & Hygiene",

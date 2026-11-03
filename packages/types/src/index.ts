@@ -494,6 +494,14 @@ export type RecipeEntry = {
 /** Who may open the recipe book of a restaurant. */
 export type RecipeBookRole = "owner" | "team";
 
+/** One kitchen SOP procedure; served only to the owner and team members. */
+export type SopSection = {
+	id: string;
+	title: string;
+	summary: string;
+	checklist: string[];
+};
+
 /** One ingredient line of an owner-edited recipe; a heading row labels a group. */
 export interface RecipeOverrideRow {
   item: string;
