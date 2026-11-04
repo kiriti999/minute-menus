@@ -569,7 +569,7 @@ export function buildRecipeBookHtml(opts: {
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${name} — Kitchen Recipe Book</title>
   <style>
-    @page { size: A4; margin: 12mm; }
+    @page { size: A4; margin: 12mm 12mm 16mm; @bottom-center { content: counter(page); font-size: 9px; color: #4a635c; } }
     * { box-sizing: border-box; }
     body {
       font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -708,7 +708,11 @@ export function buildRecipeBookHtml(opts: {
       .wrap { max-width: none; padding: 0; }
       .no-print { display: none !important; }
       .card { box-shadow: none; }
-      .photo { max-height: 300px; height: auto; object-fit: contain; }
+      .grid { grid-template-columns: 1fr 1fr; gap: 6px; align-items: start; }
+      .card { break-inside: avoid; padding: 6px 8px; }
+      .photo { max-height: 110px; height: auto; object-fit: contain; }
+      section { break-inside: auto; }
+      summary { break-after: avoid; }
       .conversion-guide { page-break-before: always; }
       .conversion-table-wrap { overflow: visible; }
       .conversion-table { min-width: 0; font-size: 8px; }
