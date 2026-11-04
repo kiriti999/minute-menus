@@ -111,6 +111,7 @@ const SopContent: React.FC<SopPageProps & { back: BackDestination }> = ({ isDark
 
 	return (
 		<div className="min-h-screen print:!bg-white print:!text-black">
+			<style>{`@page { size: A4; margin: 12mm 12mm 16mm; @bottom-center { content: counter(page) " / " counter(pages); font-size: 9px; color: #52525b; } }`}</style>
 			<div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
 				<div className="flex items-center gap-2 print:hidden">
 					<BackButton label={back.label} onClick={() => onBack(back.to)} isDarkTheme={isDarkTheme} className="mr-auto" />
