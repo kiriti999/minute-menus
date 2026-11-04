@@ -708,6 +708,7 @@ export function buildRecipeBookHtml(opts: {
       .wrap { max-width: none; padding: 0; }
       .no-print { display: none !important; }
       .card { box-shadow: none; }
+      .photo { max-height: 300px; height: auto; object-fit: contain; }
       .conversion-guide { page-break-before: always; }
       .conversion-table-wrap { overflow: visible; }
       .conversion-table { min-width: 0; font-size: 8px; }
